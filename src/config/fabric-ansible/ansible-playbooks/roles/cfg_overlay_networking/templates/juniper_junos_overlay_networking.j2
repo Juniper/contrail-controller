@@ -1,0 +1,96 @@
+{#From R2003 DC-gateway can be configured with the same lr workflow followed for qfx.
+Dc-gateway was configured by extending the public virtual-network to the mx box until R1912.
+This template is required to support the old workflow and retain the dc-gateway functionality for mx during upgrade procedure.#}
+{% set sys_config = device_abstract_config.get('system', None) %}
+{% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{% if 'DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles %}
+{%     set ns = namespace(irb_interface_list= []) %}
+{# irb_interface_list maintains the list of all the irb interfaces associated with internal vns, which is generated from 
+lr(logical routers marked as public) workflow for DC-gateway. Later interfaces in the l3 routing-instance of public VN 
+are checked against irb_interface list for match. If there is a match, it implies that lr workflow is followed and no
+configs is generated from this template. If the interface is not found in the list, it implies that old workflow is followed
+and this template generates configs to extend VN to the box.#}
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         if 'nat' in ri.get('name', '') %}
+{%             continue %}
+{%         endif %}
+{%         if (ri.get('routing_instance_type') == 'vrf' and ri.get('is_public_network') == true and ri.get('virtual_network_is_internal') == true) %}
+{%             set ri_routing_interfaces = ri.get('routing_interfaces', [])%}
+{%             for routing_interface in ri_routing_interfaces %}
+{# adding all routing interfaces from the internal virtual networks which are marked public #}
+{%                 if routing_interface.name not in ns.irb_interface_list %}
+{%                     do ns.irb_interface_list.append(routing_interface.name) %}
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor%}
+{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%         set families = bgp_elem.get('families', []) %}
+{%         if 'evpn' in families %}
+{%             set route_distinguisher = bgp_elem.get('ip_address') %}
+{%             set as_number = bgp_elem.get('autonomous_system') %}
+{%             for ri in device_abstract_config.get('routing_instances', []) %}
+{%                 if 'nat' in ri.get('name', '') %}
+{%                     continue %}
+{%                 endif %}
+{%                 if ('l3' in ri.virtual_network_mode) and ('l3' in ri.name) and (ri.get('virtual_network_is_internal') == false) and (ri.get('is_public_network') == true) %}
+{%                     set contrail_l3_ri = ri.name %}
+{%                     set irb_interface = 'irb.'+(ri.get('virtual_network_id')|string)  %}
+{%                     if irb_interface in ns.irb_interface_list %}
+{# skip config generation if the irb interface is already a part of irb_interface_list #}
+{%                         continue %}
+{%                     endif %}
+{%                     set l3_vrf_import = ri.name+'-import' %}
+{%                     set l3_vrf_export = ri.name+'-export' %}
+{%                     set vn_id  = ri.get('virtual_network_id') | int %}
+{%                     set vn_id_num_l3  = vn_id + 30000 %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type vrf
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{irb_interface}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} route-distinguisher {{route_distinguisher}}:{{vn_id_num_l3}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target target:{{as_number}}:{{vn_id_num_l3}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import REJECT-MAINTENANCE-MODE
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{l3_vrf_import}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{l3_vrf_export}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
+{%                     set inet_vars = namespace(inet4='no', inet6='no') %}
+{%                     for subnet in ri.get('prefixes', []) %}
+{%                         set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                         if (':' in cidr) %}
+{%                             if inet_vars.inet6 == 'no' %}
+{%                                 set inet_vars.inet6 = 'yes' %}
+{%                             endif %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options rib {{contrail_l3_ri}}.inet6.0 static route {{cidr}} discard
+set groups {{cfg_group}} routing-options rib inet6.0 static route {{cidr}} discard
+{%                         else %}
+{%                             if inet_vars.inet4 == 'no' %}
+{%                                 set inet_vars.inet4 = 'yes' %}
+{%                             endif %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} discard
+set groups {{cfg_group}} routing-options static route {{cidr}} discard
+{%                         endif %}
+{%                     endfor %}
+{%                     if inet_vars.inet4 == 'yes' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast
+{%                     endif %}
+{%                     if inet_vars.inet6 == 'yes' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet6 unicast
+{%                     endif %}
+set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_import}} then reject
+{%                     set vn_id  = ri.get('virtual_network_id')  %}
+set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
+{%                     for subnet in ri.get('prefixes', []) %}
+{%                         set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                         if (':' in cidr) %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term term-{{vn_id}} from destination-address {{cidr}}
+{%                         else %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vn_id}} from destination-address {{cidr}}
+{%                         endif %}
+{%                     endfor %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vn_id}} then routing-instance {{contrail_l3_ri}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-table inet.0
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+{%                 endif %}
+{%             endfor%}
+{%         endif %}
+{%     endfor %}
+{% endif  %}

@@ -304,6 +304,13 @@ class AnsibleRoleCommon(AnsibleConf):
 
         # add firewall config for public VRF
         if router_external and is_l2 is False:
+            term_ri_name = ri.get_name()
+            # Routing instance name is set to description for internal vns
+            # in the template. Routing instance name in the firewall
+            # filter is required to match with routing-instance name 
+            # in the template. This is used only by mx for fip-snat.
+            if ri.get_virtual_network_is_internal():
+                term_ri_name = ri.get_description()
             self.firewall_config = self.firewall_config or Firewall(
                 comment=DMUtils.firewall_comment())
             if has_ipv4_prefixes and not self.inet4_forwarding_filter:
@@ -316,14 +323,16 @@ class AnsibleRoleCommon(AnsibleConf):
                     self.firewall_config, "inet6")
             if has_ipv4_prefixes:
                 # add terms to inet4 filter
-                term = self.add_inet_filter_term(ri_name, prefixes, "inet4")
+                term = self.add_inet_filter_term(
+                    term_ri_name, prefixes, "inet4")
                 # insert before the last term
                 terms = self.inet4_forwarding_filter.get_terms()
                 terms = [term] + (terms or [])
                 self.inet4_forwarding_filter.set_terms(terms)
             if has_ipv6_prefixes:
                 # add terms to inet6 filter
-                term = self.add_inet_filter_term(ri_name, prefixes, "inet6")
+                term = self.add_inet_filter_term(
+                    term_ri_name, prefixes, "inet6")
                 # insert before the last term
                 terms = self.inet6_forwarding_filter.get_terms()
                 terms = [term] + (terms or [])

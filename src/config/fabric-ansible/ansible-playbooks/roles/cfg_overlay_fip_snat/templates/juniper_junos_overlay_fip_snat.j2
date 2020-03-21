@@ -1,7 +1,3 @@
-{# group __contrail_overlay_networking__ should be deleted as part of upgrade procedure. #}
-{# Adding here as it is applicable only to DC-Gateway and DCI-Gateway roles for MX. #}
-delete apply-groups __contrail_overlay_networking__
-delete groups __contrail_overlay_networking__
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set ri_vn_mode = ri.get('virtual_network_mode') %}
 {%         if (ri_vn_mode == 'l2') or ('l2' in ri.get('name', '')) %}
