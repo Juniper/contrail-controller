@@ -888,8 +888,8 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         if(!ingress) {
             UpdateRoute(&in->rt_, it->vrf_.get(), pkt->ip_saddr, pkt->smac,
                     flow_source_plen_map);
-            nat_dest_vrf = it->vrf_.get()->vrf_id();
         }
+        nat_dest_vrf = it->vrf_.get()->vrf_id();
     }
     UpdateRoute(&out->rt_, it->vrf_.get(), pkt->ip_daddr, pkt->dmac,
                 flow_dest_plen_map);
