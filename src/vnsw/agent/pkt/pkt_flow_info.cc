@@ -834,6 +834,10 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done == false) {
         UpdateRoute(&in->rt_, it->vrf_.get(), pkt->ip_saddr, pkt->smac,
                     flow_source_plen_map);
+<<<<<<< HEAD   (9e98ce Add ref from FMG label to NH)
+=======
+        }
+>>>>>>> CHANGE (747537 update nat dest VRF to FIP's VRF)
         nat_dest_vrf = it->vrf_.get()->vrf_id();
     }
     UpdateRoute(&out->rt_, it->vrf_.get(), pkt->ip_daddr, pkt->dmac,
