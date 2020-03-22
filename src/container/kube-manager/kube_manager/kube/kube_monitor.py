@@ -42,7 +42,7 @@ class KubeMonitor(object):
                            'group': 'extensions'},
         'customresourcedefinition' :
                           {'kind': 'CustomResourceDefinition',
-                           'version': 'v1beta',
+                           'version': 'v1beta1',
                            'k8s_url_resource': 'customresourcedefinitions',
                            'group': 'apiextensions.k8s.io'},
         'networkattachmentdefinition' :
