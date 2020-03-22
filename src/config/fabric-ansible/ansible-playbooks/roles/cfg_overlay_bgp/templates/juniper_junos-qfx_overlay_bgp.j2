@@ -17,6 +17,7 @@ set groups {{cfg_group}} routing-options route-distinguisher-id {{loopback_ip}}
 {%             set route_distinguisher = bgp.get('ip_address') %}
 set groups {{cfg_group}} routing-options autonomous-system {{bf_global_asn}}
 set groups {{cfg_group}} routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
+set groups {{cfg_group}} routing-options resolution rib bgp.l3vpn.0 resolution-ribs [inet.3 inet.0]
 {%             set bgp_group_name = bgp.get('name') %}
 {%             set bgp_group_type = bgp.get('type_') %}
 {%             set hold_time = bgp.get('hold_time') %}
@@ -48,8 +49,10 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
 {%                 if bgp_group_type == 'internal' %}
 {%                     if fam.startswith('inet') %}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from family {{fam}}
+set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from route-type external
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} then next-hop self
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}} unicast
 {%                         if device_product_name.startswith('qfx10') and encap_priorities|length > 0 and encap_priorities[0] == 'MPLSoUDP' %}
 {%                             set pol_mpls_over_udp = '_pol_mpls_over_udp' %}
 {%                             set com_encap_type = 'community-encaps-udp' %}
