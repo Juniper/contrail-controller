@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "227a6b3d_01d5abae",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_conf.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 245,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-23T20:04:03Z",
+      "side": 0,
+      "message": "Really didn\u0027t want to remove this because this log message can be very handy. But could not find any API which lets me check the debug level before making this call. What happens today is that is does the json.dumps first, then checks the debug level",
+      "revId": "5ea276056bfe8f61b1b4fc5bb5f1ccf166e9c213",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

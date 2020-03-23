@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "47766577_08826761",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 184,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-23T20:04:03Z",
+      "side": 1,
+      "message": "Convert back to dict",
+      "revId": "1d9f3b14094cd903f6007815dd5a2a244a902ebe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0d968747_df3606b2",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_conf.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 274,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-23T20:04:03Z",
+      "side": 1,
+      "message": "Error case only. Print device_abstract_config in nice format instead of really long string",
+      "revId": "1d9f3b14094cd903f6007815dd5a2a244a902ebe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b805b551_154c8c85",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_conf.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 638,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-23T20:04:03Z",
+      "side": 1,
+      "message": "Skip the json.loads here and instead do it later",
+      "revId": "1d9f3b14094cd903f6007815dd5a2a244a902ebe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ccb6b7e8_b8f1a4e6",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 93,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-23T20:04:03Z",
+      "side": 1,
+      "message": "Added this early in my testing with 2003.11. But after testing with 2003.20, I verified that this loop was not entered. Not sure if there were any changes made after 2003.11 to explain this. Left in the change just in case since it does not seem to hurt anything.",
+      "revId": "1d9f3b14094cd903f6007815dd5a2a244a902ebe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bb5524a3_0a83d680",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 116,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-23T20:04:03Z",
+      "side": 1,
+      "message": "This log message was flooding my log files so I moved it to a different level",
+      "revId": "1d9f3b14094cd903f6007815dd5a2a244a902ebe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
