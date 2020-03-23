@@ -22,6 +22,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         module = Module.DEVICE_MANAGER
         module_pkg = "device_manager"
         self.context = "device_manager"
+        self.log_level = args.log_level
         super(DeviceManagerLogger, self).__init__(
             module, module_pkg, args, http_server_port)
 

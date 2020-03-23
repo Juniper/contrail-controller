@@ -90,6 +90,7 @@ class AnsibleRoleCommon(AnsibleConf):
     def set_internal_vn_irb_config(self):
         if self.internal_vn_ris and self.irb_interfaces:
             for int_ri in self.internal_vn_ris:
+                gevent.idle()
                 lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(int_ri.name)
                 lr = LogicalRouterDM.get(lr_uuid)
                 if not lr:
@@ -112,7 +113,7 @@ class AnsibleRoleCommon(AnsibleConf):
         gateways = ri_conf.get("gateways", [])
         network_id = ri_conf.get("network_id", None)
         irb_intf, li_map = self.set_default_pi('irb', 'irb')
-        self._logger.info("Vn=" + vn.name + ", IRB: " + str(gateways) + ", pr="
+        self._logger.debug("Vn=" + vn.name + ", IRB: " + str(gateways) + ", pr="
                           + self.physical_router.name)
         intf_unit = self.set_default_li(li_map,
                                         'irb.' + str(network_id),
