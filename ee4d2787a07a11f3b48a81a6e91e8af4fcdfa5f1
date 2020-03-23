@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f128e7cd_1523b1c9",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 184,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-03-23T18:45:33Z",
+      "side": 1,
+      "message": "Please change it to something like \njob_input_params.get(\u0027input\u0027, {}).get(\u0027device_abstract_config\u0027, {})",
+      "revId": "ee4d2787a07a11f3b48a81a6e91e8af4fcdfa5f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
