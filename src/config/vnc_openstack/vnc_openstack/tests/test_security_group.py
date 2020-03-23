@@ -11,7 +11,7 @@ from vnc_api.vnc_api import PolicyRuleType
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import SecurityGroup
 
-from tests import test_case
+from vnc_openstack.tests import test_case
 
 
 class TestSecurityGroup(test_case.NeutronBackendTestCase):

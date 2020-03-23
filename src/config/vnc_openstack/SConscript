@@ -3,56 +3,31 @@
 #
 
 import os
-import glob
 
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
-source_files = ['setup.py',
+source_files = ['.coveragerc',
                 '__init__.py',
-                'vnc_openstack/__init__.py',
-                'vnc_openstack/context.py',
-                'vnc_openstack/neutron_plugin_db.py',
-                'vnc_openstack/neutron_plugin_interface.py',
-                'vnc_openstack/utils.py']
-
-source_rules = []
-for file in source_files:
-    if len(file.split('/')) > 1:
-        idir = '/'.join(file.split('/')[:-1])
-    else:
-        idir = ''
-    source_rules.append(
-        env.Install(idir, "#/controller/src/config/vnc_openstack/" + file))
-
-test_sources = [
-           'requirements.txt',
-           'test-requirements.txt',
-           '.stestr.conf',
-           'tox.ini',
-           '.coveragerc',
-           'vnc_openstack/tests',
-          ]
-
-test_sources_rules = []
-for file in test_sources:
-    test_sources_rules.append(
-       env.Install(Dir('.'), "#controller/src/config/vnc_openstack/" + file))
+                'requirements.txt',
+                'setup.py',
+                '.stestr.conf',
+                'test-requirements.txt',
+                'tox.ini',
+                Glob('vnc_openstack/*.py'),
+                Glob('vnc_openstack/tests/*.py')]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_depends = []
-sdist_depends.extend(source_rules)
-sdist_depends.extend(test_sources_rules)
-sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
-
-env.Depends(sdist_gen, sdist_depends)
+sdist_gen = env.Command('dist/vnc_openstack-0.1dev.tar.gz',
+                        source_files,
+                        cd_cmd + 'python setup.py sdist')
+env.Depends(sdist_gen, source_files)
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
-                              cd_cmd + 'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
+    install_cmd = env.Command(None,
+                              'setup.py',
+                              cd_cmd + 'python setup.py install %s' % env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)
 
 test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz', use_tox=True)
