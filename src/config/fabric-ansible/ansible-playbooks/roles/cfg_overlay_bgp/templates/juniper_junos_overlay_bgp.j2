@@ -20,7 +20,8 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.a
 {# Seeing issues with the ping from VM is not working for CRB-GW and CRB-MCAST-GW when GRE tunnels enabled. So disabling #}
 {%             set crb_enabled = false %}
 {%             if ('CRB-Gateway' in sys_roles or 'CRB-MCAST-Gateway' in sys_roles) %}
-{%                 set crb_enabled = true %}
+{# We don't need to block these as we are blocking the L3VPN routes from the LR side for 2003 release, we will revisit later as required, so leaving as false #}
+{%                 set crb_enabled = false %}
 {%             endif %}
 {%             set encap_priorities = device_abstract_config.get('system', {}).get('encapsulation_priorities', []) %}
 {%             set mode = [] %}
