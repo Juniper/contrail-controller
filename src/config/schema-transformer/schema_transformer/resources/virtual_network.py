@@ -727,7 +727,8 @@ class VirtualNetworkST(ResourceBaseST):
                 vn_trace.connected_networks.append(rhs)
             else:
                 # one way connection
-                vn_trace.partially_connected_networks.append(rhs)
+                if rhs:
+                    vn_trace.partially_connected_networks.append(rhs)
         # end for
         for rhs in self.service_chains:
             rhs_vn = VirtualNetworkST.get(rhs)
@@ -736,7 +737,8 @@ class VirtualNetworkST(ResourceBaseST):
                 vn_trace.connected_networks.append(rhs)
             else:
                 # one way connection
-                vn_trace.partially_connected_networks.append(rhs)
+                if rhs:
+                    vn_trace.partially_connected_networks.append(rhs)
         # end for
         vn_msg = UveVirtualNetworkConfigTrace(data=vn_trace,
                                               sandesh=self._sandesh)
