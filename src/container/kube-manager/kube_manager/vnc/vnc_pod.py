@@ -660,8 +660,11 @@ class VncPod(VncCommon):
                vm.owner != 'k8s' or\
                vm.cluster != vnc_kube_config.cluster_name():
                 continue
-            if not vm.virtual_router and vm.pod_node and vm.node_ip:
-                self._link_vm_to_node(vm, vm.pod_node, vm.node_ip)
+            if not vm.virtual_router:
+                pod = PodKM.get(uuid)
+                if not pod:
+                    continue
+                self._link_vm_to_node(vm, pod.nodename, pod.host_ip)
         return
 
     def pod_timer(self):
