@@ -79,7 +79,7 @@ cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/svc_monitor-0.1dev.tar.gz',
                         sources,
                         cd_cmd + 'python setup.py sdist')
-env.Alias('controller/src/config/svc_monitor:sdist', sdist_gen)
+env.Alias(Dir('.').srcnode().path + ':sdist', sdist_gen)
 
 # Documentation
 doc_files = []
@@ -105,7 +105,7 @@ test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-
 # SetupPyTestSuite* methods don't return any targets (see review 40381)
 # so until it's merged we add the broken target here directly, by referencing
 # a target created by SetupPyTestSuite.
-test_target = env['TOP'][1:] + '/config/svc-monitor:test'
+test_target = Dir('.').srcnode().path + ':test'
 env.Alias('controller/src/config/svc-monitor/svc_monitor:test', test_target)
 env.Alias('controller/src/config/svc_monitor:test', test_target)
 
