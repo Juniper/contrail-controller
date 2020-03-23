@@ -181,6 +181,8 @@ class DeviceJobManager(object):
             gevent.sleep(1)
             return
 
+        acfg = job_input_params.get('input').get('device_abstract_config')
+        job_input_params['input']['device_abstract_config'] = json.loads(acfg)
         update_uve_on_failure = False
         device_list = None
         extra_params = job_input_params.get('params')
