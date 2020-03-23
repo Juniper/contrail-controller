@@ -11,7 +11,7 @@ monkey.patch_all()  # noqa
 from vnc_api import vnc_api as vnc_api
 import webtest.app
 
-from tests import test_case
+from vnc_openstack.tests import test_case
 
 class TestTrunk(test_case.NeutronBackendTestCase):
 

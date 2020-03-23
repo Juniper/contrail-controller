@@ -33,7 +33,7 @@ from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import VirtualMachineInterface
 from vnc_api.vnc_api import VirtualNetwork
 
-from tests import test_case
+from vnc_openstack.tests import test_case
 from vnc_openstack.neutron_plugin_db import\
     _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME
 from vnc_openstack.neutron_plugin_db import\
