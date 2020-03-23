@@ -214,48 +214,11 @@ def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
             cmd = custom_attr_dict['frontend'][key]['cmd']
             lconf.append(cmd % value)
         res = "\n\t".join(lconf) + '\n\n'
-        res += set_backend_v1(pool, custom_attr_dict, custom_attrs)
+        mode = PROTO_MAP_V1[pool.params['protocol']]
+        res += set_backend(pool, mode, custom_attr_dict, custom_attrs)
         conf.append(res)
 
     return "\n".join(conf)
-
-def set_backend_v1(pool, custom_attr_dict, custom_attrs):
-    backend_custom_attrs = get_valid_attrs(custom_attr_dict, 'backend',
-                                           custom_attrs[pool.uuid])
-    conf = [
-        'backend %s' % pool.uuid,
-        'mode %s' % PROTO_MAP_V1[pool.params['protocol']],
-        'balance %s' % LB_METHOD_MAP[pool.params['loadbalancer_method']]
-    ]
-    if pool.params['protocol'] == PROTO_HTTP:
-        conf.append('option forwardfor')
-
-    server_suffix = ''
-    for hm_id in pool.loadbalancer_healthmonitors:
-        hm = HealthMonitorSM.get(hm_id)
-        if not hm:
-            continue
-        server_suffix, monitor_conf = set_health_monitor(hm)
-        conf.extend(monitor_conf)
-
-    session_conf = set_session_persistence(pool)
-    conf.extend(session_conf)
-
-    for member_id in pool.members:
-        member = LoadbalancerMemberSM.get(member_id)
-        if not member or not member.params['admin_state']:
-            continue
-        server = (('server %s %s:%s weight %s') % (member.uuid,
-                  member.params['address'], member.params['protocol_port'],
-                  member.params['weight'])) + server_suffix
-        conf.append(server)
-
-    # Adding custom_attributes config
-    for key, value in list(backend_custom_attrs.items()):
-        cmd = custom_attr_dict['backend'][key]['cmd']
-        conf.append(cmd % value)
-
-    return "\n\t".join(conf) + '\n'
 
 def get_listeners(lb):
     listeners = []
@@ -378,7 +341,8 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
                     cmd = custom_attr_dict['frontend'][key]['cmd']
                     conf.append(cmd % value)
                 conf.append("\n")
-                pconf += set_backend_v2(pool, custom_attr_dict, custom_attrs)
+                mode = PROTO_MAP_V2[pool.params['protocol']]
+                pconf += set_backend(pool, mode, custom_attr_dict, custom_attrs)
         lconf += "\n\t".join(conf)
 
     conf = []
@@ -387,12 +351,12 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
 
     return "\n".join(conf)
 
-def set_backend_v2(pool, custom_attr_dict, custom_attrs):
+def set_backend(pool, mode, custom_attr_dict, custom_attrs):
     backend_custom_attrs = get_valid_attrs(custom_attr_dict, 'backend',
                                            custom_attrs[pool.uuid])
     conf = [
         'backend %s' % pool.uuid,
-        'mode %s' % PROTO_MAP_V2[pool.params['protocol']],
+        'mode %s' % mode,
         'balance %s' % LB_METHOD_MAP[pool.params['loadbalancer_method']]
     ]
     if pool.params['protocol'] == PROTO_HTTP:
@@ -406,18 +370,21 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
         server_suffix, monitor_conf = set_health_monitor(hm)
         conf.extend(monitor_conf)
 
-    session_conf = set_session_persistence(pool)
-    conf.extend(session_conf)
+    session_conf_dict = get_session_persistence_conf(pool)
+    persistence_type = session_conf_dict["type"]
+    if persistence_type:
+        conf.extend(session_conf_dict["conf"])
 
     for member_id in pool.members:
         member = LoadbalancerMemberSM.get(member_id)
-        if not member or \
-            'admin_state' not in member.params or \
-                not member.params['admin_state']:
+        if not member or 'admin_state' not in member.params or \
+            not member.params['admin_state']:
             continue
         server = (('server %s %s:%s weight %s') % (member.uuid,
                   member.params['address'], member.params['protocol_port'],
                   member.params['weight'])) + server_suffix
+        if persistence_type and persistence_type == PERSISTENCE_HTTP_COOKIE:
+            server += " cookie %s" % member.uuid
         conf.append(server)
 
     # Adding custom_attributes config
@@ -450,26 +417,30 @@ def set_health_monitor(hm):
 
     return server_suffix, conf
 
-def set_session_persistence(pool):
-    conf = []
+def get_session_persistence_conf(pool):
+    res = {'type': None, 'conf': []}
     if pool.virtual_ip:
         vip = VirtualIpSM.get(pool.virtual_ip)
         if not vip:
-            return
+            return res
         persistence = vip.params.get('persistence_type', None)
         cookie = vip.params.get('persistence_cookie_name', None)
     else:
         persistence = pool.params.get('session_persistence', None)
         cookie = pool.params.get('persistence_cookie_name', None)
 
+    if not persistence:
+        return res
+
+    res["type"] = persistence
     if persistence == PERSISTENCE_SOURCE_IP:
-        conf.append('stick-table type ip size 10k')
-        conf.append('stick on src')
+        res['conf'].append('stick-table type ip size 10k')
+        res['conf'].append('stick on src')
     elif persistence == PERSISTENCE_HTTP_COOKIE:
-        conf.append('cookie SRV insert indirect nocache')
+        res['conf'].append('cookie SRV insert indirect nocache')
     elif (persistence == PERSISTENCE_APP_COOKIE and cookie):
-        conf.append('appsession %s len 56 timeout 3h' % cookie)
-    return conf
+        res['conf'].append('appsession %s len 56 timeout 3h' % cookie)
+    return res
 
 def _get_codes(codes):
     response = set()
