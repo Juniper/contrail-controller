@@ -70,7 +70,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 {%                 if family == 'inet-labeled' %}
 {%                       set family = 'inet' %}
 {%                       set mode = 'labeled-unicast' %}
-{%                 elif family.startswith('inet') %}
+{%                 elif family.startswith('inet') and crb_enabled == false %}
 {%                     set mode='unicast' %}
 {%                 elif family == 'evpn' %}
 {%                     set mode='signaling' %}
