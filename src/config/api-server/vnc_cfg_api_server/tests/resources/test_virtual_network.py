@@ -2,6 +2,7 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 import logging
+import requests
 
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import VNID_MIN_ALLOC
@@ -9,7 +10,9 @@ from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
 from testtools import ExpectedException
 from vnc_api.vnc_api import GlobalSystemConfig
+from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import RouteTargetList
+from vnc_api.vnc_api import Tag
 from vnc_api.vnc_api import VirtualNetwork
 from vnc_api.vnc_api import VirtualNetworkType
 
@@ -351,3 +354,39 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         vxlan_id = vn.get_virtual_network_properties()\
             .get_vxlan_network_identifier()
         self.assertEqual(vn_network_id, vxlan_id)
+
+    def test_filter_virtual_network_by_tag(self):
+        proj = Project('test-{}'.format(self.id()))
+        proj.uuid = self.api.project_create(proj)
+
+        # create tag
+        tag_type = 'label-%s' % self.id()
+        tag_value = 'octavia-charm-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value)
+        tag.uuid = self.api.tag_create(tag)
+
+        # create tagged red vn
+        vn_red = VirtualNetwork('%s-vn-red' % self.id())
+        vn_red.add_tag(tag)
+        vn_red.uuid = self.api.virtual_network_create(vn_red)
+
+        # create tagged blue vn
+        vn_blue = VirtualNetwork('%s-vn-blue' % self.id())
+        vn_blue.add_tag(tag)
+        vn_blue.uuid = self.api.virtual_network_create(vn_blue)
+
+        # create untagged green vn
+        vn_green = VirtualNetwork('%s-vn-green' % self.id())
+        vn_green.uuid = self.api.virtual_network_create(vn_green)
+
+        # create request
+        url = 'http://{}:{}/virtual-networks?detail=1&tags={}'.format(
+            self.api._web_host, self.api._web_port, tag_value)
+        resp = requests.get(url)
+        resp_json = resp.json()
+
+        self.assertEqual(True, resp_json)
+
+        expected_vn_count = 2
+        self.assertEqual(expected_vn_count, len(resp_json['virtual-networks']))
+

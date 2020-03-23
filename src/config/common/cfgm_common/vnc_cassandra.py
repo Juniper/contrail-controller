@@ -820,7 +820,7 @@ class VncCassandraClient(object):
     # end object_update
 
     def object_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                     obj_uuids=None, count=False, filters=None,
+                     obj_uuids=None, count=False, filters=None, tag_filters=None,
                      paginate_start=None, paginate_count=None):
 
         obj_class = self._get_resource_class(obj_type)
@@ -828,13 +828,20 @@ class VncCassandraClient(object):
         ret_marker = None
         anchored_op = True
 
-        def filter_rows(coll_infos, filters=None):
+        def filter_rows(coll_infos, filters=None, tag_filters=None):
             if not coll_infos or not filters:
                 return coll_infos
 
+            if not tag_filters:
+                tag_filters = []
+
+            print('******************************************************')
+            print('tag_filters', tag_filters)
+            print('******************************************************')
+
             filtered_infos = {}
             columns = ['prop:%s' % filter_key for filter_key in filters if
-                       filter_key in obj_class.prop_fields]
+                       filter_key in obj_class.prop_fields] + tag_filters
             if not columns:
                 return coll_infos
             rows = self._cassandra_driver.multiget(self._OBJ_UUID_CF_NAME,
@@ -1007,7 +1014,7 @@ class VncCassandraClient(object):
                             marker = obj_uuid
                             break
 
-                    filt_obj_infos = filter_rows(all_obj_infos, filters)
+                    filt_obj_infos = filter_rows(all_obj_infos, filters, tag_filters)
                     return get_fq_name_uuid_list(list(filt_obj_infos.keys())), marker
                 # end filter_rows_object_list
 
@@ -1040,7 +1047,7 @@ class VncCassandraClient(object):
                             marker = col_name
                             break
 
-                    filt_obj_infos = filter_rows(all_obj_infos, filters)
+                    filt_obj_infos = filter_rows(all_obj_infos, filters, tag_filters)
                     return list(filt_obj_infos.values()), marker
                 # end filter_rows_no_anchor
 

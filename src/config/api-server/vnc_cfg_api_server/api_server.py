@@ -1642,10 +1642,15 @@ class VncApiServer(object):
         else:
             exclude_hrefs = False
 
+        if 'tags' in get_request().query:
+            req_tags = get_request().query.tags.split(',')
+        else:
+            req_tags = []
+
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail, filters,
-                                     req_fields, include_shared, exclude_hrefs,
-                                     pagination)
+                                     req_fields, req_tags, include_shared,
+                                     exclude_hrefs, pagination)
     # end http_resource_list
 
     # internal_request_<oper> - handlers of internally generated requests
@@ -1915,7 +1920,7 @@ class VncApiServer(object):
             self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
         else:
             self.aaa_mode = "cloud-admin"
-        
+
         api_proto = 'https' if self._args.config_api_ssl_enable else 'http'
         api_host_name = socket.getfqdn(self._args.listen_ip_addr)
         self._base_url = "%s://%s:%s" % (api_proto, api_host_name,
@@ -2090,7 +2095,7 @@ class VncApiServer(object):
             if version:
                 version = version.split()
             if not version or len(version) != 3:
-                # In case of setup from source there is no RPM and version is available in env     
+                # In case of setup from source there is no RPM and version is available in env
                 version_str = os.environ.get('CONTRAIL_VERSION', 'tf-master-latest')
                 version = re.split('\.|-', version_str)[-3:]
                 if len(version) != 3:
@@ -2235,7 +2240,7 @@ class VncApiServer(object):
     @enable_4byte_as.setter
     def enable_4byte_as(self, enable_4byte_as):
         self._enable_4byte_as = enable_4byte_as
- 
+
     @property
     def default_domain(self):
         if not self._default_domain:
@@ -3201,20 +3206,24 @@ class VncApiServer(object):
             pagination['limit'] = self._validate_page_limit(
                                        get_request().json['page_limit'])
 
+        req_tags = get_request().json.get('tags', [])
+        if req_tags:
+            req_tags = req_tags.split(',')
+
         return self._list_collection(r_class.object_type, parent_uuids,
                                      back_ref_uuids, obj_uuids, is_count,
-                                     is_detail, filters, req_fields,
+                                     is_detail, filters, req_fields, req_tags,
                                      include_shared, exclude_hrefs,
                                      pagination)
     # end list_bulk_collection_http_post
 
 
-    # Get hbs 
+    # Get hbs
     def hbs_get(self):
         self._post_common(None, {})
         # Get hbs fq_name from request
         req_json = get_request().json
-        
+
         # valid json data required
         if not req_json:
             raise cfgm_common.exceptions.HttpError(
@@ -3873,7 +3882,7 @@ class VncApiServer(object):
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
                          is_count=False, is_detail=False, filters=None,
-                         req_fields=None, include_shared=False,
+                         req_fields=None, req_tags=None, include_shared=False,
                          exclude_hrefs=False, pagination=None):
         resource_type, r_class = self._validate_resource_type(obj_type)
 
@@ -3910,6 +3919,7 @@ class VncApiServer(object):
             (ok, result, ret_marker) = self._db_conn.dbe_list(obj_type,
                                  parent_uuids, back_ref_uuids, obj_uuids, is_count and is_admin,
                                  filters, is_detail=is_detail, field_names=field_names,
+                                 tag_values=req_tags,
                                  include_shared=include_shared,
                                  paginate_start=page_start,
                                  paginate_count=page_count)

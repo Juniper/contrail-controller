@@ -1757,7 +1757,7 @@ class VncDbClient(object):
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
                  paginate_start=None, paginate_count=None, is_detail=False,
-                 field_names=None, include_shared=False):
+                 field_names=None, tag_values=None, include_shared=False):
 
         def collect_shared(owned_fq_name_uuids=None, start=None, count=None):
             shared_result = []
@@ -1793,11 +1793,28 @@ class VncDbClient(object):
             return shared_result, marker
         # end collect_shared
 
+        tag_filters = []
+        if tag_values:
+            ok, result, _ = self.dbe_list('tag',
+                                          field_names=['uuid', 'display_name'])
+            if not ok:
+                return False, result, None
+            for result_tag in result:
+                for tag in tag_values:
+                    if tag in result_tag['display_name']:
+                        tag_filter = 'ref:tag:{}'.format(result_tag['uuid'])
+                        tag_filters.append(tag_filter)
+
+        print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+        print('tag_values', tag_values)
+        print('tag_filters', tag_filters)
+        print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+
         if paginate_start is None:
             (ok, result, ret_marker) = self._object_db.object_list(
                      obj_type, parent_uuids=parent_uuids,
                      back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                     count=is_count, filters=filters,
+                     count=is_count, filters=filters, tag_filters=tag_filters,
                      paginate_start=paginate_start,
                      paginate_count=paginate_count)
 
@@ -1813,7 +1830,7 @@ class VncDbClient(object):
             (ok, result, ret_marker) = self._object_db.object_list(
                      obj_type, parent_uuids=parent_uuids,
                      back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                     count=is_count, filters=filters,
+                     count=is_count, filters=filters, tag_filters=tag_filters,
                      paginate_start=paginate_start,
                      paginate_count=paginate_count)
 
