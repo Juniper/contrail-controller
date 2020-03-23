@@ -49,10 +49,20 @@ CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
 #
 # Build into build/noarch
 #
+# Using variant_dir in conjecture to duplicate = 1 allow the files from sources
+# to be symlinked instead of hard copied to the build directory which will be a
+# gain in latency during building and in velocity for debugging purpose.
+#
+# TODO: All modules should be migrated here.
+if 'TOP_NOARCH' not in CfgmEnv:
+    # TODO: This check shoukd be removed when CfgmEnv['TOP_NOARCH'] defined to
+    # tools/rules.py.
+    CfgmEnv['TOP_NOARCH'] = '#build/noarch'
+
 noarch_subdirs = [
     'svc-monitor',
 ]
 for sdir in noarch_subdirs:
-    CfgmEnv.SConscript('%s/SConscript' % sdir, exports='CfgmEnv',
-                       variant_dir='#build/noarch/config/%s' % sdir,
+    CfgmEnv.SConscript('#controller/src/config/%s/SConscript' % sdir, exports='CfgmEnv',
+                       variant_dir='%s/config/%s' % (CfgmEnv['TOP_NOARCH'], sdir),
                        duplicate = 1)
