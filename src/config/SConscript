@@ -39,12 +39,12 @@ subdirs=[
     'schema-transformer',
     'utils',
     'uve',
-    'vnc_openstack',
     'contrail_issu',
     'fabric-ansible',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
+
 
 #
 # Build into build/noarch
@@ -61,6 +61,7 @@ if 'TOP_NOARCH' not in CfgmEnv:
 
 noarch_subdirs = [
     'svc-monitor',
+    'vnc_openstack',
 ]
 for sdir in noarch_subdirs:
     CfgmEnv.SConscript('#controller/src/config/%s/SConscript' % sdir, exports='CfgmEnv',
