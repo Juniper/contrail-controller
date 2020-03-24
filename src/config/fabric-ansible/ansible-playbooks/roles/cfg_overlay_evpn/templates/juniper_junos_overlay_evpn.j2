@@ -20,6 +20,10 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 then accept
 {%             for export_target in ri.get('export_targets', []) %}
 {%                 set community_target = export_target.replace(':', '_') %}
+[# We need to export the evpn family routes in case of non-public LR. For DC-GW we use public LR and we need the L3VPN routes. #}
+{%                 if ri.get('virtual_network_is_internal') == true and ri.get('is_public_network') == false %}
+set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 to family evpn
+{%                 endif %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
 set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target | rtfilter}}
 {%             endfor %}
