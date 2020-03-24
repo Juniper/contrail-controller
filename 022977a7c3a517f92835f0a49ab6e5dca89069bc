@@ -16,6 +16,24 @@
       "revId": "022977a7c3a517f92835f0a49ab6e5dca89069bc",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2fc3b732_8e41c7c8",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 184,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-24T05:49:45Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "10467f68_43062984",
+      "revId": "022977a7c3a517f92835f0a49ab6e5dca89069bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
