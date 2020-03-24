@@ -773,6 +773,15 @@ fake_keystone_client = FakeKeystoneClient()
 def get_keystone_client(*args, **kwargs):
     return fake_keystone_client
 
+class PortWrapper(object):
+    lock = gevent.lock.Semaphore()
+
+    @classmethod
+    def get_free_port(cls, allocated_sockets):
+        cls.lock.acquire()
+        port = get_free_port(allocated_sockets)
+        cls.lock.release()
+        return port
 
 #
 # Find two consecutive free ports such that even port is greater than odd port
