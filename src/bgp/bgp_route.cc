@@ -747,7 +747,7 @@ uint32_t BgpRoute::SubClusterId() const {
         return 0;
     }
     const BgpProtocolConfig *proto =
-        config_manager_->GetProtocolConfig(ri->name());
+        config_manager_->GetProtocolConfig(BgpConfigManager::kMasterInstance);
     if (!proto) {
         return 0;
     }
