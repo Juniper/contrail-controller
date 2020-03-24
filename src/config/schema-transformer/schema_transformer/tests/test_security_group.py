@@ -5,10 +5,15 @@
 from __future__ import absolute_import
 
 from builtins import str
+import json
+import uuid
 
+from cfgm_common import rest
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
 
+from schema_transformer.resources._access_control_list import \
+    _access_control_list_update
 from schema_transformer.resources.security_group import SecurityGroupST
 from .test_case import retries, STTestCase
 from .test_policy import VerifyPolicy
@@ -445,3 +450,31 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                       rule1['protocol'])
         self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
     # end test_create_sg_check_acl_protocol
+
+    def test_stale_acl(self):
+        # create security group
+        sg_obj = self.security_group_create('sg-%s' % (self.id()),
+                                            ['default-domain',
+                                             'default-project'])
+        # create stale acl
+        acl_fq_name = sg_obj.get_fq_name() + ['egress-access-control-list']
+        acl_data = json.dumps({
+            'access-control-list': {
+                'uuid': str(uuid.uuid4()),
+                'fq_name': acl_fq_name,
+                'parent_type': 'security-group'
+            }
+        })
+        self._vnc_lib._request(rest.OP_POST,
+                               url=u'/access-control-lists',
+                               data=acl_data)
+
+        # try to create another acl beside stale acl
+        _access_control_list_update(
+            acl_obj=None,
+            name="egress-access-control-list",
+            obj=sg_obj,
+            entries={})
+
+        # cleanup
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
