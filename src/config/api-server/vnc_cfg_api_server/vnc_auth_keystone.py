@@ -22,13 +22,7 @@ import re
 import uuid
 import six
 
-try:
-    from keystoneclient.middleware import auth_token
-except ImportError:
-    try:
-        from keystonemiddleware import auth_token
-    except ImportError:
-        pass
+from keystonemiddleware import auth_token
 from keystoneauth1 import exceptions as k_exc
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
