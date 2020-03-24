@@ -632,7 +632,9 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
     // For EEXIST error donot mark the flow as ShortFlow since Vrouter
     // generates EEXIST only for cases where another add should be
     // coming from the pkt trap from Vrouter
-    if (ksync_error != EEXIST || flow->is_flags_set(FlowEntry::NatFlow)) {
+    if (ksync_error != EEXIST ||
+          (flow->is_flags_set(FlowEntry::NatFlow) &&
+           !(flow->is_flags_set(FlowEntry::BgpRouterService)))) {
         // FIXME : We dont have good scheme to handle following scenario,
         // - VM1 in VN1 has floating-ip FIP1 in VN2
         // - VM2 in VN2
