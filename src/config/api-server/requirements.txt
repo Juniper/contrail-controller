@@ -12,3 +12,5 @@ kazoo>=2.5.0
 pycrypto
 future
 six
+keystoneauth1
+keystonemiddleware!=4.19.0
