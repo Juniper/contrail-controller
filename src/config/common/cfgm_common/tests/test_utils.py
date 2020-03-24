@@ -44,6 +44,10 @@ from novaclient import exceptions as nc_exc
 
 from cfgm_common.exceptions import ResourceExistsError, OverQuota
 
+# Since the function that is using this variable is used for unit
+# tests only, we don't have to worry about memory.
+allocated_sockets = []
+
 def stub(*args, **kwargs):
     pass
 
@@ -773,12 +777,22 @@ fake_keystone_client = FakeKeystoneClient()
 def get_keystone_client(*args, **kwargs):
     return fake_keystone_client
 
+#
+# Returns reference of the allocated_sockets bucket.
+#
+def get_allocated_sockets():
+    global allocated_sockets
+
+    return allocated_sockets
 
 #
 # Find two consecutive free ports such that even port is greater than odd port
 # Return the even port and socket locked to the odd port
 #
-def get_free_port(allocated_sockets):
+# NOTE: The function is keeping references of the allocated sockets.
+def get_free_port(notused=None):
+    global allocated_sockets
+
     single_port_list = []
     tmp_sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while (1):

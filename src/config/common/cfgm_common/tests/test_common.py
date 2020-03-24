@@ -233,12 +233,11 @@ class VncTestApp(TestApp):
 
 def create_api_server_instance(test_id, config_knobs, db='cassandra'):
     ret_server_info = {}
-    allocated_sockets = []
     ret_server_info['ip'] = socket.gethostbyname(socket.gethostname())
-    ret_server_info['service_port'] = get_free_port(allocated_sockets)
-    ret_server_info['introspect_port'] = get_free_port(allocated_sockets)
-    ret_server_info['admin_port'] = get_free_port(allocated_sockets)
-    ret_server_info['allocated_sockets'] = allocated_sockets
+    ret_server_info['service_port'] = get_free_port()
+    ret_server_info['introspect_port'] = get_free_port()
+    ret_server_info['admin_port'] = get_free_port()
+    ret_server_info['allocated_sockets'] = get_allocated_sockets()
     if db == "cassandra":
         ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
             test_id, ret_server_info['ip'], ret_server_info['service_port'],
@@ -333,12 +332,11 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
 
 def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **extra_args):
-    allocated_sockets = []
     args_str = ""
     args_str += "--cluster_id %s " % (cluster_id)
     args_str += "--api_server_ip %s " % (api_server_ip)
     args_str += "--api_server_port %s " % (api_server_port)
-    args_str += "--http_server_port %s " % (get_free_port(allocated_sockets))
+    args_str += "--http_server_port %s " % (get_free_port())
     args_str += "--cassandra_server_list 0.0.0.0:9160 "
     args_str += "--log_local "
     args_str += "--log_file svc_monitor_%s.log " %(test_id)
@@ -378,13 +376,12 @@ def reinit_schema_transformer():
 
 def launch_schema_transformer(cluster_id, test_id, api_server_ip,
         api_server_port, extra_args=None):
-    allocated_sockets = []
     wait_for_schema_transformer_down()
     args_str = ""
     args_str = args_str + "--cluster_id %s " % (cluster_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--http_server_port %s " % (get_free_port(allocated_sockets))
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file schema_transformer_%s.log " %(test_id)
@@ -404,12 +401,11 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
     kombu_init_mock.side_effect = kombu_mock
 
     wait_for_device_manager_down()
-    allocated_sockets = []
     args_str = ""
     args_str = args_str + "--cluster_id %s " % (test_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--http_server_port %s " % (get_free_port(allocated_sockets))
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
