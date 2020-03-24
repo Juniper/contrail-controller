@@ -835,11 +835,10 @@ def block_till_port_listened(server_ip, server_port, retries=30):
             s.close()
             return
         except Exception as err:
-            if err.errno == errno.ECONNREFUSED:
-                tries += 1
-                print("port %s not up, retrying in 2 secs, %d tries remaining"
-                      % (server_port, retries-tries))
-                gevent.sleep(2)
+            tries += 1
+            print("server %s, port %s not up, retrying in 2 secs, %d tries "
+                  "remaining: %s" % (server_port, retries-tries, err))
+            gevent.sleep(2)
     raise Exception("port %s not up after %d retries" % (server_port, retries))
 # end block_till_port_listened
 
