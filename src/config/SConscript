@@ -32,7 +32,6 @@ CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
 # Builds into build/<optimization>
 #
 subdirs=[
-    'api-server',
     'common',
     'device-manager',
     'ironic-notification-manager',
@@ -62,6 +61,7 @@ if 'TOP_NOARCH' not in CfgmEnv:
 noarch_subdirs = [
     'svc-monitor',
     'vnc_openstack',
+    'api-server',
 ]
 for sdir in noarch_subdirs:
     CfgmEnv.SConscript('#controller/src/config/%s/SConscript' % sdir, exports='CfgmEnv',

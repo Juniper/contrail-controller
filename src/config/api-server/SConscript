@@ -16,20 +16,16 @@ setup_sources = [
     'setup.cfg',
     'test-requirements.txt',
     'tox.ini',
-    'vnc_cfg_api_server',
+    Glob('vnc_cfg_api_server/*.py'),
+    Glob('vnc_cfg_api_server/resources/*.py'),
+    Glob('vnc_cfg_api_server/tests/*.py'),
 ]
-
-setup_sources_rules = []
-for file in setup_sources:
-    setup_sources_rules.append(
-        env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
-
 sandesh_trace_pkg = env.SandeshGenPy(
     'traces.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 
-sdist_depends = setup_sources_rules + sandesh_trace_pkg
+sdist_depends = setup_sources + sandesh_trace_pkg
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_gen = env.Command('dist/contrail-api-server-0.1dev.tar.gz', 'setup.py',
+sdist_gen = env.Command('dist/contrail-api-server-0.1dev.tar.gz', sdist_depends,
                         cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
