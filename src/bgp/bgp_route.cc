@@ -738,16 +738,12 @@ void BgpRoute::NotifyOrDelete() {
 
 uint32_t BgpRoute::SubClusterId() const {
     BgpTable *table = static_cast<BgpTable *>(get_table());
-    const RoutingInstance *ri = table->routing_instance();
-    if (!ri) {
-        return 0;
-    }
     const BgpConfigManager *config_manager_ = table->server()->config_manager();
     if (!config_manager_) {
         return 0;
     }
     const BgpProtocolConfig *proto =
-        config_manager_->GetProtocolConfig(ri->name());
+        config_manager_->GetProtocolConfig(BgpConfigManager::kMasterInstance);
     if (!proto) {
         return 0;
     }
