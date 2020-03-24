@@ -58,11 +58,14 @@ set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term tden
 {%     set sys_config = device_abstract_config.get('system', None) %}
 {%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
-{%         for li in phy_int.get('logical_interfaces', []) %}
-{%             set firewall_filters = li.get('firewall_filters', []) %}
-{%             for firewall_filter in firewall_filters %}
-{%                 set unit = li.get('unit') %}
+{# These firewalls are related to L2 so the interface type should be other than irb #}
+{%         if phy_int.get('interface_type', '') != 'irb' %}
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                set firewall_filters = li.get('firewall_filters', []) %}
+{%                for firewall_filter in firewall_filters %}
+{%                   set unit = li.get('unit') %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family bridge filter input-list {{firewall_filter}}
+{%                endfor %}
 {%             endfor %}
-{%         endfor %}
+{%         endif %}
 {%     endfor %}
