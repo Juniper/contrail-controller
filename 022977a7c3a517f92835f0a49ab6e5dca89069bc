@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "10467f68_43062984",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 184,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-03-24T03:13:39Z",
+      "side": 1,
+      "message": "if there is no \u0027input\u0027 keyword then the get would return NoneType and get on NoneType would crash.\nAlso if acfg is of NoneType then json.loads would crash so would recommend to change the above as below.\nacfg \u003d job_input_params.get(\u0027input\u0027, {}).get(\u0027device_abstract_config\u0027, {})",
+      "revId": "022977a7c3a517f92835f0a49ab6e5dca89069bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
