@@ -480,7 +480,9 @@ bool FlowMgmtManager::DBRequestHandler(FlowMgmtRequestPtr req) {
 
 bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
     FlowEntry *flow = req->flow().get();
-    tbb::mutex::scoped_lock mutex(flow->mutex());
+    FlowEntry *rflow = flow->reverse_flow_entry();
+
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
     switch (req->event()) {
     case FlowMgmtRequest::ADD_FLOW: {
         LogFlowUnlocked(flow, "ADD");
