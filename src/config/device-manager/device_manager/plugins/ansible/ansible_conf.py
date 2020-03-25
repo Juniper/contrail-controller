@@ -244,9 +244,6 @@ class AnsibleConf(AnsibleBase):
                      self.physical_router.uuid,
                      str(job_template),
                         forced_cfg_push))
-                self._logger.debug("Abstract config: %s" %
-                                   json.dumps(job_input, indent=4,
-                                              sort_keys=True))
                 device_manager = DeviceManager.get_instance()
                 job_handler = JobHandler(
                     job_template,
@@ -276,8 +273,11 @@ class AnsibleConf(AnsibleBase):
         except Exception as e:
             self._logger.error("Router %s: %s" %
                                (self.physical_router.management_ip, repr(e)))
+            exp_job_input = job_input.copy()
+            exp_job_input['device_abstract_config'] = \
+                json.loads(exp_job_input.get('device_abstract_config', {}))
             self._logger.error("Abstract config: %s" %
-                               json.dumps(job_input, indent=4,
+                               json.dumps(exp_job_input, indent=4,
                                           sort_keys=True))
             self.commit_stats[
                 'commit_status_message'] = 'failed to apply config,\
@@ -637,7 +637,7 @@ class AnsibleConf(AnsibleBase):
         if obj is None:
             return None
         obj_json = json.dumps(obj, default=AnsibleConf.export_default)
-        return json.loads(obj_json)
+        return obj_json
     # end export_dict
 
     @staticmethod

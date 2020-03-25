@@ -4,6 +4,7 @@
 from future import standard_library
 standard_library.install_aliases()
 from builtins import object
+import json
 import sys
 if sys.version_info[0] < 3:
     from io import BytesIO as StringIO
@@ -123,6 +124,8 @@ class FakeJobHandler(object):
 
     @classmethod
     def send(cls, plugin, job_template, job_input, is_delete, retry):
+        job_input['device_abstract_config'] = \
+            json.loads(job_input['device_abstract_config'])
         cls.params = {
             'plugin': plugin,
             'job_template':  job_template,
