@@ -163,6 +163,10 @@ class AnsibleConf(AnsibleBase):
                      self.physical_router.uuid,
                      str(job_template),
                         forced_cfg_push))
+                if self._logger.ok_to_log("SYS_DEBUG"):
+                    self._logger.debug("Abstract config: %s" %
+                                       json.dumps(job_input, indent=4,
+                                                  sort_keys=True))
                 device_manager = DeviceManager.get_instance()
                 job_handler = JobHandler(
                     job_template,
