@@ -646,6 +646,194 @@ class DBInterface(object):
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
     #end _resource_delete
 
+    def _resource_read_by_tag(self, tags, fields=None):
+        """Resource read by tag method is a part of OpenStack TAG support.
+
+        In case of filtering resources by tags, we need to get backrefs
+        for all given tags.
+
+        Make sure to run performance test before and after any change in
+        this function. Any change that slows down execution of filtering by
+        tags has to be accepted by a reviewer.
+
+        You can find 3 simple perf test in:
+        `vnc_openstack/tests/test_tags.py:TestVirtualNetworkNeutronTags` class.
+        Unskip them and run individually.
+
+        :param tags: List of tag's FQNames
+        :param fields: List of fields to query
+        :return: list of :class:`.Tag` objects
+        """
+        tags_list = self._vnc_lib.tags_list(fields=fields)
+        return [t for t in tags_list['tags'] if t['fq_name'][0] in tags]
+    #end _resource_read_by_tag
+
+    def _subnet_read_by_tag(self, tag):
+        """Subnet read by tag method is a part of OpenStack TAG support.
+
+        In case of filtering subnets by tags, we need to get a list of UUID
+        stored in KV. The key is a tag FQName, and the value
+        is a comma separated list of subnet UUIDs.
+
+        Make sure to run performance test before and after any change in
+        this function. Any change that slows down execution of filtering by
+        tags has to be accepted by a reviewer.
+
+        You can find 3 simple perf test in:
+        `vnc_openstack/tests/test_tags.py:TestSubnetNeutronTags` class.
+        Unskip them and run individually.
+
+        :param tag: :class:`str` with tag FQName
+        :return: List of :class:`str` UUIDs
+        """
+        try:
+            tag_info = self._vnc_lib.kv_retrieve(tag)
+        except vnc_exc.NoIdError:
+            tag_info = None
+
+        if tag_info:
+            return tag_info.split(',')
+        return []
+    #end _subnet_read_by_tag
+
+    def _resource_add_tags(self, obj, tags):
+        """Resource add tags method is a part of OpenStack TAG support.
+
+        In case of attaching a tag to a resource we need to create a new tag
+        or use existing one utilizing _tag_get_or_create method.
+
+        Make sure to run performance test before and after any change in
+        this function. Any change that slows down execution of filtering by
+        tags has to be accepted by a reviewer.
+
+        :param obj: Taggable VNC object
+        :param tags: List of :class:`str` with tag names (NOT FQNames).
+        """
+        for tag in tags:
+            tag_obj = self._tag_get_or_create(tag)
+            obj.add_tag(tag_obj)
+    # end _resource_add_tags
+
+    def _subnet_add_tags(self, subnet_id, tags):
+        """Subnet add tags method is a part of OpenStack TAG support.
+
+        In case of attaching a tag to a subnet we need to create a new tag
+        or use existing one utilizing _tag_get_or_create method.
+        We need to store subnet UUID in KV.
+        The key is a tag FQName, and the value
+        is a comma separated list of subnet UUIDs.
+
+        Make sure to run performance test before and after any change in
+        this function. Any change that slows down execution of filtering by
+        tags has to be accepted by a reviewer.
+
+        :param subnet_id: String with subnet UUID
+        :param tags: List of :class:`str` with tag names (NOT FQNames).
+        """
+        for tag in tags:
+            # get tag name
+            tag_obj = self._tag_get_or_create(tag)
+            tag_name = tag_obj.fq_name[0]
+
+            # retrieve subnet ids under tag if exist
+            subnet_ids = set(self._subnet_read_by_tag(tag))
+
+            # add new tag to the list and save back
+            subnet_ids.add(subnet_id)
+            self._vnc_lib.kv_store(tag_name, ','.join(subnet_ids))
+    #end _subnet_add_tags
+
+    def _tag_get_for_subnet(self, subnet_id):
+        """Tag get for subnet method is a part of OpenStack TAG support.
+
+        In case of fetching all tags for given subnet we need to fetch all
+        kv tags, and pick that with subnet_id in it.
+
+        Make sure to run performance test before and after any change in
+        this function. Any change that slows down execution of filtering by
+        tags has to be accepted by a reviewer.
+
+        :param subnet_id: String with subnet UUID
+        :return: List of :class:`str` with tag names (NOT FQNAmes).
+        """
+        all_tags = self._vnc_lib.tags_list(fields=['fq_name'])
+        tags_names = []
+        for tag in all_tags['tags']:
+            fq_name = tag['fq_name'][0]
+            try:
+                tag_info = self._vnc_lib.kv_retrieve(fq_name)
+            except vnc_exc.NoIdError:
+                tag_info = None
+            if tag_info and subnet_id in tag_info:
+                tags_names.append(fq_name.split('=')[1])
+        return tags_names
+
+    def tag_get(self, context, parent_id, tag):
+        tag_fq_name = ['neutron_tag={}'.format(tag)]
+        tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+        return self._tags_vnc_to_neutron(tag_obj)
+
+    def _tag_get_or_create(self, tag):
+        tag_fq_name = ['neutron_tag={}'.format(tag)]
+        try:
+            self._vnc_lib.fq_name_to_id('tag', tag_fq_name)
+        except vnc_exc.NoIdError:
+            self._vnc_lib.tag_create(Tag(tag_type_name='neutron_tag',
+                                         tag_value=tag))
+        tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+        return tag_obj
+    # end _tag_get_or_create
+
+    def _tags_vnc_to_neutron(self, tag_obj):
+        _, name = tag_obj.fq_name[0].split('=')
+        return {
+            'name': name,
+            'id': tag_obj.uuid,
+            'created_at': tag_obj.get_id_perms().get_created(),
+            'updated_at': tag_obj.get_id_perms().get_last_modified(),
+        }
+
+    def _resource_read(self, resource_uuid, **kwargs):
+        _, resource_type = self._vnc_lib.id_to_fq_name_type(resource_uuid)
+        resource_type = resource_type.replace('-', '_')
+
+        read_method = getattr(self._vnc_lib,
+                              '{}_read'.format(resource_type))
+        return read_method(id=resource_uuid, **kwargs)
+
+    def tags_list_for_resource(self, context, parent_id):
+        vnc_obj = self._resource_read(parent_id)
+        tags_uuids = []
+        for tag_ref in vnc_obj.get_tag_refs() or []:
+            if 'neutron_tag' in tag_ref['to'][0]:
+                tags_uuids.append(tag_ref['uuid'])
+        tags = self._vnc_lib.tags_list(obj_uuids=tags_uuids, detail=True)
+        return json.dumps([self._tags_vnc_to_neutron(tag) for tag in tags])
+
+    def tag_remove(self, context, parent_id, tag):
+        tag = self._vnc_lib.tag_read(fq_name=['neutron_tag={}'.format(tag)])
+        vnc_obj = self._resource_read(parent_id)
+        vnc_obj.del_tag(tag)
+        self._resource_update(vnc_obj.object_type, vnc_obj)
+
+    def tags_remove_all(self, context, parent_id):
+        vnc_obj = self._resource_read(parent_id)
+        tags_set = []
+        for tag_ref in vnc_obj.get_tag_refs():
+            if 'neutron_tag' not in tag_ref['to'][0]:
+                tag = self._vnc_lib.tag_read(fq_name=tag_ref['to'])
+                tags_set.append(tag)
+        vnc_obj.set_tag_list(tags_set)
+        self._resource_update(vnc_obj.object_type, vnc_obj)
+
+    def tags_create(self, context, parent_id, tags):
+        vnc_obj = self._resource_read(parent_id)
+        tags_obj = [self._tag_get_or_create(tag) for tag in tags]
+        for tag_obj in tags_obj:
+            vnc_obj.add_tag(tag_obj)
+        self._resource_update(vnc_obj.object_type, vnc_obj)
+        return json.dumps([self._tags_vnc_to_neutron(tag) for tag in tags_obj])
+
     def _virtual_network_read(self, net_id=None, fq_name=None, fields=None):
         net_obj = self._vnc_lib.virtual_network_read(id=net_id,
                                                      fq_name=fq_name,
@@ -1293,6 +1481,10 @@ class DBInterface(object):
         sg_q_dict['created_at'] = sg_obj.get_id_perms().get_created()
         sg_q_dict['updated_at'] = sg_obj.get_id_perms().get_last_modified()
 
+        tags = sg_obj.get_tag_refs()
+        if tags:
+            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+
         if self._contrail_extensions_enabled:
             sg_q_dict.update(extra_dict)
         return sg_q_dict
@@ -1322,6 +1514,10 @@ class DBInterface(object):
             id_perms = sg_vnc.get_id_perms()
             id_perms.set_description(sg_q['description'])
             sg_vnc.set_id_perms(id_perms)
+
+        if 'tags' in sg_q:
+            self._resource_add_tags(obj=sg_vnc, tags=sg_q.get('tags'))
+
         return sg_vnc
     # end _security_group_neutron_to_vnc
 
@@ -1577,6 +1773,9 @@ class DBInterface(object):
             id_perms.set_description(network_q['description'])
             net_obj.set_id_perms(id_perms)
 
+        if 'tags' in network_q:
+            self._resource_add_tags(obj=net_obj, tags=network_q.get('tags'))
+
         return net_obj
     #end _network_neutron_to_vnc
 
@@ -1641,6 +1840,10 @@ class DBInterface(object):
                                   t['attr'].sequence.minor))
                 extra_dict['policys'] = [np_ref['to']
                                                   for np_ref in sorted_refs]
+
+        tags = net_obj.get_tag_refs()
+        if tags:
+            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
 
         rt_refs = net_obj.get_route_table_refs()
         if rt_refs:
@@ -1729,6 +1932,10 @@ class DBInterface(object):
         # Added timestamp for tempest test case
         timestamp_at_create = datetime.datetime.utcnow().isoformat()
         subnet_id = self._get_resource_id(subnet_q, True)
+
+        if 'tags' in subnet_q:
+            self._subnet_add_tags(subnet_id=subnet_id,
+                                  tags=subnet_q.get('tags'))
 
         dns_s_addr='0.0.0.0' if self._strict_compliance else dns_server_address
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
@@ -1839,6 +2046,7 @@ class DBInterface(object):
         else:
             sn_q_dict['shared'] = False
 
+        sn_q_dict['tags'] = self._tag_get_for_subnet(sn_id)
         sn_q_dict['created_at'] = subnet_vnc.get_created()
         sn_q_dict['updated_at'] = subnet_vnc.get_last_modified()
 
@@ -1890,6 +2098,10 @@ class DBInterface(object):
         if oper == CREATE:
             project_obj = self._get_project_obj(policy_q)
             policy_obj = NetworkPolicy(policy_name, project_obj)
+
+            if 'tags' in policy_q:
+                self._resource_add_tags(obj=policy_obj,
+                                        tags=policy_q.get('tags'))
         else:  # READ/UPDATE/DELETE
             policy_obj = self._vnc_lib.network_policy_read(id=policy_q['id'])
 
@@ -1897,14 +2109,11 @@ class DBInterface(object):
         if policy_rule:
             if isinstance(policy_rule, dict):
                 policy_obj.set_network_policy_entries(
-                    PolicyEntriesType.factory(**policy_q['entries']))
+                    PolicyEntriesType.factory(**policy_rule))
             else:
                 msg = 'entries must be a dict'
                 self._raise_contrail_exception('BadRequest',
                                                resource="policy", msg=msg)
-        policy_obj.set_network_policy_entries(
-            PolicyEntriesType.factory(**policy_q['entries']))
-
         return policy_obj
     #end _policy_neutron_to_vnc
 
@@ -1924,6 +2133,10 @@ class DBInterface(object):
             for net_back_ref in net_back_refs:
                 net_fq_name = net_back_ref['to']
                 policy_q_dict['nets_using'].append(net_fq_name)
+
+        tags = policy_obj.get_tag_refs()
+        if tags:
+            policy_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
 
         return policy_q_dict
     #end _policy_vnc_to_neutron
@@ -1952,6 +2165,9 @@ class DBInterface(object):
             id_perms = rtr_obj.get_id_perms()
             id_perms.set_description(router_q['description'])
             rtr_obj.set_id_perms(id_perms)
+
+        if 'tags' in router_q:
+            self._resource_add_tags(obj=rtr_obj, tags=router_q.get('tags'))
 
         return rtr_obj
     #end _router_neutron_to_vnc
@@ -1986,6 +2202,10 @@ class DBInterface(object):
         else:
             rtr_q_dict['external_gateway_info'] = {'network_id': ext_net_uuid,
                                                    'enable_snat': True}
+
+        tags = rtr_obj.get_tag_refs()
+        if tags:
+            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
 
         if self._contrail_extensions_enabled:
             rtr_q_dict.update(extra_dict)
@@ -2167,6 +2387,9 @@ class DBInterface(object):
                                        description=fip_q['description'])
             fip_obj.set_id_perms(id_perms)
 
+        if 'tags' in fip_q:
+            self._resource_add_tags(obj=fip_obj, tags=fip_q.get('tags'))
+
         return fip_obj
     #end _floatingip_neutron_to_vnc
 
@@ -2265,6 +2488,10 @@ class DBInterface(object):
         if fip_obj.get_id_perms().get_description() is not None:
             fip_q_dict['description'] = fip_obj.get_id_perms().get_description()
 
+        tags = fip_obj.get_tag_refs()
+        if tags:
+            fip_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
 
@@ -2330,6 +2557,9 @@ class DBInterface(object):
 
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
+
+        if 'tags' in port_q:
+            self._resource_add_tags(obj=port_obj, tags=port_q.get('tags'))
 
         if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
                 and port_q.get('device_owner') not in constants.ROUTER_INTERFACE_OWNERS_SNAT
@@ -2860,6 +3090,9 @@ class DBInterface(object):
             port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
         else:
             port_q_dict['status'] = self._port_get_interface_status(port_obj)
+        tags = port_obj.get_tag_refs()
+        if tags:
+            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
         if self._contrail_extensions_enabled:
             port_q_dict.update(extra_dict)
         port_q_dict['port_security_enabled'] = port_obj.get_port_security_enabled()
@@ -4506,6 +4739,9 @@ class DBInterface(object):
         if self._apply_subnet_host_routes:
             self._port_check_and_add_iface_route_table(ret_port_q['fixed_ips'],
                                                        net_obj, port_obj)
+
+        if 'tags' in port_q:
+            self._resource_add_tags(obj=port_obj, tags=port_q.get('tags'))
 
         return ret_port_q
     # end port_create
@@ -6362,6 +6598,10 @@ class DBInterface(object):
             trunk.set_id_perms(IdPermsType(enable=True))
             trunk.set_perms2(PermType2(owner=project.uuid))
 
+            if 'tags' in trunk_q:
+                self._resource_add_tags(obj=trunk, tags=trunk_q.get('tags'))
+
+
         elif oper == UPDATE:
             try:
                 trunk = self._vnc_lib.virtual_port_group_read(id=id)
@@ -6472,7 +6712,11 @@ class DBInterface(object):
             'sub_ports': sub_ports,
             'status': self._port_get_interface_status(port_obj),
             'name': trunk_obj.display_name
-            }
+        }
+
+        tags = trunk_obj.get_tag_refs()
+        if tags:
+            trunk_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
 
         return filter_fields(trunk_q_dict, fields)
 

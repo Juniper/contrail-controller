@@ -858,7 +858,7 @@ class VncCassandraClient(object):
                             except ValueError:
                                 continue
                             if (list(filter_dict.items()) <=
-                                    list(prop_value.viewitems())):
+                                    list(prop_value.items())):
                                 break
                         else:
                             full_match = False
