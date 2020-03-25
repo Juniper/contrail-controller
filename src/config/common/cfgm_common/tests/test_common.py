@@ -61,14 +61,6 @@ def lineno():
 
 
 try:
-    import api_server
-except ImportError:
-    try:
-        from vnc_cfg_api_server import api_server
-    except ImportError:
-        api_server = 'api_server could not be imported'
-
-try:
     import to_bgp
 except ImportError:
     try:
@@ -295,6 +287,11 @@ def destroy_api_server_instance_issu(server_info):
 
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
+    try:
+        import api_server
+    except ImportError:
+        from vnc_cfg_api_server import api_server
+
     kombu_mock = mock.Mock()
     kombu_patch = mock.patch(
         'vnc_cfg_api_server.api_server.KombuAmqpClient')
