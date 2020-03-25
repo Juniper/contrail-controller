@@ -5,6 +5,9 @@
 from __future__ import absolute_import
 from future import standard_library
 standard_library.install_aliases()
+
+import collections
+
 from builtins import str
 from builtins import object
 import bottle
@@ -214,11 +217,41 @@ class NeutronPluginInterface(object):
                   + pformat(filters) + " data: " + str(nets_count))
         return {'count': nets_count}
 
+    def plugin_get_networks_by_tags(self, context, network):
+        tags_any = 'tags-any' in network['filters']
+        if tags_any:
+            tags = network['filters']['tags-any'].split(',')
+        else:
+            tags = network['filters']['tags'].split(',')
+
+        # request for tags
+        tags_to_find = set()
+        for tag in tags:
+            tags_to_find.add('neutron_tag={}'.format(tag))
+        fields = ['virtual_network_back_refs', 'fq_name']
+        cfgdb = self._get_user_cfgdb(context)
+        tags_info = cfgdb._resource_read_by_tag(tags_to_find, fields)
+
+        # create vn map with tags for full match assertion
+        vn_map = collections.defaultdict(set)
+        for tag_info in tags_info:
+            for vn_backref in tag_info['virtual_network_back_refs']:
+                vn_map[vn_backref['uuid']].add(tag_info['fq_name'][0])
+
+        # if vn has tags full match read it and add to result
+        vn_result = []
+        for vn_uuid, vn_tags in vn_map.items():
+            if tags_any or (not tags_any and vn_tags == tags_to_find):
+                vn = cfgdb.network_read(vn_uuid, context=context)
+                vn_result.append(vn)
+        return json.dumps(vn_result)
+
     def plugin_http_post_network(self):
         """
         Bottle callback for Network POST
         """
         context, network = self._get_requests_data()
+        filters = network.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_network(context, network)
@@ -229,6 +262,9 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_network(context, network)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self.plugin_get_networks_by_tags(context, network)
+
             return self.plugin_get_networks(context, network)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_networks_count(context, network)

@@ -708,6 +708,7 @@ enum TagTypeEnum {
     DEPLOYMENT,
     SITE,
     NEUTRON_FWAAS,
+    NEUTRON_TAG,
 }
 
 // Mapping Tag Type ID to Name
@@ -719,6 +720,7 @@ const map<TagTypeEnum, string> TagTypeIdToName = {
     TagTypeEnum.DEPLOYMENT: "deployment",
     TagTypeEnum.SITE: "site",
     TagTypeEnum.NEUTRON_FWAAS: "neutron_fwaas",
+    TagTypeEnum.NEUTRON_TAG: "neutron_tag",
 }
 
 // Mapping Tag Type Name to ID
@@ -729,12 +731,14 @@ const map<string, TagTypeEnum> TagTypeNameToId = {
     "deployment": TagTypeEnum.DEPLOYMENT,
     "site": TagTypeEnum.SITE,
     "neutron_fwaas": TagTypeEnum.NEUTRON_FWAAS,
+    "neutron_tag": TagTypeEnum.NEUTRON_TAG,
 }
 
 // Tag Type authorized to NOT be unique on an object
 const list<string> TAG_TYPE_NOT_UNIQUE_PER_OBJECT = [
     "label", //TagTypeIdToName[TagTypeEnum.LABEL],
     "neutron_fwaas", //TagTypeIdToName[TagTypeEnum.NEUTRON_FWAAS],
+    "neutron_tag", //TagTypeIdToName[TagTypeEnum.NEUTRON_TAG],
 ]
 
 // Match Tag Types to use by default
