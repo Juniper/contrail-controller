@@ -124,8 +124,9 @@ class AnsibleRoleCommon(AnsibleConf):
         gateways = ri_conf.get("gateways", [])
         network_id = ri_conf.get("network_id", None)
         irb_intf, li_map = self.set_default_pi('irb', 'irb')
-        self._logger.debug("Vn=" + vn.name + ", IRB: " + str(gateways) + ", pr="
-                          + self.physical_router.name)
+        if self._logger.ok_to_log("SYS_DEBUG"):
+            self._logger.debug("Vn=" + vn.name + ", IRB: " + str(gateways) +
+                               ", pr=" + self.physical_router.name)
         intf_unit = self.set_default_li(li_map,
                                         'irb.' + str(network_id),
                                         network_id)

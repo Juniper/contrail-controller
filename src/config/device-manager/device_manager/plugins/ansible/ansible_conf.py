@@ -9,6 +9,7 @@ from builtins import str
 from builtins import object
 import datetime
 from hashlib import md5
+import gevent
 import json
 import time
 
@@ -23,6 +24,7 @@ from .dm_utils import DMUtils
 from .dm_utils import PushConfigState
 from .job_handler import JobHandler
 
+_export_cnt = 0
 
 class AnsibleConf(AnsibleBase):
     @classmethod
@@ -244,6 +246,10 @@ class AnsibleConf(AnsibleBase):
                      self.physical_router.uuid,
                      str(job_template),
                         forced_cfg_push))
+                if self._logger.ok_to_log("SYS_DEBUG"):
+                    self._logger.debug("Abstract config: %s" %
+                                       json.dumps(job_input, indent=4,
+                                                  sort_keys=True))
                 device_manager = DeviceManager.get_instance()
                 job_handler = JobHandler(
                     job_template,
@@ -642,6 +648,10 @@ class AnsibleConf(AnsibleBase):
 
     @staticmethod
     def export_default(obj):
+        global _export_cnt
+        _export_cnt += 1
+        if not _export_cnt % 5000:
+            gevent.idle()
         if isinstance(obj, set):
             return list(obj)
         if hasattr(obj, '__dict__'):

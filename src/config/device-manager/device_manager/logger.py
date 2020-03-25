@@ -7,6 +7,7 @@ from __future__ import absolute_import
 #
 
 from cfgm_common.vnc_logger import ConfigServiceLogger
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.ttypes import Module
 
 from .db import BgpRouterDM, FloatingIpDM, InstanceIpDM, LogicalInterfaceDM, \
@@ -22,7 +23,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         module = Module.DEVICE_MANAGER
         module_pkg = "device_manager"
         self.context = "device_manager"
-        self.log_level = args.log_level
+        self.log_level_init(args)
         super(DeviceManagerLogger, self).__init__(
             module, module_pkg, args, http_server_port)
 
@@ -30,6 +31,22 @@ class DeviceManagerLogger(ConfigServiceLogger):
         super(DeviceManagerLogger, self).sandesh_init(http_server_port)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
+
+    def log_level_init(self, args):
+        if args.log_level in SandeshLevel._NAMES_TO_VALUES:
+            self.log_level = SandeshLevel._NAMES_TO_VALUES[args.log_level]
+        else:
+            self.log_level = SandeshLevel.SYS_INFO
+
+    def ok_to_log(self, level):
+        if isinstance(level, str):
+            if level in SandeshLevel._NAMES_TO_VALUES:
+                level = SandeshLevel._NAMES_TO_VALUES[level]
+            else:
+                return False
+        if level <= self.log_level:
+            return True
+        return False
 
     def redefine_sandesh_handles(self):
         sandesh.BgpRouterList.handle_request = \
