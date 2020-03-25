@@ -5,6 +5,9 @@
 from __future__ import absolute_import
 from future import standard_library
 standard_library.install_aliases()
+
+import collections
+
 from builtins import str
 from builtins import object
 import bottle
@@ -150,6 +153,48 @@ class NeutronPluginInterface(object):
         except Exception as e:
             bottle.abort(400, 'Unable to parse request data')
 
+    def _get_resource_by_tags(self, resource_name, context, filters):
+        cfgdb = self._get_user_cfgdb(context)
+        resource_to_fields = {
+            'floatingip': {
+                'vnc_name': 'floating_ip',
+                'backrefs': 'floating_ip_back_refs',
+                'fields': ['floating_ip_back_refs', 'fq_name'],
+                'list_method': cfgdb.floatingip_list,
+            },
+            'network': {
+                'vnc_name': 'virtual_network',
+                'backrefs': 'virtual_network_back_refs',
+                'fields': ['virtual_network_back_refs', 'fq_name'],
+                'list_method': cfgdb.network_list,
+            }
+        }
+
+        tags_any = 'tags-any' in filters
+        tags_filter = filters['tags-any'] if tags_any else filters['tags']
+        tags_filter = tags_filter.split(',')
+
+        # fetch all backrefs for given tags
+        fields = resource_to_fields[resource_name]['fields']
+        tags_to_fetch = {'neutron_tag={}'.format(tag) for tag in tags_filter}
+        tags_info = cfgdb._resource_read_by_tag(tags_to_fetch, fields)
+
+        # create resource map with tags to match
+        res_map = collections.defaultdict(set)
+        for tag_info in tags_info:
+            backref_field = resource_to_fields[resource_name]['backrefs']
+            for res_backref in tag_info.get(backref_field, []):
+                res_map[res_backref['uuid']].add(tag_info['fq_name'][0])
+
+        # filter resource ids to read (full match or match any)
+        filters['id'] = []
+        for res_uuid, res_tags in res_map.items():
+            if tags_any or (not tags_any and res_tags == tags_to_fetch):
+                filters['id'].append(res_uuid)
+
+        resource_list = resource_to_fields[resource_name]['list_method']
+        return json.dumps(resource_list(context, filters))
+
     # Network API Handling
     def plugin_get_network(self, context, network):
         """
@@ -219,6 +264,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Network POST
         """
         context, network = self._get_requests_data()
+        filters = network.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_network(context, network)
@@ -229,6 +275,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_network(context, network)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('network', context, filters)
             return self.plugin_get_networks(context, network)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_networks_count(context, network)
@@ -496,6 +544,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Floating IP POST
         """
         context, floatingip = self._get_requests_data()
+        filters = floatingip.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_floatingip(context, floatingip)
@@ -506,6 +555,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_floatingip(context, floatingip)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('floatingip', context, filters)
             return self.plugin_get_floatingips(context, floatingip)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_floatingips_count(context, floatingip)
