@@ -16,6 +16,24 @@
       "revId": "896d2b325f391a22b4c5ca4f080f52cf1bd03776",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e02654a1_25769ed4",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_type5/juniper_junos_overlay_evpn_type5.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-03-25T15:48:17Z",
+      "side": 1,
+      "message": "Ankur, Thanks for taking a look. Yes for MX public LR is only used for the DC-GW. DC-GW works on the MPLSoGRE tunnels. So we are blocking this vxlan specific configuration, as this is causing dropping of the packets in MX router.",
+      "parentUuid": "77214dbb_63dd79cc",
+      "revId": "896d2b325f391a22b4c5ca4f080f52cf1bd03776",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
