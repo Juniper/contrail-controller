@@ -214,11 +214,28 @@ class NeutronPluginInterface(object):
                   + pformat(filters) + " data: " + str(nets_count))
         return {'count': nets_count}
 
+    def plugin_get_networks_by_tags(self, context, network):
+        fields = ['virtual_network_back_refs', 'fq_name']
+        tags = []
+        for tag in network['filters']['tags'].split(','):
+            tags.append('neutron_tag={}'.format(tag))
+
+        cfgdb = self._get_user_cfgdb(context)
+        tags_info = cfgdb._resource_read_by_tag(tags, fields)
+
+        vns = []
+        for tag in tags_info:
+            for vn_backref in tag['virtual_network_back_refs']:
+                vn_info = cfgdb.network_read(vn_backref['uuid'], context=context)
+                vns.append(vn_info)
+        return json.dumps(vns)
+
     def plugin_http_post_network(self):
         """
         Bottle callback for Network POST
         """
         context, network = self._get_requests_data()
+        filters = network.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_network(context, network)
@@ -228,6 +245,8 @@ class NeutronPluginInterface(object):
             return self.plugin_update_network(context, network)
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_network(context, network)
+        elif context['operation'] == 'READALL' and 'tags' in filters:
+            return self.plugin_get_networks_by_tags(context, network)
         elif context['operation'] == 'READALL':
             return self.plugin_get_networks(context, network)
         elif context['operation'] == 'READCOUNT':
