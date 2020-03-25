@@ -5,6 +5,9 @@
 from __future__ import absolute_import
 from future import standard_library
 standard_library.install_aliases()
+
+import collections
+
 from builtins import str
 from builtins import object
 import bottle
@@ -150,6 +153,79 @@ class NeutronPluginInterface(object):
         except Exception as e:
             bottle.abort(400, 'Unable to parse request data')
 
+    def _filter_subnets_by_tags(self, context, request):
+        filters = request.get('filters', {})
+        if not filters or 'tags' not in filters and 'tags-any' not in filters:
+            return
+
+        tags_any = 'tags-any' in filters
+        tags = filters.pop('tags-any') if tags_any else filters.pop('tags')
+        if type(tags) == str:
+            tags = tags.split(',')
+
+        tags_to_fetch = {'neutron_tag={}'.format(tag) for tag in tags}
+
+        cfgdb = self._get_user_cfgdb(context)
+
+        # create resource map with tags to match
+        res_map = collections.defaultdict(set)
+        for tag in tags_to_fetch:
+            subnets_ids = cfgdb._subnet_read_by_tag(tag)
+            for subnet_id in subnets_ids:
+                res_map[subnet_id].add(tag)
+
+        # filter resource ids to read (full match or match any)
+        res_ids = []
+        for res_uuid, res_tags in res_map.items():
+            if tags_any or (not tags_any and res_tags == tags_to_fetch):
+                res_ids.append(res_uuid)
+
+        # update network filters with resource ids
+        request['filters']['id'] = res_ids
+
+    def _filter_resources_by_tags(self, res_name, context, request):
+        filters = request.get('filters', {})
+        if not filters or 'tags' not in filters and 'tags-any' not in filters:
+            return
+
+        resource_to_backref = {
+            'floatingip': 'floating_ip_back_refs',
+            'network': 'virtual_network_back_refs',
+            'router': 'logical_router_back_refs',
+            'port': 'virtual_machine_interface_back_refs',
+            'securitygroup': 'security_group_back_refs',
+            'policy': 'network_policy_back_refs',
+            'trunk': 'virtual_port_group_back_refs',
+        }
+
+        tags_any = 'tags-any' in filters
+        tags = filters.pop('tags-any') if tags_any else filters.pop('tags')
+        if type(tags) == str:
+            tags = tags.split(',')
+
+        # fetch all backrefs for given tags
+        tag_fields = [resource_to_backref[res_name], 'fq_name']
+        tags_to_fetch = {'neutron_tag={}'.format(tag) for tag in tags}
+
+        cfgdb = self._get_user_cfgdb(context)
+        tags_info = cfgdb._resource_read_by_tag(tags_to_fetch, tag_fields)
+
+        # create resource map with tags to match
+        res_map = collections.defaultdict(set)
+        for tag_info in tags_info:
+            backref_field = resource_to_backref[res_name]
+            for res_backref in tag_info.get(backref_field, []):
+                res_map[res_backref['uuid']].add(tag_info['fq_name'][0])
+
+        # filter resource ids to read (full match or match any)
+        res_ids = []
+        for res_uuid, res_tags in res_map.items():
+            if tags_any or (not tags_any and res_tags == tags_to_fetch):
+                res_ids.append(res_uuid)
+
+        # update network filters with resource ids
+        request['filters']['id'] = res_ids
+
     # Network API Handling
     def plugin_get_network(self, context, network):
         """
@@ -219,6 +295,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Network POST
         """
         context, network = self._get_requests_data()
+        self._filter_resources_by_tags('network', context, network)
 
         if context['operation'] == 'READ':
             return self.plugin_get_network(context, network)
@@ -327,6 +404,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Subnet POST
         """
         context, subnet = self._get_requests_data()
+        self._filter_subnets_by_tags(context, subnet)
 
         if context['operation'] == 'READ':
             return self.plugin_get_subnet(context, subnet)
@@ -408,6 +486,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Port POST
         """
         context, port = self._get_requests_data()
+        self._filter_resources_by_tags('port', context, port)
 
         if context['operation'] == 'READ':
             return self.plugin_get_port(context, port)
@@ -496,6 +575,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Floating IP POST
         """
         context, floatingip = self._get_requests_data()
+        self._filter_resources_by_tags('floatingip', context, floatingip)
 
         if context['operation'] == 'READ':
             return self.plugin_get_floatingip(context, floatingip)
@@ -564,6 +644,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Security Group POST
         """
         context, sg = self._get_requests_data()
+        self._filter_resources_by_tags('securitygroup', context, sg)
 
         if context['operation'] == 'READ':
             return self.plugin_get_sec_group(context, sg)
@@ -732,6 +813,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Router POST
         """
         context, router = self._get_requests_data()
+        self._filter_resources_by_tags('router', context, router)
 
         if context['operation'] == 'READ':
             return self.plugin_get_router(context, router)
@@ -901,6 +983,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Policy POST
         """
         context, policy = self._get_requests_data()
+        self._filter_resources_by_tags('policy', context, policy)
 
         if context['operation'] == 'READ':
             return self.plugin_get_policy(context, policy)
@@ -1147,6 +1230,8 @@ class NeutronPluginInterface(object):
         Bottle callback for Trunk POST
         """
         context, trunk = self._get_requests_data()
+        self._filter_resources_by_tags('trunk', context, trunk)
+
         if context['operation'] == 'READ':
             return self.plugin_get_trunk(context, trunk)
         elif context['operation'] == 'CREATE':
@@ -1230,3 +1315,77 @@ class NeutronPluginInterface(object):
         trunk_info = cfgdb.trunk_remove_subports(
             context, trunk['id'], trunk['resource'])
         return trunk_info
+
+    def plugin_http_post_tags(self):
+        """
+        Bottle callback for Tags POST
+        """
+        context, tags = self._get_requests_data()
+        filters = tags['filters'] if 'filters' in tags else {}
+        resource = tags['resource'] if 'resource' in tags else {}
+
+        if context['operation'] == 'READ':
+            return self.plugin_get_tag(context, filters['id'])
+        elif context['operation'] == 'READALL':
+            return self.plugin_get_tags(context, filters['parent_id'])
+        elif context['operation'] == 'DELETE':
+            return self.plugin_delete_tags(context,
+                                           filters['parent_id'],
+                                           filters['tags'])
+        elif context['operation'] == 'DELETEALL':
+            return self.plugin_delete_all_tags(context, filters['parent_id'])
+        elif context['operation'] == 'UPDATE':
+            # Neutron update is a create method in Contrail
+            return self.plugin_create_tags(context,
+                                           resource['parent_id'],
+                                           resource['tags'])
+
+    def plugin_get_tag(self, context, tag):
+        """Get tag.
+
+        :param context: Request context
+        :param tag: Tag name (not fq_name)
+        :return:
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        return cfgdb.tag_get(context, tag)
+
+    def plugin_get_tags(self, context, parent_id):
+        """Get tags for given parent
+
+        :param context: Request context
+        :param parent_id: Resource ID
+        :return:
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        return cfgdb.tags_list_for_resource(context, parent_id)
+
+    def plugin_delete_tags(self, context, parent_id, tags):
+        """Remove specific tags from given resource.
+
+        :param context: Request context
+        :param parent_id: Resource ID
+        :param tags: List of tag names (not fq_names)
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        cfgdb.tags_remove(context, parent_id, tags)
+
+    def plugin_delete_all_tags(self, context, parent_id):
+        """Remove all tags from given resource.
+
+        :param context: Request context
+        :param parent_id: Resource ID
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        cfgdb.tags_remove_all(context, parent_id)
+
+    def plugin_create_tags(self, context, parent_id, tags):
+        """Get or create tags and attach to given resource.
+
+        :param context: Request context
+        :param parent_id: Resource ID
+        :param tags: List of tag names (not fq_names)
+        :return:
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        return cfgdb.tags_create(context, parent_id, tags)

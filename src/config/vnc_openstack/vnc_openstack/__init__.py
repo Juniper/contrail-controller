@@ -1280,6 +1280,10 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         self.route('/neutron/trunk',
                      'POST', self._npi.plugin_http_post_trunk)
 
+        # Bottle callbacks for tags operations
+        self.route('/neutron/tags',
+                   'POST', self._npi.plugin_http_post_tags)
+
         if self._neutron_fwaas_enabled:
             # Bottle callbacks for firewall_group operations
             self.route('/neutron/firewall_group',
