@@ -5,6 +5,9 @@
 from __future__ import absolute_import
 from future import standard_library
 standard_library.install_aliases()
+
+import collections
+
 from builtins import str
 from builtins import object
 import bottle
@@ -150,6 +153,84 @@ class NeutronPluginInterface(object):
         except Exception as e:
             bottle.abort(400, 'Unable to parse request data')
 
+    def _get_resource_by_tags(self, res_name, context, filters, fields=None):
+        cfgdb = self._get_user_cfgdb(context)
+        # TODO: remove duplicated elements
+        resource_to_fields = {
+            'floatingip': {
+                'vnc_name': 'floating_ip',
+                'backrefs': 'floating_ip_back_refs',
+                'fields': ['floating_ip_back_refs', 'fq_name'],
+                'list_method': cfgdb.floatingip_list,
+            },
+            'network': {
+                'vnc_name': 'virtual_network',
+                'backrefs': 'virtual_network_back_refs',
+                'fields': ['virtual_network_back_refs', 'fq_name'],
+                'list_method': cfgdb.network_list,
+            },
+            'router': {
+                'vnc_name': 'logical_router',
+                'backrefs': 'logical_router_back_refs',
+                'fields': ['logical_router_back_refs', 'fq_name'],
+                'list_method': cfgdb.router_list,
+            },
+            'port': {
+                'vnc_name': 'virtual_machine_interface',
+                'backrefs': 'virtual_machine_interface_back_refs',
+                'fields': ['virtual_machine_interface_back_refs', 'fq_name'],
+                'list_method': cfgdb.port_list,
+            },
+            'securitygroup': {
+                'vnc_name': 'security_group',
+                'backrefs': 'security_group_back_refs',
+                'fields': ['security_group_back_refs', 'fq_name'],
+                'list_method': cfgdb.security_group_list,
+            },
+            'policy': {
+                'vnc_name': 'network_policy',
+                'backrefs': 'network_policy_back_refs',
+                'fields': ['network_policy_back_refs', 'fq_name'],
+                'list_method': cfgdb.policy_list,
+            },
+            'trunk': {
+                'vnc_name': 'virtual_port_group',
+                'backrefs': 'virtual_port_group_back_refs',
+                'fields': ['virtual_port_group_back_refs', 'fq_name'],
+                # Trunk list method required third argument which is fields
+                # I don't want to make if-else blocks for very resource.
+                # List method is wrapped with lambda which takes
+                # c-> context, f-> filters, and the fields comes from
+                # function scope
+                'list_method': lambda c, f: cfgdb.trunk_list(c, f, fields),
+            }
+        }
+
+        tags_any = 'tags-any' in filters
+        tags = filters.pop('tags-any') if tags_any else filters.pop('tags')
+        tags = tags.split(',')
+
+        # fetch all backrefs for given tags
+        tag_fields = resource_to_fields[res_name]['fields']
+        tags_to_fetch = {'neutron_tag={}'.format(tag) for tag in tags}
+        tags_info = cfgdb._resource_read_by_tag(tags_to_fetch, tag_fields)
+
+        # create resource map with tags to match
+        res_map = collections.defaultdict(set)
+        for tag_info in tags_info:
+            backref_field = resource_to_fields[res_name]['backrefs']
+            for res_backref in tag_info.get(backref_field, []):
+                res_map[res_backref['uuid']].add(tag_info['fq_name'][0])
+
+        # filter resource ids to read (full match or match any)
+        filters['id'] = []
+        for res_uuid, res_tags in res_map.items():
+            if tags_any or (not tags_any and res_tags == tags_to_fetch):
+                filters['id'].append(res_uuid)
+
+        resource_list = resource_to_fields[res_name]['list_method']
+        return json.dumps(resource_list(context, filters))
+
     # Network API Handling
     def plugin_get_network(self, context, network):
         """
@@ -219,6 +300,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Network POST
         """
         context, network = self._get_requests_data()
+        filters = network.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_network(context, network)
@@ -229,6 +311,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_network(context, network)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('network', context, filters)
             return self.plugin_get_networks(context, network)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_networks_count(context, network)
@@ -408,6 +492,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Port POST
         """
         context, port = self._get_requests_data()
+        filters = port.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_port(context, port)
@@ -418,6 +503,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_port(context, port)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('port', context, filters)
             return self.plugin_get_ports(context, port)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_ports_count(context, port)
@@ -496,6 +583,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Floating IP POST
         """
         context, floatingip = self._get_requests_data()
+        filters = floatingip.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_floatingip(context, floatingip)
@@ -506,6 +594,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_floatingip(context, floatingip)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('floatingip', context, filters)
             return self.plugin_get_floatingips(context, floatingip)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_floatingips_count(context, floatingip)
@@ -564,6 +654,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Security Group POST
         """
         context, sg = self._get_requests_data()
+        filters = sg.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_sec_group(context, sg)
@@ -574,6 +665,9 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_sec_group(context, sg)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('securitygroup',
+                                                  context, filters)
             return self.plugin_get_sec_groups(context, sg)
 
     def plugin_get_sec_group_rule(self, context, sg_rule):
@@ -732,6 +826,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Router POST
         """
         context, router = self._get_requests_data()
+        filters = router.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_router(context, router)
@@ -742,6 +837,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_router(context, router)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('router', context, filters)
             return self.plugin_get_routers(context, router)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_routers_count(context, router)
@@ -901,6 +998,7 @@ class NeutronPluginInterface(object):
         Bottle callback for Policy POST
         """
         context, policy = self._get_requests_data()
+        filters = policy.get('filters', {})
 
         if context['operation'] == 'READ':
             return self.plugin_get_policy(context, policy)
@@ -911,6 +1009,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_policy(context, policy)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('policy', context, filters)
             return self.plugin_get_policys(context, policy)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_policys_count(context, policy)
@@ -1147,6 +1247,9 @@ class NeutronPluginInterface(object):
         Bottle callback for Trunk POST
         """
         context, trunk = self._get_requests_data()
+        filters = trunk.get('filters', {})
+        fields = trunk.get('fields')
+
         if context['operation'] == 'READ':
             return self.plugin_get_trunk(context, trunk)
         elif context['operation'] == 'CREATE':
@@ -1156,6 +1259,9 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'UPDATE':
             return self.plugin_update_trunk(context, trunk)
         elif context['operation'] == 'READALL':
+            if 'tags' in filters or 'tags-any' in filters:
+                return self._get_resource_by_tags('trunk', context,
+                                                  filters, fields)
             return self.plugin_get_trunks(context, trunk)
         elif context['operation'] == 'ADD_SUBPORTS':
             return self.plugin_add_subports(context, trunk)
