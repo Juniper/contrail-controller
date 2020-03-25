@@ -1,5 +1,5 @@
 {%     set firewall = device_abstract_config.get('firewall') %}
-{%     set ns = namespace(found=false) %}
+{%     set ns_deny_filterlist = [] %}
 {%     if firewall != None %}
 {%         set firewall_filters = firewall.get('firewall_filters', []) %}
 {%         for filter in firewall_filters %}
@@ -8,6 +8,7 @@
 {%             endif %}
 {%             set filter_name = filter.get('name', '') %}
 {%             set terms = filter.get('terms', []) %}
+{%             set nsfilter = namespace(found=false) %}
 {%             for term in terms %}
 {%                 set term_name = term.get('name') %}
 {%                 set term_from = term.get('fromxx') %}
@@ -46,30 +47,44 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ether-type {{ether_type}}
 {%                 endif %}
 {%                 if then_accept_or_reject == True %}
-{%                     set ns.found = true %}
+{%                     if nsfilter.found == false %}
+{%                         set nsfilter.found = true %}
+{%                         do ns_deny_filterlist.append(filter_name) %}
+{%                     endif %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
 {%                 endif %}
 {%             endfor %}{# /* for each terms under firewall filter */ #}
 {%         endfor %}{# /* for each firewall filter */ #}
-{%         if ns.found == true %}
+{%         if ns_deny_filterlist|length > 0 %}
 set groups {{cfg_group}} firewall family ethernet-switching filter denyall term tdenyall then discard
 {%         endif %}
 {%     endif %}{# /* firewall valid */ #}
 {%     set sys_config = device_abstract_config.get('system', None) %}
 {%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         set nsadd_once = namespace(found=false) %}
 {%         for li in phy_int.get('logical_interfaces', []) %}
+{%             set nsliadd_once = namespace(found=false) %}
 {%             set firewall_filters = li.get('firewall_filters', []) %}
-{%             if ns.found == true %}
-{%                 do firewall_filters.append('denyall') %}
-{%             endif %}
+{%             set unit = li.get('unit') %}
 {%             for firewall_filter in firewall_filters %}
 {%                 if enterprise_style == True or 'ERB-UCAST-Gateway' in sys_roles %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching filter input-list {{firewall_filter}}
+{%                     if nsadd_once.found == false and firewall_filter in ns_deny_filterlist %}
+{%                         set nsadd_once.found = true %}
+{%                     endif %}
 {%                 else %}
-{%                     set unit = li.get('unit') %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family ethernet-switching filter input-list {{firewall_filter}}
+{%                     if nsliadd_once.found == false and firewall_filter in ns_deny_filterlist %}
+{%                         set nsliadd_once.found = true %}
+{%                     endif %}
 {%                 endif %}
-{%             endfor %}
-{%         endfor %}
-{%     endfor %}
+{%             endfor %}{# /* each filter in li */ #}
+{%             if nsliadd_once.found == true %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family ethernet-switching filter input-list denyall
+{%             endif %}
+{%         endfor %}{# /* each li */ #}
+{%         if nsadd_once.found == true %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching filter input-list denyall
+{%         endif %}
+{%     endfor %}{# /* each phy_int */ #}
