@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ee9d9c1f_1b2816e1",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_type5/juniper_junos_overlay_evpn_type5.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-03-25T15:09:21Z",
+      "side": 1,
+      "message": "Why is there a check for router external here? We dont need this for public LR ??",
+      "revId": "4521da4f85bc278d425a262b7ad8bacd9f689fee",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
