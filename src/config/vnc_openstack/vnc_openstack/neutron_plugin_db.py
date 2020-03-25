@@ -646,6 +646,53 @@ class DBInterface(object):
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
     #end _resource_delete
 
+    def _resource_read_by_tag(self, tags, fields=None):
+        tags_list = self._vnc_lib.tags_list(fields=fields)
+        return [t for t in tags_list['tags'] if t['fq_name'][0] in tags]
+    #end _resource_read_by_tag
+
+    def _subnet_read_by_tag(self, tag):
+        try:
+            tag_info = self._vnc_lib.kv_retrieve(tag)
+        except vnc_exc.NoIdError:
+            tag_info = None
+
+        if tag_info:
+            return tag_info.split(',')
+        return []
+    #end _subnet_read_by_tag
+
+    def _resource_add_tags(self, obj, tags):
+        for tag in tags:
+            tag_obj = self._tag_get_or_create(tag)
+            obj.add_tag(tag_obj)
+    # end _resource_add_tags
+
+    def _subnet_add_tags(self, subnet_id, tags):
+        for tag in tags:
+            # get tag name
+            tag_obj = self._tag_get_or_create(tag)
+            tag_name = tag_obj.fq_name[0]
+
+            # retrieve subnet ids under tag if exist
+            subnet_ids = set(self._subnet_read_by_tag(tag))
+
+            # add new tag to the list and save back
+            subnet_ids.add(subnet_id)
+            self._vnc_lib.kv_store(tag_name, ','.join(subnet_ids))
+    #end _subnet_add_tags
+
+    def _tag_get_or_create(self, tag):
+        tag_fq_name = ['neutron_tag={}'.format(tag)]
+        try:
+            tag_id = self._vnc_lib.fq_name_to_id('tag', tag_fq_name)
+        except vnc_exc.NoIdError:
+            self._vnc_lib.tag_create(Tag(tag_type_name='neutron_tag',
+                                         tag_value=tag))
+        tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+        return tag_obj
+    # end _tag_get_or_create
+
     def _virtual_network_read(self, net_id=None, fq_name=None, fields=None):
         net_obj = self._vnc_lib.virtual_network_read(id=net_id,
                                                      fq_name=fq_name,
@@ -1322,6 +1369,10 @@ class DBInterface(object):
             id_perms = sg_vnc.get_id_perms()
             id_perms.set_description(sg_q['description'])
             sg_vnc.set_id_perms(id_perms)
+
+        if 'tags' in sg_q:
+            self._resource_add_tags(obj=sg_vnc, tags=sg_q.get('tags'))
+
         return sg_vnc
     # end _security_group_neutron_to_vnc
 
@@ -1577,6 +1628,9 @@ class DBInterface(object):
             id_perms.set_description(network_q['description'])
             net_obj.set_id_perms(id_perms)
 
+        if 'tags' in network_q:
+            self._resource_add_tags(obj=net_obj, tags=network_q.get('tags'))
+
         return net_obj
     #end _network_neutron_to_vnc
 
@@ -1729,6 +1783,10 @@ class DBInterface(object):
         # Added timestamp for tempest test case
         timestamp_at_create = datetime.datetime.utcnow().isoformat()
         subnet_id = self._get_resource_id(subnet_q, True)
+
+        if 'tags' in subnet_q:
+            self._subnet_add_tags(subnet_id=subnet_id,
+                                  tags=subnet_q.get('tags'))
 
         dns_s_addr='0.0.0.0' if self._strict_compliance else dns_server_address
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
@@ -1890,6 +1948,10 @@ class DBInterface(object):
         if oper == CREATE:
             project_obj = self._get_project_obj(policy_q)
             policy_obj = NetworkPolicy(policy_name, project_obj)
+
+            if 'tags' in policy_q:
+                self._resource_add_tags(obj=policy_obj,
+                                        tags=policy_q.get('tags'))
         else:  # READ/UPDATE/DELETE
             policy_obj = self._vnc_lib.network_policy_read(id=policy_q['id'])
 
@@ -1897,14 +1959,11 @@ class DBInterface(object):
         if policy_rule:
             if isinstance(policy_rule, dict):
                 policy_obj.set_network_policy_entries(
-                    PolicyEntriesType.factory(**policy_q['entries']))
+                    PolicyEntriesType.factory(**policy_rule))
             else:
                 msg = 'entries must be a dict'
                 self._raise_contrail_exception('BadRequest',
                                                resource="policy", msg=msg)
-        policy_obj.set_network_policy_entries(
-            PolicyEntriesType.factory(**policy_q['entries']))
-
         return policy_obj
     #end _policy_neutron_to_vnc
 
@@ -1952,6 +2011,9 @@ class DBInterface(object):
             id_perms = rtr_obj.get_id_perms()
             id_perms.set_description(router_q['description'])
             rtr_obj.set_id_perms(id_perms)
+
+        if 'tags' in router_q:
+            self._resource_add_tags(obj=rtr_obj, tags=router_q.get('tags'))
 
         return rtr_obj
     #end _router_neutron_to_vnc
@@ -2167,6 +2229,9 @@ class DBInterface(object):
                                        description=fip_q['description'])
             fip_obj.set_id_perms(id_perms)
 
+        if 'tags' in fip_q:
+            self._resource_add_tags(obj=fip_obj, tags=fip_q.get('tags'))
+
         return fip_obj
     #end _floatingip_neutron_to_vnc
 
@@ -2330,6 +2395,9 @@ class DBInterface(object):
 
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
+
+        if 'tags' in port_q:
+            self._resource_add_tags(obj=port_obj, tags=port_q.get('tags'))
 
         if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
                 and port_q.get('device_owner') not in constants.ROUTER_INTERFACE_OWNERS_SNAT
@@ -4507,6 +4575,9 @@ class DBInterface(object):
             self._port_check_and_add_iface_route_table(ret_port_q['fixed_ips'],
                                                        net_obj, port_obj)
 
+        if 'tags' in port_q:
+            self._resource_add_tags(obj=port_obj, tags=port_q.get('tags'))
+
         return ret_port_q
     # end port_create
 
@@ -6361,6 +6432,10 @@ class DBInterface(object):
 
             trunk.set_id_perms(IdPermsType(enable=True))
             trunk.set_perms2(PermType2(owner=project.uuid))
+
+            if 'tags' in trunk_q:
+                self._resource_add_tags(obj=trunk, tags=trunk_q.get('tags'))
+
 
         elif oper == UPDATE:
             try:
