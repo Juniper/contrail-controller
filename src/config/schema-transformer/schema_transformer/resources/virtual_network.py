@@ -879,7 +879,7 @@ class VirtualNetworkST(ResourceBaseST):
                         daddr_match.network_policy = None
                         daddr_match.virtual_network = self.name
                     else:
-                        self._logger.error(
+                        self._logger.debug(
                             "network policy rule attached to %s has src = %s,"
                             " dst = %s. Ignored." % (self.name,
                                                      svn or spol,
@@ -893,7 +893,7 @@ class VirtualNetworkST(ResourceBaseST):
                         saddr_match.network_policy = None
                         saddr_match.virtual_network = self.name
                     else:
-                        self._logger.error(
+                        self._logger.debug(
                             "network policy rule attached to %s has src = %s,"
                             " dst = %s. Ignored." % (self.name,
                                                      svn or spol,
@@ -902,13 +902,13 @@ class VirtualNetworkST(ResourceBaseST):
                 elif (not svn and not dvn and not spol and not dpol and
                       (s_cidr or s_cidr_list) and (d_cidr or d_cidr_list)):
                     if prule.action_list.apply_service:
-                        self._logger.error(
+                        self._logger.debug(
                             "service chains not allowed in cidr only rules "
                             "network %s, src = %s, dst = %s. Ignored." %
                             (self.name, s_cidr, d_cidr))
                         continue
                 else:
-                    self._logger.error("network policy rule attached to %s"
+                    self._logger.debug("network policy rule attached to %s"
                                        " has svn = %s, dvn = %s. Ignored." %
                                        (self.name, svn, dvn))
                     continue
