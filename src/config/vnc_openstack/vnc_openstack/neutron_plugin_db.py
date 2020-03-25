@@ -646,6 +646,11 @@ class DBInterface(object):
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
     #end _resource_delete
 
+    def _resource_read_by_tag(self, tags, fields=None):
+        tags_list = self._vnc_lib.tags_list(fields=fields)
+        return [t for t in tags_list['tags'] if t['fq_name'][0] in tags]
+    #end _resource_read_by_tag
+
     def _virtual_network_read(self, net_id=None, fq_name=None, fields=None):
         net_obj = self._vnc_lib.virtual_network_read(id=net_id,
                                                      fq_name=fq_name,
