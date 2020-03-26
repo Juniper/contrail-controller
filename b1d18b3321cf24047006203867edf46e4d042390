@@ -22,6 +22,30 @@
       "revId": "b1d18b3321cf24047006203867edf46e4d042390",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "73b06284_5b58cf66",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 744,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-03-26T06:04:17Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "ef96e6e9_7f959ced",
+      "range": {
+        "startLine": 741,
+        "startChar": 4,
+        "endLine": 744,
+        "endChar": 5
+      },
+      "revId": "b1d18b3321cf24047006203867edf46e4d042390",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
