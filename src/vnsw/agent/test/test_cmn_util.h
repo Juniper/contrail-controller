@@ -723,11 +723,13 @@ std::string AddBgpServiceConfig(const std::string &ip,
                                 const std::string &vmi_name,
                                 const std::string &vrf_name,
                                 const std::string &bgp_router_type,
-                                bool is_shared);
+                                bool is_shared,
+                                bool hc = false);
 void DeleteBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
                           const std::string &vmi_name,
-                          const std::string &vrf_name);
+                          const std::string &vrf_name,
+                          bool hc = false);
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
