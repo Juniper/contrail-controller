@@ -62,6 +62,8 @@ setup_sources = [
 
 setup_sources_rules = []
 for file in setup_sources:
+    if file.startswith('test_') and file == 'test_feature_flags.py':
+        continue
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/device-manager/" + file))
 
