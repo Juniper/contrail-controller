@@ -3212,6 +3212,40 @@ TEST_F(IntfTest, packet_interface_get_key_verification) {
     client->WaitForIdle();
 }
 
+TEST_F(IntfTest, packet_interface_creation_deletion_test) {
+    PacketInterface::CreateReq(agent->interface_table(),
+                                "pkt5",
+                                Interface::TRANSPORT_ETHERNET);
+    PacketInterface::Create(agent->interface_table(),
+                                "pkt6",
+                                Interface::TRANSPORT_ETHERNET);
+    client->WaitForIdle();
+    PacketInterfaceKey key1(boost::uuids::nil_uuid(), "pkt5");
+    PacketInterfaceKey key2(boost::uuids::nil_uuid(), "pkt6");
+    Interface *intf1 =
+        static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key1));
+    Interface *intf2 =
+        static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key2));
+    EXPECT_TRUE(intf1 != NULL);
+    EXPECT_TRUE(intf2 != NULL);
+    client->Reset();
+
+    PacketInterface::DeleteReq(agent->interface_table(),
+                                "pkt5");
+    PacketInterface::Delete(agent->interface_table(),
+                                "pkt6");
+    client->WaitForIdle();
+    PacketInterfaceKey key3(boost::uuids::nil_uuid(), "pkt5");
+    PacketInterfaceKey key4(boost::uuids::nil_uuid(), "pkt6");
+    intf1 =
+        static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key3));
+    intf2 =
+        static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key4));
+    EXPECT_TRUE(intf1 == NULL);
+    EXPECT_TRUE(intf2 == NULL);
+    client->Reset();
+}
+
 TEST_F(IntfTest, sandesh_vm_interface_without_ip) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}

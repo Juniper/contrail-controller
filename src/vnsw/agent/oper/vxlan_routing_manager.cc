@@ -483,12 +483,6 @@ void VxlanRoutingManager::RoutingVnNotify(const VnEntry *vn,
     }
 }
 
-bool VxlanRoutingManager::VnWalkNotify(DBTablePartBase *partition,
-                                       DBEntryBase *e) {
-    VnNotify(partition, e);
-    return true;
-}
-
 void VxlanRoutingManager::VnWalkDone(DBTable::DBTableWalkRef walk_ref,
                                      DBTableBase *partition) {
 }
