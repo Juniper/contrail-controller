@@ -2975,20 +2975,17 @@ class DBInterface(object):
     @wait_for_api_server_connection
     def network_list(self, context=None, filters=None):
         ret_dict = {}
+
         def _collect_without_prune(net_ids):
             for net_id in net_ids:
                 try:
                     net_obj = self._network_read(net_id)
-                    net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST',
-                                                        context=context)
-                    ret_dict[net_id] = net_info
                 except NoIdError:
                     continue
-                except Exception as e:
-                    self.logger.error("Error in network_list: %s for id %s",
-                        str(e), net_id)
+                net_info = self._network_vnc_to_neutron(net_obj, oper=LIST, context=context)
+                if net_info is None:
                     continue
+                ret_dict[net_id] = net_info
         #end _collect_without_prune
 
         # collect phase
@@ -3049,9 +3046,9 @@ class DBInterface(object):
                 shared = filters['shared'][0]
             nets = self._network_list_filter(shared, router_external)
             for net in nets:
-                net_info = self._network_vnc_to_neutron(net,
-                                                        net_repr='LIST',
-                                                        context=context)
+                net_info = self._network_vnc_to_neutron(net, oper=LIST, context=context)
+                if net_info is None:
+                    continue
                 ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
@@ -3062,7 +3059,7 @@ class DBInterface(object):
             if net_obj.uuid in ret_dict:
                 continue
             net_fq_name = unicode(net_obj.get_fq_name())
-            if not self._filters_is_present(filters, 'contrail:fq_name',
+            if not self._filters_is_present(filters, 'fq_name',
                                             net_fq_name):
                 continue
             if not self._filters_is_present(
@@ -3080,17 +3077,8 @@ class DBInterface(object):
             if not self._filters_is_present(filters, 'shared',
                                             is_shared):
                 continue
-            if not self._filters_is_present(filters, 'tenant_id', net_obj.parent_uuid):
-                continue
-            try:
-                net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST',
-                                                        context=context)
-            except NoIdError:
-                continue
-            except Exception as e:
-                self.logger.error("Error in network_list: %s for id %s",
-                    str(e), net_obj.uuid)
+            net_info = self._network_vnc_to_neutron(net_obj, oper=LIST, context=context)
+            if net_info is None:
                 continue
             ret_dict[net_obj.uuid] = net_info
 
@@ -3381,13 +3369,11 @@ class DBInterface(object):
                 for ipam_ref in ipam_refs:
                     subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                     for subnet_vnc in subnet_vncs:
-                        try:
-                            sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
+                        sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
                                                               net_obj,
-                                                              ipam_ref['to'])
-                        except Exception as e:
-                            self.logger.error("Error in subnets_list: %s",
-                                str(e))
+                                                              ipam_ref['to'],
+                                                              oper=LIST)
+                        if sn_info is None:
                             continue
                         sn_id = sn_info['id']
                         sn_proj_id = sn_info['tenant_id']

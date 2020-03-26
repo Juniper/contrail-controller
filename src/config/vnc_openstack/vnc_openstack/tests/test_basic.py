@@ -1706,22 +1706,47 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn3_obj.set_router_external(True)
         self._vnc_lib.virtual_network_create(vn3_obj)
 
-        #filter for list of shared network='False' should return 2
+        subnet1_q = self.create_resource('subnet', proj_obj.uuid,
+                                extra_res_fields={'network_id': vn1_obj.uuid,
+                                                  'cidr': '10.0.0.0/24',
+                                                  'ip_version': 4})
+        subnet2_q = self.create_resource('subnet', proj_obj.uuid,
+                                extra_res_fields={'network_id': vn2_obj.uuid,
+                                                  'cidr': '10.1.0.0/24',
+                                                  'ip_version': 4})
+        subnet3_q = self.create_resource('subnet', proj_obj.uuid,
+                                extra_res_fields={'network_id': vn3_obj.uuid,
+                                                  'cidr': '10.2.0.0/24',
+                                                  'ip_version': 4})
+
+        #filter for list of shared network/subnet='False' should return 2
         vn1_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'shared': [False]})
-        self.assertEqual(len(vn1_neutron_list), 2)
+        vn1_3_subnet_list = self.list_resource(
+                                 'subnet', proj_uuid=proj_obj.uuid,
+                                 req_filters={'shared': [False]})
+        # shared = False should return all the networks that belongs to
+        # the tenant which will have either is_shared = False or None
+        self.assertEqual(len(vn1_neutron_list), 3)
+        self.assertEqual(len(vn1_3_subnet_list), 3)
         vn_ids = []
         vn_ids.append(vn1_neutron_list[0]['id'])
         vn_ids.append(vn1_neutron_list[1]['id'])
+        vn_ids.append(vn1_neutron_list[2]['id'])
         self.assertIn(vn1_obj.uuid, vn_ids)
+        self.assertIn(vn2_obj.uuid, vn_ids)
         self.assertIn(vn3_obj.uuid, vn_ids)
 
-        #filter for list of router:external='False' network should return 1
+        #filter for list of router:external='False' net/subnet should return 1
         vn2_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'router:external': [False]})
         self.assertEqual(len(vn2_neutron_list), 1)
+        vn2_subnet_list = self.list_resource(
+                                'subnet', proj_uuid=proj_obj.uuid,
+                                req_filters={'router:external': [False]})
+        self.assertEqual(len(vn2_subnet_list), 1)
         self.assertEqual(vn2_neutron_list[0]['id'], vn2_obj.uuid)
 
         #filter for list of router:external and
@@ -1733,10 +1758,58 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         self.assertEqual(len(vn3_neutron_list), 1)
         self.assertEqual(vn3_neutron_list[0]['id'], vn3_obj.uuid)
 
-
+        # cleanup
+        self.delete_resource('subnet', proj_obj.uuid, subnet1_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, subnet2_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, subnet3_q['id'])
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn3_obj.uuid)
+    # end test_filters_with_shared_and_router_external
+
+    def test_filters_with_complex_type(self):
+        proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+
+        vn_obj = vnc_api.VirtualNetwork('vn1-%s' %(self.id()), proj_obj)
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        mac = vnc_api.MacAddressesType(mac_address= ['00:01:00:00:0f:3c'])
+        vmi_obj = vnc_api.VirtualMachineInterface(
+                                 'vmi-%s' %(self.id()), proj_obj,
+                                 virtual_machine_interface_mac_addresses= mac)
+        vmi_obj.set_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        vmi2_obj = vnc_api.VirtualMachineInterface(
+                                 'vmi2-%s' %(self.id()), proj_obj)
+        vmi2_obj.set_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi2_obj)
+
+        # creating a port with mac address that already exist should fail
+        # port_create will do port_list with filter on mac address
+        try:
+            port_dict = self.create_resource('port', proj_obj.uuid,
+                                             extra_res_fields={
+                                                 'name':'vmi3-%s' % self.id(),
+                                                 'network_id': vn_obj.uuid,
+                                                 'mac_address':
+                                                     '00:01:00:00:0f:3c'
+                                                 })
+            self.assertTrue(False,
+                'Create port with already existing mac address passed')
+        except webtest.app.AppError as e:
+            self.assertIsNot(re.search('Bad Request', str(e)), None)
+            self.assertIsNot(re.search('MacAddressInUse', str(e)), None)
+
+        # Cleanup
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi2_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        self._vnc_lib.project_delete(id=proj_obj.uuid)
     # end test_filters_with_shared_and_router_external
 # end class TestListWithFilters
 
