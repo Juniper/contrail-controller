@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cd43d5f2_de95cda8",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 656,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-03-26T07:47:33Z",
+      "side": 1,
+      "message": "nit: you can use the tag list method of the vnc_lib:\n\n self._vnc_lib.tags_list(\n     parent_fq_name\u003dfilters,\n     fields\u003dfields)\n\nBtw do you need to set detail to get all required fields?\n\n self._vnc_lib.tags_list(\n     parent_fq_name\u003dfilters,\n     fields\u003dfields,\n     detail\u003dTrue)",
+      "range": {
+        "startLine": 656,
+        "startChar": 8,
+        "endLine": 656,
+        "endChar": 55
+      },
+      "revId": "e7afd17779537f329462bb6da985d0fd0cf62921",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "88de10a5_ee716240",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 217,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-03-26T07:47:33Z",
+      "side": 1,
+      "message": "you cannot just filter on tags. Neutron list request can combine multiple list filters like name, share, router_external, tag,.... You should integrate the tag filter into the network_list method.\n\nI think you could integrate it to any resource kind list method to have a generic implementation.",
+      "revId": "e7afd17779537f329462bb6da985d0fd0cf62921",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
