@@ -1338,6 +1338,24 @@ class VncDbClient(object):
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
                         self._object_db.object_update('virtual_machine_interface',
                                                       obj_uuid, obj_dict)
+
+                elif obj_type == 'logical_router':
+                    # Update IVNs forwarding_mode from l2 to l2_l3
+                    vn_refs = obj_dict.get('virtual_network_refs', [])
+                    for vn_ref in vn_refs:
+                        vn_type = vn_ref.get('attr', {}).get('logical_router_virtual_network_type')
+                        if vn_type == 'InternalVirtualNetwork':
+                            vn_uuid = vn_ref.get('uuid')
+                            _, result_dict = self._object_db.object_read(
+                                'virtual_network', [vn_uuid])
+                            obj_dict = result_dict[0]
+                            vn_props = obj_dict.get('virtual_network_properties', {})
+                            vn_props.update({'forwarding_mode': 'l2_l3'})
+                            self._object_db.object_update(
+                                'virtual_network',
+                                vn_uuid,
+                                {'virtual_network_properties': vn_props})
+
                 elif obj_type == 'physical_router':
                     # Encrypt PR pwd if not already done
                     if obj_dict.get('physical_router_user_credentials') and \
