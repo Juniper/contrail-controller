@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cd186f12_f4fd7760",
+        "filename": "src/config/api-server/tox.ini",
+        "patchSetId": 3
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-03-26T10:53:04Z",
+      "side": 1,
+      "message": "as I know - this requirement will be used also for py36. Or I\u0027m wrong?",
+      "revId": "100e9ef0f4a9f0ddd331d8bdbcadcfffddf6d5e3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
