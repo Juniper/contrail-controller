@@ -226,7 +226,6 @@ public:
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
     void BridgeVnNotify(const VnEntry *vn, VxlanRoutingVnState *vn_state);
     void RoutingVnNotify(const VnEntry *vn, VxlanRoutingVnState *vn_state);
-    bool VnWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VnWalkDone(DBTable::DBTableWalkRef walk_ref,
                     DBTableBase *partition);
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -245,6 +244,9 @@ public:
     }
     const VxlanRoutingVrfMapper &vrf_mapper() const {
         return vrf_mapper_;
+    }
+    AgentRouteWalker* walker() {
+        return walker_.get();
     }
 
 private:

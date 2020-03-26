@@ -3203,13 +3203,36 @@ TEST_F(IntfTest, packet_interface_get_key_verification) {
     PacketInterfaceKey key(boost::uuids::nil_uuid(), "pkt0");
     Interface *intf =
         static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key));
+    if (intf) {
     DBEntryBase::KeyPtr entry_key = intf->GetDBRequestKey();
     EXPECT_TRUE(entry_key.get() != NULL);
     client->Reset();
+    }
 
     //Issue sandesh request
     DoInterfaceSandesh("pkt0");
     client->WaitForIdle();
+}
+
+TEST_F(IntfTest, packet_interface_creation_deletion_test) {
+    PacketInterface::CreateReq(agent->interface_table(),
+                                "pkt5",
+                                Interface::TRANSPORT_ETHERNET);
+    client->WaitForIdle();
+    PacketInterfaceKey key1(boost::uuids::nil_uuid(), "pkt5");
+    Interface *intf1 =
+        static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key1));
+    EXPECT_TRUE(intf1 != NULL);
+    client->Reset();
+
+    PacketInterface::DeleteReq(agent->interface_table(),
+                                "pkt5");
+    client->WaitForIdle();
+    PacketInterfaceKey key3(boost::uuids::nil_uuid(), "pkt5");
+    intf1 =
+        static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key3));
+    EXPECT_TRUE(intf1 == NULL);
+    client->Reset();
 }
 
 TEST_F(IntfTest, sandesh_vm_interface_without_ip) {

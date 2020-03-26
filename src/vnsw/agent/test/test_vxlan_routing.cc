@@ -238,9 +238,35 @@ TEST_F(VxlanRoutingTest, Route_1) {
                    Ip4Address::from_string("1.1.1.11"), 32, true);
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, false);
+
+    VxlanRoutingRouteWalker *walker = dynamic_cast<VxlanRoutingRouteWalker*>(
+                             agent_->oper_db()->vxlan_routing_manager()->walker());
+    if (walker) {
+        VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf1");
+        if (vrf != NULL) {
+            walker->StartRouteWalk(vrf);
+        }
+    }
+    client->WaitForIdle();
+    ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
+                    "vnet10", true);
+    ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.11"), 32,
+                    "vnet11", true);
+    ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,
+                    "vnet20", false);
+    ValidateBridge("vrf1", "l3evpn_1",
+                   Ip4Address::from_string("0.0.0.0"), 0, true);
+    ValidateBridge("vrf1", "l3evpn_1",
+                   Ip4Address::from_string("1.1.1.10"), 32, true);
+    ValidateBridge("vrf1", "l3evpn_1",
+                   Ip4Address::from_string("1.1.1.11"), 32, true);
+    ValidateBridge("vrf2", "l3evpn_1",
+                   Ip4Address::from_string("2.2.2.20"), 32, false);
+
+    DeleteEnvironment(true);
+    client->WaitForIdle();
     DelLrBridgeVrf("vn1", 1);
     DelLrRoutingVrf(1);
-    DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_2) {

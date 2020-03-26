@@ -8,6 +8,7 @@
 #include "pkt/pkt_handler.h"
 #include "oper/bgp_as_service.h"
 #include "oper/bgp_router.h"
+#include "oper/health_check.h"
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
 
@@ -772,6 +773,55 @@ TEST_F(BgpServiceTest, Test_13) {
     DeleteBgpRouterConfig("127.0.0.11", 0, "ip-fabric");
     DeleteBgpRouterConfig("127.0.0.12", 0, "ip-fabric");
     client->WaitForIdle();
+}
+
+TEST_F(BgpServiceTest, Test_14) {
+    struct PortInfo input[] = {
+        {"vnet100", 100, "1.1.1.100", "00:00:01:01:01:10", 1, 100},
+    };
+
+    client->Reset();
+    AddBgpaasPortRange(50000, 50512);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    uint32_t old_bgp_service_count =
+        agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
+    std::string bgpaas = AddBgpServiceConfig("1.1.1.100", 50005,
+                                             179, 100, "vnet100", "vrf1",
+                                             "bgpaas-client", false, true);
+    client->WaitForIdle();
+    uint32_t new_bgp_service_count =
+        agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
+    EXPECT_TRUE(new_bgp_service_count == old_bgp_service_count+1);
+
+    BgpAsAService::BgpAsAServiceEntryMap map_entry =
+       Agent::GetInstance()->oper_db()->bgp_as_a_service()->bgp_as_a_service_map();
+    BgpAsAService::BgpAsAServiceEntryMapIterator map_it =
+       map_entry.begin();
+    while (map_it != map_entry.end()) {
+        EXPECT_TRUE(map_it->second->list_.size() == 1);
+        BgpAsAService::BgpAsAServiceEntryListIterator it =
+           map_it->second->list_.begin();
+        while (it != map_it->second->list_.end()) {
+            if (strcmp((*it).local_peer_ip_.to_string().c_str(),
+                       "1.1.1.100") == 0) {
+                EXPECT_TRUE((*it).health_check_configured_ == true);
+            }
+            it++;
+        }
+        map_it++;
+    }
+
+    DeleteBgpServiceConfig("1.1.1.100", 50005, "vnet100", "vrf1", true);
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    new_bgp_service_count =
+        agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
+    EXPECT_TRUE(old_bgp_service_count == new_bgp_service_count);
+    EXPECT_FALSE(VmPortActive(input, 0));
+    DelBgpaasPortRange();
 }
 
 int main(int argc, char *argv[]) {
