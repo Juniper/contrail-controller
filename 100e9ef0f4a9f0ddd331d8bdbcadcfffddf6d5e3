@@ -16,6 +16,24 @@
       "revId": "100e9ef0f4a9f0ddd331d8bdbcadcfffddf6d5e3",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b10e7fad_a8b0b66d",
+        "filename": "src/config/api-server/tox.ini",
+        "patchSetId": 3
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-03-26T11:11:40Z",
+      "side": 1,
+      "message": "yes but this not an issue to use version under 2.0.0 for python 3",
+      "parentUuid": "cd186f12_f4fd7760",
+      "revId": "100e9ef0f4a9f0ddd331d8bdbcadcfffddf6d5e3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
