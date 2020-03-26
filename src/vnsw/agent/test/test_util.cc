@@ -191,6 +191,7 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("bgp-router", "control-node-zone");
     AddLinkToMetadata("bgp-as-a-service", "control-node-zone",
                       "bgpaas-control-node-zone");
+    AddLinkToMetadata("bgp-as-a-service", "service-health-check");
     AddLinkToMetadata("virtual-network", "qos-config");
     AddLinkToMetadata("virtual-machine-interface", "qos-config");
     AddLinkToMetadata("global-qos-config", "qos-config");
@@ -4991,7 +4992,8 @@ std::string AddBgpServiceConfig(const std::string &ip,
                                 const std::string &vmi_name,
                                 const std::string &vrf_name,
                                 const std::string &bgp_router_type,
-                                bool is_shared) {
+                                bool is_shared,
+                                bool hc) {
     std::stringstream bgp_router_name;
     bgp_router_name << "bgp-router-" << source_port << "-" << ip;
     std::string str = GetBgpRouterXml(
@@ -5014,6 +5016,15 @@ std::string AddBgpServiceConfig(const std::string &ip,
     AddLink("bgp-router", bgp_router_name.str().c_str(),
             "routing-instance", vrf_name.c_str());
     client->WaitForIdle();
+
+    // Add Health check node
+    if (hc) {
+        AddHealthCheckService("HC-1", 1, "http://local-ip/", "BFD");
+        AddLink("bgp-as-a-service", bgp_router_name.str().c_str(),
+                "service-health-check", "HC-1");
+        client->WaitForIdle();
+    }
+
     AddLink("virtual-machine-interface", vmi_name.c_str(),
             "bgp-as-a-service", bgp_router_name.str().c_str());
     client->WaitForIdle();
@@ -5027,7 +5038,8 @@ std::string AddBgpServiceConfig(const std::string &ip,
 void DeleteBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
                           const std::string &vmi_name,
-                          const std::string &vrf_name) {
+                          const std::string &vrf_name,
+                          bool hc) {
     std::stringstream bgp_router_name;
     bgp_router_name << "bgp-router-" << source_port << "-" << ip;
     DelLink("virtual-machine-interface", vmi_name.c_str(),
@@ -5044,6 +5056,14 @@ void DeleteBgpServiceConfig(const std::string &ip,
     client->WaitForIdle();
     DelNode("bgp-router", bgp_router_name.str().c_str());
     client->WaitForIdle();
+    // Delete Health check node
+    if (hc) {
+        DelLink("bgp-as-a-service", bgp_router_name.str().c_str(),
+                "service-health-check", "HC-1");
+        client->WaitForIdle();
+        DelHealthCheckService("HC-1");
+        client->WaitForIdle();
+    }
     DelNode("bgp-as-a-service", bgp_router_name.str().c_str());
     client->WaitForIdle();
 }
