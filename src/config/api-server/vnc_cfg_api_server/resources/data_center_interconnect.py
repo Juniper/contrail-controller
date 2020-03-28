@@ -9,14 +9,30 @@ from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
 
+    @staticmethod
+    def _validate_intrafabric_dci(cls, obj_dict, db_conn):
+        """
+        # for intra-fabric, validate following properties:
+        #   - at least one destion LR must present
+        #   - at least one valid entry exist in VN_refs/or RP_Refs exist.
+        #   - if exists, validate VN_refs valid and exists in sourceLR
+        #   - if exists, validate RP_refs valid
+        #   - at least one PR must have selected per destination LR
+        #   - ALL destination LR's and their PR list must exist in destination_physical_router_list
+        """
+        return True, ''
+
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         # make sure referenced LRs belongs to different fabrics
-        return cls._make_sure_lrs_belongs_to_different_fabrics(
+        return cls._validate_dci_lrs_fabrics_based_on_dcitype(
             db_conn, obj_dict)
 
     @classmethod
-    def _make_sure_lrs_belongs_to_different_fabrics(cls, db_conn, dci):
+    def _validate_dci_lrs_fabrics_based_on_dcitype(cls, db_conn, dci):
+        dci_type = dci.get('data_center_interconnect_type')
+        if dci_type is None:
+            dci_type = 'inter_fabric'
         lr_list = []
         for lr_ref in dci.get('logical_router_refs') or []:
             lr_uuid = lr_ref.get('uuid')
@@ -79,11 +95,15 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        ok, read_result = cls.dbe_read(db_conn, 'data_center_interconnect',
-                                       id, obj_fields=['logical_router_refs'])
+        ok, read_result = cls.dbe_read(
+            db_conn, 'data_center_interconnect', id,
+            obj_fields=['logical_router_refs',
+                        'data_center_interconnect_type'
+                        ])
         if not ok:
             return ok, read_result
+        # for intra-fabric, changes to source LR (first LR) not allowed
 
-        # make sure referenced LRs belongs to different fabrics
-        return cls._make_sure_lrs_belongs_to_different_fabrics(
-            db_conn, read_result)
+        # make sure referenced LRs belongs to fabrics based on dcitype
+        return cls._validate_dci_lrs_fabrics_based_on_dcitype(
+            db_conn, obj_dict)
