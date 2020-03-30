@@ -30,15 +30,13 @@ set groups {{cfg_group}} forwarding-options storm-control-profiles {{sc_profile_
 set groups {{cfg_group}} forwarding-options storm-control-profiles {{sc_profile_name}} all bandwidth-percentage {{sc_bw_percent}} {{sc_traffic_options_str}}
 {% endfor %}
 {%  for phy_int in device_abstract_config.get('features', {}).get('storm-control', {}).get('physical_interfaces', []) %}
-{%     for li in phy_int.get('logical_interfaces', []) %}
-{%         set sc_profile_name = li.get('storm_control_profile') %}
-{%         if  sc_profile_name %}
+{%      set sc_profile_name = phy_int.get('storm_control_profile') %}
+{%      if sc_profile_name %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching storm-control {{sc_profile_name}}
-{%             set sc_actions = sc_map.get(sc_profile_name, {}).get('actions', []) %}
-{%             set sc_recovery_timeout = sc_map.get(sc_profile_name, {}).get('recovery_timeout') %}
-{%             if 'interface-shutdown' in sc_actions %}
+{%         set sc_actions = sc_map.get(sc_profile_name, {}).get('actions', []) %}
+{%         set sc_recovery_timeout = sc_map.get(sc_profile_name, {}).get('recovery_timeout') %}
+{%         if 'interface-shutdown' in sc_actions %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching recovery-timeout {{sc_recovery_timeout | default(600, true) }}
-{%             endif %}
 {%         endif %}
-{%     endfor %}
+{%     endif %}
 {% endfor %}

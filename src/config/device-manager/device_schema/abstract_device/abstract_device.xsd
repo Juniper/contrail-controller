@@ -315,6 +315,7 @@
        <xsd:element name="link-aggregation-group" type="dac:LinkAggrGroup"/>
        <xsd:element name="logical-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <xsd:element name="telemetry-profile" type="xsd:string"/>
+       <xsd:element name="storm-control-profile" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
