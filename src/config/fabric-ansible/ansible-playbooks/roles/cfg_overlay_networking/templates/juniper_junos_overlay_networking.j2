@@ -47,7 +47,7 @@ and this template generates configs to extend VN to the box.#}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type vrf
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{irb_interface}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} route-distinguisher {{route_distinguisher}}:{{vn_id_num_l3}}
-set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target target:{{as_number}}:{{vn_id_num_l3}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target target:{{as_number | asnfilter}}:{{vn_id_num_l3}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import REJECT-MAINTENANCE-MODE
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{l3_vrf_import}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{l3_vrf_export}}
