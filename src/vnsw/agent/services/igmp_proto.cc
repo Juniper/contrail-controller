@@ -237,7 +237,13 @@ void IgmpProto::IncrSendStats(const VmInterface *vm_itf, bool tx_done) {
     state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
                                 vn->get_table_partition()->parent(),
                                 vn_listener_id()));
+    if (!state) {
+        return;
+    }
     const VnIpam *ipam = vn->GetIpam(vm_itf->primary_ip_addr());
+    if (!ipam) {
+        return;
+    }
     IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
                             state->igmp_state_map_.find(ipam->default_gw);
     if (it == state->igmp_state_map_.end()) {
@@ -267,6 +273,9 @@ const bool IgmpProto::GetItfStats(const VnEntry *vn, IpAddress gateway,
     IgmpInfo::VnIgmpDBState *state = NULL;
     state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
                             vn->get_table_partition()->parent(), vn_listener_id_));
+    if (!state) {
+        return false;
+    }
 
     IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
                             state->igmp_state_map_.find(ipam->default_gw);
@@ -283,8 +292,12 @@ const bool IgmpProto::GetItfStats(const VnEntry *vn, IpAddress gateway,
 
 void IgmpProto::ClearItfStats(const VnEntry *vn, IpAddress gateway) {
 
-    const VnIpam *ipam = vn->GetIpam(gateway);
     if (!vn) {
+        return;
+    }
+
+    const VnIpam *ipam = vn->GetIpam(gateway);
+    if (!ipam) {
         return;
     }
 
