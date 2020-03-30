@@ -14,7 +14,8 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 
-from .db import StormControlProfileDM, VirtualPortGroupDM
+from .db import PhysicalInterfaceDM, PortProfileDM, StormControlProfileDM, \
+    VirtualMachineInterfaceDM, VirtualPortGroupDM
 from .feature_base import FeatureBase
 
 import gevent # noqa
@@ -28,7 +29,7 @@ class StormControlFeature(FeatureBase):
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
-        self.pi_map = None
+        self.pi_list = None
         self.sc_map = None
         super(StormControlFeature, self).__init__(logger, physical_router,
                                                   configs)
@@ -41,43 +42,35 @@ class StormControlFeature(FeatureBase):
             self.sc_map[sc_name] = sc_obj
     # end _add_to_sc_map
 
-    def _build_storm_control_interface_config(self, interfaces):
-        gevent.idle()
-        interface_map = OrderedDict()
-        for interface in interfaces:
-            interface_map.setdefault(interface.pi_name, []).append(interface)
-
-        for pi_name, interface_list in list(interface_map.items()):
-            _, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
-            for interface in interface_list:
-                if int(interface.vlan_tag) == 0:
-                    vlan_tag = str(interface.port_vlan_tag)
-                else:
-                    vlan_tag = str(interface.vlan_tag)
-                unit = self._add_or_lookup_li(li_map, interface.li_name,
-                                              interface.unit)
-                unit.set_vlan_tag(vlan_tag)
-                # attach port profiles
-                self._attach_port_profiles(unit,
-                                           interface)
-
-    def _attach_port_profiles(self, unit, interface):
-        pp_list = []
-        vpg_obj = interface.vpg_obj
-        pp_list_temp = \
-            vpg_obj.get_attached_port_profiles(unit.get_vlan_tag(),
-                                               interface)
-        for pp in pp_list_temp:
-            if pp not in pp_list:
-                pp_list.append(pp)
-
-        for pp in pp_list or []:
-            sc_uuid = pp.storm_control_profile
-            scp = StormControlProfileDM.get(sc_uuid)
-            if scp:
-                self._build_storm_control_config(scp)
-                sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
-                unit.set_storm_control_profile(sc_name)
+    def _build_storm_control_interface_config(self):
+        pr = self._physical_router
+        for vpg_uuid in pr.virtual_port_groups or []:
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
+                continue
+            pp_list = vpg_obj.port_profiles
+            for pp_uuid in pp_list or []:
+                pp = PortProfileDM.get(pp_uuid)
+                if pp:
+                    sc_uuid = pp.storm_control_profile
+                    scp = StormControlProfileDM.get(sc_uuid)
+                    if scp:
+                        self._build_storm_control_config(scp)
+                        sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
+                        for pi_uuid in vpg_obj.physical_interfaces or []:
+                            if pi_uuid not in pr.physical_interfaces:
+                                continue
+                            ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
+                            if ae_id is not None:
+                                ae_intf_name = 'ae' + str(ae_id)
+                                pi = PhysicalInterface(name=ae_intf_name)
+                            else:
+                                pi_obj = PhysicalInterfaceDM.get(pi_uuid)
+                                pi = PhysicalInterface(name=pi_obj.name)
+                            if pi not in self.pi_list:
+                                self.pi_list.add(pi)
+                            pi.set_storm_control_profile(sc_name)
+    # end _build_storm_control_interface_config
 
     def _build_storm_control_config(self, scp):
         sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
@@ -100,30 +93,23 @@ class StormControlFeature(FeatureBase):
             sc.set_recovery_timeout(params.get('recovery_timeout'))
             sc.set_actions(params.get('storm_control_actions'))
         self._add_to_sc_map(sc_name, sc)
-
-    def _get_connected_vn_li_map(self):
-        vns = self._get_connected_vns('l2')
-        vn_li_map = self._get_vn_li_map('l2')
-        for vn in vns:
-            vn_li_map.setdefault(vn, [])
-        return vn_li_map
-    # end _get_connected_vn_li_map
+    # end _build_storm_control_config
 
     def feature_config(self, **kwargs):
-        self.pi_map = OrderedDict()
+        self.pi_list = set()
         self.sc_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
 
+        # storm control feature is only supported with enterprise
+        # style configs. User can on-board PR with ERB role in a SP
+        # style fabric, which supports only enterprise style config
         if (not self._is_enterprise_style(self._physical_router) and
            not self._physical_router.is_erb_only()):
             return feature_config
 
-        vn_dict = self._get_connected_vn_li_map()
-        for vn_uuid, interfaces in list(vn_dict.items()):
-            self._build_storm_control_interface_config(interfaces)
+        self._build_storm_control_interface_config()
 
-        for pi, li_map in list(self.pi_map.values()):
-            pi.set_logical_interfaces(list(li_map.values()))
+        for pi in self.pi_list:
             feature_config.add_physical_interfaces(pi)
 
         for sc_name in self.sc_map:
