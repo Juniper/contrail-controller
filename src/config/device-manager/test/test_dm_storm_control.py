@@ -25,7 +25,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def tearDown(self):
         self.idle_patch.stop()
         super(TestAnsibleStormControlDM, self).tearDown()
-
+   
     def test_01_storm_control_profile_update(self):
         # create objects
 
@@ -296,8 +296,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         self.delete_objects()
 
-    # TBD: Please enable test_06 once VPG for scale setup issue has been resolved
-    @skip("Timing failures")
     def test_06_port_profile_multiple_vpgs_same_vlan(self):
         # create objects
 
@@ -624,7 +622,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             })
         ])
 
-    def create_vpg_dependencies(self, enterprise_style=True,
+    def create_vpg_dependencies(self, enterprise_style=False,
                                 role='erb-ucast-gateway', mh=False):
 
         pr2 = None
