@@ -15,6 +15,20 @@ from ansible_conf import JunosInterface
 from abstract_device_api.abstract_device_xsd import *
 import gevent
 
+<<<<<<< HEAD   (c5c2ef Merge "[DM] Enabled loops 2 for overlay_bgp group for all ju)
+=======
+from .db import AccessControlListDM, DataCenterInterconnectDM, \
+    GlobalVRouterConfigDM, InstanceIpDM, LogicalInterfaceDM, \
+    LogicalRouterDM, NetworkIpamDM, PhysicalInterfaceDM, \
+    PhysicalRouterDM, PortDM, PortTupleDM, RoutingInstanceDM, \
+    SecurityGroupDM, ServiceApplianceDM, ServiceApplianceSetDM, ServiceInstanceDM, \
+    ServiceTemplateDM, TagDM, VirtualMachineInterfaceDM, \
+    VirtualNetworkDM, VirtualPortGroupDM
+from .dm_utils import DMUtils
+from .ansible_conf import AnsibleConf
+from .ansible_conf import JunosInterface
+
+>>>>>>> CHANGE (933729 [DM][API] - Handling of refs between VPG and Port profile/Se)
 
 class AnsibleRoleCommon(AnsibleConf):
 
@@ -462,12 +476,17 @@ class AnsibleRoleCommon(AnsibleConf):
         sg_list = []
         # now the vpg obj is available in interface object as vpg_obj
         vpg_obj = interface.vpg_obj
-        sg_list_temp = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
-                                                    interface)
-        for sg in sg_list_temp:
-            if sg not in sg_list:
-                sg_list.append(sg)
 
+        # For an enterprise style fabric, VPG has SG refs
+        # For SP style fabric, VMI has SG refs
+        if self._is_enterprise_style():
+            sg_uuids = vpg_obj.security_groups
+            for sg in sg_uuids:
+                sg = SecurityGroupDM.get(sg)
+                sg_list.append(sg)
+        else:
+            sg_list = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
+                                                    interface)
         for sg in sg_list or []:
             acls = sg.access_control_lists
             for acl in acls or []:
@@ -833,23 +852,6 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.add_protocol_term(term, protocol_match)
             self.firewall_config.add_firewall_filters(f)
     # end build_firewall_filters
-
-    def build_firewall_config(self):
-        pr = self.physical_router
-        if not pr:
-            return
-        sg_list = []
-
-        if LogicalInterfaceDM.get_sg_list():
-            sg_list += LogicalInterfaceDM.get_sg_list()
-
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
-    # end build_firewall_config
 
     def is_default_sg(self, match):
         if (not match.get_dst_address()) or \
@@ -1512,7 +1514,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_internal_vn_routed_vn_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
-        self.build_firewall_config()
         self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
