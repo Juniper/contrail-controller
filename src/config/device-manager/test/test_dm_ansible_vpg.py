@@ -321,7 +321,8 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         #create objects
         self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])
         jt = self.create_job_template('job-template-lag')
-        fabric = self.create_fabric('test-fabric-vpg')
+        fabric = self.create_fabric('test-fabric-vpg',
+            fabric_enterprise_style=False)
         np, rc = self.create_node_profile('node-profile-lag',
             device_family='junos-qfx',
             role_mappings=[
@@ -411,7 +412,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
 
         jt = self.create_job_template('job-template-1')
         fabric = self.create_fabric('test-fabric',
-            fabric_enterprise_style=True)
+            fabric_enterprise_style=False)
         np, rc = self.create_node_profile('node-profile-1',
             device_family='junos-qfx',
             role_mappings=[
