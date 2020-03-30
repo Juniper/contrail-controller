@@ -1775,6 +1775,7 @@ class SecurityGroupDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.virtual_machine_interfaces = set()
+        self.virtual_port_groups = set()
         self.update(obj_dict)
     # end __init__
 
@@ -1784,6 +1785,7 @@ class SecurityGroupDM(DBBaseDM):
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('virtual_port_group', obj)
         self.set_children('access_control_list', obj)
     # end update
 
@@ -1793,6 +1795,7 @@ class SecurityGroupDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs('virtual_port_group', {})
         del cls._dict[uuid]
     # end delete
 # end SecurityGroupDM
@@ -3192,6 +3195,7 @@ class PortProfileDM(DBBaseDM):
         self.uuid = uuid
         self.storm_control_profile = None
         self.virtual_machine_interface = None
+        self.virtual_port_group = None
         self.update(obj_dict)
     # end __init__
 
@@ -3201,12 +3205,14 @@ class PortProfileDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_single_ref('virtual_machine_interface', obj)
+        self.update_single_ref('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
     # end update
 
     def delete_obj(self):
         self.update_single_ref('storm_control_profile', {})
         self.update_single_ref('virtual_machine_interface', {})
+        self.update_single_ref('virtual_port_group', {})
     # end delete_obj
 # end class PortProfileDM
 
@@ -3350,6 +3356,8 @@ class VirtualPortGroupDM(DBBaseDM):
         self.name = None
         self.physical_interfaces = set()
         self.virtual_machine_interfaces = set()
+        self.security_groups = set()
+        self.port_profiles = set()
         self.esi = None
         self.pi_ae_map = {}
         self.update(obj_dict)
@@ -3363,6 +3371,8 @@ class VirtualPortGroupDM(DBBaseDM):
         self.add_to_parent(obj)
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('security_group', obj)
+        self.update_multiple_refs('port_profile', obj)
         self.get_ae_for_pi(obj.get('physical_interface_refs'))
         self.build_lag_pr_map()
 
@@ -3439,28 +3449,6 @@ class VirtualPortGroupDM(DBBaseDM):
 
         return False
 
-    def get_attached_port_profiles(self, vlan_tag, interface):
-        pp_list = []
-        # the sc profile is tied to the vpg, and same profile gets propogated
-        # across all vmi's of the given VPG, so just process first vmi
-        vmi_obj = None
-        if list(self.virtual_machine_interfaces):
-            vmi_uuid = list(self.virtual_machine_interfaces)[0]
-            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
-        if not vmi_obj:
-            return pp_list
-
-        if self._check_if_correct_vmi_object(vmi_obj, interface,
-                                             vlan_tag):
-
-            for pp in vmi_obj.port_profiles or []:
-                pp = PortProfileDM.get(pp)
-                if pp and pp not in pp_list:
-                    pp_list.append(pp)
-        return pp_list
-
-    # end get_attached_port_profiles
-
     def delete_obj(self):
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
@@ -3470,6 +3458,8 @@ class VirtualPortGroupDM(DBBaseDM):
 
         self.update_multiple_refs('physical_interface', {})
         self.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs('security_group', {})
+        self.update_multiple_refs('port_profile', {})
         self.remove_from_parent()
     # end delete_obj
 # end class VirtualPortGroupDM

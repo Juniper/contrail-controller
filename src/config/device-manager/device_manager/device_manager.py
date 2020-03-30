@@ -106,6 +106,8 @@ class DeviceManager(object):
         'virtual_port_group': {
             'self': ['physical_interface'],
             'virtual_machine_interface': ['physical_interface'],
+            'port_profile': ['physical_interface'],
+            'security_group': ['physical_interface'],
             'physical_interface': ['physical_interface'],
         },
         'fabric': {
@@ -175,15 +177,17 @@ class DeviceManager(object):
         },
         'security_group': {
             'self': [],
-            'access_control_list': ['virtual_machine_interface'],
+            'access_control_list': ['virtual_machine_interface',
+                                    'virtual_port_group'],
         },
         'access_control_list': {
             'self': ['security_group'],
             'security_group': [],
         },
         'port_profile': {
-            'self': ['virtual_machine_interface'],
-            'storm_control_profile': ['virtual_machine_interface'],
+            'self': ['virtual_machine_interface', 'virtual_port_group'],
+            'storm_control_profile': ['virtual_machine_interface',
+                                      'virtual_port_group'],
         },
         'storm_control_profile': {
             'self': ['port_profile'],
