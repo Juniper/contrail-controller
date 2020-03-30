@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cfbb969e_c2d2397c",
+        "filename": "src/config/device-manager/test/test_dm_storm_control.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-03-30T22:58:04Z",
+      "side": 1,
+      "message": "whitespace",
+      "revId": "f8f96c0ae5aa6ba3684888857ce7337233bb0ab5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
