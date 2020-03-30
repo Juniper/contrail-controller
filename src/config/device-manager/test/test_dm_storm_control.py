@@ -6,13 +6,8 @@ from builtins import str
 import gevent
 import mock
 from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
-from cfgm_common.tests.test_common import retries
-from cfgm_common.tests.test_common import retry_exc_handler
-from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
-from unittest import skip
 from vnc_api.vnc_api import *
+from .test_dm_ansible_common import TestAnsibleCommonDM
 
 
 class TestAnsibleStormControlDM(TestAnsibleCommonDM):
@@ -35,11 +30,12 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         actions = ['interface-shutdown']
 
         self.create_feature_objects_and_params()
+
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies()
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -49,7 +45,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         gevent.sleep(1)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
-
         storm_control_profiles = device_abstract_config.get(
             'features', {}).get('storm-control',{}).get('storm_control', [])
         storm_control_profile = storm_control_profiles[-1]
@@ -88,11 +83,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('traffic_type'), None)
         self.assertEqual(storm_control_profile.get('recovery_timeout'), 1200)
 
-        # delete workflow
-
         self.delete_objects()
 
-    def test_02_port_profile_vmi_association(self):
+    def test_02_port_profile_vpg_association(self):
         # create objects
 
         sc_name = 'strm_ctrl_vmi'
@@ -106,7 +99,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies()
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
 
         # this should trigger reaction map so that PR
@@ -132,15 +125,11 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         phy_interfaces = device_abstract_config.get(
             'features', {}).get('storm-control', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "xe-0/0/0" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
+            if "xe-0/0/0" in phy_int.get('name'):
+                self.assertEqual(phy_int.get('storm_control_profile'),
+                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
 
         self.delete_objects()
-
 
     def test_03_port_profile_service_provider_style_crb_access(self):
         # create objects
@@ -156,7 +145,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies(enterprise_style=False, role='crb-access')
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -171,13 +160,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         self.assertEqual(storm_control_profiles, [])
 
-
-        # delete workflow
-
         self.delete_objects()
 
-
-    def test_04_disassociate_PP_from_VMI(self):
+    def test_04_disassociate_port_profile_from_vpg(self):
         sc_name = 'strm_ctrl_pp'
         bw_percent = 20
         traffic_type = ['no-broadcast', 'no-multicast']
@@ -189,7 +174,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies()
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
 
         # this should trigger reaction map so that PR
@@ -217,8 +202,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         # now disassociate the port profile from VMI
 
-        vmi_obj.set_port_profile_list([])
-        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        vpg_obj.set_port_profile_list([])
+        self._vnc_lib.virtual_port_group_update(vpg_obj)
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -237,14 +222,10 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         phy_interfaces = device_abstract_config.get(
             'features', {}).get('storm-control', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "xe-0/0/0" in log_intf.get('name'):
-                    self.assertIsNone(log_intf.get('storm_control_profile'))
-        # delete workflow
+            if "xe-0/0/0" in phy_int.get('name'):
+                self.assertIsNone(phy_int.get('storm_control_profile'))
 
         self.delete_objects()
-
 
     def test_05_port_profile_service_provider_style_erb_ucast(self):
         # create objects
@@ -260,7 +241,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies(enterprise_style=False)
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
 
         # this should trigger reaction map so that PR
@@ -286,89 +267,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         phy_interfaces = device_abstract_config.get(
             'features', {}).get('storm-control', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "xe-0/0/0" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-
-        # delete workflow
-
-        self.delete_objects()
-
-    # TBD: Please enable test_06 once VPG for scale setup issue has been resolved
-    @skip("Timing failures")
-    def test_06_port_profile_multiple_vpgs_same_vlan(self):
-        # create objects
-
-        sc_name_1 = 'strm_ctrl_multi_vpg_1'
-        sc_name_2 = 'strm_ctrl_multi_vpg_2'
-        bw_percent_1 = 47
-        bw_percent_2 = 52
-        traffic_type_1 = ['no-broadcast', 'no-multicast']
-        actions_1 = ['interface-shutdown']
-        traffic_type_2 = ['no-registered-multicast', 'no-unknown-unicast']
-
-        self.create_feature_objects_and_params()
-
-        sc_obj_1 = self.create_storm_control_profile(sc_name_1, bw_percent_1, traffic_type_1, actions_1, recovery_timeout=900)
-        pp_obj_1 = self.create_port_profile('port_profile_vmi_1', sc_obj_1)
-
-        sc_obj_2 = self.create_storm_control_profile(sc_name_2, bw_percent_2, traffic_type_2, None)
-        pp_obj_2 = self.create_port_profile('port_profile_vmi_2', sc_obj_2)
-
-        sc_obj1_fqname = sc_obj_1.get_fq_name()
-        sc_obj2_fqname = sc_obj_2.get_fq_name()
-
-        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies()
-        vmi_obj_1 = self.create_vpg_and_vmi(pp_obj_1, pr1, fabric, pi_obj_1, vn_obj, pp_obj_2)
-        vmi_obj_2 = self.create_vpg_and_vmi(pp_obj_2, pr1, fabric, pi_obj_2, vn_obj, pp_obj_2=pp_obj_1, vpg_nm=2)
-
-        # this should trigger reaction map so that PR
-        # config changes and device abstract config is generated.
-        # verify the generated device abstract config properties
-
-        gevent.sleep(1)
-        abstract_config = self.check_dm_ansible_config_push()
-
-        device_abstract_config = abstract_config.get('device_abstract_config')
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
-        self.assertEqual(len(storm_control_profiles), 2)
-        for storm_control_profile in storm_control_profiles:
-            if storm_control_profile.get('name') == sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2]:
-                self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent_1)
-                self.assertEqual(storm_control_profile.get('actions'), actions_1)
-                self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type_1)
-                self.assertEqual(storm_control_profile.get('recovery_timeout'), 900)
-            else:
-                self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent_2)
-                self.assertEqual(storm_control_profile.get('actions'), None)
-                self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type_2)
-                self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
-
-
-        phy_interfaces = device_abstract_config.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
-        for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "xe-0/0/0" in log_intf.get('name'):
-                    if log_intf.get('unit') == '10':
-                        self.assertEqual(log_intf.get('storm_control_profile'),
-                                         sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2])
-                    else:
-                        self.assertEqual(log_intf.get('storm_control_profile'),
-                                         sc_obj2_fqname[-1] + "-" + sc_obj2_fqname[-2])
-                elif "xe-0/0/1" in log_intf.get('name'):
-                    if log_intf.get('unit') == '10':
-                        self.assertEqual(log_intf.get('storm_control_profile'),
-                                         sc_obj2_fqname[-1] + "-" + sc_obj2_fqname[-2])
-                    else:
-                        self.assertEqual(log_intf.get('storm_control_profile'),
-                                         sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2])
-
-        # delete workflow
+            if "xe-0/0/0" in phy_int.get('name'):
+                self.assertEqual(phy_int.get('storm_control_profile'),
+                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
 
         self.delete_objects()
 
@@ -386,7 +287,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, _, _ = self.create_vpg_dependencies()
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj,
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj,
                                           pi_obj2=pi_obj_2)
 
         # this should trigger reaction map so that PR
@@ -412,12 +313,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         phy_interfaces = device_abstract_config.get(
             'features', {}).get('storm-control', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "ae" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
+            if "ae" in phy_int.get('name'):
+               self.assertEqual(phy_int.get('storm_control_profile'),
+                                sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
 
         self.delete_objects()
 
@@ -435,7 +333,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
         pr1, fabric, pi_obj_1, _, vn_obj, pr2, pi_obj_1_pr2 = self.create_vpg_dependencies(mh=True)
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj,
+        vpg_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj,
                                           pi_obj2=pi_obj_1_pr2, pr2=pr2)
 
         # this should trigger reaction map so that PR
@@ -474,11 +372,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         phy_interfaces = device_abstract_config_1.get(
             'features', {}).get('storm-control', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "ae" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+            if "ae" in phy_int.get('name'):
+                self.assertEqual(phy_int.get('storm_control_profile'),
+                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
 
         self.assertEqual(device_abstract_config_2.get('system', {}).get(
             'management_ip'), "3.3.3.2")
@@ -495,118 +391,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         phy_interfaces = device_abstract_config_2.get(
             'features', {}).get('storm-control', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "ae" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
-
-        self.delete_objects()
-
-
-    def test_09_vpg_mh_and_single(self):
-        # create objects
-
-        sc_name = 'strm_ctrl_mh_and_single'
-        bw_percent = 43
-        traffic_type = ['no-broadcast']
-        actions = ['interface-shutdown']
-
-        sc_name_2 = 'strm_ctrl_2'
-        bw_percent_2 = 52
-        traffic_type_2 = ['no-registered-multicast', 'no-unknown-unicast']
-
-        self.create_feature_objects_and_params()
-
-        sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=900)
-        pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
-
-        sc_obj_2 = self.create_storm_control_profile(sc_name_2, bw_percent_2, traffic_type_2, None)
-        pp_obj_2 = self.create_port_profile('port_profile_vmi_2', sc_obj_2)
-
-        sc_obj_fqname = sc_obj.get_fq_name()
-        sc_obj2_fqname = sc_obj_2.get_fq_name()
-
-        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj, pr2, pi_obj_1_pr2 = self.create_vpg_dependencies(mh=True)
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj,
-                                          pi_obj2=pi_obj_1_pr2, pr2=pr2)
-        vmi_obj = self.create_vpg_and_vmi(pp_obj_2, pr1, fabric,
-                                          pi_obj_2, vn_obj, vpg_nm=2)
-
-        # this should trigger reaction map so that PR
-        # config changes and device abstract config is generated.
-        # verify the generated device abstract config properties
-
-        # create a dummy product_name just to cause a config push
-        pr1.set_physical_router_product_name('qfx5110-6s-4c')
-        self._vnc_lib.physical_router_update(pr1)
-        gevent.sleep(1)
-        abstract_config = self.check_dm_ansible_config_push()
-
-        device_abstract_config_1 = abstract_config.get('device_abstract_config')
-
-        # create a dummy product_name just to cause a config push
-        pr2.set_physical_router_product_name('qfx5110-6s-4c')
-        self._vnc_lib.physical_router_update(pr2)
-        gevent.sleep(1)
-        abstract_config = self.check_dm_ansible_config_push()
-
-        device_abstract_config_2 = abstract_config.get('device_abstract_config')
-
-        self.assertEqual(device_abstract_config_1.get('system', {}).get(
-            'management_ip'), "3.3.3.3")
-
-        storm_control_profiles = device_abstract_config_1.get(
-            'features', {}).get('storm-control', {}).get('storm_control', [])
-
-        self.assertEqual(len(storm_control_profiles), 2)
-        for storm_control_profile in storm_control_profiles:
-            if storm_control_profile.get('name') == sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2]:
-                self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
-                self.assertEqual(storm_control_profile.get('actions'), actions)
-                self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
-                self.assertEqual(storm_control_profile.get('recovery_timeout'), 900)
-            else:
-                self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent_2)
-                self.assertEqual(storm_control_profile.get('actions'), None)
-                self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type_2)
-                self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
-
-        phy_interfaces = device_abstract_config_1.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
-        for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "xe-0/0/1" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj2_fqname[-1] + "-" + sc_obj2_fqname[-2])
-                else:
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-
-        self.assertEqual(device_abstract_config_2.get('system', {}).get(
-            'management_ip'), "3.3.3.2")
-        storm_control_profiles = device_abstract_config_2.get(
-            'features', {}).get('storm-control', {}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
-        sc_obj_fqname = sc_obj.get_fq_name()
-        self.assertEqual(storm_control_profile.get('name'),
-                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
-        self.assertEqual(storm_control_profile.get('actions'), actions)
-        self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
-        self.assertEqual(storm_control_profile.get('recovery_timeout'), 900)
-
-        phy_interfaces = device_abstract_config_2.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
-        for phy_int in phy_interfaces:
-            log_intfs = phy_int.get('logical_interfaces', [])
-            for log_intf in log_intfs:
-                if "ae" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'),
-                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
+            if "ae" in phy_int.get('name'):
+                self.assertEqual(phy_int.get('storm_control_profile'),
+                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
 
         self.delete_objects()
 
@@ -631,9 +418,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         pi_obj_1_pr2 = None
         jt = self.create_job_template('job-template-sc' + self.id())
 
-        fabric = self.create_fabric('fab-sc' + self.id())
-        fabric.set_fabric_enterprise_style(enterprise_style)
-        self._vnc_lib.fabric_update(fabric)
+        fabric = self.create_fabric('fab-sc' + self.id(),
+                     fabric_enterprise_style=enterprise_style)
 
         np, rc = self.create_node_profile('node-profile-sc' + self.id(),
             device_family='junos-qfx',
@@ -684,7 +470,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
     def create_vpg_and_vmi(self, pp_obj_1, pr1, fabric, pi_obj,
                            vn_obj, pp_obj_2=None, pr2=None, pi_obj2=None, vpg_nm=1):
-
         device_name = pr1.get_fq_name()[-1]
         fabric_name = fabric.get_fq_name()[-1]
         phy_int_name = pi_obj.get_fq_name()[-1]
@@ -784,9 +569,10 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             vpg_obj.set_physical_interface(pi_obj)
         self._vnc_lib.virtual_port_group_create(vpg_obj)
 
-        vmi_obj_1.set_port_profile(pp_obj_1)
-        self._vnc_lib.virtual_machine_interface_create(vmi_obj_1)
+        vpg_obj.set_port_profile(pp_obj_1)
+        self._vnc_lib.virtual_port_group_update(vpg_obj)
 
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj_1)
         vpg_obj.set_virtual_machine_interface_list([{'uuid': vmi_obj_1.get_uuid()}])
 
         if pp_obj_2:
@@ -796,8 +582,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                                                         {'uuid': vmi_obj_2.get_uuid()}])
         self._vnc_lib.virtual_port_group_update(vpg_obj)
 
-
-        return vmi_obj_1
+        return vpg_obj
 
     def delete_objects(self):
 
