@@ -220,7 +220,7 @@ class SchemaTransformer(object):
         def timed_yield(self, is_evaluate_yield=False):
             now = time.time()
             if now > self.timeout:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
                 self.timeout = time.time() + self.max_time
                 if self.print_stats:
                     self.total_yield_stats += 1
