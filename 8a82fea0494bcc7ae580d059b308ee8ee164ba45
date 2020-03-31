@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "27bd1709_f2be7f6a",
+        "filename": "src/vnsw/agent/pkt/test/test_bgp_service.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 778,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-03-31T11:52:05Z",
+      "side": 1,
+      "message": "can you please add testcase details",
+      "range": {
+        "startLine": 778,
+        "startChar": 7,
+        "endLine": 778,
+        "endChar": 21
+      },
+      "revId": "8a82fea0494bcc7ae580d059b308ee8ee164ba45",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
