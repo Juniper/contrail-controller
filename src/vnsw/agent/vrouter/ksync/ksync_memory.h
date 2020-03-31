@@ -35,6 +35,7 @@ public:
     bool AuditProcess();
     void MapSharedMemory();
     void GetTableSize();
+    int GetKernelTableSize();
     void UnmapMemTest();
 
     virtual int EncodeReq(nl_client *nl, uint32_t attr_len) = 0;
