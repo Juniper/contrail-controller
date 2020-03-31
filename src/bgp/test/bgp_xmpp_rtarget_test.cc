@@ -458,8 +458,8 @@ protected:
         TASK_UTIL_EXPECT_EQ(cn2_local_asn, cn2_->local_autonomous_system());
         TASK_UTIL_EXPECT_EQ(mx_local_asn, mx_->local_autonomous_system());
 
-        vector<string> instance_names =
-            list_of("blue")("pink")("red")("purple")("yellow");
+        vector<string> instance_names = {"blue", "pink", "red", "purple",
+                                         "yellow"};
         multimap<string, string> connections;
         NetworkConfig(instance_names, connections);
 
@@ -2487,7 +2487,7 @@ TEST_F(BgpXmppRTargetTest, IdentifierUpdate1) {
     agent_a_1_->Subscribe("blue", 1);
     agent_a_2_->Subscribe("blue", 1);
 
-    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    vector<string> nexthops0 = {"192.168.0.1", "192.168.0.2"};
     VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(mx_.get(), "64496:target:64496:1", nexthops0);
@@ -2545,7 +2545,7 @@ TEST_F(BgpXmppRTargetTest, IdentifierUpdate2) {
     agent_a_1_->Subscribe("blue", 1);
     agent_a_2_->Subscribe("blue", 1);
 
-    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    vector<string> nexthops0 = {"192.168.0.1", "192.168.0.2"};
     VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(cn2_.get(), "64497:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(mx_.get(), "64497:target:64496:1", nexthops0);
@@ -4325,7 +4325,7 @@ TEST_F(BgpXmppRTargetTest, AlwaysSubscribeIdentifierUpdate1) {
     SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
     SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
 
-    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    vector<string> nexthops0 = {"192.168.0.1", "192.168.0.2"};
     VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(mx_.get(), "64496:target:64496:1", nexthops0);
@@ -4379,7 +4379,7 @@ TEST_F(BgpXmppRTargetTest, AlwaysSubscribeIdentifierUpdate2) {
     SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
     SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
 
-    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    vector<string> nexthops0 = {"192.168.0.1", "192.168.0.2"};
     VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(cn2_.get(), "64497:target:64496:1", nexthops0);
     VerifyRTargetRouteNexthops(mx_.get(), "64497:target:64496:1", nexthops0);

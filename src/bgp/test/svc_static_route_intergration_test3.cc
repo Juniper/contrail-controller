@@ -42,23 +42,23 @@ TYPED_TEST(ServiceChainIntegrationTest, BidirectionalChain) {
     TASK_UTIL_EXPECT_TRUE(this->IsServiceChainQEmpty(this->cn2_.get()));
 
     vector<PathVerify> pl_blue;
-    PathVerify verify_blue1(
-        "88.88.88.88", "ServiceChain", "88.88.88.88", list_of("gre"), "red");
-    PathVerify verify_blue2(
-        "88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of("gre"), "red");
+    PathVerify verify_blue1("88.88.88.88", "ServiceChain", "88.88.88.88",
+                            {"gre"}, "red");
+    PathVerify verify_blue2("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "red");
     pl_blue.push_back(verify_blue1);
     pl_blue.push_back(verify_blue2);
 
     vector<PathVerify> pl_red;
-    PathVerify verify_red1(
-        "66.66.66.66", "ServiceChain", "66.66.66.66", list_of("gre"), "blue");
-    PathVerify verify_red2(
-        "66.66.66.66", "BGP_XMPP", "66.66.66.66", list_of("gre"), "blue");
+    PathVerify verify_red1("66.66.66.66", "ServiceChain", "66.66.66.66",
+                           {"gre"}, "blue");
+    PathVerify verify_red2("66.66.66.66", "BGP_XMPP", "66.66.66.66", {"gre"},
+                           "blue");
     pl_red.push_back(verify_red1);
     pl_red.push_back(verify_red2);
 
-    vector<string> origin_vn_path_blue = list_of("blue");
-    vector<string> origin_vn_path_red = list_of("red");
+    vector<string> origin_vn_path_blue = {"blue"};
+    vector<string> origin_vn_path_red = {"red"};
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
         this->VerifyServiceChainRoute(this->cn1_.get(), "blue",
             this->BuildPrefix("192.168.1.0", 24), pl_blue);
@@ -175,23 +175,23 @@ TYPED_TEST(ServiceChainIntegrationTest, BidirectionalChainWithTransitNetwork) {
     TASK_UTIL_EXPECT_TRUE(this->IsServiceChainQEmpty(this->cn2_.get()));
 
     vector<PathVerify> pl_blue;
-    PathVerify verify_blue1(
-        "88.88.88.88", "ServiceChain", "88.88.88.88", list_of("gre"), "red");
-    PathVerify verify_blue2(
-        "88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of("gre"), "red");
+    PathVerify verify_blue1("88.88.88.88", "ServiceChain", "88.88.88.88",
+                            {"gre"}, "red");
+    PathVerify verify_blue2("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "red");
     pl_blue.push_back(verify_blue1);
     pl_blue.push_back(verify_blue2);
 
     vector<PathVerify> pl_red;
-    PathVerify verify_red1(
-        "66.66.66.66", "ServiceChain", "66.66.66.66", list_of("gre"), "blue");
-    PathVerify verify_red2(
-        "66.66.66.66", "BGP_XMPP", "66.66.66.66", list_of("gre"), "blue");
+    PathVerify verify_red1("66.66.66.66", "ServiceChain", "66.66.66.66",
+                           {"gre"}, "blue");
+    PathVerify verify_red2("66.66.66.66", "BGP_XMPP", "66.66.66.66", {"gre"},
+                           "blue");
     pl_red.push_back(verify_red1);
     pl_red.push_back(verify_red2);
 
-    vector<string> origin_vn_path_blue = list_of("blue");
-    vector<string> origin_vn_path_red = list_of("red");
+    vector<string> origin_vn_path_blue = {"blue"};
+    vector<string> origin_vn_path_red = {"red"};
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
         this->VerifyServiceChainRoute(this->cn1_.get(), "blue",
             this->BuildPrefix("192.168.1.0", 24), pl_blue);

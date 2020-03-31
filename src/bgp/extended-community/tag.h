@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_TAG_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_TAG_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <stdint.h>
 #include <string>
 
@@ -16,7 +16,7 @@ class Tag {
 public:
     static const int kSize = 8;
     static const int kMinGlobalId = 8000000;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit Tag(const bytes_type &data);
     explicit Tag(as2_t asn, int tag);
@@ -38,7 +38,7 @@ class Tag4ByteAs {
 public:
     static const int kSize = 8;
     static const int kMinGlobalId = 8000000;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit Tag4ByteAs(const bytes_type &data);
     explicit Tag4ByteAs(as_t asn, int tag);

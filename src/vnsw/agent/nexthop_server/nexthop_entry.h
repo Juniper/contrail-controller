@@ -6,7 +6,7 @@
 #ifndef _AGENT_NHS_NEXTHOP_ENTRY_H_
 #define _AGENT_NHS_NEXTHOP_ENTRY_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/bind.hpp>

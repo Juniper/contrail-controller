@@ -142,7 +142,7 @@ TEST_F(CfgTest, VnBasic_1) {
 
     //Mock the sandesh request, no expecatation just catch crashes.
     VnListReq *vn_list_req = new VnListReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result ={1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     vn_list_req->set_name("vn1");
     vn_list_req->HandleRequest();
@@ -343,7 +343,7 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config_sandesh) {
     client->WaitForIdle();
     EXPECT_TRUE(vn->GetVxLanId() == 101);
     VxLanReq *vxlan_req = new VxLanReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     vxlan_req->HandleRequest();
     client->WaitForIdle();

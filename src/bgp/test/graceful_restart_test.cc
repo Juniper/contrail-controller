@@ -66,11 +66,11 @@ static bool d_log_local_enable_ = false;
 static bool d_log_trace_enable_ = false;
 static bool d_log_disable_ = false;
 
-static vector<int>  n_instances = boost::assign::list_of(d_instances);
-static vector<int>  n_routes    = boost::assign::list_of(d_routes);
-static vector<int>  n_agents    = boost::assign::list_of(d_agents);
-static vector<int>  n_peers     = boost::assign::list_of(d_peers);
-static vector<int>  n_targets   = boost::assign::list_of(d_targets);
+static vector<int> n_instances = {d_instances};
+static vector<int> n_routes = {d_routes};
+static vector<int> n_agents = {d_agents};
+static vector<int> n_peers = {d_peers};
+static vector<int> n_targets = {d_targets};
 
 static char **gargv;
 static int    gargc;

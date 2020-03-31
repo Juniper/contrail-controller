@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_VRF_ROUTE_IMPORT_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_VRF_ROUTE_IMPORT_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -18,7 +18,7 @@ class VrfRouteImport {
 public:
     static const int kSize = 8;
     static VrfRouteImport null_rt_import;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     VrfRouteImport();
     explicit VrfRouteImport(const bytes_type &data);

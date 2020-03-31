@@ -382,7 +382,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
 
     // show route
     cout << "ValidateShowRouteResponse:" << endl;
-    std::vector<size_t> result = list_of(1)(1)(6)(1);
+    std::vector<size_t> result = {1, 1, 6, 1};
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     ShowRouteReq *show_req = new ShowRouteReq;

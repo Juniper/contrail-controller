@@ -131,10 +131,9 @@ int main(int argc, char *argv[]) {
     }
 
     srand(unsigned(time(NULL)));
-    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
-        (boost::bind(&ReConfigSignalHandler, _1, _2));
-    Signal::SignalCallbackMap smap = boost::assign::map_list_of
-        (SIGHUP, sighup_handlers);
+    std::vector<Signal::SignalHandler> sighup_handlers = {
+        {boost::bind(&ReConfigSignalHandler, _1, _2)}};
+    Signal::SignalCallbackMap smap = {{SIGHUP, sighup_handlers}};
     Signal signal(Dns::GetEventManager(), smap);
 
     Dns::SetProgramName(argv[0]);

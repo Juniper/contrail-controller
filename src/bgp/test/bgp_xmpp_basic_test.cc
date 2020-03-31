@@ -1166,7 +1166,7 @@ TEST_P(BgpXmppBasicParamTest, ShowConnections) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    vector<string> result = list_of("agent-a")("agent-b")("agent-c");
+    vector<string> result = {"agent-a", "agent-b", "agent-c"};
     VerifyShowXmppConnectionSandesh(result, false);
 
     DestroyAgents();
@@ -1197,7 +1197,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections1) {
         GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c);
     TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
 
-    vector<string> result = list_of("agent-a")("agent-b")("agent-c");
+    vector<string> result = {"agent-a", "agent-b", "agent-c"};
     VerifyShowXmppConnectionSandesh(result, true);
 
     // Enable destroy of xmpp managed objects.
@@ -1235,7 +1235,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections2) {
         GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c);
     TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
 
-    vector<string> result = list_of("agent-a")("agent-b")("agent-c");
+    vector<string> result = {"agent-a", "agent-b", "agent-c"};
     VerifyShowXmppConnectionSandesh(result, true);
 
     // Enable xmpp lifetime manager queue processing.

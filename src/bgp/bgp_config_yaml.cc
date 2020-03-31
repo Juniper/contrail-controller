@@ -152,9 +152,8 @@ private:
 };
 
 typedef map<string, BgpNeighborConfig::Type> PeerTypeMap;
-static PeerTypeMap peertype_map = map_list_of
-        ("ibgp", BgpNeighborConfig::IBGP)
-        ("ebgp", BgpNeighborConfig::EBGP);
+static PeerTypeMap peertype_map = {{"ibgp", BgpNeighborConfig::IBGP},
+                                   {"ebgp", BgpNeighborConfig::EBGP}};
 
 static BgpNeighborConfig::Type PeerTypeGetValue(const string &value) {
     PeerTypeMap::const_iterator loc = peertype_map.find(value);

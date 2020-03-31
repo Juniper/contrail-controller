@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_BGP_ORIGIN_VN_PATH_H_
 #define SRC_BGP_BGP_ORIGIN_VN_PATH_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
 
@@ -36,12 +36,11 @@ struct OriginVnPathSpec : public BgpAttribute {
 
 class OriginVnPath {
 public:
-    typedef boost::array<uint8_t, 8> OriginVnValue;
-    typedef std::vector<OriginVnValue> OriginVnList;
+ typedef std::array<uint8_t, 8> OriginVnValue;
+ typedef std::vector<OriginVnValue> OriginVnList;
 
-    explicit OriginVnPath(OriginVnPathDB *ovnpath_db)
-        : ovnpath_db_(ovnpath_db) {
-        refcount_ = 0;
+ explicit OriginVnPath(OriginVnPathDB *ovnpath_db) : ovnpath_db_(ovnpath_db) {
+     refcount_ = 0;
     }
     explicit OriginVnPath(const OriginVnPath &rhs)
         : ovnpath_db_(rhs.ovnpath_db_),

@@ -490,7 +490,7 @@ TEST_F(RouteTest, SubnetRoute_1) {
 
     //Call for sandesh
     Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     uc_list_req->set_vrf_index(1);
     uc_list_req->HandleRequest();
@@ -581,7 +581,7 @@ TEST_F(RouteTest, SubnetRoute_2) {
 
     //Just check for sandesh message handling
     Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     uc_list_req->set_vrf_index(1);
     uc_list_req->HandleRequest();

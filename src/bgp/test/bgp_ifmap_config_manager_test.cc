@@ -2228,7 +2228,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_0) {
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
     RoutingPolicyConfigList list = test_ri->routing_policy_list();
 
-    vector<string> expect_list = list_of("basic_0")("basic_1");
+    vector<string> expect_list = {"basic_0", "basic_1"};
     vector<string> current_list;
     BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
         current_list.push_back(info.routing_policy_);
@@ -2275,7 +2275,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_1) {
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
     RoutingPolicyConfigList list = test_ri->routing_policy_list();
 
-    vector<string> expect_list = list_of("basic_0")("basic_1");
+    vector<string> expect_list = {"basic_0", "basic_1"};
     vector<string> current_list;
     BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
         current_list.push_back(info.routing_policy_);
@@ -2609,8 +2609,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Basic) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/16", "1.1.1.1");
+    set<string_pair_t> expect_list = {{"2.2.0.0/16", "1.1.1.1"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -2650,8 +2649,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Basic_v4v6) {
     ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
     ASSERT_TRUE(test_ri->aggregate_routes(Address::INET6).size() == 1);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/16", "1.1.1.1");
+    set<string_pair_t> expect_list = {{"2.2.0.0/16", "1.1.1.1"}};
     set<string_pair_t> current_list;
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
@@ -2669,8 +2667,8 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Basic_v4v6) {
     ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
                            current_list.begin()));
 
-    set<string_pair_t> expect_list_inet6 = list_of<string_pair_t>
-        ("2001:db8:85a3::/64", "2002:db8:85a3::8a2e:370:7334");
+    set<string_pair_t> expect_list_inet6 = {
+        {"2001:db8:85a3::/64", "2002:db8:85a3::8a2e:370:7334"}};
     set<string_pair_t> current_list_inet6;
     list = test_ri->aggregate_routes(Address::INET6);
     BOOST_FOREACH(AggregateRouteConfig info, list) {
@@ -2750,8 +2748,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_UpdateNexthop) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/16", "1.1.1.254");
+    set<string_pair_t> expect_list = {{"2.2.0.0/16", "1.1.1.254"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -2792,8 +2789,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_UpdatePrefix) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("3.3.0.0/16", "1.1.1.254");
+    set<string_pair_t> expect_list = {{"3.3.0.0/16", "1.1.1.254"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -2834,8 +2830,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_UpdatePrefixLen) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/24", "1.1.1.254");
+    set<string_pair_t> expect_list = {{"2.2.0.0/24", "1.1.1.254"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -2872,10 +2867,9 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/16", "1.1.1.1")
-        ("3.3.0.0/16", "1.1.1.1")
-        ("4.0.0.0/8", "1.1.1.1");
+    set<string_pair_t> expect_list = {{"2.2.0.0/16", "1.1.1.1"},
+                                      {"3.3.0.0/16", "1.1.1.1"},
+                                      {"4.0.0.0/8", "1.1.1.1"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -2912,10 +2906,9 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet_Unlink) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/16", "1.1.1.1")
-        ("3.3.0.0/16", "1.1.1.1")
-        ("4.0.0.0/8", "1.1.1.1");
+    set<string_pair_t> expect_list = {{"2.2.0.0/16", "1.1.1.1"},
+                                      {"3.3.0.0/16", "1.1.1.1"},
+                                      {"4.0.0.0/8", "1.1.1.1"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -2982,10 +2975,9 @@ TEST_F(BgpIfmapConfigManagerShowTest, RouteAggregate_Show) {
     BgpInstanceConfig::AggregateRouteList list =
         test_ri->aggregate_routes(Address::INET);
 
-    set<string_pair_t> expect_list = list_of<string_pair_t>
-        ("2.2.0.0/16", "1.1.1.1")
-        ("3.3.0.0/16", "1.1.1.1")
-        ("4.0.0.0/8", "1.1.1.1");
+    set<string_pair_t> expect_list = {{"2.2.0.0/16", "1.1.1.1"},
+                                      {"3.3.0.0/16", "1.1.1.1"},
+                                      {"4.0.0.0/8", "1.1.1.1"}};
     set<string_pair_t> current_list;
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;
@@ -3018,8 +3010,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, RouteAggregate_Show) {
         instance.set_virtual_network_index(config->virtual_network_index());
         if (config->name() == "test") {
             vector<ShowBgpRouteAggregateConfig> aggregate_route_list;
-            vector<Address::Family> families =
-                list_of(Address::INET)(Address::INET6);
+            vector<Address::Family> families = {Address::INET, Address::INET6};
             BOOST_FOREACH(Address::Family family, families) {
                 BOOST_FOREACH(const AggregateRouteConfig &aggregate_rt_config,
                               config->aggregate_routes(family)) {

@@ -364,13 +364,13 @@ void ServicesSandesh::FillPktData(PktTrace::Pkt &pkt, PktData &resp) {
 }
 
 uint16_t ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
-    boost::array<std::string, MAX_AGENT_HDR_COMMANDS> commands =
-           { { "switch", "route", "arp", "l2-protocol", "trap-nexthop",
-               "trap-resolve", "trap-flow-miss", "trap-l3-protocol",
-               "trap-diag", "trap-ecmp-resolve", "trap_source_mismatch",
-               "trap-dont-fragment", "trap-zero-ttl",  "tor-control",
-               "trap-icmp-error", "trap-flow-hold-action",
-               "trap-route-alert", "trap-mac-learn", "trap-mac-move" } };
+    std::array<std::string, MAX_AGENT_HDR_COMMANDS> commands = {
+        {"switch", "route", "arp", "l2-protocol", "trap-nexthop",
+         "trap-resolve", "trap-flow-miss", "trap-l3-protocol", "trap-diag",
+         "trap-ecmp-resolve", "trap_source_mismatch", "trap-dont-fragment",
+         "trap-zero-ttl", "tor-control", "trap-icmp-error",
+         "trap-flow-hold-action", "trap-route-alert", "trap-mac-learn",
+         "trap-mac-move"}};
     uint8_t *ptr = pkt.pkt;
     AgentHdr *hdr = reinterpret_cast<AgentHdr *>(ptr);
     resp.ifindex = hdr->ifindex;
@@ -846,10 +846,9 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
                                     std::string ctxt, bool more = false) {
     SandeshResponse *resp = NULL;
     boost::function<void(PktTrace::Pkt &)> cb;
-    boost::array<std::string, PktHandler::MAX_MODULES> names =
-        { { "Invalid", "Flow", "Arp", "Dhcp", "Dhcpv6", "Dns",
-            "Icmp", "Icmpv6", "Diagnostics", "IcmpError", "RxPacket",
-            "MacLearning" } };
+    std::array<std::string, PktHandler::MAX_MODULES> names = {
+        {"Invalid", "Flow", "Arp", "Dhcp", "Dhcpv6", "Dns", "Icmp", "Icmpv6",
+         "Diagnostics", "IcmpError", "RxPacket", "MacLearning"}};
 
     switch (mod) {
         case PktHandler::ARP:

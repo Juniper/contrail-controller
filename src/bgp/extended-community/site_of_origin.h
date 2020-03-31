@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_SITE_OF_ORIGIN_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_SITE_OF_ORIGIN_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -17,7 +17,7 @@ class SiteOfOrigin {
 public:
     static const int kSize = 8;
     static SiteOfOrigin null_soo;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     SiteOfOrigin();
     explicit SiteOfOrigin(const bytes_type &data);

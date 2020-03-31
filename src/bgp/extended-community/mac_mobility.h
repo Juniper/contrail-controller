@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_MAC_MOBILITY_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_MAC_MOBILITY_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -16,7 +16,7 @@
 class MacMobility {
 public:
     static const int kSize = 8;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit MacMobility(uint32_t seq, bool sticky=false);
     explicit MacMobility(const bytes_type &data);

@@ -10,55 +10,40 @@
 using namespace boost::assign;
 SandeshTraceBufferPtr DnsBindTraceBuf(SandeshTraceBufferCreate("DnsBind", 2000));
 
-DnsTypeMap g_dns_type_map = map_list_of<std::string, uint16_t>
-                                ("A", 1)
-                                ("NS", 2)
-                                ("CNAME", 5)
-                                ("SOA", 6)
-                                ("PTR", 0x0C)
-                                ("MX", 0x0F)
-                                ("TXT", 0x10)
-                                ("AAAA", 0x1C)
-                                ("SRV", 0x21)
-                                ("ANY", 0xFF);
+DnsTypeMap g_dns_type_map = {
+    {"A", 1},     {"NS", 2},     {"CNAME", 5},   {"SOA", 6},    {"PTR", 0x0C},
+    {"MX", 0x0F}, {"TXT", 0x10}, {"AAAA", 0x1C}, {"SRV", 0x21}, {"ANY", 0xFF}};
 
-DnsTypeNumMap g_dns_type_num_map = map_list_of<uint16_t, std::string>
-                                (DNS_A_RECORD, "A")
-                                (DNS_NS_RECORD, "NS")
-                                (DNS_CNAME_RECORD, "CNAME")
-                                (DNS_TYPE_SOA, "SOA")
-                                (DNS_PTR_RECORD, "PTR")
-                                (DNS_MX_RECORD, "MX")
-                                (DNS_TXT_RECORD, "TXT")
-                                (DNS_AAAA_RECORD, "AAAA")
-                                (DNS_SRV_RECORD, "SRV")
-                                (DNS_TYPE_ANY, "ANY");
+DnsTypeNumMap g_dns_type_num_map = {
+    {DNS_A_RECORD, "A"},         {DNS_NS_RECORD, "NS"},
+    {DNS_CNAME_RECORD, "CNAME"}, {DNS_TYPE_SOA, "SOA"},
+    {DNS_PTR_RECORD, "PTR"},     {DNS_MX_RECORD, "MX"},
+    {DNS_TXT_RECORD, "TXT"},     {DNS_AAAA_RECORD, "AAAA"},
+    {DNS_SRV_RECORD, "SRV"},     {DNS_TYPE_ANY, "ANY"}};
 
-DnsTypeNumMap g_dns_class_num_map = map_list_of<uint16_t, std::string>
-                                (DNS_CLASS_IN, "IN")
-                                (DNS_CLASS_NONE, "None")
-                                (DNS_CLASS_ANY, "Any");
+DnsTypeNumMap g_dns_class_num_map = {{DNS_CLASS_IN, "IN"},
+                                     {DNS_CLASS_NONE, "None"},
+                                     {DNS_CLASS_ANY, "Any"}};
 
-DnsResponseMap g_dns_response_map = map_list_of<uint16_t, std::string>
-                                (0, "No error")
-                                (1, "Format error")
-                                (2, "Server failure")
-                                (3, "Non-existent domain")
-                                (4, "Not implemented")
-                                (5, "Query refused")
-                                (6, "Name exists when it should not")
-                                (7, "RR Set Exists when it should not")
-                                (8, "RR Set that should exist does not")
-                                (9, "Not Authorized")
-                                (10, "Name not contained in zone")
-                                (16, "Bad OPT Version")
-                                (17, "Key not recognized")
-                                (18, "Signature out of time window")
-                                (19, "Bad TKEY Mode")
-                                (20, "Duplicate key name")
-                                (21, "Algorithm not supported")
-                                (22, "Bad truncation")
-                                (4095, "Invalid response code");
+DnsResponseMap g_dns_response_map = {{0, "No error"},
+                                     {1, "Format error"},
+                                     {2, "Server failure"},
+                                     {3, "Non-existent domain"},
+                                     {4, "Not implemented"},
+                                     {5, "Query refused"},
+                                     {6, "Name exists when it should not"},
+                                     {7, "RR Set Exists when it should not"},
+                                     {8, "RR Set that should exist does not"},
+                                     {9, "Not Authorized"},
+                                     {10, "Name not contained in zone"},
+                                     {16, "Bad OPT Version"},
+                                     {17, "Key not recognized"},
+                                     {18, "Signature out of time window"},
+                                     {19, "Bad TKEY Mode"},
+                                     {20, "Duplicate key name"},
+                                     {21, "Algorithm not supported"},
+                                     {22, "Bad truncation"},
+                                     {4095, "Invalid response code"}};
 
 std::string DnsItem::ToString() const {
     return BindUtil::DnsClass(eclass) + "/" +
@@ -887,7 +872,7 @@ bool BindUtil::GetAddrFromPtrName(std::string &ptr_name, Ip6Address &ip) {
     BOOST_ASSERT(addr.size() == 16);
 
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    typedef boost::array<uint8_t, 32> nibbles;
+    typedef std::array<uint8_t, 32> nibbles;
 
     if (!BindUtil::IsReverseZoneV6(ptr_name))
         return false;

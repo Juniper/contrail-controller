@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_ROUTER_MAC_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_ROUTER_MAC_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -17,7 +17,7 @@
 class RouterMac {
 public:
     static const int kSize = 8;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit RouterMac(const MacAddress &mac_addr);
     explicit RouterMac(const bytes_type &data);

@@ -35,16 +35,11 @@ KSyncObjectManager *KSyncObjectManager::singleton_ = NULL;
 std::auto_ptr<KSyncEntry> KSyncObjectManager::default_defer_entry_;
 
 typedef std::map<uint32_t, std::string> VrouterErrorDescriptionMap;
-VrouterErrorDescriptionMap g_error_description =
-                    boost::assign::map_list_of<uint32_t, std::string>
-                                (ENOENT, "Entry not present")
-                                (EBADF, "Key mismatch")
-                                (ENOMEM, "Memory insufficient")
-                                (EBUSY, "Object cannot be modified")
-                                (EEXIST, "Object already present")
-                                (ENODEV, "Object not present")
-                                (EINVAL, "Invalid object parameters")
-                                (ENOSPC, "Object table full");
+VrouterErrorDescriptionMap g_error_description = {
+    {ENOENT, "Entry not present"},         {EBADF, "Key mismatch"},
+    {ENOMEM, "Memory insufficient"},       {EBUSY, "Object cannot be modified"},
+    {EEXIST, "Object already present"},    {ENODEV, "Object not present"},
+    {EINVAL, "Invalid object parameters"}, {ENOSPC, "Object table full"}};
 
 // to be used only by test code, for triggering
 // stale entry timer callback explicitly

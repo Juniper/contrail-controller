@@ -33,7 +33,7 @@ public:
     typedef std::map<std::string, NodeParseFn> NodeParseMap;
     void NodeRegister(const std::string &node, NodeParseFn parser);
     void NodeClear();
-    void ConfigParse(const pugi::xml_node config, uint64_t seq);
+    void ConfigParse(const pugi::xml_node &config, uint64_t seq);
     uint64_t node_updates() { return nodes_processed_[UPDATE]; }
     uint64_t node_deletes() { return nodes_processed_[DEL]; }
     uint64_t link_updates() { return links_processed_[UPDATE]; }

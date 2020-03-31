@@ -1834,9 +1834,9 @@ typedef ::testing::Types <InetDefinition, Inet6Definition,
 TYPED_TEST_CASE(ServiceChainTest, TypeDefinitionList);
 
 TYPED_TEST(ServiceChainTest, Basic) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -1916,9 +1916,9 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd1) {
 
     // Verify that service chain is on pending list.
     TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
+    this->VerifyPendingServiceChainSandesh(this, {"blue-i1"});
+    this->VerifyPendingServiceChainSandesh(this, {"blue-i1"});
+    this->VerifyPendingServiceChainSandesh(this, {"blue-i1"});
 
     // Fix service chain address.
     this->SetServiceChainInformation("blue-i1",
@@ -1952,9 +1952,9 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd1) {
 }
 
 TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd2) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2014,9 +2014,9 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd2) {
 }
 
 TYPED_TEST(ServiceChainTest, IgnoreNonInetv46Subnets) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2066,9 +2066,9 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46Subnets) {
 }
 
 TYPED_TEST(ServiceChainTest, MoreSpecificAddDelete) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2123,9 +2123,9 @@ TYPED_TEST(ServiceChainTest, MoreSpecificAddDelete) {
 }
 
 TYPED_TEST(ServiceChainTest, ConnectedAddDelete) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2166,9 +2166,9 @@ TYPED_TEST(ServiceChainTest, ConnectedAddDelete) {
 
 
 TYPED_TEST(ServiceChainTest, DeleteConnected) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2221,9 +2221,9 @@ TYPED_TEST(ServiceChainTest, DeleteConnected) {
 }
 
 TYPED_TEST(ServiceChainTest, StopServiceChain) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2254,9 +2254,9 @@ TYPED_TEST(ServiceChainTest, StopServiceChain) {
 
 TYPED_TEST(ServiceChainTest, TagList) {
     this->DisableServiceChainAggregation();
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2294,9 +2294,9 @@ TYPED_TEST(ServiceChainTest, TagList) {
 }
 
 TYPED_TEST(ServiceChainTest, ServiceChainWithExistingRouteEntries) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2347,9 +2347,9 @@ TYPED_TEST(ServiceChainTest, ServiceChainWithExistingRouteEntries) {
 
 TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttributeNoAggregates) {
     this->DisableServiceChainAggregation();
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2500,9 +2500,9 @@ TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttributeNoAggregates) {
 }
 
 TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttribute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2651,9 +2651,9 @@ TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttribute) {
 }
 
 TYPED_TEST(ServiceChainTest, UpdateNexthop) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2695,9 +2695,9 @@ TYPED_TEST(ServiceChainTest, UpdateNexthop) {
 
 
 TYPED_TEST(ServiceChainTest, UpdateLabel) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2765,9 +2765,9 @@ TYPED_TEST(ServiceChainTest, UpdateLabel) {
 }
 
 TYPED_TEST(ServiceChainTest, DeleteRoutingInstance1) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2792,9 +2792,9 @@ TYPED_TEST(ServiceChainTest, DeleteRoutingInstance1) {
 }
 
 TYPED_TEST(ServiceChainTest, DeleteRoutingInstance2) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2802,7 +2802,7 @@ TYPED_TEST(ServiceChainTest, DeleteRoutingInstance2) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     this->VerifyRoutingInstanceExists("blue-i1");
-    this->VerifyServiceChainSandesh(this, list_of("blue-i1"));
+    this->VerifyServiceChainSandesh(this, {"blue-i1"});
     this->SetLifetimeManagerQueueDisable(true);
     this->RemoveRoutingInstance("blue-i1", "blue");
     this->ClearServiceChainInformation("blue-i1");
@@ -2816,9 +2816,8 @@ TYPED_TEST(ServiceChainTest, DeleteRoutingInstance2) {
 
 
 TYPED_TEST(ServiceChainTest, PendingChain) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2872,9 +2871,8 @@ TYPED_TEST(ServiceChainTest, PendingChain) {
 }
 
 TYPED_TEST(ServiceChainTest, UnresolvedPendingChain) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2896,9 +2894,9 @@ TYPED_TEST(ServiceChainTest, UnresolvedPendingChain) {
 }
 
 TYPED_TEST(ServiceChainTest, DeletePendingChain) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2931,9 +2929,9 @@ TYPED_TEST(ServiceChainTest, DeletePendingChain) {
 }
 
 TYPED_TEST(ServiceChainTest, UpdateChain) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -2984,9 +2982,9 @@ TYPED_TEST(ServiceChainTest, UpdateChain) {
 }
 
 TYPED_TEST(ServiceChainTest, PeerUpdate) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3056,9 +3054,9 @@ TYPED_TEST(ServiceChainTest, PeerUpdate) {
 // 9. Verify ext connected route exists and still has one path
 //
 TYPED_TEST(ServiceChainTest, DuplicateForwardingPaths) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3133,9 +3131,9 @@ TYPED_TEST(ServiceChainTest, DuplicateForwardingPaths) {
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPaths) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3187,9 +3185,9 @@ TYPED_TEST(ServiceChainTest, EcmpPaths) {
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPathUpdate) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3237,9 +3235,9 @@ TYPED_TEST(ServiceChainTest, EcmpPathUpdate) {
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPathAdd) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3312,9 +3310,9 @@ TYPED_TEST(ServiceChainTest, EcmpPathAdd) {
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPathDelete) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3380,9 +3378,9 @@ TYPED_TEST(ServiceChainTest, EcmpPathDelete) {
 // 7. Verify ext connected route exists and has only two paths
 //
 TYPED_TEST(ServiceChainTest, EcmpWithDuplicateForwardingPaths) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3409,9 +3407,8 @@ TYPED_TEST(ServiceChainTest, EcmpWithDuplicateForwardingPaths) {
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    vector<string> path_ids = list_of(
-        this->BuildNextHopAddress("2.3.4.5"))
-        (this->BuildNextHopAddress("2.3.4.6"));
+    vector<string> path_ids = {this->BuildNextHopAddress("2.3.4.5"),
+                               this->BuildNextHopAddress("2.3.4.6")};
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
                                 path_ids, "red");
 
@@ -3471,9 +3468,9 @@ TYPED_TEST(ServiceChainTest, EcmpWithDuplicateForwardingPaths) {
 // 5. Add VM route(192.168.1.1/32) and verify aggregate route 192.168.1.0/24
 //
 TYPED_TEST(ServiceChainTest, IgnoreAggregateRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3519,9 +3516,9 @@ TYPED_TEST(ServiceChainTest, IgnoreAggregateRoute) {
 // 4. Verify that ext connect route 192.168.1.0/24 is added
 //
 TYPED_TEST(ServiceChainTest, ValidateAggregateRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3562,9 +3559,9 @@ TYPED_TEST(ServiceChainTest, ValidateAggregateRoute) {
 // 8. Add VM route(192.168.1.1/32) and verify aggregate route 192.168.1.0/24
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3654,9 +3651,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRoute) {
 // 8. Verify that ext connect route 10.1.1.0/24 is added
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteNoAdvertiseCommunity) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3714,9 +3711,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteNoAdvertiseCommunity) {
 // 8. Verify that ext connect route 10.1.1.0/24 is added
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteNoReOriginateCommunity) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3774,10 +3771,10 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteNoReOriginateCommunity) {
 // 8. Verify that non-OriginVn route 20.1.1.0/24 is not added
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnOnly) {
-    vector<string> instance_names =
-        list_of("blue")("blue-i1")("red-i2")("red")("green");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red") ("red", "green");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red",
+                                     "green"};
+    multimap<string, string> connections = {
+        {"blue", "blue-i1"}, {"red-i2", "red"}, {"red", "green"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3840,10 +3837,10 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnOnly) {
 // 4. Verify that ext connect route 10.1.1.0/24 is added
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved1) {
-    vector<string> instance_names =
-        list_of("blue")("blue-i1")("red-i2")("red")("green");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red",
+                                     "green"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3855,7 +3852,7 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved1) {
                             this->BuildNextHopAddress("2.3.4.5"));
 
     // Add Ext connect route with targets of both red and green.
-    vector<string> instances = list_of("red")("green");
+    vector<string> instances = {"red", "green"};
     this->AddVpnRoute(NULL, instances, this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Verify that MX leaked route is present in red
@@ -3887,10 +3884,10 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved1) {
 // 4. Verify that ext connect route 10.1.1.0/24 is not added
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved2) {
-    vector<string> instance_names =
-        list_of("blue")("blue-i1")("red-i2")("red")("green")("yellow");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red") ("red", "green");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2",
+                                     "red",  "green",   "yellow"};
+    multimap<string, string> connections = {
+        {"blue", "blue-i1"}, {"red-i2", "red"}, {"red", "green"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3902,7 +3899,7 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved2) {
                             this->BuildNextHopAddress("2.3.4.5"));
 
     // Add Ext connect route with targets of green and yellow.
-    vector<string> instances = list_of("green")("yellow");
+    vector<string> instances = {"green", "yellow"};
     this->AddVpnRoute(NULL, instances, this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Verify that MX leaked route is present in red
@@ -3924,9 +3921,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved2) {
 // 4. Verify that Aggregate route 192.168.1.0/24 is added
 // 5. Verify that ext connect route 192.168.0.0/16 is added
 TYPED_TEST(ServiceChainTest, ExtConnectRouteCoveringSubnetPrefix) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3983,9 +3980,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteCoveringSubnetPrefix) {
 // 4. Verify that Aggregate route is added with connected route nexthop
 // 5. Verify that MX added ext connect route is treated as more specific itself
 TYPED_TEST(ServiceChainTest, ExtConnectRouteWithinSubnetPrefix) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4054,9 +4051,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteWithinSubnetPrefix) {
 //     Verify 192.168.1.250/30 is removed as ext connecting route
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteServiceChainUpdate) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4163,9 +4160,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteServiceChainUpdate) {
 }
 
 TYPED_TEST(ServiceChainTest, ExtConnectedEcmpPaths) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4219,9 +4216,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectedEcmpPaths) {
 
 
 TYPED_TEST(ServiceChainTest, ExtConnectedMoreSpecificEcmpPaths) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4333,9 +4330,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectedMoreSpecificEcmpPaths) {
 }
 
 TYPED_TEST(ServiceChainTest, ServiceChainRouteSGID) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4343,10 +4340,10 @@ TYPED_TEST(ServiceChainTest, ServiceChainRouteSGID) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
-    vector<uint32_t> sgid_list_more_specific_1 = list_of(1)(2)(3)(4);
-    vector<uint32_t> sgid_list_more_specific_2 = list_of(5)(6)(7)(8);
-    vector<uint32_t> sgid_list_connected = list_of(9)(10)(11)(12);
-    vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
+    vector<uint32_t> sgid_list_more_specific_1 = {1, 2, 3, 4};
+    vector<uint32_t> sgid_list_more_specific_2 = {5, 6, 7, 8};
+    vector<uint32_t> sgid_list_connected = {9, 10, 11, 12};
+    vector<uint32_t> sgid_list_ext = {13, 14, 15, 16};
 
     // Add Ext connect route
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
@@ -4413,9 +4410,9 @@ TYPED_TEST(ServiceChainTest, ServiceChainRouteSGID) {
 }
 
 TYPED_TEST(ServiceChainTest, ServiceChainRouteUpdateSGID) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4423,10 +4420,10 @@ TYPED_TEST(ServiceChainTest, ServiceChainRouteUpdateSGID) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
-    vector<uint32_t> sgid_list_more_specific_1 = list_of(1)(2)(3)(4);
-    vector<uint32_t> sgid_list_more_specific_2 = list_of(5)(6)(7)(8);
-    vector<uint32_t> sgid_list_connected = list_of(9)(10)(11)(12);
-    vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
+    vector<uint32_t> sgid_list_more_specific_1 = {1, 2, 3, 4};
+    vector<uint32_t> sgid_list_more_specific_2 = {5, 6, 7, 8};
+    vector<uint32_t> sgid_list_connected = {9, 10, 11, 12};
+    vector<uint32_t> sgid_list_ext = {13, 14, 15, 16};
 
     // Add Ext connect route
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
@@ -4542,9 +4539,9 @@ TYPED_TEST(ServiceChainTest, ServiceChainRouteUpdateSGID) {
 }
 
 TYPED_TEST(ServiceChainTest, ValidateTunnelEncapAggregate) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4624,9 +4621,9 @@ TYPED_TEST(ServiceChainTest, ValidateTunnelEncapAggregate) {
 }
 
 TYPED_TEST(ServiceChainTest, ValidateTunnelEncapExtRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4779,9 +4776,9 @@ TYPED_TEST(ServiceChainTest, MultiPathTunnelEncap) {
 }
 
 TYPED_TEST(ServiceChainTest, ValidateSiteOfOriginExtRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4847,9 +4844,9 @@ TYPED_TEST(ServiceChainTest, ValidateSiteOfOriginExtRoute) {
 // 8. Verify that service chain route doesn't have communities
 //
 TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -4911,9 +4908,9 @@ TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
 }
 
 TYPED_TEST(ServiceChainTest, DeleteConnectedWithExtConnectRoute) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
 
     this->SetServiceChainInformation("blue-i1",
@@ -4972,18 +4969,17 @@ TYPED_TEST(ServiceChainTest, DeleteConnectedWithExtConnectRoute) {
 }
 
 TYPED_TEST(ServiceChainTest, DeleteEntryReuse) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
-    vector<string> routes_to_play = list_of(
-        this->BuildPrefix("10.1.1.1", 32))
-        (this->BuildPrefix("10.1.1.1", 32))
-        (this->BuildPrefix("10.1.1.1", 32));
+    vector<string> routes_to_play = {this->BuildPrefix("10.1.1.1", 32),
+                                     this->BuildPrefix("10.1.1.1", 32),
+                                     this->BuildPrefix("10.1.1.1", 32)};
     // Add Ext connect route
     for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
@@ -5031,9 +5027,9 @@ TYPED_TEST(ServiceChainTest, DeleteEntryReuse) {
 }
 
 TYPED_TEST(ServiceChainTest, EntryAfterStop) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
 
     this->SetServiceChainInformation("blue-i1",
@@ -5109,7 +5105,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkRemoteVMRoutes) {
                             100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
-    vector<string> origin_vn_path = list_of("core-vn")("red-vn");
+    vector<string> origin_vn_path = {"core-vn", "red-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5151,7 +5147,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkLocalVMRoutes) {
                             100, this->BuildNextHopAddress("20.1.1.1"));
 
     // Check for Aggregate route in blue
-    vector<string> origin_vn_path = list_of("core-vn");
+    vector<string> origin_vn_path = {"core-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5192,7 +5188,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkRemoteExtConnectRoute) {
                             100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for ExtConnect route in blue
-    vector<string> origin_vn_path = list_of("core-vn")("red-vn");
+    vector<string> origin_vn_path = {"core-vn", "red-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5251,7 +5247,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkLocalExtConnectRoute) {
                             100, this->BuildNextHopAddress("20.1.1.1"));
 
     // Check for ExtConnect route in blue
-    vector<string> origin_vn_path = list_of("core-vn");
+    vector<string> origin_vn_path = {"core-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.2.1", 32));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.1", 32),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5317,7 +5313,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute1) {
                             100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
-    vector<string> origin_vn_path = list_of("core-vn")("red-vn");
+    vector<string> origin_vn_path = {"core-vn", "red-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5446,7 +5442,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute2) {
                            100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
-    vector<string> origin_vn_path = list_of("core-vn")("red-vn");
+    vector<string> origin_vn_path = {"core-vn", "red-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5580,7 +5576,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkToggleAllowTransit) {
                             100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
-    vector<string> origin_vn_path = list_of("core-vn")("red-vn");
+    vector<string> origin_vn_path = {"core-vn", "red-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5714,8 +5710,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkMultipleNetworks) {
                             100, this->BuildNextHopAddress("20.1.1.3"));
 
     // Check for Aggregate routes in blue
-    vector<string> origin_vn_path_red = list_of("core-vn")("red-vn");
-    vector<string> origin_vn_path_green = list_of("core-vn")("green-vn");
+    vector<string> origin_vn_path_red = {"core-vn", "red-vn"};
+    vector<string> origin_vn_path_green = {"core-vn", "green-vn"};
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
                                 this->BuildNextHopAddress("20.1.1.1"),
@@ -5827,7 +5823,7 @@ TYPED_TEST(ServiceChainTest, TransitNetworkOriginVnLoop) {
                             100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in core
-    vector<string> origin_vn_path = list_of("red-vn");
+    vector<string> origin_vn_path = {"red-vn"};
     this->VerifyRouteExists("core", this->BuildPrefix("192.168.3.0", 24));
     this->VerifyRouteAttributes("core", this->BuildPrefix("192.168.3.0", 24),
                                 this->BuildNextHopAddress("20.1.1.2"), "red-vn",
@@ -5895,10 +5891,9 @@ TYPED_TEST(ServiceChainTest, TransitNetworkOriginVnLoop) {
 // connected path's source RD
 //
 TYPED_TEST(ServiceChainTest, ExtConnectRouteSourceRDSame) {
-    vector<string> instance_names =
-        list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -5913,7 +5908,7 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteSourceRDSame) {
                             RouteDistinguisher::FromString("192.168.1.1:2"));
 
     // Add Ext connect route with targets of red
-    vector<string> instances = list_of("red");
+    vector<string> instances = {"red"};
     this->AddVpnRoute(NULL, instances, this->BuildPrefix("10.1.1.0", 24), 100,
                       this->BuildNextHopAddress("1.2.3.4"),
                       0, 0, LoadBalance(),
@@ -5939,9 +5934,9 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteSourceRDSame) {
 // chain set is non-empty.
 //
 TYPED_TEST(ServiceChainTest, Shutdown1) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -5963,9 +5958,9 @@ TYPED_TEST(ServiceChainTest, Shutdown1) {
 // pending chain map is non-empty.
 //
 TYPED_TEST(ServiceChainTest, Shutdown2) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -5985,9 +5980,9 @@ TYPED_TEST(ServiceChainTest, Shutdown2) {
 // group set or map is non-empty.
 //
 TYPED_TEST(ServiceChainTest, Shutdown3) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6011,9 +6006,9 @@ TYPED_TEST(ServiceChainTest, Shutdown3) {
 // Verify creation of chain with non-empty group name.
 //
 TYPED_TEST(ServiceChainTest, GroupBasic1) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6028,9 +6023,9 @@ TYPED_TEST(ServiceChainTest, GroupBasic1) {
 // Verify creation and explicit deletion of chain with non-empty group name.
 //
 TYPED_TEST(ServiceChainTest, GroupBasic2) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6048,9 +6043,9 @@ TYPED_TEST(ServiceChainTest, GroupBasic2) {
 // Verify update of group name for a chain after it's been created.
 //
 TYPED_TEST(ServiceChainTest, GroupBasic3) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6075,9 +6070,9 @@ TYPED_TEST(ServiceChainTest, GroupBasic3) {
 // group name.
 //
 TYPED_TEST(ServiceChainTest, GroupBasic4) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6102,9 +6097,9 @@ TYPED_TEST(ServiceChainTest, GroupBasic4) {
 // non-empty group name.
 //
 TYPED_TEST(ServiceChainTest, GroupBasic5) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6128,9 +6123,8 @@ TYPED_TEST(ServiceChainTest, GroupBasic5) {
 // Verify that a pending chain has the correct group after it gets resolved.
 //
 TYPED_TEST(ServiceChainTest, GroupPendingChain1) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6158,9 +6152,8 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain1) {
 // if the group changed while it was pending.
 //
 TYPED_TEST(ServiceChainTest, GroupPendingChain2) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6194,9 +6187,8 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain2) {
 // properly when it's explicitly deleted while it's pending.
 //
 TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain1) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6216,9 +6208,8 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain1) {
 // while it's pending.
 //
 TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain2) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6245,9 +6236,8 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain2) {
 // Resolution is disabled while all these events happen.
 //
 TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain3) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6276,9 +6266,8 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain3) {
 // to non-empty while it's still pending.
 //
 TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain4) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6303,9 +6292,8 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain4) {
 // empty to empty while it's still pending.
 //
 TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain5) {
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2"};
+    multimap<string, string> connections = {{"blue", "blue-i1"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6333,9 +6321,9 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain5) {
 TYPED_TEST(ServiceChainTest, GroupOperState1) {
     if (connected_rt_is_vpn)
         return;
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6366,9 +6354,9 @@ TYPED_TEST(ServiceChainTest, GroupOperState1) {
 TYPED_TEST(ServiceChainTest, GroupOperState2) {
     if (connected_rt_is_vpn)
         return;
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6403,9 +6391,9 @@ TYPED_TEST(ServiceChainTest, GroupOperState2) {
 TYPED_TEST(ServiceChainTest, GroupOperState3) {
     if (connected_rt_is_vpn)
         return;
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6485,9 +6473,9 @@ TYPED_TEST(ServiceChainTest, GroupOperState3) {
 TYPED_TEST(ServiceChainTest, GroupOperState4) {
     if (connected_rt_is_vpn)
         return;
-    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    multimap<string, string> connections =
-        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    vector<string> instance_names = {"blue", "blue-i1", "red-i2", "red"};
+    multimap<string, string> connections = {{"blue", "blue-i1"},
+                                            {"red-i2", "red"}};
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 

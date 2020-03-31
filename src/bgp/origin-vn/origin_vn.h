@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_ORIGIN_VN_ORIGIN_VN_H_
 #define SRC_BGP_ORIGIN_VN_ORIGIN_VN_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -18,7 +18,7 @@ public:
     static const int kSize = 8;
     static const int kMinGlobalId = 8000000;
     static OriginVn null_originvn;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     OriginVn();
     OriginVn(as_t asn, uint32_t vn_idx);
@@ -58,7 +58,7 @@ public:
     static const int kSize = 8;
     static const int kMinGlobalId = 8000000;
     static OriginVn4ByteAs null_originvn;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     OriginVn4ByteAs();
     OriginVn4ByteAs(as_t asn, uint32_t vn_idx);

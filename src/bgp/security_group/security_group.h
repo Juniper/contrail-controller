@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_SECURITY_GROUP_SECURITY_GROUP_H_
 #define SRC_BGP_SECURITY_GROUP_SECURITY_GROUP_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -18,7 +18,7 @@ public:
     static const int kSize = 8;
     static const uint32_t kMinGlobalId = 1;
     static const uint32_t kMaxGlobalId = 7999999;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     SecurityGroup(as2_t asn, uint32_t id);
     explicit SecurityGroup(const bytes_type &data);
@@ -45,7 +45,7 @@ public:
     static const int kSize = 8;
     static const uint32_t kMinGlobalId = 1;
     static const uint32_t kMaxGlobalId = 7999999;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     SecurityGroup4ByteAs(as_t asn, uint32_t id);
     explicit SecurityGroup4ByteAs(const bytes_type &data);

@@ -163,8 +163,7 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     link_table->Enqueue(req.get());
 }
 
-void IFMapAgentParser::ConfigParse(const xml_node config, const uint64_t seq) {
-
+void IFMapAgentParser::ConfigParse(const xml_node &config, const uint64_t seq) {
     DBRequest::DBOperation oper;
 
     for (xml_node node = config.first_child(); node;

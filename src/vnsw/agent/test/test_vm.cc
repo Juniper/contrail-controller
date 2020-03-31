@@ -92,7 +92,7 @@ TEST_F(CfgTest, VmBasic_1) {
 
     //Mock the sandesh request, no expecatation just catch crashes.
     VmListReq *vm_list_req = new VmListReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     vm_list_req->set_uuid(UuidToString(MakeUuid(1)));
     vm_list_req->HandleRequest();

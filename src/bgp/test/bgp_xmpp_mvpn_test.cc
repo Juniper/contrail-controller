@@ -498,7 +498,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     // blue.mvpn.0, bgp.ermvpn.0, bgp.mvpn.0, bgp.rtarget.0,
     // default-domain:default-project:ip-fabric:ip-fabric.ermvpn.0,
     // default-domain:default-project:ip-fabric:ip-fabric.mvpn.0
-    std::vector<size_t> result = list_of(2)(2)(2)(6)(4)(1);
+    std::vector<size_t> result = {2, 2, 2, 6, 4, 1};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     ShowRouteReq *show_req = new ShowRouteReq;
@@ -583,7 +583,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnManagerDetail) {
     sandesh_context.bgp_server = bs_x_.get();
     sandesh_context.xmpp_peer_manager = bcm_x_.get();
     Sandesh::set_client_context(&sandesh_context);
-    vector<string> result = list_of("10.1.1.1:65535");
+    vector<string> result = {"10.1.1.1:65535"};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowManagerMvpnDetailResponse, _1, result));
     ShowMvpnManagerDetailReq *show_req = new ShowMvpnManagerDetailReq;
@@ -643,7 +643,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnProjectManagerDetail) {
     sandesh_context.bgp_server = bs_x_.get();
     sandesh_context.xmpp_peer_manager = bcm_x_.get();
     Sandesh::set_client_context(&sandesh_context);
-    vector<string> result = list_of("225.0.0.1");
+    vector<string> result = {"225.0.0.1"};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowProjectManagerMvpnDetailResponse, _1, result));
     ShowMvpnProjectManagerDetailReq *show_req =

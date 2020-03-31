@@ -110,27 +110,26 @@ bool BgpStressTestEvent::log_;
 vector<BgpStressTestEvent::EventType> BgpStressTestEvent::d_events_list_;
 vector<string> BgpStressTestEvent::d_events_played_list_;
 static int d_events_ = 50;
-static vector<float> d_events_weight_ = boost::assign::list_of
-   (50.0) // ADD_BGP_ROUTE
-   (50.0) // DELETE_BGP_ROUTE
-   (70.0) // ADD_XMPP_ROUTE
-   (70.0) // DELETE_XMPP_ROUTE
-   (20.0) // BRING_UP_XMPP_AGENT
-   (20.0) // BRING_DOWN_XMPP_AGENT
-   (20.0) // CLEAR_XMPP_AGENT
-   (20.0) // SUBSCRIBE_ROUTING_INSTANCE
-   (20.0) // UNSUBSCRIBE_ROUTING_INSTANCE
-   (20.0) // SUBSCRIBE_CONFIGURATION
-   (20.0) // UNSUBSCRIBE_CONFIGURATION
-   (10.0) // ADD_BGP_PEER
-   (10.0) // DELETE_BGP_PEER
-   (20.0) // CLEAR_BGP_PEER
-   (30.0) // ADD_ROUTING_INSTANCE
-   (30.0) // DELETE_ROUTING_INSTANCE
-   (10.0) // ADD_ROUTE_TARGET
-   (10.0) // DELETE_ROUTE_TARGET
-   (10.0) // CHANGE_SOCKET_BUFFER_SIZE
-   (10.0) // SHOW_ALL_ROUTES
+static vector<float> d_events_weight_ = {50.0,  // ADD_BGP_ROUTE
+                                         50.0,  // DELETE_BGP_ROUTE
+                                         70.0,  // ADD_XMPP_ROUTE
+                                         70.0,  // DELETE_XMPP_ROUTE
+                                         20.0,  // BRING_UP_XMPP_AGENT
+                                         20.0,  // BRING_DOWN_XMPP_AGENT
+                                         20.0,  // CLEAR_XMPP_AGENT
+                                         20.0,  // SUBSCRIBE_ROUTING_INSTANCE
+                                         20.0,  // UNSUBSCRIBE_ROUTING_INSTANCE
+                                         20.0,  // SUBSCRIBE_CONFIGURATION
+                                         20.0,  // UNSUBSCRIBE_CONFIGURATION
+                                         10.0,  // ADD_BGP_PEER
+                                         10.0,  // DELETE_BGP_PEER
+                                         20.0,  // CLEAR_BGP_PEER
+                                         30.0,  // ADD_ROUTING_INSTANCE
+                                         30.0,  // DELETE_ROUTING_INSTANCE
+                                         10.0,  // ADD_ROUTE_TARGET
+                                         10.0,  // DELETE_ROUTE_TARGET
+                                         10.0,  // CHANGE_SOCKET_BUFFER_SIZE
+                                         10.0}  // SHOW_ALL_ROUTES
 ;
 
 //
@@ -299,29 +298,28 @@ string BgpStressTestEvent::ToString(BgpStressTestEvent::EventType event) {
 
 BgpStressTestEvent::EventType BgpStressTestEvent::FromString(
                                                       const string event) {
-    static EventStringMap from_string_map_ = map_list_of
-            ("ADD_BGP_ROUTE", ADD_BGP_ROUTE)
-            ("DELETE_BGP_ROUTE", DELETE_BGP_ROUTE)
-            ("ADD_XMPP_ROUTE", ADD_XMPP_ROUTE)
-            ("DELETE_XMPP_ROUTE", DELETE_XMPP_ROUTE)
-            ("BRING_UP_XMPP_AGENT", BRING_UP_XMPP_AGENT)
-            ("BRING_DOWN_XMPP_AGENT", BRING_DOWN_XMPP_AGENT)
-            ("CLEAR_XMPP_AGENT", CLEAR_XMPP_AGENT)
-            ("SUBSCRIBE_ROUTING_INSTANCE", SUBSCRIBE_ROUTING_INSTANCE)
-            ("UNSUBSCRIBE_ROUTING_INSTANCE", UNSUBSCRIBE_ROUTING_INSTANCE)
-            ("SUBSCRIBE_CONFIGURATION", SUBSCRIBE_CONFIGURATION)
-            ("UNSUBSCRIBE_CONFIGURATION", UNSUBSCRIBE_CONFIGURATION)
-            ("ADD_BGP_PEER", ADD_BGP_PEER)
-            ("DELETE_BGP_PEER", DELETE_BGP_PEER)
-            ("CLEAR_BGP_PEER", CLEAR_BGP_PEER)
-            ("ADD_ROUTING_INSTANCE", ADD_ROUTING_INSTANCE)
-            ("DELETE_ROUTING_INSTANCE", DELETE_ROUTING_INSTANCE)
-            ("ADD_ROUTE_TARGET", ADD_ROUTE_TARGET)
-            ("DELETE_ROUTE_TARGET", DELETE_ROUTE_TARGET)
-            ("CHANGE_SOCKET_BUFFER_SIZE", CHANGE_SOCKET_BUFFER_SIZE)
-            ("SHOW_ALL_ROUTES", SHOW_ALL_ROUTES)
-            ("PAUSE", PAUSE)
-        ;
+    static EventStringMap from_string_map_ = {
+        {"ADD_BGP_ROUTE", ADD_BGP_ROUTE},
+        {"DELETE_BGP_ROUTE", DELETE_BGP_ROUTE},
+        {"ADD_XMPP_ROUTE", ADD_XMPP_ROUTE},
+        {"DELETE_XMPP_ROUTE", DELETE_XMPP_ROUTE},
+        {"BRING_UP_XMPP_AGENT", BRING_UP_XMPP_AGENT},
+        {"BRING_DOWN_XMPP_AGENT", BRING_DOWN_XMPP_AGENT},
+        {"CLEAR_XMPP_AGENT", CLEAR_XMPP_AGENT},
+        {"SUBSCRIBE_ROUTING_INSTANCE", SUBSCRIBE_ROUTING_INSTANCE},
+        {"UNSUBSCRIBE_ROUTING_INSTANCE", UNSUBSCRIBE_ROUTING_INSTANCE},
+        {"SUBSCRIBE_CONFIGURATION", SUBSCRIBE_CONFIGURATION},
+        {"UNSUBSCRIBE_CONFIGURATION", UNSUBSCRIBE_CONFIGURATION},
+        {"ADD_BGP_PEER", ADD_BGP_PEER},
+        {"DELETE_BGP_PEER", DELETE_BGP_PEER},
+        {"CLEAR_BGP_PEER", CLEAR_BGP_PEER},
+        {"ADD_ROUTING_INSTANCE", ADD_ROUTING_INSTANCE},
+        {"DELETE_ROUTING_INSTANCE", DELETE_ROUTING_INSTANCE},
+        {"ADD_ROUTE_TARGET", ADD_ROUTE_TARGET},
+        {"DELETE_ROUTE_TARGET", DELETE_ROUTE_TARGET},
+        {"CHANGE_SOCKET_BUFFER_SIZE", CHANGE_SOCKET_BUFFER_SIZE},
+        {"SHOW_ALL_ROUTES", SHOW_ALL_ROUTES},
+        {"PAUSE", PAUSE}};
 
     EventStringMap::iterator iter = from_string_map_.find(event);
     if (iter == from_string_map_.end()) return EVENT_INVALID;

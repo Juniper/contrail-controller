@@ -33,15 +33,15 @@ TYPED_TEST(ServiceChainIntegrationTest, Basic) {
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
     } else {
-        PathVerify verify_1("88.88.88.88", "ServiceChain",  "88.88.88.88",
-                            list_of("gre"), "red");
-        PathVerify verify_2("88.88.88.88", "BGP_XMPP",  "88.88.88.88",
-                            list_of("gre"), "red");
+        PathVerify verify_1("88.88.88.88", "ServiceChain", "88.88.88.88",
+                            {"gre"}, "red");
+        PathVerify verify_2("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "red");
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
     }
 
-    vector<string> origin_vn_path = list_of("red");
+    vector<string> origin_vn_path = {"red"};
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
         // Check for aggregated route
         this->VerifyServiceChainRoute(this->cn1_.get(),
@@ -122,20 +122,20 @@ TYPED_TEST(ServiceChainIntegrationTest, ECMP) {
         path_list.push_back(verify_4);
     } else {
         PathVerify verify_1("88.88.88.88", "ServiceChain", "88.88.88.88",
-                            list_of  ("gre"), "red");
+                            {"gre"}, "red");
         PathVerify verify_2("99.99.99.99", "ServiceChain", "99.99.99.99",
-                            list_of  ("gre"), "red");
-        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88",
-                            list_of  ("gre"), "red");
-        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99",
-                            list_of  ("gre"), "red");
+                            {"gre"}, "red");
+        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "red");
+        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99", {"gre"},
+                            "red");
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);
         path_list.push_back(verify_4);
     }
 
-    vector<string> origin_vn_path = list_of("red");
+    vector<string> origin_vn_path = {"red"};
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
         // Check for aggregated route
         this->VerifyServiceChainRoute(this->cn1_.get(),
@@ -211,13 +211,13 @@ TYPED_TEST(ServiceChainIntegrationTest, ExtRoute) {
         path_list.push_back(verify_4);
     } else {
         PathVerify verify_1("88.88.88.88", "ServiceChain", "88.88.88.88",
-                            list_of  ("gre"), "red");
+                            {"gre"}, "red");
         PathVerify verify_2("99.99.99.99", "ServiceChain", "99.99.99.99",
-                            list_of  ("gre"), "red");
-        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88",
-                            list_of  ("gre"), "red");
-        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99",
-                            list_of  ("gre"), "red");
+                            {"gre"}, "red");
+        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "red");
+        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99", {"gre"},
+                            "red");
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);
@@ -229,7 +229,7 @@ TYPED_TEST(ServiceChainIntegrationTest, ExtRoute) {
         this->BuildPrefix("10.1.1.0", 24), path_list);
     this->VerifyServiceChainRoute(this->cn2_.get(),
         this->BuildPrefix("10.1.1.0", 24), path_list);
-    vector<string> origin_vn_path = list_of("red");
+    vector<string> origin_vn_path = {"red"};
     this->VerifyServiceChainRouteOriginVnPath(this->cn1_.get(), "blue",
         this->BuildPrefix("10.1.1.0", 24), origin_vn_path);
     this->VerifyServiceChainRouteOriginVnPath(this->cn2_.get(), "blue",
@@ -274,18 +274,14 @@ TYPED_TEST(ServiceChainIntegrationTest, SiteOfOrigin) {
         path_list.push_back(verify_3);
         path_list.push_back(verify_4);
     } else {
-        PathVerify verify_1(
-            "88.88.88.88", "ServiceChain", "88.88.88.88",
-                        list_of("gre"), "red", soo);
-        PathVerify verify_2(
-            "99.99.99.99", "ServiceChain", "99.99.99.99",
-                        list_of("gre"), "red", soo);
-        PathVerify verify_3(
-            "88.88.88.88", "BGP_XMPP", "88.88.88.88",
-                        list_of("gre"), "red", soo);
-        PathVerify verify_4(
-            "99.99.99.99", "BGP_XMPP", "99.99.99.99",
-                        list_of("gre"), "red", soo);
+        PathVerify verify_1("88.88.88.88", "ServiceChain", "88.88.88.88",
+                            {"gre"}, "red", soo);
+        PathVerify verify_2("99.99.99.99", "ServiceChain", "99.99.99.99",
+                            {"gre"}, "red", soo);
+        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "red", soo);
+        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99", {"gre"},
+                            "red", soo);
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);
@@ -297,7 +293,7 @@ TYPED_TEST(ServiceChainIntegrationTest, SiteOfOrigin) {
         this->BuildPrefix("10.1.1.0", 24), path_list);
     this->VerifyServiceChainRoute(this->cn2_.get(),
         this->BuildPrefix("10.1.1.0", 24), path_list);
-    vector<string> origin_vn_path = list_of("red");
+    vector<string> origin_vn_path = {"red"};
     this->VerifyServiceChainRouteOriginVnPath(this->cn1_.get(), "blue",
         this->BuildPrefix("10.1.1.0", 24), origin_vn_path);
     this->VerifyServiceChainRouteOriginVnPath(this->cn2_.get(), "blue",

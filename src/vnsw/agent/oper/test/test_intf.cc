@@ -62,7 +62,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 
 void DoInterfaceSandesh(std::string name) {
     ItfReq *itf_req = new ItfReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     if (name != "") {
         itf_req->set_name(name);
@@ -2748,7 +2748,7 @@ TEST_F(IntfTest, IntfStaticRouteWithCommunity) {
        { Ip4Address::from_string("16.1.1.0"), 16},
    };
 
-   std::vector<std::string> communities = list_of("no-advertise")("64512:9999");
+   std::vector<std::string> communities = {"no-advertise", "64512:9999"};
    AddInterfaceRouteTable("static_route", 1, static_route, 2, NULL, communities);
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -2803,7 +2803,7 @@ TEST_F(IntfTest, IntfStaticRouteWithCommunityWithNexthop) {
        { Ip4Address::from_string("16.1.1.0"), 16},
    };
 
-   std::vector<std::string> communities = list_of("no-advertise")("64512:9999");
+   std::vector<std::string> communities = {"no-advertise", "64512:9999"};
    AddInterfaceRouteTable("static_route", 1, static_route, 2, "1.1.1.2", communities);
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -2879,8 +2879,8 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_0) {
 
 
    // Update the communities
-   std::vector<std::string> update_communities =
-       list_of("no-reoriginate")("64512:8888");
+   std::vector<std::string> update_communities = {"no-reoriginate",
+                                                  "64512:8888"};
    AddInterfaceRouteTable("static_route", 1, static_route, 2,
                           NULL, update_communities);
    AddLink("virtual-machine-interface", "vnet1",
@@ -2936,7 +2936,7 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_1) {
        { Ip4Address::from_string("16.1.1.0"), 16},
    };
 
-   std::vector<std::string> communities = list_of("no-advertise")("64512:9999");
+   std::vector<std::string> communities = {"no-advertise", "64512:9999"};
    AddInterfaceRouteTable("static_route", 1, static_route, 2, NULL, communities);
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -2957,8 +2957,8 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_1) {
    client->WaitForIdle();
 
    // Update the communities
-   std::vector<std::string> update_communities =
-       list_of("no-reoriginate")("64512:8888");
+   std::vector<std::string> update_communities = {"no-reoriginate",
+                                                  "64512:8888"};
    AddInterfaceRouteTable("static_route", 1, static_route, 2,
                           NULL, update_communities);
    AddLink("virtual-machine-interface", "vnet1",

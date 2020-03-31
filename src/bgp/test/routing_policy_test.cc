@@ -656,8 +656,8 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchReject) {
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
-    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32",
-                        100, list_of("11:13"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32", 100,
+                             {"11:13"});
     task_util::WaitForIdle();
 
     VERIFY_EQ(1, RouteCount("test.inet.0"));

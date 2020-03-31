@@ -14,7 +14,7 @@
 #include <netinet/igmp.h>
 
 #include <tbb/atomic.h>
-#include <boost/array.hpp>
+#include <array>
 
 #include <base/address.h>
 #include <net/mac_address.h>

@@ -140,7 +140,7 @@ TEST_F(BgpYamlConfigManagerTest, 2Neighbors) {
         EXPECT_EQ(8179, n1->port());
         EXPECT_EQ(htonl(Ip4Address::from_string("192.168.0.1").to_ulong()),
                   n1->peer_identifier());
-        EXPECT_EQ(list_of("inet")("inet-vpn"), n1->GetAddressFamilies());
+        EXPECT_EQ({"inet", "inet-vpn"}, n1->GetAddressFamilies());
     }
 }
 

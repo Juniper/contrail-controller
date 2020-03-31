@@ -338,9 +338,8 @@ class RtUnicastTest : public ::testing::Test {
 // Delete the red network.
 //
 TEST_F(RtUnicastTest, InstanceDelete) {
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red", "blue", "yellow"};
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
 
     ApplyNetworkConfiguration();
 
@@ -364,9 +363,8 @@ TEST_F(RtUnicastTest, InstanceDelete) {
 // Add the yellow network and make it part of the mesh.
 //
 TEST_F(RtUnicastTest, InstanceAdd) {
-    instance_names_ = list_of("red")("blue");
-    connections_ =
-        map_list_of("red", "blue");
+    instance_names_ = {"red", "blue"};
+    connections_ = {"red", "blue"}
 
     ApplyNetworkConfiguration();
 
@@ -491,8 +489,8 @@ class MultihomedAgentTest : public RtUnicastTest {
 
 // attributes: next-hop and label.
 TEST_F(MultihomedAgentTest, Attributes) {
-    instance_names_ = list_of("red")("blue")("yellow")("green");
-    connections_ = map_list_of("red", "blue");
+    instance_names_ = {"red", "blue", "yellow", "green"};
+    connections_ = {"red", "blue"};
 
     ApplyNetworkConfiguration();
 
@@ -542,8 +540,8 @@ TEST_F(MultihomedAgentTest, Attributes) {
 
 // attributes: next-hop and label.
 TEST_F(MultihomedAgentTest, UpdateRoute) {
-    instance_names_ = list_of("red")("blue")("yellow")("green");
-    connections_ = map_list_of("red", "blue");
+    instance_names_ = {"red", "blue", "yellow", "green"};
+    connections_ = {"red", "blue"};
 
     ApplyNetworkConfiguration();
 
@@ -574,8 +572,8 @@ TEST_F(MultihomedAgentTest, UpdateRoute) {
 
 // attributes: next-hop and label.
 TEST_F(MultihomedAgentTest, DeleteRoute) {
-    instance_names_ = list_of("red")("blue")("yellow")("green");
-    connections_ = map_list_of("red", "blue");
+    instance_names_ = {"red", "blue", "yellow", "green"},
+    connections_ = {"red", "blue"};
 
     ApplyNetworkConfiguration();
 
@@ -617,7 +615,7 @@ TEST_F(MultihomedAgentTest, DeleteRoute) {
 //
 TEST_F(MultihomedAgentTest, ConnectionAddDelete) {
     SCOPED_TRACE("ConnectionAddDelete");
-    instance_names_ = list_of("red")("blue");
+    instance_names_ = {"red", "blue"};
 
     ApplyNetworkConfiguration();
 
@@ -670,7 +668,7 @@ TEST_F(MultihomedAgentTest, ConnectionAddDelete) {
 //
 TEST_F(MultihomedAgentTest, ConnectionAddMultiple1) {
     SCOPED_TRACE("ConnectionAddMultiple1");
-    instance_names_ = list_of("red")("blue")("yellow");
+    instance_names_ = {"red", "blue", "yellow"};
 
     ApplyNetworkConfiguration();
 
@@ -733,7 +731,7 @@ TEST_F(MultihomedAgentTest, ConnectionAddMultiple1) {
 //
 TEST_F(MultihomedAgentTest, ConnectionAddMultiple2) {
     SCOPED_TRACE("ConnectionAddMultiple2");
-    instance_names_ = list_of("red")("blue")("yellow");
+    instance_names_ = {"red", "blue", "yellow"};
 
     ApplyNetworkConfiguration();
 
@@ -781,9 +779,8 @@ TEST_F(MultihomedAgentTest, ConnectionAddMultiple2) {
 //
 TEST_F(MultihomedAgentTest, ConnectionDeleteMultiple1) {
     SCOPED_TRACE("ConnectionDeleteMultiple1");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red", "blue", "yellow"};
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
 
     ApplyNetworkConfiguration();
 
@@ -842,9 +839,8 @@ TEST_F(MultihomedAgentTest, ConnectionDeleteMultiple1) {
 //
 TEST_F(MultihomedAgentTest, ConnectionDeleteMultiple2) {
     SCOPED_TRACE("ConnectionDeleteMultiple2");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red", "blue", "yellow"},
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
 
     ApplyNetworkConfiguration();
 
@@ -892,9 +888,8 @@ TEST_F(MultihomedAgentTest, ConnectionDeleteMultiple2) {
 //
 TEST_F(MultihomedAgentTest, Subscribe) {
     SCOPED_TRACE("Subscribe");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red", "blue", "yellow"},
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
 
     ApplyNetworkConfiguration();
 
@@ -943,11 +938,9 @@ TEST_F(MultihomedAgentTest, Subscribe) {
 //
 TEST_F(MultihomedAgentTest, Unsubscribe) {
     SCOPED_TRACE("Unsubscribe");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
-
-    ApplyNetworkConfiguration();
+    instance_names_ = {"red", "blue", "yellow"},
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
+    3 ApplyNetworkConfiguration();
 
     // Subscribe to all the networks.
     int instance_id = 1;
@@ -984,9 +977,8 @@ TEST_F(MultihomedAgentTest, Unsubscribe) {
 
 TEST_F(MultihomedAgentTest, SessionBounce) {
     SCOPED_TRACE("SessionBounce");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red", "blue", "yellow"},
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}},
 
     ApplyNetworkConfiguration();
 
@@ -1046,9 +1038,8 @@ TEST_F(MultihomedAgentTest, SessionBounce) {
 //
 TEST_F(MultihomedAgentTest, ConnectLater) {
     SCOPED_TRACE("ConnectLater");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red", "blue", "yellow"},
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
 
     ApplyNetworkConfiguration();
 
@@ -1114,9 +1105,8 @@ TEST_F(MultihomedAgentTest, ConnectLater) {
 //
 TEST_F(MultihomedAgentTest, InstanceDelete) {
     SCOPED_TRACE("InstanceDelete");
-    instance_names_ = list_of("red")("blue")("yellow");
-    connections_ =
-        map_list_of("red", "blue")("red", "yellow")("blue", "yellow");
+    instance_names_ = {"red"}, {"blue"}, {"yellow"},
+    connections_ = {{"red", "blue"}, {"red", "yellow"}, {"blue", "yellow"}};
 
     ApplyNetworkConfiguration();
 
@@ -1177,9 +1167,7 @@ TEST_F(MultihomedAgentTest, InstanceDelete) {
 //
 TEST_F(MultihomedAgentTest, InstanceAdd) {
     SCOPED_TRACE("InstanceAdd");
-    instance_names_ = list_of("red")("blue");
-    connections_ =
-        map_list_of("red", "blue");
+    instance_names_ = {"red", "blue"}, connections_ = {"red", "blue"};
 
     ApplyNetworkConfiguration();
 
@@ -1257,7 +1245,7 @@ class Multihomed2AgentTest : public MultihomedAgentTest {
 // Make sure that these show up as 2 different VPN routes.
 TEST_F(Multihomed2AgentTest, Basic) {
     SCOPED_TRACE("Basic");
-    instance_names_ = list_of("red");
+    instance_names_ = {"red"};
 
     ApplyNetworkConfiguration();
 
@@ -1281,7 +1269,7 @@ TEST_F(Multihomed2AgentTest, Basic) {
 // Bring the sessions on the agents down and and verify the VPN routes.
 TEST_F(Multihomed2AgentTest, SessionDown) {
     SCOPED_TRACE("SessionDown");
-    instance_names_ = list_of("red");
+    instance_names_ = {"red"};
 
     ApplyNetworkConfiguration();
 

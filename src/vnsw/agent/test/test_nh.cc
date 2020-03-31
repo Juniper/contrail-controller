@@ -57,7 +57,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 
 static void DoNextHopSandesh() {
     NhListReq *nh_list_req = new NhListReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     nh_list_req->HandleRequest();
     client->WaitForIdle();
@@ -323,7 +323,7 @@ TEST_F(CfgTest, NhSandesh_1) {
 
     //Mock the sandesh request, no expecatation just catch crashes.
     NhListReq *nh_list_req = new NhListReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     nh_list_req->HandleRequest();
     client->WaitForIdle();

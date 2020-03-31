@@ -812,9 +812,9 @@ static void TearDown() {
     scheduler->Terminate();
 }
 
-static vector<int> n_vrfs = boost::assign::list_of(5)(10);
-static vector<int> n_connections = boost::assign::list_of(5)(10);
-static vector<int> n_iterations = boost::assign::list_of(5)(10);
+static vector<int> n_vrfs = {5, 10};
+static vector<int> n_connections = {5, 10};
+static vector<int> n_iterations = {5, 10};
 
 static void process_command_line_args(int argc, char **argv) {
     int vrfs = 1, connections = 1, iterations = 1;

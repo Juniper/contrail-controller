@@ -41,7 +41,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 
 void DoInterfaceSandesh(std::string name) {
     ItfReq *itf_req = new ItfReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     if (name != "") {
         itf_req->set_name(name);
@@ -1251,7 +1251,7 @@ TEST_F(CfgTest, Basic_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
 
     client->WaitForIdle();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     AgentSandeshPtr sand_1(CreateAgentIntfSandesh("vnet1"));
     sand_1->DoSandesh(sand_1);

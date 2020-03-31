@@ -498,7 +498,7 @@ TYPED_TEST(BgpXmppIpTest, RouteWithCommunity) {
 
     // Add route from agent A.
     test::NextHop nexthop(true, this->BuildNextHop(1));
-    vector<string> comm = list_of("64512:101")("64512:102");
+    vector<string> comm = {"64512:101", "64512:102"};
     test::RouteAttributes attr(comm);
     this->AddRoute(this->agent_a_, this->BuildPrefix(1), nexthop, attr);
     task_util::WaitForIdle();

@@ -872,7 +872,7 @@ typedef ::testing::Types <InetDefinition, Inet6Definition> TypeDefinitionList;
 TYPED_TEST_CASE(StaticRouteTest, TypeDefinitionList);
 
 TYPED_TEST(StaticRouteTest, InvalidNextHop) {
-    vector<string> instance_names = list_of("nat");
+    vector<string> instance_names = {"nat"};
     this->NetworkConfig(instance_names);
 
     // Add Nexthop route.
@@ -902,7 +902,7 @@ TYPED_TEST(StaticRouteTest, InvalidNextHop) {
 }
 
 TYPED_TEST(StaticRouteTest, InvalidPrefix) {
-    vector<string> instance_names = list_of("nat");
+    vector<string> instance_names = {"nat"};
     this->NetworkConfig(instance_names);
 
     // Add Nexthop route.
@@ -929,7 +929,7 @@ TYPED_TEST(StaticRouteTest, InvalidPrefix) {
 }
 
 TYPED_TEST(StaticRouteTest, InvalidRouteTarget) {
-    vector<string> instance_names = list_of("nat");
+    vector<string> instance_names = {"nat"};
     this->NetworkConfig(instance_names);
 
     // Add Nexthop route.
@@ -972,7 +972,7 @@ TYPED_TEST(StaticRouteTest, InvalidRouteTarget) {
 // 3. Validate the static route in both source (nat) and destination
 // routing instance
 TYPED_TEST(StaticRouteTest, Basic) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -988,8 +988,8 @@ TYPED_TEST(StaticRouteTest, Basic) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1008,7 +1008,7 @@ TYPED_TEST(StaticRouteTest, Basic) {
 // 2. Add nexthop routes to make both static routes active.
 // 3. Validate the static route in both source (nat) and destination ri
 TYPED_TEST(StaticRouteTest, Basic2) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1025,8 +1025,8 @@ TYPED_TEST(StaticRouteTest, Basic2) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
     this->VerifyStaticRouteSandesh("nat");
@@ -1079,7 +1079,7 @@ TYPED_TEST(StaticRouteTest, Basic2) {
 }
 
 TYPED_TEST(StaticRouteTest, UpdateRtList) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1103,8 +1103,8 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1126,7 +1126,7 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
 }
 
 TYPED_TEST(StaticRouteTest, UpdateCommunityList) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     // Add nexthop route.
@@ -1137,7 +1137,7 @@ TYPED_TEST(StaticRouteTest, UpdateCommunityList) {
         "controller/src/bgp/testdata/static_route_15a.xml");
 
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    vector<string> comm_list = list_of("64496:101")("64496:102");
+    vector<string> comm_list = {"64496:101", "64496:102"};
     this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "blue", comm_list);
 
@@ -1157,7 +1157,7 @@ TYPED_TEST(StaticRouteTest, UpdateCommunityList) {
 }
 
 TYPED_TEST(StaticRouteTest, UpdateNexthop) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1174,8 +1174,8 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1210,7 +1210,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
 // 4. Validate that static route is active with correct rtargets
 //
 TYPED_TEST(StaticRouteTest, DuplicatePrefix) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1226,8 +1226,8 @@ TYPED_TEST(StaticRouteTest, DuplicatePrefix) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1270,7 +1270,7 @@ TYPED_TEST(StaticRouteTest, DuplicatePrefix) {
 // 4. Validate that both static routes are active with correct rtargets
 //
 TYPED_TEST(StaticRouteTest, DuplicatePrefix_1) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1284,8 +1284,7 @@ TYPED_TEST(StaticRouteTest, DuplicatePrefix_1) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:1:1")("target:1:2")("target:1:3");
+    set<string> rtarget_list = {"target:1:1", "target:1:2", "target:1:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1322,7 +1321,7 @@ TYPED_TEST(StaticRouteTest, DuplicatePrefix_1) {
 }
 
 TYPED_TEST(StaticRouteTest, MultiplePrefix) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->VerifyStaticRouteCount(0);
@@ -1345,7 +1344,7 @@ TYPED_TEST(StaticRouteTest, MultiplePrefix) {
     this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
-    set<string> rtarget_list = list_of("target:64496:1");
+    set<string> rtarget_list = {"target:64496:1"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1381,10 +1380,10 @@ TYPED_TEST(StaticRouteTest, MultiplePrefix) {
 }
 
 TYPED_TEST(StaticRouteTest, MultiplePrefixSameNexthopAndUpdateNexthop) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
-    set<string> rtarget_list = list_of("target:64496:1");
+    set<string> rtarget_list = {"target:64496:1"};
     this->SetStaticRouteEntries("nat",
         "controller/src/bgp/testdata/static_route_5.xml");
 
@@ -1443,7 +1442,7 @@ TYPED_TEST(StaticRouteTest, MultiplePrefixSameNexthopAndUpdateNexthop) {
 // Test static route config on multiple routing instance
 //
 TYPED_TEST(StaticRouteTest, MultipleRoutingInstance) {
-    vector<string> instance_names = list_of("nat-1")("nat-2");
+    vector<string> instance_names = {"nat-1", "nat-2"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat-1",
@@ -1486,7 +1485,7 @@ TYPED_TEST(StaticRouteTest, MultipleRoutingInstance) {
 // Test with unregister trigger disabled
 //
 TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger1) {
-    vector<string> instance_names = list_of("nat-1")("nat-2");
+    vector<string> instance_names = {"nat-1", "nat-2"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat-1",
@@ -1565,7 +1564,7 @@ TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger1) {
 // In this test, routing instance destroy is delayed by holding a route
 //
 TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger2) {
-    vector<string> instance_names = list_of("nat-1")("nat-2");
+    vector<string> instance_names = {"nat-1", "nat-2"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat-1",
@@ -1648,10 +1647,10 @@ TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger2) {
 }
 
 TYPED_TEST(StaticRouteTest, ConfigUpdate) {
-    vector<string> instance_names = list_of("blue")("nat")("red");
+    vector<string> instance_names = {"blue", "nat", "red"};
     this->NetworkConfig(instance_names);
 
-    set<string> rtarget_list = list_of("target:64496:1");
+    set<string> rtarget_list = {"target:64496:1"};
 
     this->SetStaticRouteEntries("nat",
         "controller/src/bgp/testdata/static_route_6.xml");
@@ -1710,7 +1709,7 @@ TYPED_TEST(StaticRouteTest, ConfigUpdate) {
 }
 
 TYPED_TEST(StaticRouteTest, EcmpPathAdd) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->CreatePeers();
@@ -1730,8 +1729,8 @@ TYPED_TEST(StaticRouteTest, EcmpPathAdd) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1767,7 +1766,7 @@ TYPED_TEST(StaticRouteTest, EcmpPathAdd) {
 }
 
 TYPED_TEST(StaticRouteTest, EcmpPathDelete) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->CreatePeers();
@@ -1793,8 +1792,8 @@ TYPED_TEST(StaticRouteTest, EcmpPathDelete) {
 
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24), 4);
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24), 4);
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.1.5"), "unresolved", rtarget_list);
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
@@ -1823,7 +1822,7 @@ TYPED_TEST(StaticRouteTest, EcmpPathDelete) {
 }
 
 TYPED_TEST(StaticRouteTest, TunnelEncap) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1831,7 +1830,7 @@ TYPED_TEST(StaticRouteTest, TunnelEncap) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Nexthop Route
-    set<string> encap_list = list_of("gre")("vxlan");
+    set<string> encap_list = {"gre", "vxlan"};
     this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32), 100,
         this->BuildNextHopAddress("2.3.4.5"), encap_list);
 
@@ -1863,7 +1862,7 @@ TYPED_TEST(StaticRouteTest, TunnelEncap) {
 }
 
 TYPED_TEST(StaticRouteTest, LoadBalance) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -1885,8 +1884,8 @@ TYPED_TEST(StaticRouteTest, LoadBalance) {
         this->BuildNextHopAddress("2.3.4.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
@@ -1920,7 +1919,7 @@ TYPED_TEST(StaticRouteTest, LoadBalance) {
 
 
 TYPED_TEST(StaticRouteTest, MultiPathTunnelEncap) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->CreatePeers();
@@ -1931,9 +1930,9 @@ TYPED_TEST(StaticRouteTest, MultiPathTunnelEncap) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Nexthop Route
-    set<string> encap_1 = list_of("gre");
-    set<string> encap_2 = list_of("udp");
-    set<string> encap_3 = list_of("vxlan");
+    set<string> encap_1 = {"gre"};
+    set<string> encap_2 = {"udp"};
+    set<string> encap_3 = {"vxlan"};
     this->AddRoute(this->peers_[0], "nat",
         this->BuildPrefix("192.168.1.254", 32), 100,
         this->BuildNextHopAddress("2.3.1.5"), encap_1, vector<uint32_t>());
@@ -1953,8 +1952,8 @@ TYPED_TEST(StaticRouteTest, MultiPathTunnelEncap) {
         this->BuildNextHopAddress("2.3.3.5"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24), 3);
-    set<string> rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    set<string> rtarget_list = {"target:64496:1", "target:64496:2",
+                                "target:64496:3"};
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.1.5"), "unresolved", rtarget_list,
         encap_1);
@@ -1977,7 +1976,7 @@ TYPED_TEST(StaticRouteTest, MultiPathTunnelEncap) {
 }
 
 TYPED_TEST(StaticRouteTest, DeleteEntryReuse) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -2010,7 +2009,7 @@ TYPED_TEST(StaticRouteTest, DeleteEntryReuse) {
 }
 
 TYPED_TEST(StaticRouteTest, EntryAfterStop) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -2041,7 +2040,7 @@ TYPED_TEST(StaticRouteTest, EntryAfterStop) {
 // changed.
 //
 TYPED_TEST(StaticRouteTest, DeleteRoutingInstance) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -2079,7 +2078,7 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance) {
 // Allow the routing instance to get deleted with unregister trigger running.
 //
 TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger1) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -2125,7 +2124,7 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger1) {
 // Verify that enabling the task trigger ignores the deleted routing instance.
 //
 TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger2) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -2184,7 +2183,7 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger2) {
 // Repeat the above steps for delete of VPN routes and static routes
 //
 TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
-    vector<string> instance_names = list_of("blue")("nat-1")("nat-2");
+    vector<string> instance_names = {"blue", "nat-1", "nat-2"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat-1",
@@ -2206,7 +2205,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
         this->BuildNextHopAddress("2.3.4.5"));
 
     // Add VPN routes to import to blue table
-    vector<string> instances = list_of("blue");
+    vector<string> instances = {"blue"};
     for (int i = 0; i < 255; i++) {
         ostringstream oss;
         oss << "10.0.1." << i;
@@ -2288,7 +2287,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
 // the static route module.
 //
 TYPED_TEST(StaticRouteTest, AddRoutingInstance) {
-    vector<string> instance_names = list_of("nat");
+    vector<string> instance_names = {"nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",
@@ -2320,7 +2319,7 @@ TYPED_TEST(StaticRouteTest, AddRoutingInstance) {
 // 3. Validate the static route in the VN's default routing instance
 //
 TYPED_TEST(StaticRouteTest, DefaultRoutingInstance) {
-    vector<string> instance_names = list_of("blue");
+    vector<string> instance_names = {"blue"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("blue",
@@ -2329,7 +2328,7 @@ TYPED_TEST(StaticRouteTest, DefaultRoutingInstance) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Nexthop Route
-    set<string> encap_list = list_of("gre")("udp");
+    set<string> encap_list = {"gre", "udp"};
     this->AddRoute(NULL, "blue", this->BuildPrefix("192.168.1.254", 32), 100,
         this->BuildNextHopAddress("2.3.4.5"), encap_list);
 
@@ -2351,7 +2350,7 @@ TYPED_TEST(StaticRouteTest, DefaultRoutingInstance) {
 // default routing instance.
 //
 TYPED_TEST(StaticRouteTest, VirtualNetworkIndexChange) {
-    vector<string> instance_names = list_of("blue");
+    vector<string> instance_names = {"blue"};
     this->NetworkConfig(instance_names);
 
     this->SetVirtualNetworkNetworkId("blue", 0);
@@ -2388,7 +2387,7 @@ TYPED_TEST(StaticRouteTest, VirtualNetworkIndexChange) {
 //   4. After updating the config(nexthop) and after new nexthop route is
 //      published
 TYPED_TEST(StaticRouteTest, SandeshTest) {
-    vector<string> instance_names = list_of("blue")("nat");
+    vector<string> instance_names = {"blue", "nat"};
     this->NetworkConfig(instance_names);
 
     this->SetStaticRouteEntries("nat",

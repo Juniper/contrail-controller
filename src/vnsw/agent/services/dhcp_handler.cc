@@ -23,306 +23,313 @@
 #include <bind/bind_util.h>
 
 using namespace boost::assign;
-Dhcpv4NameCodeMap g_dhcpv4_namecode_map =
-    map_list_of<std::string, uint32_t>
-        ("subnet-mask", DHCP_OPTION_SUBNET_MASK)
-        ("time-offset", DHCP_OPTION_TIME_OFFSET)
-        ("routers", DHCP_OPTION_ROUTER)
-        ("time-servers", DHCP_OPTION_TIME_SERVER)
-        ("name-servers", DHCP_OPTION_NAME_SERVER)
-        ("domain-name-servers", DHCP_OPTION_DNS)
-        ("log-servers", DHCP_OPTION_LOG_SERVER)
-        ("quote-servers", DHCP_OPTION_QUOTE_SERVER)
-        ("lpr-servers", DHCP_OPTION_LPR_SERVER)
-        ("impress-servers", DHCP_OPTION_IMPRESS_SERVER)
-        ("resource-location-servers", DHCP_OPTION_RESOURCE_LOCATION_SERVER)
-        ("host-name", DHCP_OPTION_HOST_NAME)
-        ("boot-size", DHCP_OPTION_BOOT_FILE_SIZE)
-        ("merit-dump", DHCP_OPTION_MERIT_DUMP_FILE)
-        ("domain-name", DHCP_OPTION_DOMAIN_NAME)
-        ("swap-server", DHCP_OPTION_SWAP_SERVER)
-        ("root-path", DHCP_OPTION_ROOT_PATH)
-        ("extension-path", DHCP_OPTION_EXTENSION_PATH)
-        ("ip-forwarding", DHCP_OPTION_IP_FWD_CONTROL)
-        ("non-local-source-routing", DHCP_OPTION_NL_SRC_ROUTING)
-        ("policy-filter", DHCP_OPTION_POLICY_FILTER)
-        ("max-dgram-reassembly", DHCP_OPTION_MAX_DG_REASSEMBLY_SIZE)
-        ("default-ip-ttl", DHCP_OPTION_DEFAULT_IP_TTL)
-        ("path-mtu-aging-timeout", DHCP_OPTION_PATH_MTU_AGING_TIMEOUT)
-        ("path-mtu-plateau-table", DHCP_OPTION_PATH_MTU_PLATEAU_TABLE)
-        ("interface-mtu", DHCP_OPTION_INTERFACE_MTU)
-        ("all-subnets-local", DHCP_OPTION_ALL_SUBNETS_LOCAL)
-        ("broadcast-address", DHCP_OPTION_BCAST_ADDRESS)
-        ("perform-mask-discovery", DHCP_OPTION_PERFORM_MASK_DISCOVERY)
-        ("mask-supplier", DHCP_OPTION_MASK_SUPPLIER)
-        ("router-discovery", DHCP_OPTION_PERFORM_ROUTER_DISCOVERY)
-        ("router-solicitation-address", DHCP_OPTION_ROUTER_SOLICIT_ADDRESS)
-        ("static-routes", DHCP_OPTION_STATIC_ROUTING_TABLE)
-        ("trailer-encapsulation", DHCP_OPTION_TRAILER_ENCAP)
-        ("arp-cache-timeout", DHCP_OPTION_ARP_CACHE_TIMEOUT)
-        ("ieee802-3-encapsulation", DHCP_OPTION_ETHERNET_ENCAP)
-        ("default-tcp-ttl", DHCP_OPTION_DEFAULT_TCP_TTL)
-        ("tcp-keepalive-interval", DHCP_OPTION_TCP_KEEPALIVE_INTERVAL)
-        ("tcp-keepalive-garbage", DHCP_OPTION_TCP_KEEPALIVE_GARBAGE)
-        ("nis-domain", DHCP_OPTION_NIS_DOMAIN)
-        ("nis-servers", DHCP_OPTION_NIS_SERVERS)
-        ("ntp-servers", DHCP_OPTION_NTP_SERVERS)
-        ("vendor-encapsulated-options", DHCP_OPTION_VENDOR_SPECIFIC_INFO)
-        ("netbios-name-servers", DHCP_OPTION_NETBIOS_OVER_TCP_NS)
-        ("netbios-dd-server", DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS)
-        ("netbios-node-type", DHCP_OPTION_NETBIOS_OVER_TCP_NODE_TYPE)
-        ("netbios-scope", DHCP_OPTION_NETBIOS_OVER_TCP_SCOPE)
-        ("font-servers", DHCP_OPTION_XWINDOW_FONT_SERVER)
-        ("x-display-manager", DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR)
-        ("dhcp-requested-address", DHCP_OPTION_REQ_IP_ADDRESS)
-        ("dhcp-lease-time", DHCP_OPTION_IP_LEASE_TIME)
-        ("dhcp-option-overload", DHCP_OPTION_OVERLOAD)
-        ("dhcp-message-type", DHCP_OPTION_MSG_TYPE)
-        ("dhcp-server-identifier", DHCP_OPTION_SERVER_IDENTIFIER)
-        ("dhcp-parameter-request-list", DHCP_OPTION_PARAMETER_REQUEST_LIST)
-        ("dhcp-message", DHCP_OPTION_MESSAGE)
-        ("dhcp-max-message-size", DHCP_OPTION_MAX_DHCP_MSG_SIZE)
-        ("dhcp-renewal-time", DHCP_OPTION_RENEW_TIME_VALUE)
-        ("dhcp-rebinding-time", DHCP_OPTION_REBIND_TIME_VALUE)
-        ("class-id", DHCP_OPTION_CLASS_ID)
-        ("dhcp-client-identifier", DHCP_OPTION_CLIENT_ID)
-        ("nwip-domain", DHCP_OPTION_NETWARE_IP_DOMAIN_NAME)
-        ("nwip-suboptions", DHCP_OPTION_NETWARE_IP_INFO)
-        ("nisplus-domain", DHCP_OPTION_NIS_PLUS_DOMAIN)
-        ("nisplus-servers", DHCP_OPTION_NIS_PLUS_SERVERS)
-        ("tftp-server-name", DHCP_OPTION_TFTP_SERVER_NAME)
-        ("bootfile-name", DHCP_OPTION_BOOTFILE_NAME)
-        ("mobile-ip-home-agent", DHCP_OPTION_MOBILE_IP_HA)
-        ("smtp-server", DHCP_OPTION_SMTP_SERVER)
-        ("pop-server", DHCP_OPTION_POP_SERVER)
-        ("nntp-server", DHCP_OPTION_NNTP_SERVER)
-        ("www-server", DHCP_OPTION_DEFAULT_WWW_SERVER)
-        ("finger-server", DHCP_OPTION_DEFAULT_FINGER_SERVER)
-        ("irc-server", DHCP_OPTION_DEFAULT_IRC_SERVER)
-        ("streettalk-server", DHCP_OPTION_STREETTALK_SERVER)
-        ("streettalk-directory-assistance-server", DHCP_OPTION_STREETTALK_DA_SERVER)
-        ("user-class", DHCP_OPTION_USER_CLASS_INFO)
-        ("slp-directory-agent", DHCP_OPTION_SLP_DIRECTORY_AGENT)
-        ("slp-service-scope", DHCP_OPTION_SLP_SERVICE_SCOPE)
-        ("rapid-commit", DHCP_OPTION_RAPID_COMMIT)
-        ("client-fqdn", DHCP_OPTION_CLIENT_FQDN)
-        ("storage-ns", DHCP_OPTION_STORAGE_NS)
-        // option 82 not required
-        ("nds-servers", DHCP_OPTION_NDS_SERVERS)
-        ("nds-tree-name", DHCP_OPTION_NDS_TREE_NAME)
-        ("nds-context", DHCP_OPTION_NDS_CONTEXT)
-        ("bcms-controller-names", DHCP_OPTION_BCMCS_DN_LIST)
-        ("bcms-controller-address", DHCP_OPTION_BCMCS_ADDR_LIST)
-        ("dhcp-auth", DHCP_OPTION_AUTH)
-        ("dhcp-client-last-time", DHCP_OPTION_CLIENT_LAST_XTIME)
-        ("associated-ip", DHCP_OPTION_ASSOCIATE_IP)
-        ("system-architecture", DHCP_OPTION_CLIENT_SYSARCH_TYPE)
-        ("interface-id", DHCP_OPTION_CLIENT_NW_INTERFACE_ID)
-        ("ldap-servers", DHCP_OPTION_LDAP)
-        ("machine-id", DHCP_OPTION_CLIENT_MACHINE_ID)
-        ("user-auth", DHCP_OPTION_OPENGROUP_USER_AUTH)
-        ("geoconf-civic", DHCP_OPTION_GEOCONF_CIVIC)
-        ("ieee-1003-1-tz", DHCP_OPTION_IEEE_1003_1_TZ)
-        ("ref-tz-db", DHCP_OPTION_REF_TZ_DB)
-        ("netinfo-server-address", DHCP_OPTION_NETINFO_PARENT_SERVER_ADDR)
-        ("netinfo-server-tag", DHCP_OPTION_NETINFO_PARENT_SERVER_TAG)
-        ("default-url", DHCP_OPTION_URL)
-        ("auto-configure", DHCP_OPTION_AUTO_CONFIGURE)
-        ("name-search", DHCP_OPTION_NAME_SERVICE_SEARCH)
-        ("subnet-selection", DHCP_OPTION_SUBNET_SELECTION)
-        ("domain-search", DHCP_OPTION_DNS_DOMAIN_SEARCH_LIST)
-        ("sip-servers", DHCP_OPTION_SIP_SERVERS)
-        ("classless-static-routes", DHCP_OPTION_CLASSLESS_ROUTE)
-        ("dhcp-ccc", DHCP_OPTION_CCC)
-        ("dhcp-geoconf", DHCP_OPTION_GEOCONF)
-        ("vendor-class-identifier", DHCP_OPTION_VENDOR_ID_VENDOR_CLASS)
-        ("vivso", DHCP_OPTION_VENDOR_ID_VENDOR_SPECIFIC)
-        ("tftp-server", DHCP_OPTION_TFTP_SERVER)
-        ("pxe-vendor-specific-129", DHCP_OPTION_PXE_VENDOR_SPECIFIC_129)
-        ("pxe-vendor-specific-130", DHCP_OPTION_PXE_VENDOR_SPECIFIC_130)
-        ("pxe-vendor-specific-131", DHCP_OPTION_PXE_VENDOR_SPECIFIC_131)
-        ("pxe-vendor-specific-132", DHCP_OPTION_PXE_VENDOR_SPECIFIC_132)
-        ("pxe-vendor-specific-133", DHCP_OPTION_PXE_VENDOR_SPECIFIC_133)
-        ("pxe-vendor-specific-134", DHCP_OPTION_PXE_VENDOR_SPECIFIC_134)
-        ("pxe-vendor-specific-135", DHCP_OPTION_PXE_VENDOR_SPECIFIC_135)
-        ("pana-agent", DHCP_OPTION_PANA_AUTH_AGENT)
-        ("lost-server", DHCP_OPTION_LOST_SERVER)
-        ("capwap-ac-v4", DHCP_OPTION_CAPWAP_AC_ADDRESS)
-        ("dhcp-mos", DHCP_OPTION_IPV4_ADDRESS_MOS)
-        ("dhcp-fqdn-mos", DHCP_OPTION_IPV4_FQDN_MOS)
-        ("sip-ua-config-domain", DHCP_OPTION_SIP_UA_CONFIG_DOMAIN)
-        ("andsf-servers", DHCP_OPTION_IPV4_ADDRESS_ANDSF)
-        ("dhcp-geoloc", DHCP_OPTION_GEOLOC)
-        ("force-renew-nonce-cap", DHCP_OPTION_FORCERENEW_NONCE_CAP)
-        ("rdnss-selection", DHCP_OPTION_RDNSS_SELECTION)
-        ("tftp-server-address", DHCP_OPTION_TFTP_SERVER_ADDRESS)
-        ("status-code", DHCP_OPTION_STATUS_CODE)
-        ("dhcp-base-time", DHCP_OPTION_BASE_TIME)
-        ("dhcp-state-start-time", DHCP_OPTION_START_TIME_OF_STATE)
-        ("dhcp-query-start-time", DHCP_OPTION_QUERY_START_TIME)
-        ("dhcp-query-end-time", DHCP_OPTION_QUERY_END_TIME)
-        ("dhcp-state", DHCP_OPTION_DHCP_STATE)
-        ("data-source", DHCP_OPTION_DATA_SOURCE)
-        ("pcp-server", DHCP_OPTION_PCP_SERVER)
-        ("dhcp-pxe-magic", DHCP_OPTION_PXELINUX_MAGIC)
-        ("config-file", DHCP_OPTION_CONFIG_FILE)
-        ("path-prefix", DHCP_OPTION_PATH_PREFIX)
-        ("reboot-time", DHCP_OPTION_REBOOT_TIME)
-        ("dhcp-6rd", DHCP_OPTION_6RD)
-        ("dhcp-access-domain", DHCP_OPTION_V4_ACCESS_DOMAIN)
-        ("subnet-allocation", DHCP_OPTION_SUBNET_ALLOCATION)
-        ("dhcp-vss", DHCP_OPTION_VSS);
+Dhcpv4NameCodeMap g_dhcpv4_namecode_map = {
+    {"subnet-mask", DHCP_OPTION_SUBNET_MASK},
+    {"time-offset", DHCP_OPTION_TIME_OFFSET},
+    {"routers", DHCP_OPTION_ROUTER},
+    {"time-servers", DHCP_OPTION_TIME_SERVER},
+    {"name-servers", DHCP_OPTION_NAME_SERVER},
+    {"domain-name-servers", DHCP_OPTION_DNS},
+    {"log-servers", DHCP_OPTION_LOG_SERVER},
+    {"quote-servers", DHCP_OPTION_QUOTE_SERVER},
+    {"lpr-servers", DHCP_OPTION_LPR_SERVER},
+    {"impress-servers", DHCP_OPTION_IMPRESS_SERVER},
+    {"resource-location-servers", DHCP_OPTION_RESOURCE_LOCATION_SERVER},
+    {"host-name", DHCP_OPTION_HOST_NAME},
+    {"boot-size", DHCP_OPTION_BOOT_FILE_SIZE},
+    {"merit-dump", DHCP_OPTION_MERIT_DUMP_FILE},
+    {"domain-name", DHCP_OPTION_DOMAIN_NAME},
+    {"swap-server", DHCP_OPTION_SWAP_SERVER},
+    {"root-path", DHCP_OPTION_ROOT_PATH},
+    {"extension-path", DHCP_OPTION_EXTENSION_PATH},
+    {"ip-forwarding", DHCP_OPTION_IP_FWD_CONTROL},
+    {"non-local-source-routing", DHCP_OPTION_NL_SRC_ROUTING},
+    {"policy-filter", DHCP_OPTION_POLICY_FILTER},
+    {"max-dgram-reassembly", DHCP_OPTION_MAX_DG_REASSEMBLY_SIZE},
+    {"default-ip-ttl", DHCP_OPTION_DEFAULT_IP_TTL},
+    {"path-mtu-aging-timeout", DHCP_OPTION_PATH_MTU_AGING_TIMEOUT},
+    {"path-mtu-plateau-table", DHCP_OPTION_PATH_MTU_PLATEAU_TABLE},
+    {"interface-mtu", DHCP_OPTION_INTERFACE_MTU},
+    {"all-subnets-local", DHCP_OPTION_ALL_SUBNETS_LOCAL},
+    {"broadcast-address", DHCP_OPTION_BCAST_ADDRESS},
+    {"perform-mask-discovery", DHCP_OPTION_PERFORM_MASK_DISCOVERY},
+    {"mask-supplier", DHCP_OPTION_MASK_SUPPLIER},
+    {"router-discovery", DHCP_OPTION_PERFORM_ROUTER_DISCOVERY},
+    {"router-solicitation-address", DHCP_OPTION_ROUTER_SOLICIT_ADDRESS},
+    {"static-routes", DHCP_OPTION_STATIC_ROUTING_TABLE},
+    {"trailer-encapsulation", DHCP_OPTION_TRAILER_ENCAP},
+    {"arp-cache-timeout", DHCP_OPTION_ARP_CACHE_TIMEOUT},
+    {"ieee802-3-encapsulation", DHCP_OPTION_ETHERNET_ENCAP},
+    {"default-tcp-ttl", DHCP_OPTION_DEFAULT_TCP_TTL},
+    {"tcp-keepalive-interval", DHCP_OPTION_TCP_KEEPALIVE_INTERVAL},
+    {"tcp-keepalive-garbage", DHCP_OPTION_TCP_KEEPALIVE_GARBAGE},
+    {"nis-domain", DHCP_OPTION_NIS_DOMAIN},
+    {"nis-servers", DHCP_OPTION_NIS_SERVERS},
+    {"ntp-servers", DHCP_OPTION_NTP_SERVERS},
+    {"vendor-encapsulated-options", DHCP_OPTION_VENDOR_SPECIFIC_INFO},
+    {"netbios-name-servers", DHCP_OPTION_NETBIOS_OVER_TCP_NS},
+    {"netbios-dd-server", DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS},
+    {"netbios-node-type", DHCP_OPTION_NETBIOS_OVER_TCP_NODE_TYPE},
+    {"netbios-scope", DHCP_OPTION_NETBIOS_OVER_TCP_SCOPE},
+    {"font-servers", DHCP_OPTION_XWINDOW_FONT_SERVER},
+    {"x-display-manager", DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR},
+    {"dhcp-requested-address", DHCP_OPTION_REQ_IP_ADDRESS},
+    {"dhcp-lease-time", DHCP_OPTION_IP_LEASE_TIME},
+    {"dhcp-option-overload", DHCP_OPTION_OVERLOAD},
+    {"dhcp-message-type", DHCP_OPTION_MSG_TYPE},
+    {"dhcp-server-identifier", DHCP_OPTION_SERVER_IDENTIFIER},
+    {"dhcp-parameter-request-list", DHCP_OPTION_PARAMETER_REQUEST_LIST},
+    {"dhcp-message", DHCP_OPTION_MESSAGE},
+    {"dhcp-max-message-size", DHCP_OPTION_MAX_DHCP_MSG_SIZE},
+    {"dhcp-renewal-time", DHCP_OPTION_RENEW_TIME_VALUE},
+    {"dhcp-rebinding-time", DHCP_OPTION_REBIND_TIME_VALUE},
+    {"class-id", DHCP_OPTION_CLASS_ID},
+    {"dhcp-client-identifier", DHCP_OPTION_CLIENT_ID},
+    {"nwip-domain", DHCP_OPTION_NETWARE_IP_DOMAIN_NAME},
+    {"nwip-suboptions", DHCP_OPTION_NETWARE_IP_INFO},
+    {"nisplus-domain", DHCP_OPTION_NIS_PLUS_DOMAIN},
+    {"nisplus-servers", DHCP_OPTION_NIS_PLUS_SERVERS},
+    {"tftp-server-name", DHCP_OPTION_TFTP_SERVER_NAME},
+    {"bootfile-name", DHCP_OPTION_BOOTFILE_NAME},
+    {"mobile-ip-home-agent", DHCP_OPTION_MOBILE_IP_HA},
+    {"smtp-server", DHCP_OPTION_SMTP_SERVER},
+    {"pop-server", DHCP_OPTION_POP_SERVER},
+    {"nntp-server", DHCP_OPTION_NNTP_SERVER},
+    {"www-server", DHCP_OPTION_DEFAULT_WWW_SERVER},
+    {"finger-server", DHCP_OPTION_DEFAULT_FINGER_SERVER},
+    {"irc-server", DHCP_OPTION_DEFAULT_IRC_SERVER},
+    {"streettalk-server", DHCP_OPTION_STREETTALK_SERVER},
+    {"streettalk-directory-assistance-server",
+     DHCP_OPTION_STREETTALK_DA_SERVER},
+    {"user-class", DHCP_OPTION_USER_CLASS_INFO},
+    {"slp-directory-agent", DHCP_OPTION_SLP_DIRECTORY_AGENT},
+    {"slp-service-scope", DHCP_OPTION_SLP_SERVICE_SCOPE},
+    {"rapid-commit", DHCP_OPTION_RAPID_COMMIT},
+    {"client-fqdn", DHCP_OPTION_CLIENT_FQDN},
+    {"storage-ns", DHCP_OPTION_STORAGE_NS},
+    // option 82 not required
+    {"nds-servers", DHCP_OPTION_NDS_SERVERS},
+    {"nds-tree-name", DHCP_OPTION_NDS_TREE_NAME},
+    {"nds-context", DHCP_OPTION_NDS_CONTEXT},
+    {"bcms-controller-names", DHCP_OPTION_BCMCS_DN_LIST},
+    {"bcms-controller-address", DHCP_OPTION_BCMCS_ADDR_LIST},
+    {"dhcp-auth", DHCP_OPTION_AUTH},
+    {"dhcp-client-last-time", DHCP_OPTION_CLIENT_LAST_XTIME},
+    {"associated-ip", DHCP_OPTION_ASSOCIATE_IP},
+    {"system-architecture", DHCP_OPTION_CLIENT_SYSARCH_TYPE},
+    {"interface-id", DHCP_OPTION_CLIENT_NW_INTERFACE_ID},
+    {"ldap-servers", DHCP_OPTION_LDAP},
+    {"machine-id", DHCP_OPTION_CLIENT_MACHINE_ID},
+    {"user-auth", DHCP_OPTION_OPENGROUP_USER_AUTH},
+    {"geoconf-civic", DHCP_OPTION_GEOCONF_CIVIC},
+    {"ieee-1003-1-tz", DHCP_OPTION_IEEE_1003_1_TZ},
+    {"ref-tz-db", DHCP_OPTION_REF_TZ_DB},
+    {"netinfo-server-address", DHCP_OPTION_NETINFO_PARENT_SERVER_ADDR},
+    {"netinfo-server-tag", DHCP_OPTION_NETINFO_PARENT_SERVER_TAG},
+    {"default-url", DHCP_OPTION_URL},
+    {"auto-configure", DHCP_OPTION_AUTO_CONFIGURE},
+    {"name-search", DHCP_OPTION_NAME_SERVICE_SEARCH},
+    {"subnet-selection", DHCP_OPTION_SUBNET_SELECTION},
+    {"domain-search", DHCP_OPTION_DNS_DOMAIN_SEARCH_LIST},
+    {"sip-servers", DHCP_OPTION_SIP_SERVERS},
+    {"classless-static-routes", DHCP_OPTION_CLASSLESS_ROUTE},
+    {"dhcp-ccc", DHCP_OPTION_CCC},
+    {"dhcp-geoconf", DHCP_OPTION_GEOCONF},
+    {"vendor-class-identifier", DHCP_OPTION_VENDOR_ID_VENDOR_CLASS},
+    {"vivso", DHCP_OPTION_VENDOR_ID_VENDOR_SPECIFIC},
+    {"tftp-server", DHCP_OPTION_TFTP_SERVER},
+    {"pxe-vendor-specific-129", DHCP_OPTION_PXE_VENDOR_SPECIFIC_129},
+    {"pxe-vendor-specific-130", DHCP_OPTION_PXE_VENDOR_SPECIFIC_130},
+    {"pxe-vendor-specific-131", DHCP_OPTION_PXE_VENDOR_SPECIFIC_131},
+    {"pxe-vendor-specific-132", DHCP_OPTION_PXE_VENDOR_SPECIFIC_132},
+    {"pxe-vendor-specific-133", DHCP_OPTION_PXE_VENDOR_SPECIFIC_133},
+    {"pxe-vendor-specific-134", DHCP_OPTION_PXE_VENDOR_SPECIFIC_134},
+    {"pxe-vendor-specific-135", DHCP_OPTION_PXE_VENDOR_SPECIFIC_135},
+    {"pana-agent", DHCP_OPTION_PANA_AUTH_AGENT},
+    {"lost-server", DHCP_OPTION_LOST_SERVER},
+    {"capwap-ac-v4", DHCP_OPTION_CAPWAP_AC_ADDRESS},
+    {"dhcp-mos", DHCP_OPTION_IPV4_ADDRESS_MOS},
+    {"dhcp-fqdn-mos", DHCP_OPTION_IPV4_FQDN_MOS},
+    {"sip-ua-config-domain", DHCP_OPTION_SIP_UA_CONFIG_DOMAIN},
+    {"andsf-servers", DHCP_OPTION_IPV4_ADDRESS_ANDSF},
+    {"dhcp-geoloc", DHCP_OPTION_GEOLOC},
+    {"force-renew-nonce-cap", DHCP_OPTION_FORCERENEW_NONCE_CAP},
+    {"rdnss-selection", DHCP_OPTION_RDNSS_SELECTION},
+    {"tftp-server-address", DHCP_OPTION_TFTP_SERVER_ADDRESS},
+    {"status-code", DHCP_OPTION_STATUS_CODE},
+    {"dhcp-base-time", DHCP_OPTION_BASE_TIME},
+    {"dhcp-state-start-time", DHCP_OPTION_START_TIME_OF_STATE},
+    {"dhcp-query-start-time", DHCP_OPTION_QUERY_START_TIME},
+    {"dhcp-query-end-time", DHCP_OPTION_QUERY_END_TIME},
+    {"dhcp-state", DHCP_OPTION_DHCP_STATE},
+    {"data-source", DHCP_OPTION_DATA_SOURCE},
+    {"pcp-server", DHCP_OPTION_PCP_SERVER},
+    {"dhcp-pxe-magic", DHCP_OPTION_PXELINUX_MAGIC},
+    {"config-file", DHCP_OPTION_CONFIG_FILE},
+    {"path-prefix", DHCP_OPTION_PATH_PREFIX},
+    {"reboot-time", DHCP_OPTION_REBOOT_TIME},
+    {"dhcp-6rd", DHCP_OPTION_6RD},
+    {"dhcp-access-domain", DHCP_OPTION_V4_ACCESS_DOMAIN},
+    {"subnet-allocation", DHCP_OPTION_SUBNET_ALLOCATION},
+    {"dhcp-vss", DHCP_OPTION_VSS}};
 
-Dhcpv4CategoryMap g_dhcpv4_category_map =
-    map_list_of<uint32_t, DhcpHandler::DhcpOptionCategory>
-        // (DHCP_OPTION_SUBNET_MASK, DhcpHandler::OneIPv4)       // agent adds this option
-        (DHCP_OPTION_TIME_OFFSET, DhcpHandler::Int32bit)
-        (DHCP_OPTION_ROUTER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_TIME_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_NAME_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_DNS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_LOG_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_QUOTE_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_LPR_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_IMPRESS_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_RESOURCE_LOCATION_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_HOST_NAME, DhcpHandler::String)
-        (DHCP_OPTION_BOOT_FILE_SIZE, DhcpHandler::Uint16bit)
-        (DHCP_OPTION_MERIT_DUMP_FILE, DhcpHandler::String)
-        (DHCP_OPTION_DOMAIN_NAME, DhcpHandler::String)
-        (DHCP_OPTION_SWAP_SERVER, DhcpHandler::OneIPv4)
-        (DHCP_OPTION_ROOT_PATH, DhcpHandler::String)
-        (DHCP_OPTION_EXTENSION_PATH, DhcpHandler::String)
-        (DHCP_OPTION_IP_FWD_CONTROL, DhcpHandler::Bool)
-        (DHCP_OPTION_NL_SRC_ROUTING, DhcpHandler::Bool)
-        (DHCP_OPTION_POLICY_FILTER, DhcpHandler::TwoIPv4Plus)
-        (DHCP_OPTION_MAX_DG_REASSEMBLY_SIZE, DhcpHandler::Uint16bit)
-        (DHCP_OPTION_DEFAULT_IP_TTL, DhcpHandler::Byte)
-        (DHCP_OPTION_PATH_MTU_AGING_TIMEOUT, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_PATH_MTU_PLATEAU_TABLE, DhcpHandler::Uint16bitArray)
-        (DHCP_OPTION_INTERFACE_MTU, DhcpHandler::Uint16bit)
-        (DHCP_OPTION_ALL_SUBNETS_LOCAL, DhcpHandler::Bool)
-        // (DHCP_OPTION_BCAST_ADDRESS, DhcpHandler::OneIPv4)     // agent adds this option
-        (DHCP_OPTION_PERFORM_MASK_DISCOVERY, DhcpHandler::Bool)
-        (DHCP_OPTION_MASK_SUPPLIER, DhcpHandler::Bool)
-        (DHCP_OPTION_PERFORM_ROUTER_DISCOVERY, DhcpHandler::Bool)
-        (DHCP_OPTION_ROUTER_SOLICIT_ADDRESS, DhcpHandler::OneIPv4)
-        (DHCP_OPTION_STATIC_ROUTING_TABLE, DhcpHandler::TwoIPv4Plus)
-        (DHCP_OPTION_TRAILER_ENCAP, DhcpHandler::Bool)
-        (DHCP_OPTION_ARP_CACHE_TIMEOUT, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_ETHERNET_ENCAP, DhcpHandler::Bool)
-        (DHCP_OPTION_DEFAULT_TCP_TTL, DhcpHandler::Byte)
-        (DHCP_OPTION_TCP_KEEPALIVE_INTERVAL, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_TCP_KEEPALIVE_GARBAGE, DhcpHandler::Bool)
-        (DHCP_OPTION_NIS_DOMAIN, DhcpHandler::String)
-        (DHCP_OPTION_NIS_SERVERS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_NTP_SERVERS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_VENDOR_SPECIFIC_INFO, DhcpHandler::String)
-        (DHCP_OPTION_NETBIOS_OVER_TCP_NS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_NETBIOS_OVER_TCP_NODE_TYPE, DhcpHandler::Byte)
-        (DHCP_OPTION_NETBIOS_OVER_TCP_SCOPE, DhcpHandler::String)
-        (DHCP_OPTION_XWINDOW_FONT_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_REQ_IP_ADDRESS, DhcpHandler::OneIPv4)
-        (DHCP_OPTION_IP_LEASE_TIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_OVERLOAD, DhcpHandler::Byte)
-        // (DHCP_OPTION_MSG_TYPE, DhcpHandler::Byte)           // agent adds this option
-        // (DHCP_OPTION_SERVER_IDENTIFIER, DhcpHandler::OneIPv4) // agent adds this option
-        (DHCP_OPTION_PARAMETER_REQUEST_LIST, DhcpHandler::ByteArray)
-        (DHCP_OPTION_MESSAGE, DhcpHandler::String)
-        (DHCP_OPTION_MAX_DHCP_MSG_SIZE, DhcpHandler::Uint16bit)
-        (DHCP_OPTION_RENEW_TIME_VALUE, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_REBIND_TIME_VALUE, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_CLASS_ID, DhcpHandler::String)
-        (DHCP_OPTION_CLIENT_ID, DhcpHandler::ByteString)
-        (DHCP_OPTION_NETWARE_IP_DOMAIN_NAME, DhcpHandler::String)
-        (DHCP_OPTION_NETWARE_IP_INFO, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_NIS_PLUS_DOMAIN, DhcpHandler::String)
-        (DHCP_OPTION_NIS_PLUS_SERVERS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_TFTP_SERVER_NAME, DhcpHandler::String)
-        (DHCP_OPTION_BOOTFILE_NAME, DhcpHandler::String)
-        (DHCP_OPTION_MOBILE_IP_HA, DhcpHandler::ZeroIPv4Plus)
-        (DHCP_OPTION_SMTP_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_POP_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_NNTP_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_DEFAULT_WWW_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_DEFAULT_FINGER_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_DEFAULT_IRC_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_STREETTALK_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_STREETTALK_DA_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_USER_CLASS_INFO, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_SLP_DIRECTORY_AGENT, DhcpHandler::ByteOneIPPlus)
-        (DHCP_OPTION_SLP_SERVICE_SCOPE, DhcpHandler::ByteString)
-        (DHCP_OPTION_RAPID_COMMIT, DhcpHandler::NoData)
-        // (DHCP_OPTION_CLIENT_FQDN, DhcpHandler::ByteArray)   // sent by clients
-        (DHCP_OPTION_STORAGE_NS, DhcpHandler::ByteArray)       // send encoded data
-        (DHCP_OPTION_NDS_SERVERS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_NDS_TREE_NAME, DhcpHandler::ByteArray)    // send encoded data
-        (DHCP_OPTION_NDS_CONTEXT, DhcpHandler::ByteArray)      // send encoded data
-        (DHCP_OPTION_BCMCS_DN_LIST, DhcpHandler::ByteArray)    // send encoded data
-        (DHCP_OPTION_BCMCS_ADDR_LIST, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_AUTH, DhcpHandler::ByteArray)             // send encoded data
-        (DHCP_OPTION_CLIENT_LAST_XTIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_ASSOCIATE_IP, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_CLIENT_SYSARCH_TYPE, DhcpHandler::Uint16bit)
-        (DHCP_OPTION_CLIENT_NW_INTERFACE_ID, DhcpHandler::ByteArray)
-        (DHCP_OPTION_LDAP, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_CLIENT_MACHINE_ID, DhcpHandler::String)
-        (DHCP_OPTION_OPENGROUP_USER_AUTH, DhcpHandler::String)
-        (DHCP_OPTION_GEOCONF_CIVIC, DhcpHandler::ByteArray)    // send encoded data
-        (DHCP_OPTION_IEEE_1003_1_TZ, DhcpHandler::String)
-        (DHCP_OPTION_REF_TZ_DB, DhcpHandler::String)
-        (DHCP_OPTION_NETINFO_PARENT_SERVER_TAG, DhcpHandler::String)
-        (DHCP_OPTION_NETINFO_PARENT_SERVER_ADDR, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_URL, DhcpHandler::String)
-        (DHCP_OPTION_AUTO_CONFIGURE, DhcpHandler::Bool)
-        (DHCP_OPTION_NAME_SERVICE_SEARCH, DhcpHandler::Uint16bitArray)
-        (DHCP_OPTION_SUBNET_SELECTION, DhcpHandler::OneIPv4)
-        (DHCP_OPTION_DNS_DOMAIN_SEARCH_LIST, DhcpHandler::NameCompression)
-        (DHCP_OPTION_SIP_SERVERS, DhcpHandler::ByteArray)                // send encoded data
-        (DHCP_OPTION_CLASSLESS_ROUTE, DhcpHandler::ClasslessRoute)
-        (DHCP_OPTION_CCC, DhcpHandler::ByteArray)                        // send encoded data
-        (DHCP_OPTION_GEOCONF, DhcpHandler::ByteArray)                    // send encoded data
-        (DHCP_OPTION_VENDOR_ID_VENDOR_CLASS, DhcpHandler::ByteArray)     // send encoded data
-        (DHCP_OPTION_VENDOR_ID_VENDOR_SPECIFIC, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_TFTP_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_129, DhcpHandler::String)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_130, DhcpHandler::String)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_131, DhcpHandler::String)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_132, DhcpHandler::String)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_133, DhcpHandler::String)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_134, DhcpHandler::String)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_135, DhcpHandler::String)
-        (DHCP_OPTION_PANA_AUTH_AGENT, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_LOST_SERVER, DhcpHandler::ByteArray)         // send encoded data
-        (DHCP_OPTION_CAPWAP_AC_ADDRESS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_IPV4_ADDRESS_MOS, DhcpHandler::ByteArray)     // send encoded data
-        (DHCP_OPTION_IPV4_FQDN_MOS, DhcpHandler::ByteArray)        // send encoded data
-        (DHCP_OPTION_SIP_UA_CONFIG_DOMAIN, DhcpHandler::ByteArray) // send encoded data
-        (DHCP_OPTION_IPV4_ADDRESS_ANDSF, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_GEOLOC, DhcpHandler::ByteArray)               // send encoded data
-        (DHCP_OPTION_FORCERENEW_NONCE_CAP, DhcpHandler::ByteArray) // send encoded data
-        (DHCP_OPTION_RDNSS_SELECTION, DhcpHandler::ByteArray)      // send encoded data
-        (DHCP_OPTION_TFTP_SERVER_ADDRESS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_STATUS_CODE, DhcpHandler::ByteString)
-        (DHCP_OPTION_BASE_TIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_START_TIME_OF_STATE, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_QUERY_START_TIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_QUERY_END_TIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_DHCP_STATE, DhcpHandler::Byte)
-        (DHCP_OPTION_DATA_SOURCE, DhcpHandler::Byte)
-        (DHCP_OPTION_PCP_SERVER, DhcpHandler::ByteArray)      // send encoded data
-        (DHCP_OPTION_PXELINUX_MAGIC, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_CONFIG_FILE, DhcpHandler::String)
-        (DHCP_OPTION_PATH_PREFIX, DhcpHandler::String)
-        (DHCP_OPTION_REBOOT_TIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_6RD, DhcpHandler::ByteArray)               // send encoded data
-        (DHCP_OPTION_SUBNET_ALLOCATION, DhcpHandler::ByteArray)
-        (DHCP_OPTION_V4_ACCESS_DOMAIN, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_VSS, DhcpHandler::ByteString)
-        (DHCP_OPTION_PAD, DhcpHandler::None)
-        (DHCP_OPTION_END, DhcpHandler::None);
+Dhcpv4CategoryMap g_dhcpv4_category_map = {
+    {DHCP_OPTION_SUBNET_MASK, DhcpHandler::OneIPv4},  // agent adds this option
+    {DHCP_OPTION_TIME_OFFSET, DhcpHandler::Int32bit},
+    {DHCP_OPTION_ROUTER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_TIME_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_NAME_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_DNS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_LOG_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_QUOTE_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_LPR_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_IMPRESS_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_RESOURCE_LOCATION_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_HOST_NAME, DhcpHandler::String},
+    {DHCP_OPTION_BOOT_FILE_SIZE, DhcpHandler::Uint16bit},
+    {DHCP_OPTION_MERIT_DUMP_FILE, DhcpHandler::String},
+    {DHCP_OPTION_DOMAIN_NAME, DhcpHandler::String},
+    {DHCP_OPTION_SWAP_SERVER, DhcpHandler::OneIPv4},
+    {DHCP_OPTION_ROOT_PATH, DhcpHandler::String},
+    {DHCP_OPTION_EXTENSION_PATH, DhcpHandler::String},
+    {DHCP_OPTION_IP_FWD_CONTROL, DhcpHandler::Bool},
+    {DHCP_OPTION_NL_SRC_ROUTING, DhcpHandler::Bool},
+    {DHCP_OPTION_POLICY_FILTER, DhcpHandler::TwoIPv4Plus},
+    {DHCP_OPTION_MAX_DG_REASSEMBLY_SIZE, DhcpHandler::Uint16bit},
+    {DHCP_OPTION_DEFAULT_IP_TTL, DhcpHandler::Byte},
+    {DHCP_OPTION_PATH_MTU_AGING_TIMEOUT, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_PATH_MTU_PLATEAU_TABLE, DhcpHandler::Uint16bitArray},
+    {DHCP_OPTION_INTERFACE_MTU, DhcpHandler::Uint16bit},
+    {DHCP_OPTION_ALL_SUBNETS_LOCAL, DhcpHandler::Bool},
+    // {DHCP_OPTION_BCAST_ADDRESS, DhcpHandler::OneIPv4},     // agent adds this
+    // option
+    {DHCP_OPTION_PERFORM_MASK_DISCOVERY, DhcpHandler::Bool},
+    {DHCP_OPTION_MASK_SUPPLIER, DhcpHandler::Bool},
+    {DHCP_OPTION_PERFORM_ROUTER_DISCOVERY, DhcpHandler::Bool},
+    {DHCP_OPTION_ROUTER_SOLICIT_ADDRESS, DhcpHandler::OneIPv4},
+    {DHCP_OPTION_STATIC_ROUTING_TABLE, DhcpHandler::TwoIPv4Plus},
+    {DHCP_OPTION_TRAILER_ENCAP, DhcpHandler::Bool},
+    {DHCP_OPTION_ARP_CACHE_TIMEOUT, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_ETHERNET_ENCAP, DhcpHandler::Bool},
+    {DHCP_OPTION_DEFAULT_TCP_TTL, DhcpHandler::Byte},
+    {DHCP_OPTION_TCP_KEEPALIVE_INTERVAL, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_TCP_KEEPALIVE_GARBAGE, DhcpHandler::Bool},
+    {DHCP_OPTION_NIS_DOMAIN, DhcpHandler::String},
+    {DHCP_OPTION_NIS_SERVERS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_NTP_SERVERS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_VENDOR_SPECIFIC_INFO, DhcpHandler::String},
+    {DHCP_OPTION_NETBIOS_OVER_TCP_NS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_NETBIOS_OVER_TCP_NODE_TYPE, DhcpHandler::Byte},
+    {DHCP_OPTION_NETBIOS_OVER_TCP_SCOPE, DhcpHandler::String},
+    {DHCP_OPTION_XWINDOW_FONT_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_REQ_IP_ADDRESS, DhcpHandler::OneIPv4},
+    {DHCP_OPTION_IP_LEASE_TIME, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_OVERLOAD, DhcpHandler::Byte},
+    // {DHCP_OPTION_MSG_TYPE, DhcpHandler::Byte},           // agent adds this
+    // option {DHCP_OPTION_SERVER_IDENTIFIER, DhcpHandler::OneIPv4}, // agent
+    // adds this option
+    {DHCP_OPTION_PARAMETER_REQUEST_LIST, DhcpHandler::ByteArray},
+    {DHCP_OPTION_MESSAGE, DhcpHandler::String},
+    {DHCP_OPTION_MAX_DHCP_MSG_SIZE, DhcpHandler::Uint16bit},
+    {DHCP_OPTION_RENEW_TIME_VALUE, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_REBIND_TIME_VALUE, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_CLASS_ID, DhcpHandler::String},
+    {DHCP_OPTION_CLIENT_ID, DhcpHandler::ByteString},
+    {DHCP_OPTION_NETWARE_IP_DOMAIN_NAME, DhcpHandler::String},
+    {DHCP_OPTION_NETWARE_IP_INFO, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_NIS_PLUS_DOMAIN, DhcpHandler::String},
+    {DHCP_OPTION_NIS_PLUS_SERVERS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_TFTP_SERVER_NAME, DhcpHandler::String},
+    {DHCP_OPTION_BOOTFILE_NAME, DhcpHandler::String},
+    {DHCP_OPTION_MOBILE_IP_HA, DhcpHandler::ZeroIPv4Plus},
+    {DHCP_OPTION_SMTP_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_POP_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_NNTP_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_DEFAULT_WWW_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_DEFAULT_FINGER_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_DEFAULT_IRC_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_STREETTALK_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_STREETTALK_DA_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_USER_CLASS_INFO, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_SLP_DIRECTORY_AGENT, DhcpHandler::ByteOneIPPlus},
+    {DHCP_OPTION_SLP_SERVICE_SCOPE, DhcpHandler::ByteString},
+    {DHCP_OPTION_RAPID_COMMIT, DhcpHandler::NoData},
+    // {DHCP_OPTION_CLIENT_FQDN, DhcpHandler::ByteArray},   // sent by clients
+    {DHCP_OPTION_STORAGE_NS, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_NDS_SERVERS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_NDS_TREE_NAME, DhcpHandler::ByteArray},    // send encoded data
+    {DHCP_OPTION_NDS_CONTEXT, DhcpHandler::ByteArray},      // send encoded data
+    {DHCP_OPTION_BCMCS_DN_LIST, DhcpHandler::ByteArray},    // send encoded data
+    {DHCP_OPTION_BCMCS_ADDR_LIST, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_AUTH, DhcpHandler::ByteArray},             // send encoded data
+    {DHCP_OPTION_CLIENT_LAST_XTIME, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_ASSOCIATE_IP, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_CLIENT_SYSARCH_TYPE, DhcpHandler::Uint16bit},
+    {DHCP_OPTION_CLIENT_NW_INTERFACE_ID, DhcpHandler::ByteArray},
+    {DHCP_OPTION_LDAP, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_CLIENT_MACHINE_ID, DhcpHandler::String},
+    {DHCP_OPTION_OPENGROUP_USER_AUTH, DhcpHandler::String},
+    {DHCP_OPTION_GEOCONF_CIVIC, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_IEEE_1003_1_TZ, DhcpHandler::String},
+    {DHCP_OPTION_REF_TZ_DB, DhcpHandler::String},
+    {DHCP_OPTION_NETINFO_PARENT_SERVER_TAG, DhcpHandler::String},
+    {DHCP_OPTION_NETINFO_PARENT_SERVER_ADDR, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_URL, DhcpHandler::String},
+    {DHCP_OPTION_AUTO_CONFIGURE, DhcpHandler::Bool},
+    {DHCP_OPTION_NAME_SERVICE_SEARCH, DhcpHandler::Uint16bitArray},
+    {DHCP_OPTION_SUBNET_SELECTION, DhcpHandler::OneIPv4},
+    {DHCP_OPTION_DNS_DOMAIN_SEARCH_LIST, DhcpHandler::NameCompression},
+    {DHCP_OPTION_SIP_SERVERS, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_CLASSLESS_ROUTE, DhcpHandler::ClasslessRoute},
+    {DHCP_OPTION_CCC, DhcpHandler::ByteArray},      // send encoded data
+    {DHCP_OPTION_GEOCONF, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_VENDOR_ID_VENDOR_CLASS,
+     DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_VENDOR_ID_VENDOR_SPECIFIC,
+     DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_TFTP_SERVER, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_129, DhcpHandler::String},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_130, DhcpHandler::String},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_131, DhcpHandler::String},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_132, DhcpHandler::String},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_133, DhcpHandler::String},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_134, DhcpHandler::String},
+    {DHCP_OPTION_PXE_VENDOR_SPECIFIC_135, DhcpHandler::String},
+    {DHCP_OPTION_PANA_AUTH_AGENT, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_LOST_SERVER, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_CAPWAP_AC_ADDRESS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_IPV4_ADDRESS_MOS,
+     DhcpHandler::ByteArray},                             // send encoded data
+    {DHCP_OPTION_IPV4_FQDN_MOS, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_SIP_UA_CONFIG_DOMAIN,
+     DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_IPV4_ADDRESS_ANDSF, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_GEOLOC, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_FORCERENEW_NONCE_CAP,
+     DhcpHandler::ByteArray},                               // send encoded data
+    {DHCP_OPTION_RDNSS_SELECTION, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_TFTP_SERVER_ADDRESS, DhcpHandler::OneIPv4Plus},
+    {DHCP_OPTION_STATUS_CODE, DhcpHandler::ByteString},
+    {DHCP_OPTION_BASE_TIME, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_START_TIME_OF_STATE, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_QUERY_START_TIME, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_QUERY_END_TIME, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_DHCP_STATE, DhcpHandler::Byte},
+    {DHCP_OPTION_DATA_SOURCE, DhcpHandler::Byte},
+    {DHCP_OPTION_PCP_SERVER, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_PXELINUX_MAGIC, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_CONFIG_FILE, DhcpHandler::String},
+    {DHCP_OPTION_PATH_PREFIX, DhcpHandler::String},
+    {DHCP_OPTION_REBOOT_TIME, DhcpHandler::Uint32bit},
+    {DHCP_OPTION_6RD, DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_SUBNET_ALLOCATION, DhcpHandler::ByteArray},
+    {DHCP_OPTION_V4_ACCESS_DOMAIN,
+     DhcpHandler::ByteArray},  // send encoded data
+    {DHCP_OPTION_VSS, DhcpHandler::ByteString},
+    {DHCP_OPTION_PAD, DhcpHandler::None},
+    {DHCP_OPTION_END, DhcpHandler::None}};
 
 DhcpHandler::DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                          boost::asio::io_service &io)

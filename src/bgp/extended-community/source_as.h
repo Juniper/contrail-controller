@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_SOURCE_AS_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_SOURCE_AS_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -17,7 +17,7 @@ class SourceAs {
 public:
     static const int kSize = 8;
     static SourceAs null_sas;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     SourceAs();
     explicit SourceAs(const bytes_type &data);

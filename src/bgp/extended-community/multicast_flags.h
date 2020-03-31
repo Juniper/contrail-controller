@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_MULTICAST_FLAGS_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_MULTICAST_FLAGS_H_
 
-#include <boost/array.hpp>
+#include <array>
 
 #include <string>
 
@@ -15,7 +15,7 @@
 class MulticastFlags {
 public:
     static const int kSize = 8;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit MulticastFlags();
     explicit MulticastFlags(const bytes_type &data);

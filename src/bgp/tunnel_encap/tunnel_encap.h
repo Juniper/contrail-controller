@@ -7,7 +7,7 @@
 
 #include "net/tunnel_encap_type.h"
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -17,7 +17,7 @@
 class TunnelEncap {
 public:
     static const int kSize = 8;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit TunnelEncap(TunnelEncapType::Encap encap);
     explicit TunnelEncap(std::string encap);

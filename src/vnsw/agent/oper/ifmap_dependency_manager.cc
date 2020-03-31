@@ -482,8 +482,7 @@ static NodeEventPolicy::iterator LocateNodeEventPolicy(NodeEventPolicy *policy,
     if (it != policy->end()) {
         return it;
     }
-    ReactionMap react = map_list_of<string, PropagateList>
-        ("self", PropagateList());
+    ReactionMap react = {{"self", PropagateList()}};
     policy->insert(make_pair(node, react));
     return policy->find(node);
 }

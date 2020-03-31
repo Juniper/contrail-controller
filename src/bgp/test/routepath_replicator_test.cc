@@ -565,8 +565,8 @@ protected:
 };
 
 TEST_F(ReplicationTest, PathImport) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -575,7 +575,7 @@ TEST_F(ReplicationTest, PathImport) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -594,7 +594,7 @@ TEST_F(ReplicationTest, PathImport) {
     VERIFY_EQ(1, RouteCount("blue"));
     VERIFY_EQ(1, RouteCount("red"));
 
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("red"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"red"});
     task_util::WaitForIdle();
 
     // make sure that there are no changes.
@@ -602,8 +602,7 @@ TEST_F(ReplicationTest, PathImport) {
     VERIFY_EQ(1, RouteCount("blue"));
     VERIFY_EQ(1, RouteCount("red"));
 
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
-                list_of("green"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"green"});
     task_util::WaitForIdle();
     VERIFY_EQ(1, rt->count());
     VERIFY_EQ(0, RouteCount("blue"));
@@ -626,8 +625,8 @@ TEST_F(ReplicationTest, PathImport) {
 }
 
 TEST_F(ReplicationTest, NoExtCommunities) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -636,7 +635,7 @@ TEST_F(ReplicationTest, NoExtCommunities) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(1, RouteCount("blue"));
 
@@ -658,8 +657,8 @@ TEST_F(ReplicationTest, NoExtCommunities) {
 // is added to replicated route with RouteDistinguisher of the vpn prefix
 //
 TEST_F(ReplicationTest, SourceRD) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -668,7 +667,7 @@ TEST_F(ReplicationTest, SourceRD) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(1, RouteCount("blue"));
 
@@ -683,8 +682,8 @@ TEST_F(ReplicationTest, SourceRD) {
 }
 
 TEST_F(ReplicationTest, Delete) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -693,7 +692,7 @@ TEST_F(ReplicationTest, Delete) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(1, RouteCount("blue"));
 
@@ -705,8 +704,8 @@ TEST_F(ReplicationTest, Delete) {
 }
 
 TEST_F(ReplicationTest, MultiplePaths)  {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -719,10 +718,10 @@ TEST_F(ReplicationTest, MultiplePaths)  {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.2.0.1:1:10.0.1.1/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[1], "192.2.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.2.0.1:1:10.0.1.1/32", 100, {"blue"});
+    AddVPNRoute(peers_[1], "192.2.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
-    AddVPNRoute(peers_[2], "192.2.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[2], "192.2.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -742,9 +741,8 @@ TEST_F(ReplicationTest, MultiplePaths)  {
 }
 
 TEST_F(ReplicationTest, UpdatePathData)  {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red")
-            ("blue", "green");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}, {"blue", "green"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -865,9 +863,8 @@ TEST_F(ReplicationTest, UpdatePathData)  {
 }
 
 TEST_F(ReplicationTest, IdentifySecondary)  {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red")
-            ("blue", "green");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}, {"blue", "green"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -967,8 +964,8 @@ TEST_F(ReplicationTest, IdentifySecondary)  {
 }
 
 TEST_F(ReplicationTest, MultiplePathsDiffRD)  {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -979,14 +976,14 @@ TEST_F(ReplicationTest, MultiplePathsDiffRD)  {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
     VERIFY_EQ(1, RouteCount("blue"));
     VERIFY_EQ(1, RouteCount("red"));
 
-    AddVPNRoute(peers_[1], "192.168.0.2:1:10.0.1.1/32", 100, list_of("red"));
+    AddVPNRoute(peers_[1], "192.168.0.2:1:10.0.1.1/32", 100, {"red"});
     task_util::WaitForIdle();
 
     // Multiple paths should get imported.
@@ -1009,8 +1006,8 @@ TEST_F(ReplicationTest, MultiplePathsDiffRD)  {
 }
 
 TEST_F(ReplicationTest, PathChange)  {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1021,7 +1018,7 @@ TEST_F(ReplicationTest, PathChange)  {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 90, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 90, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -1031,7 +1028,7 @@ TEST_F(ReplicationTest, PathChange)  {
     //
     // Better path from peer1 which goes only to green
     //
-    AddVPNRoute(peers_[1], "192.168.0.1:1:10.0.1.1/32", 100, list_of("green"));
+    AddVPNRoute(peers_[1], "192.168.0.1:1:10.0.1.1/32", 100, {"green"});
     task_util::WaitForIdle();
 
     VERIFY_EQ(0, RouteCount("blue"));
@@ -1049,8 +1046,8 @@ TEST_F(ReplicationTest, PathChange)  {
 TEST_F(ReplicationTest, WithLocalRoute) {
     // Add a route to "red" with the same prefix.
     // Imported route becomes secondary.
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1061,7 +1058,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     // VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 80, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 80, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -1084,7 +1081,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
     }
 
     // change VPN route
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 90, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 90, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
     rts = InetRouteReplicationState("red", rt);
@@ -1092,7 +1089,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
     VERIFY_EQ(2, rts->GetList().size());
 
     // change the best path
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 110, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 110, {"blue"});
     task_util::WaitForIdle();
     // Best path is from peer[0]
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
@@ -1111,8 +1108,8 @@ TEST_F(ReplicationTest, WithLocalRoute) {
 
 TEST_F(ReplicationTest, ResurrectInetRoute) {
     // Imported VPN route becomes secondary after inet route is added.
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1124,7 +1121,7 @@ TEST_F(ReplicationTest, ResurrectInetRoute) {
 
     // VPN route with same RD as exported inet route
     string vpn_prefix_str = GetInstanceRD("blue") + ":10.0.1.1/32";
-    AddVPNRoute(peers_[0], vpn_prefix_str, 80, list_of("blue"));
+    AddVPNRoute(peers_[0], vpn_prefix_str, 80, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -1138,7 +1135,7 @@ TEST_F(ReplicationTest, ResurrectInetRoute) {
     VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
 
     // Update local-pref in order to make the path ecmp eligible
-    AddVPNRoute(peers_[0], vpn_prefix_str, 100, list_of("blue"));
+    AddVPNRoute(peers_[0], vpn_prefix_str, 100, {"blue"});
 
     // Two paths.. One replicated from bgp.l3vpn.0 from peer[0]
     // other one from blue.inet.0 from peer[1]
@@ -1160,8 +1157,8 @@ TEST_F(ReplicationTest, ResurrectInetRoute) {
 }
 
 TEST_F(ReplicationTest, LocalRouteFirst) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1185,7 +1182,7 @@ TEST_F(ReplicationTest, LocalRouteFirst) {
     const BgpRoute *rt1_vpn = GetVPNSecondary(rts);
     string rt1_vpn_prefix(rt1_vpn->ToString());
 
-    AddVPNRoute(peers_[0], rt1_vpn_prefix, 80, list_of("blue"));
+    AddVPNRoute(peers_[0], rt1_vpn_prefix, 80, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(peers_[1], rt1->BestPath()->GetPeer());
     VERIFY_EQ(2, rt1_vpn->count());
@@ -1195,7 +1192,7 @@ TEST_F(ReplicationTest, LocalRouteFirst) {
     ASSERT_TRUE(rts != NULL);
     const BgpRoute *rt2_vpn = GetVPNSecondary(rts);
     string rt2_vpn_prefix(rt2_vpn->ToString());
-    AddVPNRoute(peers_[0], rt2_vpn_prefix, 110, list_of("green"));
+    AddVPNRoute(peers_[0], rt2_vpn_prefix, 110, {"green"});
     task_util::WaitForIdle();
     VERIFY_EQ(peers_[0], rt2->BestPath()->GetPeer());
 
@@ -1223,8 +1220,8 @@ TEST_F(ReplicationTest, LocalRouteFirst) {
 }
 
 TEST_F(ReplicationTest, ResurrectVPNRoute) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1236,7 +1233,7 @@ TEST_F(ReplicationTest, ResurrectVPNRoute) {
 
     // VPN route with same RD as exported inet route
     string vpn_prefix_str = GetInstanceRD("blue") + ":10.0.1.1/32";
-    AddVPNRoute(peers_[0], vpn_prefix_str, 100, list_of("blue"));
+    AddVPNRoute(peers_[0], vpn_prefix_str, 100, {"blue"});
     task_util::WaitForIdle();
 
     // The inet route is secondary and thus should not be exported.
@@ -1269,8 +1266,8 @@ TEST_F(ReplicationTest, ResurrectVPNRoute) {
 
 // Unconfigure connection
 TEST_F(ReplicationTest, DisconnectNetwork) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1279,9 +1276,9 @@ TEST_F(ReplicationTest, DisconnectNetwork) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN routes with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.2/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.3/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.2/32", 100, {"blue"});
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.3/32", 100, {"blue"});
 
     task_util::WaitForIdle();
 
@@ -1309,8 +1306,8 @@ TEST_F(ReplicationTest, DisconnectNetwork) {
 
 // Add connection
 TEST_F(ReplicationTest, ConnectNetwork) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1319,9 +1316,9 @@ TEST_F(ReplicationTest, ConnectNetwork) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN routes with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.2/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.3/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.2/32", 100, {"blue"});
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.3/32", 100, {"blue"});
 
     task_util::WaitForIdle();
 
@@ -1349,8 +1346,8 @@ TEST_F(ReplicationTest, ConnectNetwork) {
 }
 
 TEST_F(ReplicationTest, DeleteNetwork) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1359,9 +1356,9 @@ TEST_F(ReplicationTest, DeleteNetwork) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // VPN routes with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.2/32", 100, list_of("blue"));
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.3/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.2/32", 100, {"blue"});
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.3/32", 100, {"blue"});
 
     task_util::WaitForIdle();
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
@@ -1409,8 +1406,8 @@ TEST_F(ReplicationTest, DeleteNetwork) {
 }
 
 TEST_F(ReplicationTest, AnotherPathWithDifferentRD) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1451,8 +1448,8 @@ TEST_F(ReplicationTest, AnotherPathWithDifferentRD) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets1) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1528,8 +1525,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets1) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1600,8 +1597,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets3) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1680,8 +1677,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets3) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1758,8 +1755,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets5) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1822,8 +1819,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets5) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1884,7 +1881,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -1967,7 +1964,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2047,7 +2044,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2114,7 +2111,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2133,7 +2130,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
 
     // Add route to VPN table with blue target.
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
 
     // Make sure the route is in the blue table but not in red table.
@@ -2181,7 +2178,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
 }
 
 TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2250,8 +2247,8 @@ TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
 }
 
 TEST_F(ReplicationTest, OriginVn1) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
@@ -2262,7 +2259,7 @@ TEST_F(ReplicationTest, OriginVn1) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
     // Add VPN route with target "blue".
-    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -2286,8 +2283,8 @@ TEST_F(ReplicationTest, OriginVn1) {
 }
 
 TEST_F(ReplicationTest, OriginVn2) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
@@ -2327,8 +2324,8 @@ TEST_F(ReplicationTest, OriginVn2) {
 }
 
 TEST_F(ReplicationTest, OriginVn3) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
@@ -2368,8 +2365,8 @@ TEST_F(ReplicationTest, OriginVn3) {
 }
 
 TEST_F(ReplicationTest, OriginVn4) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
@@ -2423,8 +2420,8 @@ TEST_F(ReplicationTest, VpnTableStateDelete1) {
 // VRF Table leave triggers deletion of VPN table state.
 //
 TEST_F(ReplicationTest, VpnTableStateDelete2) {
-    vector<string> instance_names = list_of("blue")("red")("green");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red", "green"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
     VERIFY_EQ(0, RouteCount("red"));
@@ -2439,13 +2436,13 @@ TEST_F(ReplicationTest, VpnTableStateDelete2) {
 // Notification of last VPN route triggers deletion of VPN table state.
 //
 TEST_F(ReplicationTest, VpnTableStateDelete3) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
     // Add VPN route with target "blue" and verify it's imported properly.
-    AddVPNRoute(NULL, "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(NULL, "192.168.0.1:1:10.0.1.1/32", 100, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(1, RouteCount("blue"));
     VERIFY_EQ(1, RouteCount("red"));
@@ -2480,7 +2477,7 @@ TEST_F(ReplicationTest, VpnTableStateDelete3) {
 // In this case the route is replicated due to rtarget of the route not due
 // to export_rt of the VRF. Simulate the static route scenario
 TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2491,7 +2488,7 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute) {
 
     // Add route to blue table with the Rtarget that red imports.
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1",
-                 list_of("target:64496:2"));
+                 {"target:64496:2"});
     task_util::WaitForIdle();
 
     DeleteRoutingInstance("blue", "target:64496:1");
@@ -2512,7 +2509,7 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute) {
 // In this case the route is replicated due to rtarget of the route not due
 // to export_rt of the VRF. Delete the routing instance that importing the route
 TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_1) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2523,7 +2520,7 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_1) {
 
     // Add route to blue table with the Rtarget that red imports.
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1",
-                 list_of("target:64496:2"));
+                 {"target:64496:2"});
     task_util::WaitForIdle();
 
     DeleteRoutingInstance("red", "target:64496:2");
@@ -2544,7 +2541,7 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_1) {
 // Same as DeleteInstanceWithReplicatedRoute with multiple routes in
 // different partition
 TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_2) {
-    vector<string> instance_names = list_of("blue")("red");
+    vector<string> instance_names = {"blue", "red"};
     multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
@@ -2555,11 +2552,11 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_2) {
 
     // Add multiple routes to blue table with the Rtarget that red imports.
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1",
-                 list_of("target:64496:2"));
+                 {"target:64496:2"});
     AddInetRoute(peers_[0], "blue", "10.0.1.2/32", 100, "192.168.0.1:1",
-                 list_of("target:64496:2"));
+                 {"target:64496:2"});
     AddInetRoute(peers_[0], "blue", "10.0.1.3/32", 100, "192.168.0.1:1",
-                 list_of("target:64496:2"));
+                 {"target:64496:2"});
     task_util::WaitForIdle();
 
     DeleteRoutingInstance("blue", "target:64496:1");
@@ -2581,8 +2578,8 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_2) {
 // Verify that TableState does not get deleted if the BgpTable is not marked
 // deleted, even if all other conditions are met.
 TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -2635,8 +2632,8 @@ TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
 // Verify that TableState does not get deleted if the BgpTable is on the
 // bulk sync list, even if all other conditions are met.
 TEST_F(ReplicationTest, TableStateOnVRFInBulkSyncList) {
-    vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    vector<string> instance_names = {"blue", "red"};
+    multimap<string, string> connections = {{"blue", "red"}};
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 

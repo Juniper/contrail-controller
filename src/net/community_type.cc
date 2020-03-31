@@ -16,27 +16,25 @@ using std::string;
 CommunityType::CommunityType() {
 }
 
-static const map<string, CommunityType::WellKnownCommunity>
-    fromString = boost::assign::map_list_of
-        ("no-advertise", CommunityType::NoAdvertise)
-        ("no-export", CommunityType::NoExport)
-        ("no-export-subconfed", CommunityType::NoExportSubconfed)
-        ("LlgrStale", CommunityType::LlgrStale)
-        ("NoLlgr", CommunityType::NoLlgr)
-        ("no-reoriginate", CommunityType::NoReOriginate)
-        ("accept-own", CommunityType::AcceptOwn)
-        ("accept-own-nexthop", CommunityType::AcceptOwnNexthop);
+static const map<string, CommunityType::WellKnownCommunity> fromString = {
+    {"no-advertise", CommunityType::NoAdvertise},
+    {"no-export", CommunityType::NoExport},
+    {"no-export-subconfed", CommunityType::NoExportSubconfed},
+    {"LlgrStale", CommunityType::LlgrStale},
+    {"NoLlgr", CommunityType::NoLlgr},
+    {"no-reoriginate", CommunityType::NoReOriginate},
+    {"accept-own", CommunityType::AcceptOwn},
+    {"accept-own-nexthop", CommunityType::AcceptOwnNexthop}};
 
-static const map<CommunityType::WellKnownCommunity, string>
-    toString = boost::assign::map_list_of
-        (CommunityType::NoAdvertise, "no-advertise")
-        (CommunityType::NoReOriginate, "no-reoriginate")
-        (CommunityType::NoExportSubconfed, "no-export-subconfed")
-        (CommunityType::LlgrStale, "llgr-stale")
-        (CommunityType::NoLlgr, "no-llgr")
-        (CommunityType::AcceptOwn, "accept-own")
-        (CommunityType::AcceptOwnNexthop, "accept-own-nexthop")
-        (CommunityType::NoExport, "no-export");
+static const map<CommunityType::WellKnownCommunity, string> toString = {
+    {CommunityType::NoAdvertise, "no-advertise"},
+    {CommunityType::NoReOriginate, "no-reoriginate"},
+    {CommunityType::NoExportSubconfed, "no-export-subconfed"},
+    {CommunityType::LlgrStale, "llgr-stale"},
+    {CommunityType::NoLlgr, "no-llgr"},
+    {CommunityType::AcceptOwn, "accept-own"},
+    {CommunityType::AcceptOwnNexthop, "accept-own-nexthop"},
+    {CommunityType::NoExport, "no-export"}};
 
 uint32_t CommunityType::CommunityFromString(
     const string &comm, boost::system::error_code *perr) {

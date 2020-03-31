@@ -149,12 +149,11 @@ public:
 
 class ExtCommunity {
 public:
-    typedef boost::array<uint8_t, 8> ExtCommunityValue;
-    typedef std::vector<ExtCommunityValue> ExtCommunityList;
+ typedef std::array<uint8_t, 8> ExtCommunityValue;
+ typedef std::vector<ExtCommunityValue> ExtCommunityList;
 
-    explicit ExtCommunity(ExtCommunityDB *extcomm_db)
-        : extcomm_db_(extcomm_db) {
-        refcount_ = 0;
+ explicit ExtCommunity(ExtCommunityDB *extcomm_db) : extcomm_db_(extcomm_db) {
+     refcount_ = 0;
     }
     explicit ExtCommunity(const ExtCommunity &rhs)
         : extcomm_db_(rhs.extcomm_db_),

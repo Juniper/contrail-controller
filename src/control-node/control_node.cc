@@ -94,12 +94,12 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::StateMachine and xmpp::StateMachine Tasks.
     // Add policy to provision exclusion between io::Reader and
     // bgp/xmpp StateMachine tasks with the same task instance.
-    TaskPolicy sm_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")));
+    TaskPolicy sm_policy = {
+        TaskExclusion(scheduler->GetTaskId("bgp::Config")),
+        TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")),
+        TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")),
+        TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")),
+        TaskExclusion(scheduler->GetTaskId("bgp::RTFilter"))};
     for (int idx = 0; idx < scheduler->HardwareThreadCount(); ++idx) {
         sm_policy.push_back(
             (TaskExclusion(scheduler->GetTaskId("io::ReaderTask"), idx)));

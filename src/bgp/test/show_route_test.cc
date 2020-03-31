@@ -481,7 +481,7 @@ TEST_F(ShowRouteTest1, SortingTest) {
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
 
-    std::vector<int> result = list_of(1)(10);
+    std::vector<int> result = {1, 10};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshRespSort, _1, result, __LINE__,
                     "red", sorted_list));
@@ -531,7 +531,7 @@ TEST_F(ShowRouteTest1, Basic) {
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
 
-    std::vector<int> result = list_of(3)(3)(1)(3)(3);
+    std::vector<int> result = {3, 3, 1, 3, 3};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     ShowRouteReq *show_req = new ShowRouteReq;

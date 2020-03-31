@@ -1621,7 +1621,7 @@ TEST_P(BgpTableExportParamTest2, EBgpStripNonTransitive) {
     Ip4Address originator_id = Ip4Address::from_string("10.1.1.1", ec);
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
     SetAttrOriginatorId(originator_id);
-    SetAttrClusterList(list_of(1)(2)(3));
+    SetAttrClusterList({1, 2, 3});
     AddPath();
     RunExport();
     VerifyExportAccept();

@@ -1886,7 +1886,7 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithSecurityGroup) {
     // Add route from agent A.
     stringstream eroute_a;
     eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
-    vector<int> sg1 = list_of(100)(101)(102);
+    vector<int> sg1 = {100, 101, 102};
     test::NextHop nexthop1("192.168.1.1");
     test::RouteAttributes attr1(sg1);
     agent_a_->AddEnetRoute("blue", eroute_a.str(), nexthop1, attr1);
@@ -1895,7 +1895,7 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithSecurityGroup) {
     // Add route from agent B.
     stringstream eroute_b;
     eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
-    vector<int> sg2 = list_of(200)(201)(202);
+    vector<int> sg2 = {200, 201, 202};
     test::NextHop nexthop2("192.168.1.2");
     test::RouteAttributes attr2(sg2);
     agent_b_->AddEnetRoute("blue", eroute_b.str(), nexthop2, attr2);

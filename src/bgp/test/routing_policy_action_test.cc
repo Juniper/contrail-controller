@@ -33,7 +33,7 @@ protected:
 };
 
 TEST_F(UpdateExtCommunityTest, Update) {
-    vector<string> communities = list_of("target:23:11")("target:43:11");
+    vector<string> communities = {"target:23:11", "target:43:11"};
     UpdateExtCommunity action(communities, "add");
 
     ExtCommunitySpec comm_spec;
@@ -62,7 +62,7 @@ TEST_F(UpdateExtCommunityTest, Update) {
     EXPECT_TRUE(val0.ToString() == communities[0]);
     EXPECT_TRUE(val1.ToString() == communities[1]);
 
-    vector<string> communities2 = list_of("target:53:11");
+    vector<string> communities2 = {"target:53:11"};
     UpdateExtCommunity action3(communities2, "remove");
     action3(const_cast<BgpAttr *>(attr.get()));
     comm = attr->ext_community();
@@ -73,15 +73,15 @@ TEST_F(UpdateExtCommunityTest, Update) {
 }
 
 TEST_F(UpdateExtCommunityTest, ToString) {
-    vector<string> communities = list_of("target:23:11")("target:43:11");
+    vector<string> communities = {"target:23:11", "target:43:11"};
     UpdateExtCommunity action(communities, "add");
     EXPECT_EQ("Extcommunity add [ target:23:11,target:43:11 ]",
               action.ToString());
 }
 
 TEST_F(UpdateExtCommunityTest, IsEqual1) {
-    vector<string> communities1 = list_of("target:23:11")("target:43:11");
-    vector<string> communities2 = list_of("target:23:11")("target:43:11");
+    vector<string> communities1 = {"target:23:11", "target:43:11"};
+    vector<string> communities2 = {"target:23:11", "target:43:11"};
     UpdateExtCommunity action1(communities1, "add");
     UpdateExtCommunity action2(communities2, "add");
     EXPECT_TRUE(action1.IsEqual(action2));
@@ -89,8 +89,8 @@ TEST_F(UpdateExtCommunityTest, IsEqual1) {
 }
 
 TEST_F(UpdateExtCommunityTest, IsEqual2) {
-    vector<string> communities1 = list_of("target:23:11")("target:43:11");
-    vector<string> communities2 = list_of("target:23:11")("target:53:11");
+    vector<string> communities1 = {"target:23:11", "target:43:11"};
+    vector<string> communities2 = {"target:23:11", "target:53:11"};
     UpdateExtCommunity action1(communities1, "add");
     UpdateExtCommunity action2(communities2, "add");
     EXPECT_FALSE(action1.IsEqual(action2));
@@ -113,15 +113,15 @@ protected:
 };
 
 TEST_F(UpdateAsPathTest, ToString) {
-    vector<as_t> asn_list = list_of(1000)(2000);
+    vector<as_t> asn_list = {1000, 2000};
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
     EXPECT_EQ("as-path expand [ 1000,2000 ]", action.ToString());
 }
 
 TEST_F(UpdateAsPathTest, IsEqual1) {
-    vector<as_t> asn_list1 = list_of(1000)(2000);
-    vector<as_t> asn_list2 = list_of(1000)(2000);
+    vector<as_t> asn_list1 = {1000, 2000};
+    vector<as_t> asn_list2 = {1000, 2000};
     UpdateAsPath action1(asn_list1);
     UpdateAsPath action2(asn_list2);
     EXPECT_TRUE(action1.IsEqual(action2));
@@ -129,8 +129,8 @@ TEST_F(UpdateAsPathTest, IsEqual1) {
 }
 
 TEST_F(UpdateAsPathTest, IsEqual2) {
-    vector<as_t> asn_list1 = list_of(1000)(2000);
-    vector<as_t> asn_list2 = list_of(1000)(3000);
+    vector<as_t> asn_list1 = {1000, 2000};
+    vector<as_t> asn_list2 = {1000, 3000};
     UpdateAsPath action1(asn_list1);
     UpdateAsPath action2(asn_list2);
     EXPECT_FALSE(action1.IsEqual(action2));
@@ -138,7 +138,7 @@ TEST_F(UpdateAsPathTest, IsEqual2) {
 }
 
 TEST_F(UpdateAsPathTest, UpdateNull) {
-    vector<as_t> asn_list = list_of(1000)(2000);
+    vector<as_t> asn_list = {1000, 2000};
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
 
@@ -171,7 +171,7 @@ TEST_F(UpdateAsPathTest, UpdateNullAs4) {
 }
 
 TEST_F(UpdateAsPathTest, UpdateNonNull) {
-    vector<as_t> asn_list = list_of(1000)(2000);
+    vector<as_t> asn_list = {1000, 2000};
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
 

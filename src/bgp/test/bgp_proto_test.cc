@@ -229,24 +229,23 @@ private:
     }
 };
 
-std::vector<BuildUpdateMessage::BuildUpdateParam> BuildUpdateMessage::build_params_ =
-        boost::assign::list_of
-            (std::make_pair(&BuildUpdateMessage::AddOrigin, 1))
-            (std::make_pair(&BuildUpdateMessage::AddNextHop, 1))
-            (std::make_pair(&BuildUpdateMessage::AddMultiExitDisc, 5))
-            (std::make_pair(&BuildUpdateMessage::AddLocalPref, 5))
-            (std::make_pair(&BuildUpdateMessage::AddAtomicAggregate, 5))
-            (std::make_pair(&BuildUpdateMessage::AddAggregator, 5))
-            (std::make_pair(&BuildUpdateMessage::AddAsPath, 1))
-            (std::make_pair(&BuildUpdateMessage::AddCommunity, 5))
-            (std::make_pair(&BuildUpdateMessage::AddMpNlri, 5))
-            (std::make_pair(&BuildUpdateMessage::AddExtCommunity, 5))
-            (std::make_pair(&BuildUpdateMessage::AddPmsiTunnel, 5))
-            (std::make_pair(&BuildUpdateMessage::AddEdgeDiscovery, 5))
-            (std::make_pair(&BuildUpdateMessage::AddEdgeForwarding, 5))
-            (std::make_pair(&BuildUpdateMessage::AddOriginVnPath, 5))
-            (std::make_pair(&BuildUpdateMessage::AddUnknown, 5));
-
+std::vector<BuildUpdateMessage::BuildUpdateParam>
+    BuildUpdateMessage::build_params_ = {
+        std::make_pair(&BuildUpdateMessage::AddOrigin, 1),
+        std::make_pair(&BuildUpdateMessage::AddNextHop, 1),
+        std::make_pair(&BuildUpdateMessage::AddMultiExitDisc, 5),
+        std::make_pair(&BuildUpdateMessage::AddLocalPref, 5),
+        std::make_pair(&BuildUpdateMessage::AddAtomicAggregate, 5),
+        std::make_pair(&BuildUpdateMessage::AddAggregator, 5),
+        std::make_pair(&BuildUpdateMessage::AddAsPath, 1),
+        std::make_pair(&BuildUpdateMessage::AddCommunity, 5),
+        std::make_pair(&BuildUpdateMessage::AddMpNlri, 5),
+        std::make_pair(&BuildUpdateMessage::AddExtCommunity, 5),
+        std::make_pair(&BuildUpdateMessage::AddPmsiTunnel, 5),
+        std::make_pair(&BuildUpdateMessage::AddEdgeDiscovery, 5),
+        std::make_pair(&BuildUpdateMessage::AddEdgeForwarding, 5),
+        std::make_pair(&BuildUpdateMessage::AddOriginVnPath, 5),
+        std::make_pair(&BuildUpdateMessage::AddUnknown, 5)};
 
 static void TestOpenMessage(BgpProto::OpenMessage &open) {
     BgpMessageTest::GenerateOpenMessage(&open);

@@ -42,13 +42,13 @@ TYPED_TEST(ServiceChainIntegrationTest, StaticRoute) {
         path_list.push_back(verify_4);
     } else {
         PathVerify verify_1("88.88.88.88", "StaticRoute", "88.88.88.88",
-                            list_of("gre"), "blue");
+                            {"gre"}, "blue");
         PathVerify verify_2("99.99.99.99", "StaticRoute", "99.99.99.99",
-                            list_of("gre"), "blue");
-        PathVerify verify_3(
-            "88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of("gre"), "blue");
-        PathVerify verify_4(
-            "99.99.99.99", "BGP_XMPP", "99.99.99.99", list_of("gre"), "blue");
+                            {"gre"}, "blue");
+        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "blue");
+        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99", {"gre"},
+                            "blue");
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);
@@ -105,13 +105,13 @@ TYPED_TEST(ServiceChainIntegrationTest, StaticRouteDefaultRoutingInstance) {
         path_list.push_back(verify_4);
     } else {
         PathVerify verify_1("88.88.88.88", "StaticRoute", "88.88.88.88",
-                            list_of("gre"), "blue");
+                            {"gre"}, "blue");
         PathVerify verify_2("99.99.99.99", "StaticRoute", "99.99.99.99",
-                            list_of("gre"), "blue");
-        PathVerify verify_3(
-            "88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of("gre"), "blue");
-        PathVerify verify_4(
-            "99.99.99.99", "BGP_XMPP", "99.99.99.99", list_of("gre"), "blue");
+                            {"gre"}, "blue");
+        PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "blue");
+        PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99", {"gre"},
+                            "blue");
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);
@@ -185,17 +185,17 @@ TYPED_TEST(ServiceChainIntegrationTest, DISABLED_SvcStaticRoute) {
         path_list.push_back(verify_6);
     } else {
         PathVerify verify_1("88.88.88.88", "StaticRoute", "88.88.88.88",
-                            list_of("gre"), "blue");
+                            {"gre"}, "blue");
         PathVerify verify_2("99.99.99.99", "StaticRoute", "99.99.99.99",
-                            list_of("gre"), "blue");
+                            {"gre"}, "blue");
         PathVerify verify_3("88.88.88.88", "ServiceChain", "88.88.88.88",
-                            list_of("gre"), "red");
+                            {"gre"}, "red");
         PathVerify verify_4("99.99.99.99", "ServiceChain", "99.99.99.99",
-                            list_of("gre"), "red");
-        PathVerify verify_5("88.88.88.88", "BGP_XMPP", "88.88.88.88",
-                            list_of("gre"), "blue");
-        PathVerify verify_6("99.99.99.99", "BGP_XMPP", "99.99.99.99",
-                            list_of("gre"), "blue");
+                            {"gre"}, "red");
+        PathVerify verify_5("88.88.88.88", "BGP_XMPP", "88.88.88.88", {"gre"},
+                            "blue");
+        PathVerify verify_6("99.99.99.99", "BGP_XMPP", "99.99.99.99", {"gre"},
+                            "blue");
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);

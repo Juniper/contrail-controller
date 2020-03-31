@@ -3,7 +3,7 @@
  */
 
 #include "base/os.h"
-#include <boost/array.hpp>
+#include <array>
 #include "test/test_init.h"
 #include "test/test_cmn_util.h"
 #include "oper/mirror_table.h"
@@ -832,8 +832,8 @@ TEST_F(KStateSandeshTest, VxlanTest_MultiResponse) {
 TEST_F(KStateSandeshTest, RouteTest) {
     //Create 2 route objects in mock Kernel
     vr_route_req req1, req2;
-    boost::array<unsigned char, 3> bytes1 = { {0x10, 0x10, 0x10} };
-    boost::array<unsigned char, 3> bytes2 = { {0x20, 0x20, 0x20} };
+    std::array<unsigned char, 3> bytes1 = {{0x10, 0x10, 0x10}};
+    std::array<unsigned char, 3> bytes2 = {{0x20, 0x20, 0x20}};
     std::vector<int8_t> prefix1(bytes1.begin(), bytes1.end());
     std::vector<int8_t> prefix2(bytes2.begin(), bytes2.end());
     req1.set_rtr_vrf_id(1);
@@ -879,7 +879,7 @@ TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
     req.set_rtr_prefix_len(32);
     req.set_rtr_family(AF_INET);
     for(int i = 1; i <= 50; i++) {
-        boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
+        std::array<unsigned char, 3> bytes = {{0x30, 0x30, 0x30}};
         std::vector<int8_t> prefix(bytes.begin(), bytes.end());
         prefix.push_back(i);
         req.set_rtr_prefix(prefix);
@@ -897,7 +897,7 @@ TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
 
     //cleanup
     for(int i = 1; i <= 50; i++) {
-        boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
+        std::array<unsigned char, 3> bytes = {{0x30, 0x30, 0x30}};
         std::vector<int8_t> prefix(bytes.begin(), bytes.end());
         prefix.push_back(i);
         req.set_rtr_prefix(prefix);

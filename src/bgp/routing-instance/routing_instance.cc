@@ -1090,7 +1090,7 @@ void RoutingInstance::ProcessStaticRouteConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IStaticRouteMgr *manager = static_route_mgr(family);
         if (!manager && !config_->static_routes(family).empty())
@@ -1104,7 +1104,7 @@ void RoutingInstance::UpdateStaticRouteConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IStaticRouteMgr *manager = static_route_mgr(family);
         if (!manager && !config_->static_routes(family).empty())
@@ -1118,7 +1118,7 @@ void RoutingInstance::FlushStaticRouteConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IStaticRouteMgr *manager = static_route_mgr(family);
         if (manager)
@@ -1130,7 +1130,7 @@ void RoutingInstance::UpdateAllStaticRoutes() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IStaticRouteMgr *manager = static_route_mgr(family);
         if (manager)
@@ -1142,7 +1142,7 @@ void RoutingInstance::ProcessRouteAggregationConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IRouteAggregator *aggregator = route_aggregator(family);
         if (!aggregator && !config_->aggregate_routes(family).empty())
@@ -1156,7 +1156,7 @@ void RoutingInstance::UpdateRouteAggregationConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IRouteAggregator *aggregator = route_aggregator(family);
         if (!aggregator && !config_->aggregate_routes(family).empty())
@@ -1170,7 +1170,7 @@ void RoutingInstance::FlushRouteAggregationConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         IRouteAggregator *aggregator = route_aggregator(family);
         if (aggregator)

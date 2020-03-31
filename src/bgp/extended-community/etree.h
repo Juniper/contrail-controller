@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_ETREE_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_ETREE_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <string>
@@ -16,7 +16,7 @@
 class ETree {
 public:
     static const int kSize = 8;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit ETree(bool leaf, int label=0);
     explicit ETree(const bytes_type &data);

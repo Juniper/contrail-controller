@@ -4,7 +4,7 @@
 
 #include <vector>
 #include "base/os.h"
-#include <boost/array.hpp>
+#include <array>
 #include "test/test_init.h"
 #include "test/test_cmn_util.h"
 #include "oper/mirror_table.h"

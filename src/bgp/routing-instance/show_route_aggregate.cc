@@ -31,8 +31,7 @@ static bool FillRouteAggregateInfoList(const BgpSandeshContext *bsc,
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         RoutingInstance *rtinstance = it->second;
 
-        vector<Address::Family> families =
-            list_of(Address::INET)(Address::INET6);
+        vector<Address::Family> families = {Address::INET, Address::INET6};
         BOOST_FOREACH(Address::Family family, families) {
             const BgpTable *table =
                 static_cast<const BgpTable *>(rtinstance->GetTable(family));

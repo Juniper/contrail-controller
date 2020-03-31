@@ -65,7 +65,7 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     sbic->set_service_chain_infos(sbscc_list);
 
     vector<ShowBgpStaticRouteConfig> static_route_list;
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    vector<Address::Family> families = {Address::INET, Address::INET6};
     BOOST_FOREACH(Address::Family family, families) {
         BOOST_FOREACH(const StaticRouteConfig &static_rt_config,
             instance->static_routes(family)) {

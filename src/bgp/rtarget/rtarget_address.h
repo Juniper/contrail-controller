@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_RTARGET_RTARGET_ADDRESS_H_
 #define SRC_BGP_RTARGET_RTARGET_ADDRESS_H_
 
-#include <boost/array.hpp>
+#include <array>
 #include <boost/system/error_code.hpp>
 
 #include <set>
@@ -17,7 +17,7 @@ class RouteTarget {
 public:
     static const int kSize = 8;
     static RouteTarget null_rtarget;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
     typedef std::set<RouteTarget> List;
 
     RouteTarget();

@@ -41,16 +41,12 @@ do {                                                                           \
     std::ostringstream _str;                                                   \
     _str << arg;                                                               \
     Metadata##obj::TraceMsg(MetadataTraceBuf, __FILE__, __LINE__, _str.str()); \
-} while (false)                                                                \
+} while (false)
 
-std::map<uint16_t, std::string>
-        g_http_error_map = boost::assign::map_list_of<uint16_t, std::string>
-                                        (404, "404 Not Found")
-                                        (500, "500 Internal Server Error")
-                                        (501, "501 Not Implemented")
-                                        (502, "502 Bad Gateway")
-                                        (503, "503 Service Unavailable")
-                                        (504, "504 Gateway Timeout");
+std::map<uint16_t, std::string> g_http_error_map = {
+    {404, "404 Not Found"},           {500, "500 Internal Server Error"},
+    {501, "501 Not Implemented"},     {502, "502 Bad Gateway"},
+    {503, "503 Service Unavailable"}, {504, "504 Gateway Timeout"}};
 
 static std::string ErrorMessage(uint16_t ec) {
     std::map<uint16_t, std::string>::iterator iter = g_http_error_map.find(ec);

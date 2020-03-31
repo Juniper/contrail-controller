@@ -158,7 +158,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
         }
     }
     MirrorEntryReq *mirror_list_req = new MirrorEntryReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     mirror_list_req->HandleRequest();
     client->WaitForIdle();

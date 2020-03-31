@@ -41,8 +41,8 @@ public:
 
     virtual void SetUp() {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        TaskPolicy walker_policy = boost::assign::list_of
-            (TaskExclusion(scheduler->GetTaskId("db::DBTable")));
+        TaskPolicy walker_policy = {
+            TaskExclusion(scheduler->GetTaskId("db::DBTable"))};
         scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
     }
 

@@ -40,13 +40,12 @@ using ::testing::Bool;
 using ::testing::ValuesIn;
 using ::testing::Combine;
 
-static vector<int>  n_instances = boost::assign::list_of(1);
-static vector<int>  n_routes    = boost::assign::list_of(1);
-static vector<int>  n_peers     = boost::assign::list_of(1);
-static vector<int>  n_agents    = boost::assign::list_of(1);
-static vector<int>  n_targets   = boost::assign::list_of(1);
-static vector<bool> xmpp_close_from_control_node =
-                                  boost::assign::list_of(false);
+static vector<int> n_instances = {1};
+static vector<int> n_routes = {1};
+static vector<int> n_peers = {1};
+static vector<int> n_agents = {1};
+static vector<int> n_targets = {1};
+static vector<bool> xmpp_close_from_control_node = {false};
 static char **gargv;
 static int    gargc;
 static int    n_db_walker_wait_usecs = 0;

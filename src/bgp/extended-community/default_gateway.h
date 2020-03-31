@@ -7,7 +7,7 @@
 
 #include "bgp/extended-community/types.h"
 
-#include <boost/array.hpp>
+#include <array>
 #include <stdint.h>
 
 #include <string>
@@ -15,7 +15,7 @@
 class DefaultGateway {
 public:
     static const int kSize = 8;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     explicit DefaultGateway(const bytes_type &data);
     std::string ToString() const;

@@ -138,7 +138,7 @@ TEST_F(VrfTest, VrfAddDelTest_sandesh_test_1) {
     WAIT_FOR(100, 10000, (RouteFind("vrf1", vm2_ip, 32) == true));
 
     VrfListReq *vrf_list_req = new VrfListReq();
-    std::vector<int> result = list_of(1);
+    std::vector<int> result = {1};
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     vrf_list_req->HandleRequest();
     client->WaitForIdle();

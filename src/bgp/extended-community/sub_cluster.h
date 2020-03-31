@@ -18,7 +18,7 @@ class SubCluster {
 public:
     static const int kSize = 8;
     static SubCluster null_sub_cluster;
-    typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::array<uint8_t, kSize> bytes_type;
 
     SubCluster();
     explicit SubCluster(const bytes_type &data);

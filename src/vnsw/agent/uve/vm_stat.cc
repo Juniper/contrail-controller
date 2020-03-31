@@ -60,9 +60,11 @@ void VmStat::ReadData(const boost::system::error_code &ec,
         vmt->EnqueueVmStatData(vm_stat_data);
     } else {
         bzero(rx_buff_, sizeof(rx_buff_));
-        async_read(input_, boost::asio::buffer(rx_buff_, kBufLen),
-                   boost::bind(&VmStat::ReadData, this, placeholders::error,
-                   placeholders::bytes_transferred, cb));
+        async_read(
+            input_, boost::asio::buffer(rx_buff_, kBufLen),
+            boost::bind(&VmStat::ReadData, this,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred, cb));
     }
 }
 
@@ -118,9 +120,10 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
     }
 
     bzero(rx_buff_, sizeof(rx_buff_));
-    async_read(input_, boost::asio::buffer(rx_buff_, kBufLen),
-               boost::bind(&VmStat::ReadData, this, placeholders::error,
-                           placeholders::bytes_transferred, cb));
+    async_read(
+        input_, boost::asio::buffer(rx_buff_, kBufLen),
+        boost::bind(&VmStat::ReadData, this, boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred, cb));
 }
 
 bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {

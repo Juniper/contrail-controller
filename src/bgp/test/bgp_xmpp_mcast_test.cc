@@ -884,7 +884,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     Sandesh::set_client_context(&sandesh_context);
 
     // First get all tables - blue.ermvpn.0, bgp.ermvpn.0 and bgp.rtarget.0.
-    std::vector<size_t> result = list_of(5)(2)(4);
+    std::vector<size_t> result = {5, 2, 4};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     ShowRouteReq *show_req = new ShowRouteReq;
@@ -964,7 +964,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManagerDetail) {
     sandesh_context.bgp_server = bs_x_.get();
     sandesh_context.xmpp_peer_manager = bcm_x_.get();
     Sandesh::set_client_context(&sandesh_context);
-    vector<string> result = list_of("225.0.0.1")("225.0.0.2");
+    vector<string> result = {"225.0.0.1", "225.0.0.2"};
     Sandesh::set_response_callback(
         boost::bind(ValidateShowManagerMulticastDetailResponse, _1, result));
     ShowMulticastManagerDetailReq *show_req = new ShowMulticastManagerDetailReq;
