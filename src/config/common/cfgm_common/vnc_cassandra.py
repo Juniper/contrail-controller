@@ -1615,7 +1615,12 @@ class ObjectCacheManager(object):
             if len(self._cache) >= self.max_entries:
                 # get first element (least recently used)
                 # without getting full copy of dict keys
-                key = next(iter(list(self._cache.iterkeys())))
+                if hasattr(self._cache, 'iterkeys'):
+                    key = next(iter(list(self._cache.iterkeys())))
+                else:
+                    # 'keys()' returns an iterator with PY3.
+                    key = next(iter(list(self._cache.keys())))
+
                 self.evict(obj_type, [key])
 
             self._cache[obj_uuid] = cached_obj
