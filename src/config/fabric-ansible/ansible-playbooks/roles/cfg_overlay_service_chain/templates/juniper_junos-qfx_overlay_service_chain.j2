@@ -8,23 +8,28 @@
 {%     endif %}
 {%     for protocol in ri.get('protocols', []) %}
 {%         for bgp in protocol.get('bgp', []) %}
-{%             set sys_config = device_abstract_config.get('system', None) %}
-{%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{%             if 'PNF-Servicechain' in sys_roles %}
+{%             if 'PNF-Service-Chaining' in bgp.get('comment','') %}
+{%                 set sys_config = device_abstract_config.get('system', None) %}
+{%                 set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%                 if 'PNF-Servicechain' in sys_roles %}
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols evpn ip-prefix-routes export PNF_ROUTES
 set groups {{cfg_group}} policy-options policy-statement PNF_ROUTES term DEFAULT_BGP from protocol bgp
 set groups {{cfg_group}} policy-options policy-statement PNF_ROUTES term DEFAULT_BGP then accept
 set groups {{cfg_group}} policy-options policy-statement PNF_ROUTES then reject
-{%             endif %}
+{%                 endif %}
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp multipath
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} export {{bgp.name}}-export
-{%             for peer in bgp.peers %}
+{%                 for peer in bgp.peers %}
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
-{%             endfor %}
+{%                 endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term DIRECT from protocol direct
 set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term DIRECT then accept
+set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term STATIC from protocol static
+set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term STATIC from route-filter 0.0.0.0/0 exact
+set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term STATIC then accept
+{%             endif %}
 {%         endfor %}
 {%     endfor %}
 {% endfor %}
