@@ -523,8 +523,8 @@ class MiniResp(object):
         else:
             self.body = [error_message]
         self.headers = list(headers)
-        self.headers.append(('Content-type'.encode('utf-8'),
-                             'text/plain'.encode('utf-8')))
+        self.headers.append((six.ensure_str('Content-type'),
+                             six.ensure_str('text/plain')))
 
 """
 Fake Keystone Middleware.
@@ -620,11 +620,11 @@ class FakeAuthProtocol(object):
         :returns HTTPUnauthorized http response
 
         """
-        headers = [('WWW-Authenticate'.encode('utf-8'),
-                    ('Keystone uri=\'%s\''.encode('utf-8') %
-                     self.auth_uri.encode('utf-8')))]
+        headers = [(six.ensure_str('WWW-Authenticate'),
+                    (six.ensure_str('Keystone uri=\'%s\'') %
+                     six.ensure_str(self.auth_uri)))]
         resp = MiniResp('Authentication required', env, headers)
-        start_response('401 Unauthorized'.encode('utf-8'), resp.headers)
+        start_response(six.ensure_str('401 Unauthorized'), resp.headers)
         return resp.body
 
     def __call__(self, env, start_response):
@@ -637,8 +637,7 @@ class FakeAuthProtocol(object):
         # print 'FakeAuthProtocol: Authenticating user token'
         user_token = self._get_header(env, 'X-Auth-Token')
         if user_token:
-            # print '%%%%%% user token %s %%%%% ' % user_token
-            pass
+            user_token = six.ensure_str(user_token)
         elif self.delay_auth_decision:
             self._add_headers(env, {'X-Identity-Status': 'Invalid'})
             return self.app(env, start_response)
