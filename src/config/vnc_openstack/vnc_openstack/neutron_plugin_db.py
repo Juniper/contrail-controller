@@ -651,6 +651,23 @@ class DBInterface(object):
         return [t for t in tags_list['tags'] if t['fq_name'][0] in tags]
     #end _resource_read_by_tag
 
+    def _resource_add_tags(self, obj, tags):
+        for tag in tags:
+            tag_obj = self._tag_get_or_create(tag)
+            obj.add_tag(tag_obj)
+    # end _resource_add_tags
+
+    def _tag_get_or_create(self, tag):
+        tag_fq_name = ['neutron_tag={}'.format(tag)]
+        try:
+            tag_id = self._vnc_lib.fq_name_to_uuid('tag', tag_fq_name)
+        except NoIdError:
+            tag_obj = Tag(tag_type_name='neutron_tag', tag_value=tag)
+            tag_id = self._resource_create('tag', tag_obj)
+        tag_obj = self._vnc_lib.tag_read(id=tag_id)
+        return tag_obj
+    # end _tag_get_or_create
+
     def _virtual_network_read(self, net_id=None, fq_name=None, fields=None):
         net_obj = self._vnc_lib.virtual_network_read(id=net_id,
                                                      fq_name=fq_name,
@@ -1327,6 +1344,10 @@ class DBInterface(object):
             id_perms = sg_vnc.get_id_perms()
             id_perms.set_description(sg_q['description'])
             sg_vnc.set_id_perms(id_perms)
+
+        if 'tags' in sg_q:
+            self._resource_add_tags(obj=sg_vnc, tags=sg_q.get('tags'))
+
         return sg_vnc
     # end _security_group_neutron_to_vnc
 
@@ -1581,6 +1602,9 @@ class DBInterface(object):
             id_perms = net_obj.get_id_perms()
             id_perms.set_description(network_q['description'])
             net_obj.set_id_perms(id_perms)
+
+        if 'tags' in network_q:
+            self._resource_add_tags(obj=net_obj, tags=network_q.get('tags'))
 
         return net_obj
     #end _network_neutron_to_vnc
@@ -1910,6 +1934,9 @@ class DBInterface(object):
         policy_obj.set_network_policy_entries(
             PolicyEntriesType.factory(**policy_q['entries']))
 
+        if 'tags' in policy_q:
+            self._resource_add_tags(obj=policy_obj, tags=policy_q.get('tags'))
+
         return policy_obj
     #end _policy_neutron_to_vnc
 
@@ -1957,6 +1984,9 @@ class DBInterface(object):
             id_perms = rtr_obj.get_id_perms()
             id_perms.set_description(router_q['description'])
             rtr_obj.set_id_perms(id_perms)
+
+        if 'tags' in router_q:
+            self._resource_add_tags(obj=rtr_obj, tags=router_q.get('tags'))
 
         return rtr_obj
     #end _router_neutron_to_vnc
@@ -2171,6 +2201,9 @@ class DBInterface(object):
                 id_perms = IdPermsType(enable=True,
                                        description=fip_q['description'])
             fip_obj.set_id_perms(id_perms)
+
+        if 'tags' in fip_q:
+            self._resource_add_tags(obj=fip_obj, tags=fip_q.get('tags'))
 
         return fip_obj
     #end _floatingip_neutron_to_vnc
@@ -4512,6 +4545,9 @@ class DBInterface(object):
             self._port_check_and_add_iface_route_table(ret_port_q['fixed_ips'],
                                                        net_obj, port_obj)
 
+        if 'tags' in port_q:
+            self._resource_add_tags(obj=port_obj, tags=port_q.get('tags'))
+
         return ret_port_q
     # end port_create
 
@@ -6366,6 +6402,10 @@ class DBInterface(object):
 
             trunk.set_id_perms(IdPermsType(enable=True))
             trunk.set_perms2(PermType2(owner=project.uuid))
+
+            if 'tags' in trunk_q:
+                self._resource_add_tags(obj=trunk, tags=trunk_q.get('tags'))
+
 
         elif oper == UPDATE:
             try:
