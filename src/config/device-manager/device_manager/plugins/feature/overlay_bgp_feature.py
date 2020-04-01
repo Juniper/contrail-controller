@@ -132,7 +132,13 @@ class OverlayBgpFeature(FeatureBase):
 
         local_asn = self._get_asn(bgp_router)
 
-        for peer_uuid, attr in list(bgp_router.bgp_routers.items()):
+        # adding dci peers
+        dci_peers = self._physical_router.get_dci_bgp_neighbours()
+        bgp_peers_dict = bgp_router.bgp_routers
+        for dci_peer in dci_peers:
+            bgp_peers_dict[dci_peer] = {}
+
+        for peer_uuid, attr in list(bgp_peers_dict.items()):
             peer = BgpRouterDM.get(peer_uuid)
             if not self._is_valid(peer):
                 continue
@@ -140,13 +146,13 @@ class OverlayBgpFeature(FeatureBase):
             peer_pr = PhysicalRouterDM.get(peer_pr_uuid)
             peer_asn = self._get_asn(peer)
 
-            if peer_pr and "Route-Reflector" in \
+            if local_asn != peer_asn:
+                ebgp_peers[peer] = attr
+            elif peer_pr and "Route-Reflector" in \
                     peer_pr.routing_bridging_roles \
                     and "Route-Reflector" in \
                     self._physical_router.routing_bridging_roles:
                 rr_peers[peer] = attr
-            elif local_asn != peer_asn:
-                ebgp_peers[peer] = attr
             else:
                 ibgp_peers[peer] = attr
 
