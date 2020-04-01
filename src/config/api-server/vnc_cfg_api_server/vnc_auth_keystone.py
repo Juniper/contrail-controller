@@ -20,6 +20,7 @@ import time
 import base64
 import re
 import uuid
+import six
 
 try:
     from keystoneclient.middleware import auth_token
@@ -73,7 +74,7 @@ class LocalAuth(object):
             except Exception as e:
                 bottle.abort(401, 'Auth Exception: %s' %(str(e)))
             enc_user_passwd = auth_hdr_val.split()[1]
-            user_passwd = base64.b64decode(enc_user_passwd)
+            user_passwd = six.ensure_string(base64.b64decode(enc_user_passwd))
             user, passwd = user_passwd.split(':')
             admin_user = self._conf_info.get('admin_user',
                     self._conf_info.get('username'))
