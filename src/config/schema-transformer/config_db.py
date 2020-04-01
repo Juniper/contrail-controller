@@ -2488,13 +2488,9 @@ class RoutingInstanceST(DBBaseST):
 # end class RoutingInstanceST
 
 
-class ServiceChain(DBBaseST):
     _dict = {}
     obj_type = 'service_chain'
 
-    @classmethod
-    def init(cls):
-        # When schema transformer restarts, read all service chains from cassandra
         for (name, columns) in cls._cassandra.list_service_chain_uuid():
             chain = jsonpickle.decode(columns['value'])
 
