@@ -47,44 +47,6 @@ BgpAsAService::BgpAsAService(const Agent *agent) :
 BgpAsAService::~BgpAsAService() {
 }
 
-void BgpAsAService::BindBgpAsAServicePorts(const std::vector<uint16_t> &ports) {
-    if (ports.size() != 2) {
-        BGPASASERVICETRACE(Trace, "Port bind range rejected - parsing failed");
-        return;
-    }
-
-    uint16_t start = ports[0];
-    uint16_t end = ports[1];
-
-    for (uint16_t port = start; port <= end; port++) {
-        int port_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        struct sockaddr_in address;
-        memset(&address, 0, sizeof(address));
-        address.sin_family = AF_INET;
-        address.sin_addr.s_addr = htonl(agent_->router_id().to_ulong());
-        address.sin_port = htons(port);
-        int optval = 1;
-        if (fcntl(port_fd, F_SETFD, FD_CLOEXEC) < 0) {
-            std::stringstream ss;
-            ss << "Port setting fcntl failed with error ";
-            ss << strerror(errno);
-            ss << " for port ";
-            ss << port;
-            BGPASASERVICETRACE(Trace, ss.str().c_str());
-        }
-        setsockopt(port_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof(optval));
-        if (bind(port_fd, (struct sockaddr*) &address,
-                 sizeof(sockaddr_in)) < 0) {
-            std::stringstream ss;
-            ss << "Port bind failed for port# ";
-            ss << port;
-            ss << " with error ";
-            ss << strerror(errno);
-            BGPASASERVICETRACE(Trace, ss.str().c_str());
-        }
-    }
-}
-
 const BgpAsAService::BgpAsAServiceEntryMap &BgpAsAService::bgp_as_a_service_map() const {
     return bgp_as_a_service_entry_map_;
 }

@@ -166,12 +166,6 @@ struct PathPreferenceIntfState : public DBState {
         std::string vrf_name_;
         mutable bool seen_;
     };
-    void Notify();
-    void Insert(RouteAddrList &rt, bool traffic_seen);
-    void DeleteOldEntries();
-    void UpdateDependentRoute(std::string vrf_name, Ip4Address ip,
-                              uint32_t plen, bool traffic_seen,
-                              PathPreferenceModule *path_preference_module);
     uint32_t DependentRouteListSize() const { return dependent_rt_.size(); }
 private:
     const VmInterface *intf_;
@@ -230,7 +224,6 @@ public:
     void Init();
     void Shutdown();
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void IntfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
                             uint32_t interface_index, uint32_t vrf_index,
                             const MacAddress &mac);

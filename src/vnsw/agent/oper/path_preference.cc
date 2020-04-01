@@ -509,142 +509,6 @@ PathPreferenceIntfState::PathPreferenceIntfState(const VmInterface *intf):
     intf_(intf) {
 }
 
-void PathPreferenceIntfState::Insert(RouteAddrList &rt, bool traffic_seen) {
-    std::set<RouteAddrList>::const_iterator it = dependent_rt_.find(rt);
-    if (it != dependent_rt_.end()) {
-        it->seen_ = true;
-        return;
-    }
-
-    rt.seen_ = true;
-    dependent_rt_.insert(rt);
-}
-
-void PathPreferenceIntfState::DeleteOldEntries() {
-    std::set<RouteAddrList>::const_iterator it = dependent_rt_.begin();
-    while (it != dependent_rt_.end()) {
-        std::set<RouteAddrList>::const_iterator prev_it = it++;
-        if (prev_it->seen_ == false) {
-            dependent_rt_.erase(prev_it);
-            continue;
-        }
-        prev_it->seen_ = false;
-    }
-}
-
-/* Updates the preference of routes dependent on given IP/prefix */
-void PathPreferenceIntfState::UpdateDependentRoute(std::string vrf_name,
-                                                   Ip4Address ip, uint32_t plen,
-                                                   bool traffic_seen,
-                                                   PathPreferenceModule
-                                                   *path_preference_module) {
-    if (instance_ip_.vrf_name_ != vrf_name ||
-        instance_ip_.plen_ != plen ||
-        instance_ip_.ip_ != ip) {
-        return;
-    }
-
-    Agent *agent = path_preference_module->agent();
-    std::set<RouteAddrList>::const_iterator it = dependent_rt_.begin();
-    for(;it != dependent_rt_.end();it++) {
-        const VrfEntry *vrf =
-            agent->vrf_table()->FindVrfFromName(it->vrf_name_);
-        if (vrf == NULL) {
-            continue;
-        }
-        const PathPreferenceVrfState *state =
-            static_cast<const PathPreferenceVrfState *>(
-            vrf->GetState(agent->vrf_table(),
-            path_preference_module->vrf_id()));
-        if (!state) {
-            continue;
-        }
-
-        InetUnicastRouteKey rt_key(NULL, it->vrf_name_, it->ip_.to_v4(),
-                                   it->plen_);
-        const InetUnicastRouteEntry *rt =
-            static_cast<const InetUnicastRouteEntry *>(
-            vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&rt_key));
-        if (!rt) {
-            continue;
-        }
-
-        const PathPreferenceState *cpath_preference =
-            static_cast<const PathPreferenceState *>(
-            rt->GetState(vrf->GetInet4UnicastRouteTable(), state->uc_rt_id_));
-        if (!cpath_preference) {
-            continue;
-        }
-
-        PathPreferenceState *path_preference =
-            const_cast<PathPreferenceState *>(cpath_preference);
-        PathPreferenceSM *path_preference_sm =
-            path_preference->GetSM(intf_->peer());
-        if (path_preference_sm && traffic_seen) {
-            EvTrafficSeen ev;
-            path_preference_sm->process_event(ev);
-        }
-    }
-}
-
-void PathPreferenceIntfState::Notify() {
-    //Copy over instance IP
-    if (intf_->vrf()) {
-        instance_ip_.vrf_name_ = intf_->vrf()->GetName();
-    }
-    instance_ip_.ip_ = intf_->primary_ip_addr();
-    instance_ip_.plen_ = 32;
-
-    //Check if the native IP is active
-    bool traffic_seen = true;
-    if (intf_->WaitForTraffic() == true) {
-        traffic_seen = false;
-    }
-
-    //Go thru floating ip
-    const VmInterface::FloatingIpSet &fip_list = intf_->floating_ip_list().list_;
-    VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
-    for (;it != fip_list.end(); ++it) {
-        if (it->floating_ip_.is_v4()) {
-            RouteAddrList rt(Address::INET, it->floating_ip_.to_v4(), 32,
-                             it->vrf_name_);
-            Insert(rt, traffic_seen);
-        }
-    }
-
-    //Go thru interface static routes
-    const VmInterface::ServiceVlanSet &service_vlan_set =
-        intf_->service_vlan_list().list_;
-    VmInterface::ServiceVlanSet::const_iterator service_vlan_it =
-        service_vlan_set.begin();
-    for (;service_vlan_it != service_vlan_set.end(); ++service_vlan_it) {
-        if (!service_vlan_it->addr_.is_unspecified()) {
-            RouteAddrList rt(Address::INET, service_vlan_it->addr_, 32,
-                             service_vlan_it->vrf_name_);
-            Insert(rt, traffic_seen);
-        }
-    }
-
-    //Go thru interface static routes
-    const VmInterface::StaticRouteSet &static_rt_list =
-        intf_->static_route_list().list_;
-    VmInterface::StaticRouteSet::const_iterator static_rt_it =
-        static_rt_list.begin();
-    for (;static_rt_it != static_rt_list.end(); ++static_rt_it) {
-        if (static_rt_it->addr_.is_v4()) {
-            if (static_rt_it->vrf_ == NULL) {
-                continue;
-            }
-            RouteAddrList rt(Address::INET, static_rt_it->addr_,
-                             static_rt_it->plen_,
-                             static_rt_it->vrf_->GetName());
-            Insert(rt, traffic_seen);
-        }
-    }
-    //Delete all old entries not present in new list
-    DeleteOldEntries();
-}
-
 PathPreferenceState::PathPreferenceState(Agent *agent,
     AgentRoute *rt): agent_(agent), rt_(rt) {
 }
@@ -1028,17 +892,6 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
         EvTrafficSeen ev;
         path_preference_sm->process_event(ev);
     }
-#if 0
-    //Enqueue event for same on all dependent routes of interface
-    const PathPreferenceIntfState *cintf_state =
-        static_cast<const PathPreferenceIntfState *>(
-        vm_intf->GetState(agent_->interface_table(), intf_id_));
-    PathPreferenceIntfState *intf_state =
-        const_cast<PathPreferenceIntfState *>(cintf_state);
-    /* Only events with IPv4 IP is enqueued now */
-    intf_state->UpdateDependentRoute(vrf->GetName(), event.ip_.to_v4(),
-                                     event.plen_, true, this);
-#endif
     return true;
 }
 
@@ -1163,33 +1016,6 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
    return;
 }
 
-void PathPreferenceModule::IntfNotify(DBTablePartBase *partition,
-                                       DBEntryBase *e) {
-    const Interface *intf = static_cast<const Interface *>(e);
-
-    if (intf->type() != Interface::VM_INTERFACE) {
-        return;
-    }
-
-    PathPreferenceIntfState *intf_state =
-        static_cast<PathPreferenceIntfState *>(e->GetState(partition->parent(),
-                                                            intf_id_));
-    if (intf->IsDeleted()) {
-        if (intf_state) {
-            e->ClearState(partition->parent(), intf_id_);
-            delete intf_state;
-        }
-        return;
-    }
-
-    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
-    if (!intf_state) {
-        intf_state = new PathPreferenceIntfState(vm_intf);
-    }
-    intf_state->Notify();
-    e->SetState(partition->parent(), intf_id_, intf_state);
-}
-
 void PathPreferenceModule::AddUnresolvedPath(PathPreferenceState *sm) {
     unresolved_paths_.insert(sm);
 }
@@ -1216,15 +1042,8 @@ void PathPreferenceModule::Resolve() {
 void PathPreferenceModule::Init() {
     vrf_id_ = agent_->vrf_table()->Register(
                   boost::bind(&PathPreferenceModule::VrfNotify, this, _1, _2));
-#if 0
-    intf_id_ = agent_->interface_table()->Register(
-                  boost::bind(&PathPreferenceModule::IntfNotify, this, _1, _2));
-#endif
 }
 
 void PathPreferenceModule::Shutdown() {
     agent_->vrf_table()->Unregister(vrf_id_);
-#if 0
-    agent_->interface_table()->Unregister(intf_id_);
-#endif
 }
