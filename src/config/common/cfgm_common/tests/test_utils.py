@@ -521,7 +521,8 @@ class MiniResp(object):
         if env['REQUEST_METHOD'] == 'HEAD':
             self.body = ['']
         else:
-            self.body = [error_message]
+            # The WSGIServer handler in waiting for a bytes object.
+            self.body = [six.b(error_message)]
         self.headers = list(headers)
         self.headers.append((six.ensure_str('Content-type'),
                              six.ensure_str('text/plain')))
