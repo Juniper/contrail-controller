@@ -1,5 +1,5 @@
 flexmock
-kombu # as we have to remove the dep in requirement, add it in the test-req for UT
+kombu <= 4.6.7 # as we have to remove the dep in requirement, add it in the test-req for UT
 mock
 python-novaclient
 testtools
