@@ -10,15 +10,8 @@ PIDFile=/var/run/contrail/contrail-vrouter-agent.pid
 TimeoutStopSec=0
 Restart=always
 ExecStop=/bin/kill -s TERM $MAINPID
-PrivateTmp=yes
-ProtectHome=yes
-ReadOnlyDirectories=/
-ReadWriteDirectories=-/dev
-ReadWriteDirectories=-/run
-ReadWriteDirectories=-/var/crashes
-ReadWriteDirectories=-/var/lib/contrail
-ReadWriteDirectories=-/var/log/contrail
 LimitCORE=infinity
+ExecStartPre=/bin/bash -xc 'for i in `ip netns 2>/dev/null | grep ^vrouter-`; do ip netns delete $i; done'
 
 [Install]
 WantedBy=multi-user.target
