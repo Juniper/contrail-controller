@@ -7,6 +7,8 @@ import logging
 import uuid
 import unittest
 import testtools
+import os
+
 from flexmock import flexmock
 from cfgm_common import vnc_kombu
 sys.path.append('../common/cfgm_common/tests/mocked_libs')
@@ -34,6 +36,12 @@ class WrongValueException(Exception):
     pass
 
 
+def isolated_run():
+    return int(os.getenv('ISOLATED_TESTS') or 0) == 0
+
+
+@unittest.skipIf(isolated_run, ("skipping Kombu tests if other tests run in "
+                                "parallel due to mocking issue"))
 class TestVncKombuClient(unittest.TestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
