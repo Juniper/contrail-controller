@@ -1,6 +1,11 @@
-bottle
-future
-six
-requests >= 2.20.0
-python-keystoneclient>=0.11.0
+bottle==0.12.18; python_version=='2.7'
+future==0.18.2; python_version=='2.7'
+six==1.14.0; python_version=='2.7'
+requests >= 2.20.0, <= 2.23.0; python_version=='2.7'
+python-keystoneclient>=0.11.0, <=3.22.0; python_version=='2.7'
 contrail-config-common
+bottle==0.12.18; python_version > '2.7'
+future==0.18.2; python_version > '2.7'
+six==1.14.0; python_version > '2.7'
+requests==2.23.0; python_version > '2.7'
+python-keystoneclient==3.22.0; python_version > '2.7'

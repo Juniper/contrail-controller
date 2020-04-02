@@ -1,15 +1,26 @@
-attrdict
-bitarray
-bottle
+attrdict==2.0.1; python_version=='2.7'
+bitarray==1.2.1; python_version=='2.7'
+bottle==0.12.18; python_version=='2.7'
 contrail-api-client
-future
-gevent
-greenlet
-kazoo
+future==0.18.2; python_version=='2.7'
+gevent==1.3.0; python_version=='2.7'
+greenlet==0.4.15; python_version=='2.7'
+kazoo==2.7.0; python_version=='2.7'
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
-# pycassa>=1.7.2  # Don't install pycassa to run UT in python 3 env
-requests>=2.20.0
-sandesh==0.1dev
-simplejson
-six
-stevedore
+# pycassa>=1.7.2  # Don't install pycassa to run UT in python 3 env; python_version=='2.7'
+requests>=2.20.0,<=2.23.0; python_version=='2.7'
+sandesh==0.1dev; python_version=='2.7'
+simplejson==3.17.0; python_version=='2.7'
+six==1.14.0; python_version=='2.7'
+stevedore==1.32.0; python_version=='2.7'
+attrdict==2.0.1; python_version > '2.7'
+bitarray==1.2.1; python_version > '2.7'
+bottle==0.12.18; python_version > '2.7'
+future==0.18.2; python_version > '2.7'
+gevent==1.4.0; python_version > '2.7'
+greenlet==0.4.15; python_version > '2.7'
+kazoo==2.7.0; python_version > '2.7'
+requests==2.23.0; python_version > '2.7'
+simplejson==3.17.0; python_version > '2.7'
+six==1.14.0; python_version > '2.7'
+stevedore==1.32.0; python_version > '2.7'
