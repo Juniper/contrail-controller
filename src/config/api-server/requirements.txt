@@ -2,13 +2,23 @@ contrail-config-common
 contrail-api-client
 sandesh==0.1dev
 sandesh-common
-gevent
-netaddr
-python-keystoneclient
-netifaces
-bottle
-stevedore
-kazoo>=2.5.0
-pycrypto
-future
-six
+gevent==1.3.0; python_version == '2.7'
+netaddr==0.7.19; python_version == '2.7'
+python-keystoneclient==3.22.0; python_version == '2.7'
+netifaces==0.10.9; python_version == '2.7'
+bottle==0.12.18; python_version == '2.7'
+stevedore==1.32.0; python_version == '2.7'
+kazoo>=2.5.0,<=2.7.0; python_version == '2.7'
+pycrypto==2.6.1; python_version == '2.7'
+future==0.18.2; python_version == '2.7'
+six==1.14.0; python_version=='2.7'
+gevent==1.4.0; python_version > '2.7'
+netaddr==0.7.19; python_version > '2.7'
+python-keystoneclient==3.22.0; python_version > '2.7'
+netifaces==0.10.9; python_version > '2.7'
+bottle==0.12.18; python_version > '2.7'
+stevedore==1.32.0; python_version > '2.7'
+kazoo==2.7.0; python_version > '2.7'
+pycrypto==2.6.1; python_version > '2.7'
+future==0.18.2; python_version > '2.7'
+six==1.14.0; python_version > '2.7'
