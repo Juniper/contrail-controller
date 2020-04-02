@@ -711,3 +711,59 @@ class TestVirtualPortGroupNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='trunk',
                                                 resources=self.vpgs,
                                                 tags=tag_case)
+
+
+class TestNeutronTagsCreate(NeutronTagsTestCase):
+    def setUp(self, *args, **kwargs):
+        super(TestNeutronTagsCreate, self).setUp(*args, **kwargs)
+
+    def tearDown(self):
+        super(TestNeutronTagsCreate, self).tearDown()
+
+    def _create_security_group_with_tags(self, tags):
+        sg_dict = self.create_resource(
+            'security_group',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'sg-%s' % '-'.join(tag for tag in tags),
+                'tags': tags
+            })
+        sg_obj = self.api.security_group_read(fq_name=sg_dict.get('fq_name'))
+        sg_tags = self._get_security_group_tags(sg_obj=sg_obj)
+        return sg_obj, sg_tags
+
+    def _get_security_group_tags(self, sg_obj):
+        tags_fq_names = [tag_ref.get('to') for tag_ref in sg_obj.tag_refs]
+        tags = []
+        for fq_name in tags_fq_names:
+            tags.append(self.api.tag_read(fq_name=fq_name))
+        return tags
+
+    def test_create_sg_with_non_existing_tag(self):
+        tags = [TAG_RED]
+        sg_obj, sg_tags = self._create_security_group_with_tags(tags)
+        sg_tag_values = [str(tag.tag_value) for tag in sg_tags]
+        self.assertTrue(all(tag in sg_tag_values for tag in tags))
+
+        # cleanup
+        self.api.security_group_delete(fq_name=sg_obj.fq_name)
+
+    def test_create_sg_with_non_existing_tags(self):
+        tags = [TAG_RED, TAG_GREEN, TAG_BLUE]
+        sg_obj, sg_tags = self._create_security_group_with_tags(tags)
+        sg_tag_values = [str(tag.tag_value) for tag in sg_tags]
+        self.assertTrue(all(tag in sg_tag_values for tag in tags))
+
+        # cleanup
+        self.api.security_group_delete(fq_name=sg_obj.fq_name)
+
+    def test_create_sg_with_existing_tag(self):
+        self.api.tag_create(Tag(tag_type_name='neutron_tag',
+                                tag_value=TAG_RED))
+        tags = [TAG_RED]
+        sg_obj, sg_tags = self._create_security_group_with_tags(tags)
+        sg_tag_values = [str(tag.tag_value) for tag in sg_tags]
+        self.assertTrue(all(tag in sg_tag_values for tag in tags))
+
+        # cleanup
+        self.api.security_group_delete(fq_name=sg_obj.get('fq_name'))
