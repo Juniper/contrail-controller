@@ -145,6 +145,15 @@ class NeutronTagsTestCase(test_case.NeutronBackendTestCase):
         for res in result:
             self.assertIn(res['id'], expected_uuids)
 
+    def assert_tags_exist(self, resource, expected_tags):
+        tags = resource.get_tag_refs()
+        self.assertEqual(len(tags), len(expected_tags))
+
+        expected_tags_set = {'neutron_tag={}'.format(t) for t in expected_tags}
+        given_tags_set = {t['to'][0] for t in tags}
+
+        self.assertEqual(expected_tags_set, given_tags_set)
+
 
 class TestVirtualNetworkNeutronTags(NeutronTagsTestCase):
     def setUp(self, *args, **kwargs):
@@ -208,6 +217,45 @@ class TestVirtualNetworkNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='network',
                                                 resources=self.vns,
                                                 tags=tag_case)
+
+    def test_create_virtual_network_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            vn_dict = self.create_resource(
+                'network',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'vn-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                })
+
+            vn = self.api.virtual_network_read(id=vn_dict['id'])
+            self.assert_tags_exist(vn, tags)
+
+            # cleanup
+            self.api.virtual_network_delete(id=vn.uuid)
+
+    def test_create_virtual_network_with_new_tag(self):
+        tags = ['purple']
+
+        vn_dict = self.create_resource(
+            'network',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'vn-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+            })
+
+        vn = self.api.virtual_network_read(id=vn_dict['id'])
+        self.assert_tags_exist(vn, tags)
+
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
 
     @skip('Long-lasting performance test. If necessary, turn it on manually.')
     def test_query_one_tags_performance(self):
@@ -353,6 +401,48 @@ class TestFloatingIpNeutronTags(NeutronTagsTestCase):
                                                 resources=self.fips,
                                                 tags=tag_case)
 
+    def test_create_floating_ip_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            fip_dict = self.create_resource(
+                'floatingip',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'fip-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                    'project_id': self.project.uuid,
+                    'floating_network_id': self.vn.uuid,
+                })
+            fip = self.api.floating_ip_read(id=fip_dict['id'])
+            self.assert_tags_exist(fip, tags)
+
+            # cleanup
+            self.api.floating_ip_delete(id=fip.uuid)
+
+    def test_create_floating_ip_with_new_tag(self):
+        tags = ['purple']
+
+        fip_dict = self.create_resource(
+            'floatingip',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'fip-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+                'project_id': self.project.uuid,
+                'floating_network_id': self.vn.uuid,
+            })
+
+        fip = self.api.floating_ip_read(id=fip_dict['id'])
+        self.assert_tags_exist(fip, tags)
+
+        # cleanup
+        self.api.floating_ip_delete(id=fip.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
+
 
 class TestRouterNeutronTags(NeutronTagsTestCase):
     def setUp(self, *args, **kwargs):
@@ -405,7 +495,7 @@ class TestRouterNeutronTags(NeutronTagsTestCase):
         # cleanup
         self.api.logical_router_delete(id=lr.uuid)
 
-    def test_query_all_floating_ip_with_match_any(self):
+    def test_query_all_logical_routers_with_match_any(self):
         """Query logical routers filtering by any tags."""
         tag_test_cases = [
             [TAG_GREEN, TAG_RED],
@@ -416,6 +506,45 @@ class TestRouterNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='router',
                                                 resources=self.lrs,
                                                 tags=tag_case)
+
+    def test_create_logical_router_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            lr_dict = self.create_resource(
+                'router',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'lr-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                })
+
+            lr = self.api.logical_router_read(id=lr_dict['id'])
+            self.assert_tags_exist(lr, tags)
+
+            # cleanup
+            self.api.logical_router_delete(id=lr.uuid)
+
+    def test_create_logical_router_with_new_tag(self):
+        tags = ['purple']
+
+        lr_dict = self.create_resource(
+            'router',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'lr-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+            })
+
+        lr = self.api.logical_router_read(id=lr_dict['id'])
+        self.assert_tags_exist(lr, tags)
+
+        # cleanup
+        self.api.logical_router_delete(id=lr.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
 
 
 class TestPortNeutronTags(NeutronTagsTestCase):
@@ -497,6 +626,47 @@ class TestPortNeutronTags(NeutronTagsTestCase):
                                                 resources=self.vmis,
                                                 tags=tag_case)
 
+    def test_create_virtual_machine_interface_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            vmi_dict = self.create_resource(
+                'port',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'vmi-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                    'network_id': self.vn.uuid,
+                })
+
+            vmi = self.api.virtual_machine_interface_read(id=vmi_dict['id'])
+            self.assert_tags_exist(vmi, tags)
+
+            # cleanup
+            self.api.virtual_machine_interface_delete(id=vmi.uuid)
+
+    def test_create_virtual_machine_interface_with_new_tag(self):
+        tags = ['purple']
+
+        vmi_dict = self.create_resource(
+            'port',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'vmi-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+                'network_id': self.vn.uuid,
+            })
+
+        vmi = self.api.virtual_machine_interface_read(id=vmi_dict['id'])
+        self.assert_tags_exist(vmi, tags)
+
+        # cleanup
+        self.api.virtual_machine_interface_delete(id=vmi.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
+
 
 class TestSecurityGroupNeutronTags(NeutronTagsTestCase):
     def setUp(self, *args, **kwargs):
@@ -560,6 +730,45 @@ class TestSecurityGroupNeutronTags(NeutronTagsTestCase):
                                                 resources=self.sgs,
                                                 tags=tag_case)
 
+    def test_create_security_group_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            sg_dict = self.create_resource(
+                'security_group',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'sg-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                })
+
+            sg = self.api.security_group_read(id=sg_dict['id'])
+            self.assert_tags_exist(sg, tags)
+
+            # cleanup
+            self.api.security_group_delete(id=sg.uuid)
+
+    def test_create_security_group_with_new_tag(self):
+        tags = ['purple']
+
+        sg_dict = self.create_resource(
+            'security_group',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'sg-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+            })
+
+        sg = self.api.security_group_read(id=sg_dict['id'])
+        self.assert_tags_exist(sg, tags)
+
+        # cleanup
+        self.api.security_group_delete(id=sg.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
+
 
 class TestNetworkPolicyNeutronTags(NeutronTagsTestCase):
     def setUp(self, *args, **kwargs):
@@ -622,6 +831,47 @@ class TestNetworkPolicyNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='policy',
                                                 resources=self.nps,
                                                 tags=tag_case)
+
+    def test_create_network_policy_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            np_dict = self.create_resource(
+                'policy',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'np-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                    'project_id': self.project.uuid,
+                })
+
+            np = self.api.network_policy_read(id=np_dict['id'])
+            self.assert_tags_exist(np, tags)
+
+            # cleanup
+            self.api.network_policy_delete(id=np.uuid)
+
+    def test_create_network_policy_with_new_tag(self):
+        tags = ['purple']
+
+        np_dict = self.create_resource(
+            'policy',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'np-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+                'project_id': self.project.uuid,
+            })
+
+        np = self.api.network_policy_read(id=np_dict['id'])
+        self.assert_tags_exist(np, tags)
+
+        # cleanup
+        self.api.network_policy_delete(id=np.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
 
 
 class TestVirtualPortGroupNeutronTags(NeutronTagsTestCase):
@@ -712,6 +962,53 @@ class TestVirtualPortGroupNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='trunk',
                                                 resources=self.vpgs,
                                                 tags=tag_case)
+
+    def test_create_virtual_port_group_with_pre_created_tag(self):
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for tags in test_cases:
+            vpg_dict = self.create_resource(
+                'trunk',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'vpg-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                    'port_id': self.vmi.uuid,
+                })
+
+            vpg = self.api.virtual_port_group_read(id=vpg_dict['id'])
+            self.assert_tags_exist(vpg, tags)
+
+            # cleanup
+            vpg.del_virtual_machine_interface(self.vmi)
+            self.api.virtual_port_group_update(vpg)
+            self.api.ref_relax_for_delete(vpg.uuid, self.vmi.uuid)
+            self.api.virtual_port_group_delete(id=vpg.uuid)
+
+    def test_create_virtual_port_group_with_new_tag(self):
+        tags = ['purple']
+
+        vpg_dict = self.create_resource(
+            'trunk',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'vpg-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+                'port_id': self.vmi.uuid,
+            })
+
+        vpg = self.api.virtual_port_group_read(id=vpg_dict['id'])
+        self.assert_tags_exist(vpg, tags)
+
+        # cleanup
+        vpg.del_virtual_machine_interface(self.vmi)
+        self.api.virtual_port_group_update(vpg)
+        self.api.ref_relax_for_delete(vpg.uuid, self.vmi.uuid)
+        self.api.virtual_port_group_delete(id=vpg.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
 
 
 class TestSubnetNeutronTags(NeutronTagsTestCase):
@@ -826,3 +1123,58 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='subnet',
                                                 resources=self.sns,
                                                 tags=tag_case)
+
+    def test_create_subnet_with_pre_created_tag(self):
+        vn = VirtualNetwork('vn-{}'.format(self.id()), parent_obj=self.project)
+        vn.uuid = self.api.virtual_network_create(vn)
+        vn = self.api.virtual_network_read(id=vn.uuid)
+
+        test_cases = [
+            [TAG_RED],
+            [TAG_BLUE, TAG_GREEN],
+            [TAG_WHITE, TAG_BLUE, TAG_GREEN],
+        ]
+        for n, tags in enumerate(test_cases):
+            sn_dict = self.create_resource(
+                'subnet',
+                self.project.uuid,
+                extra_res_fields={
+                    'name': 'sn-{}-{}'.format(','.join(tags), self.id()),
+                    'tags': tags,
+                    'network_id': vn.uuid,
+                    'cidr': '10.190.{}.0/24'.format(n),
+                    'ip_version': 4,
+                })
+
+            for tag in tags:
+                kv_tag = self.api.kv_retrieve('neutron_tag={}'.format(tag))
+                self.assertTrue(sn_dict['id'] in kv_tag)
+
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
+
+    def test_create_subnet_with_new_tag(self):
+        vn = VirtualNetwork('vn-{}'.format(self.id()), parent_obj=self.project)
+        vn.uuid = self.api.virtual_network_create(vn)
+        vn = self.api.virtual_network_read(id=vn.uuid)
+
+        tags = ['purple']
+
+        sn_dict = self.create_resource(
+            'subnet',
+            self.project.uuid,
+            extra_res_fields={
+                'name': 'sn-{}-{}'.format(','.join(tags), self.id()),
+                'tags': tags,
+                'network_id': vn.uuid,
+                'cidr': '10.190.100.0/24',
+                'ip_version': 4,
+            })
+
+        for tag in tags:
+            kv_tag = self.api.kv_retrieve('neutron_tag={}'.format(tag))
+            self.assertTrue(sn_dict['id'] in kv_tag)
+
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
