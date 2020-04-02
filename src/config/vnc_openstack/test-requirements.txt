@@ -1,29 +1,29 @@
-python-subunit
-testrepository
-flexmock
-coverage
-webtest
-pyaml
-python-keystoneclient>=0.11.0
-keystonemiddleware!=4.19.0
-lxml>=2.3.3
+python-subunit==1.4.0
+testrepository==0.0.20
+flexmock==0.10.4
+coverage==5.0.4
+webtest==2.0.34
+pyaml==20.3.1
+python-keystoneclient>=0.11.0, <=3.22.0
+keystonemiddleware!=4.19.0, ==8.0.0
+lxml>=2.3.3, <=4.5.0
 neutron_lib
 gevent==1.1.2
 geventhttpclient==1.0a
-netaddr>=0.7.5
-bitarray>=0.8.0
-psutil>=0.6.0
-python-novaclient
+netaddr>=0.7.5, <=0.7.19
+bitarray>=0.8.0, <=1.2.1
+psutil>=0.6.0, <=5.7.0
+python-novaclient==16.0.0
 kombu==4.0.2
-netifaces
-stevedore
-testscenarios
-kazoo
+netifaces==0.10.9
+stevedore==1.32.0
+testscenarios==0.5.0
+kazoo==2.7.0
 contrail-api-client
 contrail-api-server
-sandesh
-sandesh-common
-pyOpenSSL
-mock
+sandesh==0.1.dev0
+sandesh-common==0.1.dev0
+pyOpenSSL==19.1.0
+mock==4.0.2
 vine==1.1.3
-future
+future==0.18.2
