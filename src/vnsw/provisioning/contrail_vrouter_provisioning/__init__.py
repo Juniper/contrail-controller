@@ -7,7 +7,7 @@ import logging.handlers
 from subprocess import check_output, CalledProcessError, STDOUT
 
 
-LOG_DIR = "/var/log/contrail"
+LOG_DIR = os.getenv('CONTAINER_LOG_DIR')
 if os.path.exists(LOG_DIR):
     LOG_FILENAME = os.path.join(LOG_DIR, 'contrail_vrouter_provisioning.log')
 else:

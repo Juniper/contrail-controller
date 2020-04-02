@@ -29,7 +29,7 @@ import uuid
 import sys
 import socket
 
-LOG_DIR = '/var/log/contrail/'
+LOG_DIR = os.getenv('CONTAINER_LOG_DIR')
 
 class IndexAllocator(object):
 
@@ -403,7 +403,9 @@ class ZookeeperClient(object):
         logger.setLevel(logging.DEBUG)
         try:
             handler = logging.handlers.RotatingFileHandler(
-                LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
+                os.path.join(LOG_DIR, (module + '-zk.log')),
+                maxBytes=10*1024*1024,
+                backupCount=5)
         except IOError:
             print("Cannot open log file in %s" %(LOG_DIR))
         else:
