@@ -477,7 +477,7 @@ func verifyConfiguration(c *cat.CAT) error {
 
 func addVirtualPorts(c *cat.CAT) error {
 	for i := range c.Agents {
-		if err := c.Agents[i].AddVirtualPort(c.ConfigMap["virtual_machine_interface:vmi1"], c.ConfigMap["virtual_machine:vm1"], c.ConfigMap["virtual_network:vn1"], c.ConfigMap["project:default-project"], "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1"); err != nil {
+		if err := c.Agents[i].AddVirtualPort(c.ConfigMap["virtual_machine_interface:vmi1"], c.ConfigMap["virtual_machine:vm1"], c.ConfigMap["virtual_network:vn1"], c.ConfigMap["project:default-project"], "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1", 9091); err != nil {
 			return err
 		}
 		// TODO: Add a virtual port to one agent for now.

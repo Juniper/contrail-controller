@@ -72,6 +72,7 @@ class VrouterPortControl(object):
                    Agent will write to file if file is not already present
                 '''
                 r = requests.post(url, data=json_dump, headers=headers)
+                print r
                 '''Overwrite the ret_code based on agent response '''
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
@@ -111,10 +112,12 @@ class VrouterPortControl(object):
             url = base_url + "/enable-port/" + self._args.uuid
             try:
                 r = requests.put(url, data=None, headers=headers)
+                print r
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
                     ret_code = 1
             except ConnectionError:
+                print "connection error"
                 pass
         elif self._args.oper == "disable":
             if not self._args.no_persist:
@@ -149,6 +152,7 @@ class VrouterPortControl(object):
     # end IsNumber
 
     def _parse_args(self, args_str):
+        global PORT_PATH, PORT_IPC_VROUTER_AGENT_PORT
         strip_quotes = False
         if '"' in args_str:
             regex = re.compile("\s+(?=\-\-[_a-zA-Z0-9]+=\".*?\")")
@@ -193,7 +197,8 @@ class VrouterPortControl(object):
         parser.add_argument("--vhostuser_mode",
                             help = "mode of operation of vhostuser socket",
                             default="0")
-
+        parser.add_argument("--agent_port", help="vrouter-agent port to which the http request will be sent (usually 9091)", required=False, default="9091")
+        parser.add_argument("--port_json_path", help="path of the directory where the json request is written", required=False, default="/var/lib/contrail/ports/")
         self._args = parser.parse_args(remaining_argv)
 
         if strip_quotes:
@@ -213,9 +218,15 @@ class VrouterPortControl(object):
             self._args.vif_type = self.StripQuotes(self._args.vif_type)
             self._args.vhostuser_socket = self.StripQuotes(self._args.vhostuser_socket)
             self._args.vhostuser_mode = self.StripQuotes(self._args.vhostuser_mode)
+            self._args.agent_port = self.StripQuotes(self._args.agent_port)
+            self._args.port_json_path = self.StripQuortes(self.args.port_json_path)
             if self._args.no_persist:
                 self._args.no_persist = True
 
+        if self._args.agent_port:
+            PORT_IPC_VROUTER_AGENT_PORT = self._args.agent_port
+        if self._args.port_json_path:
+            PORT_PATH = self._args.port_json_path
         oper_list = ['add', 'delete', 'enable', 'disable']
         if self._args.oper not in oper_list:
             print "Invalid argument for oper %s" % (self._args.oper)
@@ -246,6 +257,7 @@ class VrouterPortControl(object):
 
             if self._args.vhostuser_mode:
                 self._args.vhostuser_mode = int(self._args.vhostuser_mode)
+
 
     #end _parse_args
 
@@ -287,6 +299,7 @@ class VrouterPortControl(object):
 
     def WriteToFile(self, data):
         filename = ("%s%s" % (PORT_PATH, self._args.uuid))
+        print filename
         try:
             with open(filename, 'w') as outfile:
                 json.dump(data, outfile, True)
