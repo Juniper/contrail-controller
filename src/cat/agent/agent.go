@@ -76,8 +76,8 @@ func (a *Agent) start() error {
 }
 
 // AddVirtualPort adds a mock VMI port into the mocked vrouter agent process.
-func (a *Agent) AddVirtualPort(vmi, vm, vn, project *config.ContrailConfig, ipv4_address, mac_address, tap_if string) error {
-	cmd := fmt.Sprintf("sudo %s --oper=add --uuid=%s --instance_uuid=%s --vn_uuid=%s --vm_project_uuid=%s --ip_address=%s  --ipv6_address= --vm_name=%s --tap_name=%s --mac=%s --rx_vlan_id=0 --tx_vlan_id=0", agentAddPortBinary, vmi.UUID, vm.UUID, vn.UUID, project.UUID, ipv4_address, vm.UUID, tap_if, mac_address)
+func (a *Agent) AddVirtualPort(vmi, vm, vn, project *config.ContrailConfig, ipv4_address, mac_address, tap_if, portnum string) error {
+	cmd := fmt.Sprintf("sudo %s --oper=add --uuid=%s --instance_uuid=%s --vn_uuid=%s --vm_project_uuid=%s --ip_address=%s  --ipv6_address= --vm_name=%s --tap_name=%s --mac=%s --rx_vlan_id=0 --tx_vlan_id=0 --agent_port=%s", agentAddPortBinary, vmi.UUID, vm.UUID, vn.UUID, project.UUID, ipv4_address, vm.UUID, tap_if, mac_address, portnum)
 	log.Infof("AddVirtualPort: %q", cmd)
 	_, err := exec.Command("/bin/bash", "-c", cmd).Output()
 	return err
