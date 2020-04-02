@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0e96ba91_996cadf5",
+        "filename": "src/config/common/cfgm_common/zkclient.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-04-02T17:26:59Z",
+      "side": 1,
+      "message": "keep default for the case if it is run somewhere else w/o containers, say, in unittests\nos.getenv(\u0027CONTAINER_LOG_DIR\u0027, \u0027/var/log/contrail/\u0027)\n?",
+      "revId": "fc45509146abbc4f46cf598a10ec91f2a27200db",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
