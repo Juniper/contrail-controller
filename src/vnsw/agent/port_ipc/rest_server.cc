@@ -23,6 +23,33 @@ using contrail::regex;
 using contrail::regex_match;
 using contrail::regex_search;
 
+class RestServerGetVmCfgTask : public Task {
+public:
+    RestServerGetVmCfgTask(PortIpcHandler *pih,
+                            const struct RESTServer::RESTData& data):
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::RestApi")), 0),
+        pih_(pih),
+        vm_uuid_((*data.match)[1]),
+        data_(data) {
+    }
+    virtual ~RestServerGetVmCfgTask() { }
+    virtual bool Run() {
+        std::string info;
+        if (pih_->GetVmVnCfgPort(vm_uuid_, info)) {
+            REST::SendResponse(data_.session, info);
+        } else {
+            REST::SendErrorResponse(data_.session, "{ Not Found }", 404);
+        }
+        return true;
+    }
+    std::string Description() const { return "RestServerGetVmCfgTask"; }
+private:
+    const PortIpcHandler *pih_;
+    std::string vm_uuid_;
+    const struct RESTServer::RESTData& data_;
+    DISALLOW_COPY_AND_ASSIGN(RestServerGetVmCfgTask);
+};
+
 void RESTServer::VmPortPostHandler(const struct RESTData& data) {
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
@@ -151,15 +178,12 @@ void RESTServer::VmVnPortGetHandler(const struct RESTData& data) {
 }
 
 void RESTServer::VmVnPortCfgGetHandler(const struct RESTData& data) {
-    const std::string &vm_uuid = (*data.match)[1];
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
-        std::string info;
-        if (pih->GetVmVnCfgPort(vm_uuid, info)) {
-            REST::SendResponse(data.session, info);
-        } else {
-            REST::SendErrorResponse(data.session, "{ Not Found }", 404);
-        }
+        RestServerGetVmCfgTask *t =
+            new RestServerGetVmCfgTask(pih, data);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(t);
     } else {
         REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
     }
@@ -281,6 +305,11 @@ void RESTServer::HandleRequest(HttpSession* session,
             // currently handlers are responsible for freeing handled
             // requests.
             delete request;
+            uint32_t count = 10000;
+            while (count--) {
+            if (HttpSession::GetPendingTaskCount() == 0) break;
+                usleep(100);
+            }
             return;
         }
     }
