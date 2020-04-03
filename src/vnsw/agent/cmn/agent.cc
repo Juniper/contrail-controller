@@ -414,6 +414,12 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne(kTaskHealthCheck, health_check_exclude_list,
                      sizeof(health_check_exclude_list) / sizeof(char *));
 
+    const char *rest_api_exclude_list[] = {
+        "db::DBTable",
+    };
+    SetTaskPolicyOne("Agent::RestApi", rest_api_exclude_list,
+                     sizeof(rest_api_exclude_list) / sizeof(char *));
+
 }
 
 void Agent::CreateLifetimeManager() {

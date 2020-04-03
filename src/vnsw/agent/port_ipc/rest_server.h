@@ -64,6 +64,8 @@ class RESTServer {
     void VmVnPortCfgGetHandler(const struct RESTData& data);
 
  private:
+    friend class RestServerGetVmCfgTask;
+
     Agent *agent_;
     HttpServer *http_server_;
     DISALLOW_COPY_AND_ASSIGN(RESTServer);
