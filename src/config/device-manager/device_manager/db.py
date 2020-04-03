@@ -2886,15 +2886,53 @@ class DataCenterInterconnectDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.logical_routers = set()
+        self.dci_type = 'inter_fabric'
+        self.routing_policys = set()
+        self.virtual_networks = set()
+        self.dst_lr_pr = {}
+        self.src_lr = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
+
+    def _is_this_src_lr(self, lr_ref):
+        return True if lr_ref.get('attr') is not None else False
+
+    def get_intrafabric_properties(self, obj):
+        self.dci_type = obj.get('data_center_interconnect_type',
+                                'inter_fabric')
+        if self.dci_type != "intra_fabric":
+            return
+        self.update_multiple_refs('routing_policy', obj)
+        self.update_multiple_refs('virtual_network', obj)
+        dpr_list = obj.get('destination_physical_router_list')
+        if not dpr_list:
+            return
+        for lr_ref in obj.get('logical_router_refs') or []:
+            if self._is_this_src_lr(lr_ref):
+                self.src_lr = lr_ref.get('uuid') or None
+                break
+        if not self.src_lr:
+            return
+        for dstlr in dpr_list.get('logical_router_list') or []:
+            uuid = dstlr.get('logical_router_uuid') or None
+            if not uuid:
+                continue
+            dci_prlist = dstlr.get('physical_router_uuid_list') or []
+            self.dst_lr_pr[uuid] = dci_prlist
+        self._logger.debug(
+            "PARAG: DCI: %s, type %s, srcLR: %s dstlrC: %s rpC: %s vnC: %s" %
+            (self.name, self.dci_type, self.src_lr, len(self.dst_lr_pr),
+             len(self.routing_policys), len(self.virtual_networks)))
+        return
+    # end get_intrafabric_properties
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.update_multiple_refs('logical_router', obj)
+        self.get_intrafabric_properties(obj)
         return obj
     # end update
 
