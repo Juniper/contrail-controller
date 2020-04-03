@@ -8,7 +8,8 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 
-from .db import LogicalInterfaceDM, PhysicalInterfaceDM, PhysicalRouterDM
+from .db import LogicalInterfaceDM, PhysicalInterfaceDM, PhysicalRouterDM, \
+    InstanceIpDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
 
