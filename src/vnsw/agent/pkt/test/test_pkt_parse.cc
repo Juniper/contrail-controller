@@ -960,7 +960,7 @@ TEST_F(PktParseTest, InvalidIGMP_Vxlan_IP) {
     client->WaitForIdle();
 }
 
-TEST_F(PktParseTest, InvalidICMPv6_Vxlan_IP_Tor) {
+TEST_F(PktParseTest, DISABLED_InvalidICMPv6_Vxlan_IP_Tor) {
     struct PortInfo input[] = {
         {"vrf1", 1, "1.1.1.3", "00:00:00:01:01:01", 1, 1},
     };
