@@ -9,6 +9,8 @@
         version: "{{image_os_version}}"
         vmhost: "{{vmhost_flag}}"
         reboot: true
+        kwargs:
+          ignore_warning: true
         remote_package: "{{downloadurl}}"
       register: junos_response
     #  ignore_errors: True
