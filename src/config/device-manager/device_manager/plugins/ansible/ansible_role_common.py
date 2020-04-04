@@ -11,6 +11,7 @@ from builtins import str
 from abstract_device_api.abstract_device_xsd import *
 import copy
 import gevent
+import netaddr
 
 from .db import AccessControlListDM, DataCenterInterconnectDM, \
     GlobalVRouterConfigDM, InstanceIpDM, LogicalInterfaceDM, \
@@ -721,7 +722,7 @@ class AnsibleRoleCommon(AnsibleConf):
         return False
     # end has_vmi
 
-    def add_addr_term(self, term, addr_match, is_src):
+    def add_addr_term(self, term, addr_match, is_src, ether_type_match):
         if not addr_match:
             return None
         subnet = addr_match.get_subnet()
@@ -733,12 +734,19 @@ class AnsibleRoleCommon(AnsibleConf):
             return None
         from_ = term.get_from() or From()
         term.set_from(from_)
+        if ether_type_match:
+            from_.set_ether_type(ether_type_match)
+        subnet_comment = ''
+        if netaddr.valid_ipv6(subnet_ip):
+            subnet_comment = 'ipv6'
         if is_src:
             from_.add_source_address(Subnet(prefix=subnet_ip,
-                                            prefix_len=subnet_len))
+                                            prefix_len=subnet_len,
+                                            comment=subnet_comment))
         else:
             from_.add_destination_address(Subnet(prefix=subnet_ip,
-                                                 prefix_len=subnet_len))
+                                                 prefix_len=subnet_len,
+                                                 comment=subnet_comment))
     # end add_addr_term
 
     def add_port_term(self, term, port_match, is_src):
@@ -842,8 +850,10 @@ class AnsibleRoleCommon(AnsibleConf):
                 src_addr_match = match.get_src_address()
                 src_port_match = match.get_src_port()
                 term = self.add_filter_term(f, rule_uuid)
-                self.add_addr_term(term, dst_addr_match, False)
-                self.add_addr_term(term, src_addr_match, True)
+                self.add_addr_term(term, dst_addr_match, False,
+                                   ether_type_match)
+                self.add_addr_term(term, src_addr_match, True,
+                                   ether_type_match)
                 self.add_port_term(term, dst_port_match, False)
                 # source port match is not needed for now (BMS source port)
                 #self.add_port_term(term, src_port_match, True)
