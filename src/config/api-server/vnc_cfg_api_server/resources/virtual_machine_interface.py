@@ -971,7 +971,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             all_vn_ids.extend([ref['uuid'] for ref in all_vns])
 
         if len(set(tor_vlan_ids)) > 1:
-            msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
+            msg = 'There can be only one native/un-tagged VLAN ID per VPG '\
                   'in a Enterprise style Fabric'
             return (False, (400, msg))
 
@@ -1053,17 +1053,17 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         # First, check that each VN has only one VLAN assigned
         for vn_id, vlan_list in list(vn_to_vlan_mapping.items()):
             if len(set(vlan_list)) > 1:
-                msg = ("Virtual Network(%s) has been associated to more "
-                       "than one VLAN. This is disallowed in Enterprise "
-                       "style fabric" % vn_id)
+                msg = ("Virtual Network (%s) has been associated to more "
+                       "than one VLAN (%s). This is disallowed in Enterprise "
+                       "style fabric" % (vn_id, set(vlan_list)))
                 return (False, (400, msg))
 
         # Second, check if a VLAN is assigned to only one VN
         for vlan, vn_list in list(vlan_to_vn_mapping.items()):
             if len(set(vn_list)) > 1:
-                msg = ("VLAN(%s) has been associated to more "
-                       "than one Virtual Network. This is disallowed in "
-                       "Enterprise style fabric" % vlan)
+                msg = ("VLAN (%s) has been associated to more "
+                       "than one Virtual Network (%s). This is disallowed in "
+                       "Enterprise style fabric" % (vlan, set(vn_list)))
                 return (False, (400, msg))
 
         return True, ''
@@ -1128,15 +1128,15 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     all_vns_in_vpg_dict[ref['uuid']].append(tor_port_vlan_id)
 
         if len(set(tor_vlan_ids)) > 1:
-            msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
-                  'in a Enterprise style Fabric'
+            msg = 'There can be only one native/un-tagged VLAN ID per VPG '\
+                  'in SP style Fabric'
             return (False, (400, msg))
 
         for vn_id, vlan_list in list(all_vns_in_vpg_dict.items()):
             if len(vlan_list) > len(set(vlan_list)):
                 msg = ("Virtual Network(%s) has been associated to VPG(%s) "
                        "more than once, but not with different VLAN ID "
-                       "in a Service Provider style fabric"
+                       "in SP style fabric"
                        % (vn_id, vpg_uuid))
                 return (False, (400, msg))
 
