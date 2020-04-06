@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "142f6763_64ed5c13",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 480,
+      "author": {
+        "id": 805
+      },
+      "writtenOn": "2020-04-06T20:16:51Z",
+      "side": 1,
+      "message": "Can we save this port-number in the Agnet data structure ?",
+      "range": {
+        "startLine": 480,
+        "startChar": 240,
+        "endLine": 480,
+        "endChar": 244
+      },
+      "revId": "ef2d1d3b578aab3fa003d51f59b08779242eccdd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f86fa78f_bd8610ad",
+        "filename": "src/vnsw/agent/port_ipc/vrouter-port-control",
+        "patchSetId": 6
+      },
+      "lineNbr": 302,
+      "author": {
+        "id": 805
+      },
+      "writtenOn": "2020-04-06T20:16:51Z",
+      "side": 1,
+      "message": "Do we need this here ? If NOT, can we remove this ?",
+      "range": {
+        "startLine": 302,
+        "startChar": 14,
+        "endLine": 302,
+        "endChar": 22
+      },
+      "revId": "ef2d1d3b578aab3fa003d51f59b08779242eccdd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
