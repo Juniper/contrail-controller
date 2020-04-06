@@ -20,6 +20,7 @@ import time
 import base64
 import re
 import uuid
+import six
 
 try:
     from keystoneclient.middleware import auth_token
@@ -73,7 +74,7 @@ class LocalAuth(object):
             except Exception as e:
                 bottle.abort(401, 'Auth Exception: %s' %(str(e)))
             enc_user_passwd = auth_hdr_val.split()[1]
-            user_passwd = base64.b64decode(enc_user_passwd)
+            user_passwd = six.ensure_str(base64.b64decode(enc_user_passwd))
             user, passwd = user_passwd.split(':')
             admin_user = self._conf_info.get('admin_user',
                     self._conf_info.get('username'))
@@ -172,9 +173,9 @@ class AuthPostKeystone(object):
         if 'HTTP_X_ROLE' in env:
             roles = env['HTTP_X_ROLE'].split(',')
         if not 'admin' in [x.lower() for x in roles]:
-            start_response('403 Permission Denied',
+            start_response(six.ensure_str('403 Permission Denied'),
                 [('Content-type', 'text/plain')])
-            return '403 Permission Denied'.encode("latin-1")
+            return six.ensure_str('403 Permission Denied')
 
         return self.app(env, start_response)
 
@@ -298,7 +299,7 @@ class AuthServiceKeystone(object):
     def token_valid(self, env, start_response):
         status = env.get('HTTP_X_IDENTITY_STATUS')
         token_info = env.get('keystone.token_info')
-        start_response('200 OK', [('Content-type', 'text/plain')])
+        start_response(six.ensure_str('200 OK'), [('Content-type', 'text/plain')])
         return token_info if status != 'Invalid' else ''
 
     def start_response(self, status, headers, exc_info=None):
@@ -314,7 +315,7 @@ class AuthServiceKeystone(object):
                 self.token_valid, conf_info)
 
         if not self._user_auth_middleware:
-            return False, (403, " Permission denied")
+            return False, (403, six.ensure_str(" Permission denied"))
 
         request_attrs = {
             'REQUEST_METHOD': get_request().route.method,
@@ -327,7 +328,7 @@ class AuthServiceKeystone(object):
             request_attrs['HTTP_X_USER_TOKEN'] =\
                 get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
         else:
-            return False, (400, "User token needed for validation")
+            return False, (400, six.ensure_str("User token needed for validation"))
         b_req = bottle.BaseRequest(request_attrs)
         # get permissions in internal context
         orig_context = get_context()
@@ -348,7 +349,7 @@ class AuthServiceKeystone(object):
             conf_info['delay_auth_decision'] = True
 
             def token_to_headers(env, start_response):
-                start_response('200 OK', [('Content-type', 'text/plain')])
+                start_response(six.ensure_str('200 OK'), [('Content-type', 'text/plain')])
                 status = env.get('HTTP_X_IDENTITY_STATUS')
                 if status and status.lower() == 'invalid':
                     return {}
