@@ -25,6 +25,23 @@
     },
     {
       "key": {
+        "uuid": "4057360f_64a773be",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 480,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2020-04-06T22:15:59Z",
+      "side": 1,
+      "message": "The numbers should be dynamically decided so binds can succeed if any ports\nare occupied. We should change this loop so that the port number passed is available for binding. I think we should not hard-code any values in the agent struct. For now, 9091 is used by default anyways. Once we fix the add port issues in agent code, we can make more changes here.",
+      "revId": "ef2d1d3b578aab3fa003d51f59b08779242eccdd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "f86fa78f_bd8610ad",
         "filename": "src/vnsw/agent/port_ipc/vrouter-port-control",
         "patchSetId": 6
@@ -42,6 +59,23 @@
         "endLine": 302,
         "endChar": 22
       },
+      "revId": "ef2d1d3b578aab3fa003d51f59b08779242eccdd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "459bca4e_f94cbdd9",
+        "filename": "src/vnsw/agent/port_ipc/vrouter-port-control",
+        "patchSetId": 6
+      },
+      "lineNbr": 302,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2020-04-06T22:15:59Z",
+      "side": 1,
+      "message": "Added formatting as per discussion",
       "revId": "ef2d1d3b578aab3fa003d51f59b08779242eccdd",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
