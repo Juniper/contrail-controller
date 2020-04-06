@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "166d9ee8_eb5aa06c",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 731,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-06T20:40:09Z",
+      "side": 1,
+      "message": "Ankur, we cannot call or use add_ether_type_term here. add_ether_type_term() creates new term. Here we are not creating terms, but just updating existing terms\u0027s from clause ether_type that is also specific from clause which we have ip address. So no we can not use add_ether_type_term function.",
+      "parentUuid": "fce7d322_3c12e636",
+      "revId": "a030cccca96898b97677515136817799b873e9bb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0c0823e5_4ef12f34",
         "filename": "src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py",
         "patchSetId": 1
@@ -33,6 +51,24 @@
       "revId": "a030cccca96898b97677515136817799b873e9bb",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7c874e27_22d135ec",
+        "filename": "src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 700,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-06T20:40:09Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "0c0823e5_4ef12f34",
+      "revId": "a030cccca96898b97677515136817799b873e9bb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
