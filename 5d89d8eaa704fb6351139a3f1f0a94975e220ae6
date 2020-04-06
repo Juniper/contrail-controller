@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d5572e14_1caf8f69",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-06T19:07:19Z",
+      "side": 1,
+      "message": "Believe we assume PID - 1 as master ZK Client.\nCan we have a comment or so saying if the DM process is not launched as PID-1 then both run_full_dm and run_partial_dm would need revisit.",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bafee8f8_487cba80",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-06T19:07:19Z",
+      "side": 1,
+      "message": "Just curious. would it ever be true since run_partial_dm would only be invoked from master and master has PID-1",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a1ad6375_0d7ebd68",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 189,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-06T19:07:19Z",
+      "side": 1,
+      "message": "If we have not, can we make sure that all the AMQP clients and Cassandra clients created during \"Partial\" invocation is cleaned up during \"Full\" invocation.",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5b34c029_c2718471",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 249,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-06T19:07:19Z",
+      "side": 1,
+      "message": "We are re-instantiating zk_client in all three incarnations of DM (empty, Partial and Full). In which case wouldnt there be multiple zookeeper Client channels.",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d53c24c4_5f4e75fc",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 259,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-06T19:07:19Z",
+      "side": 1,
+      "message": "Also when the either of the managers crashes does the container gets restarted? In the sense would the master ZK client gets killed.",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
