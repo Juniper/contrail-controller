@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4d093e23_a0fb44ff",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-06T22:27:42Z",
+      "side": 1,
+      "message": "will add another comment for container porcess being process id 1, here",
+      "parentUuid": "d5572e14_1caf8f69",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bafee8f8_487cba80",
         "filename": "src/config/device-manager/device_manager/dm_server.py",
         "patchSetId": 6
@@ -33,6 +51,24 @@
       "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e8a9896e_875bfc3d",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-06T22:27:42Z",
+      "side": 1,
+      "message": "Not in ideal condition, this is elif condition should not happen",
+      "parentUuid": "bafee8f8_487cba80",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "a115489e_1b305f77",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 189,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-06T22:27:42Z",
+      "side": 1,
+      "message": "The sighbup functionas being called as cleanup are still present in each of the processes. That should continue to work as it does today",
+      "parentUuid": "a1ad6375_0d7ebd68",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5b34c029_c2718471",
         "filename": "src/config/device-manager/device_manager/dm_server.py",
         "patchSetId": 6
@@ -70,6 +124,24 @@
     },
     {
       "key": {
+        "uuid": "fa06fb59_adbf9c75",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 249,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-06T22:27:42Z",
+      "side": 1,
+      "message": "Yes there will be 2 client connections one from the pid1 and another from partail or full. The connection from pid1 is not doing any ZK querries other then master election. This is not a problem",
+      "parentUuid": "5b34c029_c2718471",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d53c24c4_5f4e75fc",
         "filename": "src/config/device-manager/device_manager/dm_server.py",
         "patchSetId": 6
@@ -84,6 +156,24 @@
       "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d4925d81_20da3795",
+        "filename": "src/config/device-manager/device_manager/dm_server.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 259,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-06T22:27:42Z",
+      "side": 1,
+      "message": "yes there is dummy_gl, which watches the created process and kills itself if the created process dies.",
+      "parentUuid": "d53c24c4_5f4e75fc",
+      "revId": "5d89d8eaa704fb6351139a3f1f0a94975e220ae6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
