@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fce7d322_3c12e636",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 731,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-06T20:04:30Z",
+      "side": 1,
+      "message": "Set this by calling add_ether_type_term() function",
+      "revId": "a030cccca96898b97677515136817799b873e9bb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0c0823e5_4ef12f34",
+        "filename": "src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 700,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-06T20:04:30Z",
+      "side": 1,
+      "message": "You do not need changes to this file - This is old stale code, please remove this from the diff",
+      "revId": "a030cccca96898b97677515136817799b873e9bb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
