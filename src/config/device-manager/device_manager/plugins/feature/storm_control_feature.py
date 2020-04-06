@@ -70,7 +70,7 @@ class StormControlFeature(FeatureBase):
                                 pi = PhysicalInterface(name=pi_obj.name)
                             if pi not in self.pi_list:
                                 self.pi_list.add(pi)
-                            pi.set_storm_control_profile(sc_name)
+                                pi.set_storm_control_profile(sc_name)
     # end _build_storm_control_interface_config
 
     def _build_storm_control_config(self, scp):
@@ -110,7 +110,7 @@ class StormControlFeature(FeatureBase):
 
         self._build_storm_control_interface_config()
 
-        for pi in self.pi_list:
+        for pi in set(self.pi_list):
             feature_config.add_physical_interfaces(pi)
 
         for sc_name in self.sc_map:

@@ -27,7 +27,8 @@ class FabricServer(ResourceMixin, Fabric):
             return ok, read_result
         cur_enterprise_style = read_result.get('fabric_enterprise_style')
         new_enterprise_style = obj_dict.get('fabric_enterprise_style')
-        if cur_enterprise_style != new_enterprise_style:
+        if (cur_enterprise_style is False and new_enterprise_style is True or
+           cur_enterprise_style is True and new_enterprise_style is False):
             return (False, (403, "Cannot change from sp-style to "
                                  "enterprise-style or vice-versa"))
         return True, ''
