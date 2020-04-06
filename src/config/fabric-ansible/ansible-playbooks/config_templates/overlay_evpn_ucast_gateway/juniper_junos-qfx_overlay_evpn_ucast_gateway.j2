@@ -15,8 +15,14 @@ set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%             for ip_addr in li.get('ip_addresses', []) %}
 {%                 set address = ip_addr.get('address') %}
 {%                 set family = ip_addr.get('family') %}
+{%                 set gw = ip_addr.get('gateway') %}
+{%                 set prefix = address.split('/') %}
 set groups {{cfg_group}} protocols igmp interface {{name}}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}}
+{%                 if (li.is_virtual_router == True) and (prefix[0] != gw) %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
+{%                 endif %}
 {%                 if is_ucast_gateway == true %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:01:00:01
 {%                 endif %}
