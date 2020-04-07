@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6766ca9a_e7b034dc",
+        "filename": "src/config/vnc_openstack/test-requirements.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-04-07T15:33:23Z",
+      "side": 1,
+      "message": "Don\u0027t we have the desire to pin the versions for our deps?\n\ngevent\u003d\u003d1.1.2; python_version\u003d\u003d\u00272.7\u0027\ngevent\u003d\u003d1.3; python_version \u003e \u00272.7\u0027",
+      "revId": "10d82e0c009be3b9b9ad710a70e11d65f4e3b111",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
