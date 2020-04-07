@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "d0948f65_513b708a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 2650,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-04-07T05:47:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8f1897dc_4e690145",
+      "revId": "998823a7f310e60e2668cdb0163bb8d39a337e30",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "66ed22e8_b7f241e3",
         "filename": "src/config/fabric-ansible/ansible-playbooks/module_utils/device_info.py",
         "patchSetId": 5
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "73fdc543_08ec8652",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/module_utils/device_info.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-04-07T05:47:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "66ed22e8_b7f241e3",
+      "revId": "998823a7f310e60e2668cdb0163bb8d39a337e30",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "cc6e1e64_1c72170d",
         "filename": "src/config/fabric-ansible/ansible-playbooks/schema/fabric_onboard_schema.json",
         "patchSetId": 5
@@ -50,6 +86,24 @@
       "revId": "998823a7f310e60e2668cdb0163bb8d39a337e30",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b1fe2939_828d391f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/schema/fabric_onboard_schema.json",
+        "patchSetId": 5
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-04-07T05:47:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cc6e1e64_1c72170d",
+      "revId": "998823a7f310e60e2668cdb0163bb8d39a337e30",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
