@@ -1,6 +1,12 @@
 - import_role:
     name: Juniper.junos
 
+- name: Check manual commits
+  include_role:
+    name: rollback_compare
+  ignore_errors: True
+  static: no
+
 - name: Check SSH connectivity
   wait_for:
     host: "{{prouter_dynamic_ip}}"
