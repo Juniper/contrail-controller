@@ -16,6 +16,24 @@
       "revId": "829d9281291ab40d2610264f3a547031bd4560f9",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1d4f368e_11816337",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1336,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-08T22:47:11Z",
+      "side": 1,
+      "message": "Sorry this is better as it avoids two reads.\n   obj_read(_,_field_names\u003d[\u0027port_profile_refs\u0027,\u0027security_group_refs\u0027])\n   do port_profile_ref update\n   if ep_style :\n      do security_group_ref update",
+      "parentUuid": "7b85d3fe_6ba7a114",
+      "revId": "829d9281291ab40d2610264f3a547031bd4560f9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
