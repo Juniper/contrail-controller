@@ -1,6 +1,7 @@
 device_mgmt_ip: "{{pr_host}}"
 device_vendor: "{{pr_vendor | lower}}"
 device_fqname: "{{pr_fqname}}"
+device_name: "{{playbook_input.device_fqname[-1]}}"
 device_username: "{{pr_user}}"
 device_uuid: "{{pr_uuid}}"
 device_password: "{{pr_password}}"

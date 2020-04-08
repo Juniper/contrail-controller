@@ -4,6 +4,12 @@
       import_role:
         name: Juniper.junos
 
+    - name: Check for manual commits
+      include_role:
+        name: rollback_compare
+      ignore_errors: True
+      static: no
+
     - name: Initialize variables
       set_fact:
         test_results_detail: {}
