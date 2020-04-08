@@ -1311,6 +1311,45 @@ class VncDbClient(object):
                         self._object_db.object_update('fabric',obj_uuid,
                                                       obj_dict)
 
+                elif obj_type == 'virtual_port_group':
+                    # move PP refs to VPG from VMI's attached to VPG.
+                    # move SG refs to VPG from VMI's attached to VPG, if fabric
+                    # associated with VPG is enterprise style.
+                    vmi_refs = obj_dict.get('virtual_machine_interface_refs', [])
+                    port_profile_refs = obj_dict.get('port_profile_refs', [])
+                    security_group_refs = obj_dict.get('security_group_refs', [])
+                    if vmi_refs and not port_profile_refs and not security_group_refs:
+                        # read the fabric object from parent_uuid
+                        if obj_dict['parent_type'] == 'fabric':
+                            (ok, fabric) = self._object_db.object_read(
+                                               'fabric',
+                                               [obj_dict['parent_uuid']],
+                                               field_names=['fabric_enterprise_style'])
+                            if ok and len(fabric) == 1 and 'fabric_enterprise_style' in fabric[0]:
+                                ep_style = fabric[0]['fabric_enterprise_style']
+                                # read the first vmi from vmi_refs. If port_profile or
+                                # security_group ref exist in VMI, create a same ref
+                                # with this VPG
+                                (ok, vmi) = self._object_db.object_read(
+                                                'virtual_machine_interface',
+                                                [vmi_refs[0]['uuid']],
+                                                field_names=['port_profile_refs',
+                                                             'security_group_refs'])
+                                if ok and len(vmi) >= 1:
+                                    if vmi[0].get('port_profile_refs'):
+                                        port_profile = vmi[0]['port_profile_refs'][0].get('to')
+                                        ref = {'to': port_profile, 'attr': None}
+                                        obj_dict['port_profile_refs'] = [ref]
+                                        self._object_db.object_update('virtual_port_group',
+                                                                      obj_uuid, obj_dict)
+                                    if ep_style:
+                                        ref_list = []
+                                        for sg_ref in vmi[0].get('security_group_refs') or []:
+                                            ref_list.append({'to': sg_ref['to'], 'attr': None})
+                                        obj_dict['security_group_refs'] = ref_list
+                                        self._object_db.object_update('virtual_port_group',
+                                                                      obj_uuid, obj_dict)
+
                 elif obj_type == 'access_control_list':
                     if not obj_dict.get('access_control_list_hash'):
                         rules = obj_dict.get('access_control_list_entries')
