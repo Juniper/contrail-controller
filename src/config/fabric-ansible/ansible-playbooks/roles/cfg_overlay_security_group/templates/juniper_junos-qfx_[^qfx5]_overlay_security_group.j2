@@ -10,21 +10,21 @@
 {%             set terms = filter.get('terms', []) %}
 {%             set nsfilter = namespace(found=false) %}
 {%             for term in terms %}
-{%                 set term_name = term.get('name') %}
 {%                 set term_from = term.get('fromxx') %}
 {%                 if term_from == None %}
 {%                     continue %}
 {%                 endif %}
+{%                 set ether_type = term_from.get('ether_type', '') %}
+{%                 set term_then = term.get('then') %}
+{%                 if term_then == None or ether_type == 'IPv6' %}
+{%                     continue %}
+{%                 endif %}
+{%                 set term_name = term.get('name') %}
 {%                 set dst_addrs = term_from.get('destination_address', []) %}
 {%                 set src_addrs = term_from.get('source_address', []) %}
 {%                 set src_ports = term_from.get('source_ports', []) %}
 {%                 set dst_ports = term_from.get('destination_ports', []) %}
 {%                 set ip_proto = term_from.get('ip_protocol') %}
-{%                 set ether_type = term_from.get('ether_type') %}
-{%                 set term_then = term.get('then') %}
-{%                 if term_then == None %}
-{%                     continue %}
-{%                 endif %}
 {%                 set then_accept_or_reject = term_then.get('accept_or_reject', []) %}
 {%                 for src_port in src_ports %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from source-port {{src_port}}
@@ -33,17 +33,21 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from destination-port {{dst_port}}
 {%                 endfor %}
 {%                 for src_addr in src_addrs %}
-{%                     set cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
+{%                     if 'ipv6' not in src_addr.get('comment', '') %}
+{%                         set cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-source-address {{cidr}}
+{%                     endif %}
 {%                 endfor %}
 {%                 for dst_addr in dst_addrs %}
-{%                     set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+{%                     if 'ipv6' not in dst_addr.get('comment', '') %}
+{%                         set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-destination-address {{cidr}}
+{%                     endif %}
 {%                 endfor %}
 {%                 if ip_proto %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-protocol {{ip_proto}}
 {%                 endif %}
-{%                 if ether_type %}
+{%                 if ether_type == 'arp' %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ether-type {{ether_type}}
 {%                 endif %}
 {%                 if then_accept_or_reject == True %}
