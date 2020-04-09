@@ -17,46 +17,16 @@ from pprint import pformat
 from vnc_api import vnc_api
 from .exceptions import NoIdError, VncError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns import constants as vns_constants
 from cfgm_common import jsonutils as json
 from . import utils
 import datetime
 from operator import itemgetter
 from collections import OrderedDict
 from cfgm_common.cassandra.drivers.thrift import CassandraDriverThrift
+from cfgm_common.cassandra import api as cassa_api
 
 
 class VncCassandraClient(object):
-
-    # Name to ID mapping keyspace + tables
-    _UUID_KEYSPACE_NAME = vns_constants.API_SERVER_KEYSPACE_NAME
-
-    # TODO describe layout
-    _OBJ_UUID_CF_NAME = 'obj_uuid_table'
-
-    # TODO describe layout
-    _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
-
-    # key: object type, column ($type:$id, uuid)
-    # where type is entity object is being shared with. Project initially
-    _OBJ_SHARED_CF_NAME = 'obj_shared_table'
-
-    _UUID_KEYSPACE = {
-        _UUID_KEYSPACE_NAME: {
-            _OBJ_UUID_CF_NAME: {
-                'cf_args': {
-                    'autopack_names': False,
-                    'autopack_values': False,
-                },
-            },
-            _OBJ_FQ_NAME_CF_NAME: {
-                'cf_args': {
-                    'autopack_values': False,
-                },
-            },
-            _OBJ_SHARED_CF_NAME: {}
-        }
-    }
 
     @staticmethod
     def _is_metadata(column_name):
@@ -114,9 +84,9 @@ class VncCassandraClient(object):
 
     @classmethod
     def get_db_info(cls):
-        db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
-                                              cls._OBJ_FQ_NAME_CF_NAME,
-                                              cls._OBJ_SHARED_CF_NAME])]
+        db_info = [(cassa_api.UUID_KEYSPACE_NAME, [cassa_api.OBJ_UUID_CF_NAME,
+                                                   cassa_api.OBJ_FQ_NAME_CF_NAME,
+                                                   cassa_api.OBJ_SHARED_CF_NAME])]
         return db_info
     # end get_db_info
 
@@ -140,11 +110,11 @@ class VncCassandraClient(object):
         self._logger = self._cassandra_driver._logger
         self._cache_uuid_to_fq_name = {}
         self._obj_uuid_cf = (self._cassandra_driver.
-                                _cf_dict[self._OBJ_UUID_CF_NAME])
+                                _cf_dict[cassa_api.OBJ_UUID_CF_NAME])
         self._obj_fq_name_cf = (self._cassandra_driver.
-                                _cf_dict[self._OBJ_FQ_NAME_CF_NAME])
+                                _cf_dict[cassa_api.OBJ_FQ_NAME_CF_NAME])
         self._obj_shared_cf = (self._cassandra_driver.
-                                _cf_dict[self._OBJ_SHARED_CF_NAME])
+                                _cf_dict[cassa_api.OBJ_SHARED_CF_NAME])
 
         self._obj_cache_mgr = ObjectCacheManager(
             logger,
@@ -529,7 +499,7 @@ class VncCassandraClient(object):
         hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
             obj_class, obj_uuids, prop_names, False)
         miss_obj_rows = self._cassandra_driver.multiget(
-            self._OBJ_UUID_CF_NAME, miss_uuids,
+            cassa_api.OBJ_UUID_CF_NAME, miss_uuids,
             ['prop:' + x for x in prop_names])
 
         miss_obj_dicts = []
@@ -584,7 +554,7 @@ class VncCassandraClient(object):
                     include_backrefs_children,
                 )
             miss_obj_rows = self._cassandra_driver.multiget(
-                self._OBJ_UUID_CF_NAME, miss_uuids,
+                cassa_api.OBJ_UUID_CF_NAME, miss_uuids,
                 timestamp=True)
         else:
             # ignore reading backref + children columns
@@ -600,7 +570,7 @@ class VncCassandraClient(object):
                     include_backrefs_children,
                 )
             miss_obj_rows = self._cassandra_driver.multiget(
-                                          self._OBJ_UUID_CF_NAME,
+                                          cassa_api.OBJ_UUID_CF_NAME,
                                           miss_uuids,
                                           start='d',
                                           timestamp=True)
@@ -660,7 +630,7 @@ class VncCassandraClient(object):
     def update_last_modified(self, bch, obj_type, obj_uuid, id_perms=None):
         if id_perms is None:
             id_perms = self._cassandra_driver.get_one_col(
-                                       self._OBJ_UUID_CF_NAME,
+                                       cassa_api.OBJ_UUID_CF_NAME,
                                        obj_uuid,
                                        'prop:id_perms')
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
@@ -671,7 +641,7 @@ class VncCassandraClient(object):
 
     def update_latest_col_ts(self, bch, obj_uuid):
         try:
-            self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+            self._cassandra_driver.get_one_col(cassa_api.OBJ_UUID_CF_NAME,
                                                obj_uuid,
                                                'type')
         except NoIdError:
@@ -837,7 +807,7 @@ class VncCassandraClient(object):
                        filter_key in obj_class.prop_fields]
             if not columns:
                 return coll_infos
-            rows = self._cassandra_driver.multiget(self._OBJ_UUID_CF_NAME,
+            rows = self._cassandra_driver.multiget(cassa_api.OBJ_UUID_CF_NAME,
                                                    list(coll_infos.keys()),
                                                    columns=columns)
             for obj_uuid, properties in list(rows.items()):
@@ -898,7 +868,7 @@ class VncCassandraClient(object):
                 num_columns = None
 
             obj_rows = self._cassandra_driver.multiget(
-                                     self._OBJ_UUID_CF_NAME,
+                                     cassa_api.OBJ_UUID_CF_NAME,
                                      parent_uuids,
                                      start=start,
                                      finish='children:%s;' % (obj_type),
@@ -918,7 +888,7 @@ class VncCassandraClient(object):
                         continue
                     if back_ref_uuids:
                         child_cols = self._cassandra_driver.get(
-                            self._OBJ_UUID_CF_NAME,
+                            cassa_api.OBJ_UUID_CF_NAME,
                             child_uuid,
                             start='ref:',
                             finish='ref;')
@@ -954,7 +924,7 @@ class VncCassandraClient(object):
                 num_columns = None
 
             obj_rows = self._cassandra_driver.multiget(
-                                     self._OBJ_UUID_CF_NAME,
+                                     cassa_api.OBJ_UUID_CF_NAME,
                                      back_ref_uuids,
                                      start=start,
                                      finish='backref:%s;' % (obj_type),
@@ -1069,7 +1039,7 @@ class VncCassandraClient(object):
     def object_delete(self, obj_type, obj_uuid):
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
-        fq_name = self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+        fq_name = self._cassandra_driver.get_one_col(cassa_api.OBJ_UUID_CF_NAME,
                                                      obj_uuid,
                                                      'fq_name')
         bch = obj_uuid_cf.batch()
@@ -1128,7 +1098,7 @@ class VncCassandraClient(object):
         result = {}
         # always read-in id-perms for upper-layers to do rbac/visibility
         result['id_perms'] = self._cassandra_driver.get_one_col(
-                                            self._OBJ_UUID_CF_NAME,
+                                            cassa_api.OBJ_UUID_CF_NAME,
                                             obj_uuid,
                                             'prop:id_perms')
 
@@ -1172,7 +1142,7 @@ class VncCassandraClient(object):
         try:
             return copy.copy(self._cache_uuid_to_fq_name[id][0])
         except KeyError:
-            obj = self._cassandra_driver.get(self._OBJ_UUID_CF_NAME, id,
+            obj = self._cassandra_driver.get(cassa_api.OBJ_UUID_CF_NAME, id,
                                              columns=['fq_name', 'type'])
             if not obj:
                 raise NoIdError(id)
@@ -1188,7 +1158,7 @@ class VncCassandraClient(object):
         try:
             return self._cache_uuid_to_fq_name[id][1]
         except KeyError:
-            obj = self._cassandra_driver.get(self._OBJ_UUID_CF_NAME, id,
+            obj = self._cassandra_driver.get(cassa_api.OBJ_UUID_CF_NAME, id,
                            columns=['fq_name', 'type'])
             if not obj:
                 raise NoIdError(id)
@@ -1203,7 +1173,7 @@ class VncCassandraClient(object):
     def fq_name_to_uuid(self, obj_type, fq_name):
         fq_name_str = utils.encode_string(':'.join(fq_name))
 
-        col_infos = self._cassandra_driver.get(self._OBJ_FQ_NAME_CF_NAME,
+        col_infos = self._cassandra_driver.get(cassa_api.OBJ_FQ_NAME_CF_NAME,
                              obj_type,
                              start=fq_name_str + ':',
                              finish=fq_name_str + ';')
@@ -1222,7 +1192,7 @@ class VncCassandraClient(object):
         result = []
         column = '%s:%s' % (share_type, share_id)
 
-        col_infos = self._cassandra_driver.get(self._OBJ_SHARED_CF_NAME,
+        col_infos = self._cassandra_driver.get(cassa_api.OBJ_SHARED_CF_NAME,
                              obj_type,
                              start=column + ':',
                              finish=column + ';')
@@ -1665,7 +1635,7 @@ class ObjectCacheManager(object):
             stale_check_ts_attr = 'id_perms_ts'
 
         hit_rows_in_db = self._db_client._cassandra_driver.multiget(
-            self._db_client._OBJ_UUID_CF_NAME, hit_uuids,
+            cassa_api.OBJ_UUID_CF_NAME, hit_uuids,
             columns=[stale_check_col_name], timestamp=True)
 
         obj_dicts = []
@@ -1697,7 +1667,7 @@ class ObjectCacheManager(object):
 
             if obj_class.object_type in self._debug_obj_cache_types:
                 obj_rows = self._db_client._cassandra_driver.multiget(
-                    self._db_client._OBJ_UUID_CF_NAME,
+                    cassa_api.OBJ_UUID_CF_NAME,
                     [hit_uuid],
                     timestamp=True)
                 rendered_objs = self._db_client._render_obj_from_db(
