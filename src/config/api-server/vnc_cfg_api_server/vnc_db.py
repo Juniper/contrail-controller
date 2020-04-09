@@ -32,6 +32,7 @@ from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.exceptions import ResourceExistsError
 from cfgm_common.exceptions import ResourceOutOfRangeError
 from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.cassandra import api as cassa_api
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.utils import shareinfo_from_perms2
@@ -78,14 +79,11 @@ def trace_msg(trace_objs=[], trace_name='', sandesh_hdl=None, error_msg=None):
 
 
 class VncServerCassandraClient(VncCassandraClient):
-    # Useragent datastore keyspace + tables (used by neutron plugin currently)
-    _USERAGENT_KEYSPACE_NAME = constants.USERAGENT_KEYSPACE_NAME
-    _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
     @classmethod
     def get_db_info(cls):
         db_info = VncCassandraClient.get_db_info() + \
-                  [(cls._USERAGENT_KEYSPACE_NAME, [cls._USERAGENT_KV_CF_NAME])]
+                  [(cassa_api.USERAGENT_KEYSPACE_NAME, [cassa_api.USERAGENT_KV_CF_NAME])]
         return db_info
     # end get_db_info
 
@@ -95,9 +93,9 @@ class VncServerCassandraClient(VncCassandraClient):
                  log_response_time=None, ssl_enabled=False, ca_certs=None,
                  pool_size=20):
         self._db_client_mgr = db_client_mgr
-        keyspaces = self._UUID_KEYSPACE.copy()
-        keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
-            self._USERAGENT_KV_CF_NAME: {}}
+        keyspaces = cassa_api.UUID_KEYSPACE.copy()
+        keyspaces[cassa_api.USERAGENT_KEYSPACE_NAME] = {
+            cassa_api.USERAGENT_KV_CF_NAME: {}}
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None, self.config_log,
             generate_url=db_client_mgr.generate_url, reset_config=reset_config,
@@ -188,7 +186,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def get_relaxed_refs(self, obj_uuid):
         relaxed_cols = self._cassandra_driver.get(
-            self._OBJ_UUID_CF_NAME, obj_uuid,
+            cassa_api.OBJ_UUID_CF_NAME, obj_uuid,
             start='relaxbackref:', finish='relaxbackref;')
         if not relaxed_cols:
             return []
@@ -205,50 +203,50 @@ class VncServerCassandraClient(VncCassandraClient):
     # end is_latest
 
     def uuid_to_obj_dict(self, id):
-        obj_cols = self._cassandra_driver.get(self._OBJ_UUID_CF_NAME, id)
+        obj_cols = self._cassandra_driver.get(cassa_api.OBJ_UUID_CF_NAME, id)
         if not obj_cols:
             raise NoIdError(id)
         return obj_cols
     # end uuid_to_obj_dict
 
     def uuid_to_obj_perms(self, id):
-        return self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+        return self._cassandra_driver.get_one_col(cassa_api.OBJ_UUID_CF_NAME,
                                                   id,
                                                   'prop:id_perms')
     # end uuid_to_obj_perms
 
     # fetch perms2 for an object
     def uuid_to_obj_perms2(self, id):
-        return self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+        return self._cassandra_driver.get_one_col(cassa_api.OBJ_UUID_CF_NAME,
                                                   id,
                                                   'prop:perms2')
     # end uuid_to_obj_perms2
 
     def useragent_kv_store(self, key, value):
         columns = {'value': value}
-        self.add(self._USERAGENT_KV_CF_NAME, key, columns)
+        self.add(cassa_api.USERAGENT_KV_CF_NAME, key, columns)
     # end useragent_kv_store
 
     def useragent_kv_retrieve(self, key):
         if key:
             if isinstance(key, list):
-                rows = self._cassandra_driver.multiget(self._USERAGENT_KV_CF_NAME, key)
+                rows = self._cassandra_driver.multiget(cassa_api.USERAGENT_KV_CF_NAME, key)
                 return [rows[row].get('value') for row in rows]
             else:
-                row = self._cassandra_driver.get(self._USERAGENT_KV_CF_NAME, key)
+                row = self._cassandra_driver.get(cassa_api.USERAGENT_KV_CF_NAME, key)
                 if not row:
                     raise NoUserAgentKey
                 return row.get('value')
         else:  # no key specified, return entire contents
             kv_list = []
             for ua_key, ua_cols in self._cassandra_driver.get_range(
-                    self._USERAGENT_KV_CF_NAME):
+                    cassa_api.USERAGENT_KV_CF_NAME):
                 kv_list.append({'key': ua_key, 'value': ua_cols.get('value')})
             return kv_list
     # end useragent_kv_retrieve
 
     def useragent_kv_delete(self, key):
-        if not self.delete(self._USERAGENT_KV_CF_NAME, key):
+        if not self.delete(cassa_api.USERAGENT_KV_CF_NAME, key):
             raise NoUserAgentKey
     # end useragent_kv_delete
 
