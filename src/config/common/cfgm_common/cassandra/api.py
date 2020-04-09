@@ -1,6 +1,44 @@
 import six
 import abc
 
+from sandesh_common.vns import constants as vns_constants
+
+
+# Name to ID mapping keyspace + tables
+UUID_KEYSPACE_NAME = vns_constants.API_SERVER_KEYSPACE_NAME
+
+# TODO describe layout
+OBJ_UUID_CF_NAME = 'obj_uuid_table'
+
+# TODO describe layout
+OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
+
+# key: object type, column ($type:$id, uuid)
+# where type is entity object is being shared with. Project initially
+OBJ_SHARED_CF_NAME = 'obj_shared_table'
+
+UUID_KEYSPACE = {
+    UUID_KEYSPACE_NAME: {
+        OBJ_UUID_CF_NAME: {
+            'cf_args': {
+                'autopack_names': False,
+                'autopack_values': False,
+            },
+        },
+        OBJ_FQ_NAME_CF_NAME: {
+            'cf_args': {
+                'autopack_values': False,
+            },
+        },
+        OBJ_SHARED_CF_NAME: {}
+    }
+}
+
+# Useragent datastore keyspace + tables (used by neutron plugin currently)
+USERAGENT_KEYSPACE_NAME = vns_constants.USERAGENT_KEYSPACE_NAME
+USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
+
+
 @six.add_metaclass(abc.ABCMeta)
 class CassandraDriver(object):
 
