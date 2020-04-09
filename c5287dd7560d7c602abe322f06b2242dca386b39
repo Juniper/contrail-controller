@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "afa1e789_25ff60f6",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 896,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-09T23:56:47Z",
+      "side": 1,
+      "message": "Where are you freeing this IPv6 address ?",
+      "revId": "c5287dd7560d7c602abe322f06b2242dca386b39",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
