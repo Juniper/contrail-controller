@@ -38,7 +38,7 @@ import sys
 from collections import Mapping
 from thrift.transport import TSSLSocket
 import ssl
-from cfgm_common.cassandra.api import CassandraDriver
+from cfgm_common.cassandra import api as cassa_api
 
 def merge_dict(orig_dict, new_dict):
     for key, value in list(new_dict.items()):
@@ -52,37 +52,7 @@ def merge_dict(orig_dict, new_dict):
             orig_dict[key] = new_dict[key]
     return orig_dict
 
-class CassandraDriverThrift(CassandraDriver):
-
-    # Name to ID mapping keyspace + tables
-    _UUID_KEYSPACE_NAME = vns_constants.API_SERVER_KEYSPACE_NAME
-
-    # TODO describe layout
-    _OBJ_UUID_CF_NAME = 'obj_uuid_table'
-
-    # TODO describe layout
-    _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
-
-    # key: object type, column ($type:$id, uuid)
-    # where type is entity object is being shared with. Project initially
-    _OBJ_SHARED_CF_NAME = 'obj_shared_table'
-
-    _UUID_KEYSPACE = {
-        _UUID_KEYSPACE_NAME: {
-            _OBJ_UUID_CF_NAME: {
-                'cf_args': {
-                    'autopack_names': False,
-                    'autopack_values': False,
-                },
-            },
-            _OBJ_FQ_NAME_CF_NAME: {
-                'cf_args': {
-                    'autopack_values': False,
-                },
-            },
-            _OBJ_SHARED_CF_NAME: {}
-        }
-    }
+class CassandraDriverThrift(cassa_api.CassandraDriver):
 
     _MAX_COL = 10000000
 
@@ -119,13 +89,13 @@ class CassandraDriverThrift(CassandraDriver):
         self._cf_dict = {}
         self._ro_keyspaces = ro_keyspaces or {}
         self._rw_keyspaces = rw_keyspaces or {}
-        if ((self._UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
-            (self._UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
-            self._ro_keyspaces.update(self._UUID_KEYSPACE)
+        if ((cassa_api.UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
+            (cassa_api.UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
+            self._ro_keyspaces.update(cassa_api.UUID_KEYSPACE)
         self._cassandra_init(server_list)
-        if (((self._OBJ_SHARED_CF_NAME in self._ro_keyspaces.get(self._UUID_KEYSPACE_NAME, {}))) or
-             (self._OBJ_SHARED_CF_NAME in self._rw_keyspaces.get(self._UUID_KEYSPACE_NAME, {}))):
-            self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
+        if (((cassa_api.OBJ_SHARED_CF_NAME in self._ro_keyspaces.get(cassa_api.UUID_KEYSPACE_NAME, {}))) or
+             (cassa_api.OBJ_SHARED_CF_NAME in self._rw_keyspaces.get(cassa_api.UUID_KEYSPACE_NAME, {}))):
+            self._obj_shared_cf = self._cf_dict[cassa_api.OBJ_SHARED_CF_NAME]
 
         self.get_one_col = self._handle_exceptions(self.get_one_col)
         self.get_range = self._handle_exceptions(self.get_range)
@@ -414,7 +384,7 @@ class CassandraDriverThrift(CassandraDriver):
                 continue
 
             # only CF of config_db_uuid keyspace JSON encode its column values
-            if not cf._cfdef.keyspace.endswith(self._UUID_KEYSPACE_NAME):
+            if not cf._cfdef.keyspace.endswith(cassa_api.UUID_KEYSPACE_NAME):
                 continue
 
             for col, val in list(results[key].items()):

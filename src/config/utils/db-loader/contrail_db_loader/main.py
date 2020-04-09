@@ -10,6 +10,7 @@ import logging
 import sys
 import yaml
 
+from cfgm_common.cassandra import api as cassa_api
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.importutils import import_object
 from keystoneclient import session as ksession, auth as kauth,\
@@ -23,26 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 class LoadDataBase(object):
-    _UUID_KEYSPACE_NAME = 'config_db_uuid'
-    _OBJ_UUID_CF_NAME = 'obj_uuid_table'
-    _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
-    _OBJ_SHARED_CF_NAME = 'obj_shared_table'
-    _UUID_KEYSPACE = {
-        _UUID_KEYSPACE_NAME: {
-            _OBJ_UUID_CF_NAME: {
-                'cf_args': {
-                    'autopack_names': False,
-                    'autopack_values': False,
-                    },
-                },
-            _OBJ_FQ_NAME_CF_NAME: {
-                'cf_args': {
-                    'autopack_values': False,
-                    },
-                },
-            _OBJ_SHARED_CF_NAME: {}
-            }
-        }
     # Resources supported by that script
     # The order of that list is import, that defines the resources
     # order creation
@@ -92,7 +73,7 @@ class LoadDataBase(object):
         self._object_db = VncObjectDBClient(
             cassandra_servers,
             db_prefix,
-            self._UUID_KEYSPACE,
+            cassa_api.UUID_KEYSPACE,
             None,
             vnc_cassandra_client_logger,
             credential=cassandra_credentials,
