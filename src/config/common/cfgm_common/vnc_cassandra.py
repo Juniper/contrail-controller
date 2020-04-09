@@ -23,7 +23,7 @@ from . import utils
 import datetime
 from operator import itemgetter
 from collections import OrderedDict
-from cfgm_common.cassandra_driver_thrift import CassandraDriverThrift
+from cfgm_common.cassandra.drivers.thrift import CassandraDriverThrift
 
 
 class VncCassandraClient(object):

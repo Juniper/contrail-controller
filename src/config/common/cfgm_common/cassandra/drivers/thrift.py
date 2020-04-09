@@ -23,7 +23,7 @@ from pycassa.cassandra.ttypes import InvalidRequestException
 import gevent
 
 from vnc_api import vnc_api
-from .exceptions import NoIdError, DatabaseUnavailableError, VncError
+from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -31,14 +31,14 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants as vns_constants
 import time
 from cfgm_common import jsonutils as json
-from . import utils
+from cfgm_common import utils
 import datetime
 import itertools
 import sys
 from collections import Mapping
 from thrift.transport import TSSLSocket
 import ssl
-from cfgm_common.cassandra_driver import CassandraDriver
+from cfgm_common.cassandra.api import CassandraDriver
 
 def merge_dict(orig_dict, new_dict):
     for key, value in list(new_dict.items()):
