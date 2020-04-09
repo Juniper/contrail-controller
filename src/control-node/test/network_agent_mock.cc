@@ -1072,6 +1072,7 @@ bool NetworkAgentMock::ConnectionDestroyed() const {
 void NetworkAgentMock::Delete() {
     peer_.reset();
     client_->Shutdown();
+    task_util::WaitForIdle();
     client_->WaitForEmpty();
     task_util::WaitForIdle();
     for (int idx = 0; idx < 5000 && !ConnectionDestroyed(); ++idx)
