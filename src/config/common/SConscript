@@ -17,6 +17,8 @@ setup_sources = [
     'tox.ini',
     'MANIFEST.in',
     'cfgm_common',
+    'cfgm_common/cassandra',
+    'cfgm_common/cassandra/drivers',
 ]
 
 setup_sources_rules = []
