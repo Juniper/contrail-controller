@@ -60,7 +60,7 @@ class ServiceChain(ResourceBaseST):
     # end _get_service_chain_ipam
 
     def __init__(self, name, left_vn, right_vn, direction, sp_list, dp_list,
-                 protocol, services):
+                 protocol, services, request_id=None):
         self.name = name
         self.left_vn = left_vn
         self.right_vn = right_vn
@@ -514,7 +514,7 @@ class ServiceChain(ResourceBaseST):
         # end for service
     # end destroy
 
-    def delete(self):
+    def delete(self, request_id=None):
         if self.created or self.partially_created:
             self.destroy()
         del self._dict[self.name]

@@ -18,8 +18,10 @@ import json
 import re
 import socket
 import struct
+import time
 from time import gmtime, strftime
 import traceback
+import uuid
 
 from abstract_device_api import abstract_device_xsd as AbstractDevXsd
 from attrdict import AttrDict
@@ -52,6 +54,8 @@ from .dm_utils import PushConfigState
 
 class DBBaseDM(DBBase):
     obj_type = __name__
+    init_tid = str(int(round(time.time() * 1000))) + '_' + \
+                     str(uuid.uuid4())
 
     @classmethod
     def locate_all(cls):
@@ -68,6 +72,11 @@ class DBBaseDM(DBBase):
         return kvps
     # end _read_key_value_pair
 
+    @staticmethod
+    def kvp_to_dict(kvps):
+        return dict((kvp['key'], kvp['value']) for kvp in kvps)
+    # end kvp_to_dict
+
     def _get_single_ref(self, ref_type, obj):
         if isinstance(obj, dict):
             refs = (obj.get(ref_type + '_refs') or
@@ -80,6 +89,112 @@ class DBBaseDM(DBBase):
         else:
             return None
     # end _get_single_ref
+
+    def _calc_pr_id_set(self, pi_id_list=None, pi_refs=None,
+                        pr_id_list=None, pr_refs=None):
+
+        pi_id_set = set(pi_id_list or [])
+        pr_id_set = set(pr_id_list or [])
+
+        for ref in pi_refs or []:
+            if ref.get('uuid'):
+                pi_id_set.add(ref['uuid'])
+            elif ref.get('to'):
+                pi_fqname = ref['to']
+                pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pi_fqname[1])
+                if pr_obj:
+                    pr_id_set.add(pr_obj.uuid)
+        for ref in pr_refs or []:
+            if ref.get('uuid'):
+                pr_id_set.add(ref['uuid'])
+            elif ref.get('to'):
+                pr_fqname = ref['to']
+                pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pr_fqname[-1])
+                if pr_obj:
+                    pr_id_set.add(pr_obj.uuid)
+        for pi_id in pi_id_set:
+            pi_obj = PhysicalInterfaceDM.get(pi_id)
+            pr_id_set.add(pi_obj.get_pr_uuid())
+
+        return pr_id_set
+
+    def _get_fabric_trans_info(self, fab_id):
+        fab_obj = FabricDM.get(fab_id)
+        if fab_obj:
+            return fab_obj.trans_id, fab_obj.trans_descr
+        return None, ''
+
+    def _generate_job_transaction(self, oper_type, request_id=None,
+                                  name=None, obj_descr=None, trans_descr=None,
+                                  fabric_id=None,
+                                  old_pi_list=None, new_pi_list=None,
+                                  old_pi_refs=None, new_pi_refs=None,
+                                  old_pr_list=None, new_pr_list=None,
+                                  old_pr_refs=None, new_pr_refs=None):
+        if not request_id:
+            return
+
+        trans_id = None
+        if fabric_id:
+            # If fabric_id given, first check for trans info on fabric obj
+            trans_id, t_descr = self._get_fabric_trans_info(fabric_id)
+            if trans_id:
+                trans_descr = t_descr
+        if not trans_id:
+            trans_id = request_id
+            obj_descr = obj_descr or self.obj_type.replace('_', ' ').title()
+            trans_descr = trans_descr or "{} '{}' {}".format(
+                obj_descr, name or self.name, oper_type)
+
+        old_pr_id_set = self._calc_pr_id_set(
+            pi_id_list = old_pi_list, pi_refs = old_pi_refs,
+            pr_id_list = old_pr_list, pr_refs = old_pr_refs)
+        new_pr_id_set = self._calc_pr_id_set(
+            pi_id_list = new_pi_list, pi_refs = new_pi_refs,
+            pr_id_list = new_pr_list, pr_refs = new_pr_refs)
+        pr_id_set = old_pr_id_set | new_pr_id_set
+
+        for pr_id in pr_id_set:
+            pr_obj = PhysicalRouterDM.get(pr_id)
+            if not pr_obj:
+                continue
+            if pr_obj.transaction_id == trans_id and oper_type != 'Delete':
+                continue
+
+            pr_obj.set_transaction_info(trans_id, trans_descr)
+            self._logger.debug("GEN_JOB_TRANS: {}: {} ({})".
+                               format(trans_descr, pr_obj.name, trans_id))
+
+    def update_job_trans(self, request_id=None, name=None,
+                         obj_descr=None, trans_descr=None,
+                         fabric_id=None,
+                         old_pi_list=None, new_pi_list=None,
+                         old_pi_refs=None, new_pi_refs=None,
+                         old_pr_list=None, new_pr_list=None,
+                         old_pr_refs=None, new_pr_refs=None):
+        self._generate_job_transaction(
+            "Update" if self.updated else "Create",
+            request_id=request_id, name=name,
+            obj_descr=obj_descr, trans_descr=trans_descr,
+            fabric_id=fabric_id,
+            old_pi_list=old_pi_list, new_pi_list=new_pi_list,
+            old_pi_refs=old_pi_refs, new_pi_refs=new_pi_refs,
+            old_pr_list=old_pr_list, new_pr_list=new_pr_list,
+            old_pr_refs=old_pr_refs, new_pr_refs=new_pr_refs)
+
+    def delete_job_trans(self, request_id=None, name=None,
+                         obj_descr=None, trans_descr=None,
+                         fabric_id=None,
+                         old_pi_list=None, old_pi_refs=None,
+                         old_pr_list=None, old_pr_refs=None):
+        self._generate_job_transaction(
+            "Delete",
+            request_id=request_id, name=name,
+            obj_descr=obj_descr, trans_descr=trans_descr,
+            fabric_id=fabric_id,
+            old_pi_list=old_pi_list, old_pi_refs=old_pi_refs,
+            old_pr_list=old_pr_list, old_pr_refs=old_pr_refs)
+
 # end DBBaseDM
 
 
@@ -90,14 +205,14 @@ class FeatureFlagDM(DBBaseDM, FeatureFlagBase):
                 'feature_flags': {},
                 'callbacks': {}}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.feature_flag = {}
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         old_fflag = self.feature_flag
@@ -153,17 +268,23 @@ class BgpRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'bgp_router'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.bgp_routers = {}
         self.physical_router = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.update_job_trans(
+            request_id=request_id,
+            fabric_id=self.get_fabric_id(),
+            old_pr_list=self.get_pr_ids(),
+            new_pr_refs=self.get_obj_pr_refs(obj))
         self.params = obj.get('bgp_router_parameters') or {}
         if self.params and self.params.get('autonomous_system') is None:
             self.params[
@@ -183,6 +304,7 @@ class BgpRouterDM(DBBaseDM):
             if peer:
                 peer.bgp_routers[self.uuid] = attrs
         self.bgp_routers = new_peers
+        self.updated = True
 
     def get_all_bgp_router_ips(self):
         bgp_router_ips = {}
@@ -197,6 +319,34 @@ class BgpRouterDM(DBBaseDM):
         return bgp_router_ips
     # end get_all_bgp_router_ips
 
+    def get_pr_ids(self):
+        pr_ids = [self.physical_router] if self.physical_router else []
+        for peer_id in list(self.bgp_routers.keys()):
+            peer = BgpRouterDM.get(peer_id)
+            if peer:
+                pr_ids.append(peer.uuid)
+        return pr_ids
+
+    def get_obj_pr_refs(self, obj):
+        pr_refs = obj.get('physical_router_back_refs', [])
+        for peer_ref in obj.get('bgp_router_refs', []):
+            if peer_ref['to'][-1][-4:] == '-bgp':
+                pr_refs.append({'to': ['default-global-system-config',
+                                         peer_ref['to'][-1][:-4]]})
+        return pr_refs
+
+    def get_fabric_id(self):
+        if self.physical_router:
+            pr_obj = PhysicalRouterDM.get(self.physical_router)
+            if pr_obj:
+                return pr_obj.fabric
+        return None
+
+    def delete_obj(self, request_id=None):
+        self.delete_job_trans(request_id=request_id,
+                              old_pr_list=self.get_pr_ids())
+    # end delete_obj
+
 # end class BgpRouterDM
 
 
@@ -204,14 +354,14 @@ class FeatureDM(DBBaseDM):
     _dict = {}
     obj_type = 'feature'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.features = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -229,13 +379,13 @@ class PhysicalRoleDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_role'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -247,13 +397,13 @@ class OverlayRoleDM(DBBaseDM):
     _dict = {}
     obj_type = 'overlay_role'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -265,15 +415,15 @@ class FeatureConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'feature_config'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.additional_params = None
         self.vendor_config = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -290,17 +440,17 @@ class RoleDefinitionDM(DBBaseDM):
     _dict = {}
     obj_type = 'role_definition'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.features = set()
         self.feature_configs = set()
         self.physical_role = None
         self.overlay_role = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -329,7 +479,8 @@ class PhysicalRouterDM(DBBaseDM):
     obj_type = 'physical_router'
     _sandesh = None
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.physical_role = None
         self.overlay_roles = set()
@@ -361,7 +512,9 @@ class PhysicalRouterDM(DBBaseDM):
         self.telemetry_profile = None
         self.device_family = None
         self.intent_maps = set()
-        self.update(obj_dict)
+        self.transaction_id = self.init_tid
+        self.transaction_descr = "Docker Init"
+        self.update(obj_dict, request_id)
         self.set_conf_sent_state(False)
         self.config_repush_interval = PushConfigState.get_repush_interval()
         self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
@@ -431,11 +584,12 @@ class PhysicalRouterDM(DBBaseDM):
         return False
     # end is_erb_only
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = obj['fq_name'][-1]
+        self.upd_job_trans(obj, request_id)
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip')
         self.replicator_ip = obj.get(
@@ -465,8 +619,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.telemetry_info = obj.get('telemetry_info')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
-        self.transaction_id, self.transaction_descr = \
-            self.get_transaction_info(obj)
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
         self.update_multiple_refs('logical_router', obj)
@@ -513,7 +665,65 @@ class PhysicalRouterDM(DBBaseDM):
 
         self.reinit_device_plugin()
         self.allocate_asn()
+        self.updated = True
     # end update
+
+    def _role_assignment_changed(self, obj):
+        # If this is a change to the role assignment,
+        # get the job transaction info and update
+
+        pr_role = self.physical_router_role
+        new_pr_role = obj.get('physical_router_role')
+        if pr_role != new_pr_role:
+            return True
+
+        rb_roles = set(self.routing_bridging_roles or [])
+        new_rb_roles = set(obj.get('routing_bridging_roles', {}).\
+            get('rb_roles', []))
+        if rb_roles ^ new_rb_roles:
+            return True
+
+        physical_role = set([self.physical_role.uuid] if
+                            self.physical_role else [])
+        new_physical_role = set([ref['uuid'] for
+                                 ref in obj.get('physical_role_refs', [])])
+        if physical_role ^ new_physical_role:
+            return True
+
+        overlay_roles = set([pr.uuid for pr in self.overlay_roles])
+        new_overlay_roles = set([ref['uuid'] for
+                                 ref in obj.get('overlay_role_refs', [])])
+        if overlay_roles ^ new_overlay_roles:
+            return True
+
+        return False
+
+    # Conditionally update job transaction info
+    def upd_job_trans(self, obj, request_id):
+        if not self.updated:
+            return False
+
+        update = False
+        trans_id, trans_descr = self._get_fabric_trans_info(self.fabric)
+
+        if trans_id:
+            # Fabric-level job like role-assignment,
+            # fabric-delete, device-delete
+            update = True
+        elif obj.get('physical_router_managed_state') == 'activating':
+            # RMA activation case, use trans info from PR object
+            trans_id, trans_descr = self.get_transaction_info(obj)
+            update = True
+        elif self._role_assignment_changed(obj):
+            # overlay-role refs may change before role assignment job started
+            trans_id = request_id
+            trans_descr = "Role Assignment"
+            update = True
+
+        if update:
+            self.update_job_trans(
+                trans_descr=trans_descr, request_id=trans_id,
+                old_pr_list=[self.uuid], new_pr_list=[self.uuid])
 
     # Get IBGP ASN from FabricNamespace
     def get_overlay_ibgp_asn(self):
@@ -554,6 +764,10 @@ class PhysicalRouterDM(DBBaseDM):
                     trans_dict.get('transaction_descr')
         return None, None
     # end get_transaction_info
+
+    def set_transaction_info(self, trans_id, trans_descr):
+        self.transaction_id = trans_id
+        self.transaction_descr = trans_descr
 
     def get_features(self):
         features = {}
@@ -741,7 +955,15 @@ class PhysicalRouterDM(DBBaseDM):
         self.fabric_obj = None
     # end delete_handler
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
+        trans_id, trans_descr = self._get_fabric_trans_info(self.fabric)
+        if trans_id:
+            self.update_job_trans(
+                trans_descr=trans_descr,
+                request_id=trans_id,
+                old_pr_list=[self.uuid],
+                new_pr_list=[self.uuid])
+
         vnc_greenlets.VncGreenlet("VNC Device Manager", self.delete_handler)
     # end delete_obj
 
@@ -1561,12 +1783,12 @@ class GlobalVRouterConfigDM(DBBaseDM):
     global_encapsulation_priorities = []
     global_encapsulation_priority = None
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         new_global_vxlan_id_mode = obj.get('vxlan_network_identifier_mode')
@@ -1619,15 +1841,15 @@ class GlobalSystemConfigDM(DBBaseDM):
     global_asn = None
     ip_fabric_subnets = None
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.physical_routers = set()
         self.data_center_interconnects = set()
         self.node_profiles = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         GlobalSystemConfigDM.global_asn = obj.get('autonomous_system')
@@ -1648,7 +1870,7 @@ class PhysicalInterfaceDM(DBBaseDM):
     obj_type = 'physical_interface'
     _esi_map = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.physical_router = None
@@ -1659,11 +1881,11 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.esi = None
         self.interface_type = None
         self.port = None
-        obj = self.update(obj_dict)
+        obj = self.update(obj_dict, request_id)
         self.add_to_parent(obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1685,7 +1907,7 @@ class PhysicalInterfaceDM(DBBaseDM):
     def get_pr_uuid(self):
         return self.physical_router
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('physical_interface', {})
         self.update_single_ref('port', None)
@@ -1698,17 +1920,17 @@ class LogicalInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'logical_interface'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interface = None
         self.vlan_tag = 0
         self.li_type = None
         self.instance_ip = None
-        obj = self.update(obj_dict)
+        obj = self.update(obj_dict, request_id)
         self.add_to_parent(obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1762,7 +1984,7 @@ class LogicalInterfaceDM(DBBaseDM):
         return acl_list
     # end get_attached_acls
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         if self.physical_interface:
             parent = PhysicalInterfaceDM.get(self.physical_interface)
         elif self.physical_router:
@@ -1779,15 +2001,15 @@ class FloatingIpDM(DBBaseDM):
     _dict = {}
     obj_type = 'floating_ip'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interface = None
         self.floating_ip_address = None
         self.floating_ip_pool = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1813,7 +2035,7 @@ class FloatingIpDM(DBBaseDM):
     # end get_private_network
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1829,14 +2051,14 @@ class FloatingIpPoolDM(DBBaseDM):
     _dict = {}
     obj_type = 'floating_ip_pool'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_network = None
         self.floating_ips = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1846,7 +2068,7 @@ class FloatingIpPoolDM(DBBaseDM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1861,17 +2083,17 @@ class InstanceIpDM(DBBaseDM):
     _dict = {}
     obj_type = 'instance_ip'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.name = None
         self.fq_name = None
         self.uuid = uuid
         self.instance_ip_address = None
         self.virtual_machine_interface = None
         self.logical_interface = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1896,7 +2118,7 @@ class InstanceIpDM(DBBaseDM):
                     li_obj.instance_ip = self.uuid
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('virtual_machine_interface', {})
         self.logical_interface = None
     # end delete_obj
@@ -1907,15 +2129,15 @@ class AccessControlListDM(DBBaseDM):
     _dict = {}
     obj_type = 'access_control_list'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.vnc_obj = None
         self.security_group = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
         self.is_ingress = self.name.startswith('ingress-')
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj.get('fq_name')[-1]
@@ -1926,7 +2148,7 @@ class AccessControlListDM(DBBaseDM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1941,29 +2163,90 @@ class SecurityGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'security_group'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.name = None
         self.virtual_machine_interfaces = set()
+        self.virtual_machine_interface_bindings = {}
         self.virtual_port_groups = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
+        self.update_job_trans(
+            request_id=request_id,
+            old_pr_list=self.get_physical_router_ids(),
+            old_pi_list=self.get_physical_interface_ids(),
+            new_pr_list=self.get_obj_physical_router_ids(obj),
+            new_pi_list=self.get_obj_physical_interface_ids(obj))
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_port_group', obj)
         self.set_children('access_control_list', obj)
+        self.updated = True
     # end update
 
+    def _find_vmi_prs(self, vmi_id):
+        pr_id_list = set()
+        vmi_obj = VirtualMachineInterfaceDM.get(vmi_id)
+        if vmi_obj and vmi_obj.bindings:
+            kvps = vmi_obj.bindings['key_value_pair']
+            kvp_dict = self.kvp_to_dict(kvps)
+            prof_str = kvp_dict.get('profile')
+            if prof_str:
+                profile = json.loads(prof_str)
+                link_info = profile.get('local_link_information', [])
+                for link in link_info:
+                    pr_name = link['switch_info']
+                    pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pr_name)
+                    if pr_obj:
+                        pr_id_list.add(pr_obj.uuid)
+        return pr_id_list
+
+    def get_physical_router_ids(self):
+        pr_id_list = set()
+        for vmi_id in self.virtual_machine_interfaces:
+            pr_id_list.update(self._find_vmi_prs(vmi_id))
+        return pr_id_list
+
+    def get_obj_physical_router_ids(self, obj):
+        pr_id_list = set()
+        for vmi_ref in obj.get('virtual_machine_interface_back_refs', []):
+            vmi_id = vmi_ref['uuid']
+            pr_id_list.update(self._find_vmi_prs(vmi_id))
+        return pr_id_list
+
+    def _find_vpg_pis(self, vpg_id):
+        pi_id_list = set()
+        vpg_obj = VirtualPortGroupDM.get(vpg_id)
+        if vpg_obj:
+            pi_id_list.update(vpg_obj.physical_interfaces)
+        return pi_id_list
+
+    def get_physical_interface_ids(self):
+        pi_id_list = set()
+        for vpg_id in self.virtual_port_groups:
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
+    def get_obj_physical_interface_ids(self, obj):
+        pi_id_list = set()
+        for vpg_ref in obj.get('virtual_port_group_back_refs', []):
+            vpg_id = vpg_ref['uuid']
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        obj.delete_job_trans(request_id=request_id,
+                             old_pr_list=obj.get_physical_router_ids())
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('virtual_port_group', {})
         del cls._dict[uuid]
@@ -1975,7 +2258,8 @@ class VirtualMachineInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.name = None
         self.virtual_network = None
@@ -1993,8 +2277,10 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.service_instance = None
         self.service_endpoint = None
         self.virtual_port_group = None
+        self.vpg_name = None
         self.logical_router = None
-        self.update(obj_dict)
+        self.pr_list = set()
+        self.update(obj_dict, request_id)
     # end __init__
 
     def update_logical_router(self, obj=None):
@@ -2006,12 +2292,19 @@ class VirtualMachineInterfaceDM(DBBaseDM):
                 break
     # end
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
-
+        self.vpg_name, pr_list = self.get_pr_list(obj)
+        if self.vpg_name:
+            self.update_job_trans(
+                request_id=request_id,
+                name=self.vpg_name, obj_descr="Virtual Port Group",
+                old_pr_list=self.pr_list,
+                new_pr_list=pr_list)
+        self.pr_list = pr_list
         if obj.get('virtual_machine_interface_properties'):
             self.params = obj['virtual_machine_interface_properties']
             self.vlan_tag = self.params.get('sub_interface_vlan_tag', None)
@@ -2043,7 +2336,24 @@ class VirtualMachineInterfaceDM(DBBaseDM):
                 self.service_instance = pt.svc_instance
         self.update_single_ref('service_endpoint', obj)
         self.update_single_ref('virtual_port_group', obj)
+        self.updated = True
     # end update
+
+    def get_pr_list(self, obj):
+        pr_list = set()
+        bindings = obj.get('virtual_machine_interface_bindings') or {}
+        kvps = bindings.get('key_value_pair') or []
+        kvp_dict = self.kvp_to_dict(kvps)
+        vnic_type = kvp_dict.get('vnic_type')
+        vpg_name = kvp_dict.get('vpg')
+        if vnic_type == 'baremetal' and kvp_dict.get('profile'):
+            phy_links = json.loads(kvp_dict.get('profile')) or {}
+            links = phy_links.get('local_link_information', [])
+            for link in links:
+                pr_name = link['switch_info']
+                pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pr_name)
+                pr_list.add(pr_obj.uuid)
+        return vpg_name, pr_list
 
     def is_device_owner_bms(self):
         if self.logical_interfaces and \
@@ -2058,11 +2368,33 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         return False
     # end
 
+    def is_last_vpg_vmi(self):
+        if self.virtual_port_group:
+            vpg_obj = VirtualPortGroupDM.get(self.virtual_port_group)
+            if vpg_obj:
+                vmi_list = vpg_obj.virtual_machine_interfaces
+                if not vmi_list:
+                    return True
+                if len(vmi_list) < 2:
+                    for vmi_id in vmi_list:
+                        if vmi_id == self.uuid:
+                            return True
+        return False
+
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        if obj.vpg_name:
+            if obj.is_last_vpg_vmi():
+                obj.delete_job_trans(request_id=request_id,
+                    name=obj.vpg_name, obj_descr="Virtual Port Group",
+                    old_pr_list=obj.pr_list)
+            else:
+                obj.update_job_trans(request_id=request_id,
+                    name=obj.vpg_name, obj_descr="Virtual Port Group",
+                    old_pr_list=obj.pr_list)
         obj.update_multiple_refs('logical_interface', {})
         obj.update_multiple_refs('interface_route_table', {})
         obj.update_single_ref('virtual_network', {})
@@ -2084,7 +2416,8 @@ class LogicalRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'logical_router'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.physical_routers = set()
         self.data_center_interconnects = set()
@@ -2097,12 +2430,21 @@ class LogicalRouterDM(DBBaseDM):
         self.loopback_pr_ip_map = {}
         self.loopback_vn_uuid = None
         self.port_tuples = set()
-        self.update(obj_dict)
+        self.logical_router_gateway_external = False
+        self.configured_route_targets = set()
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        if self.do_update_trans(obj):
+            self.update_job_trans(
+                request_id=request_id,
+                old_pr_list=self.physical_routers,
+                new_pr_refs=obj.get('physical_router_refs'))
         if not self.virtual_network:
             vn_name = DMUtils.get_lr_internal_vn_name(self.uuid)
             vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
@@ -2114,12 +2456,12 @@ class LogicalRouterDM(DBBaseDM):
         if obj.get('logical_router_dhcp_relay_server', None):
             self.dhcp_relay_servers = obj.get(
                 'logical_router_dhcp_relay_server').get('ip_address')
+        self.configured_route_targets = set(obj.get(
+            'configured_route_target_list', {}).get('route_target', []))
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('port_tuple', obj)
-        self.fq_name = obj['fq_name']
-        self.name = self.fq_name[-1]
         self.is_master = True if 'master-LR' == self.name else False
         for rt_ref in obj.get('route_target_refs', []):
             for rt in rt_ref.get('to', []):
@@ -2128,7 +2470,39 @@ class LogicalRouterDM(DBBaseDM):
                     break
             if self.lr_route_target_for_dci is not None:
                 break
+        self.updated = True
     # end update
+
+    def do_update_trans(self, obj):
+        if not self.updated or not self.data_center_interconnects:
+            return True
+        # Check if dhcp relay servers are different
+        dhcp_ips = set(obj.get('logical_router_dhcp_relay_server', {}).\
+            get('ip_address', []))
+        old_dhcp_ips = set(self.dhcp_relay_servers)
+        if dhcp_ips ^ old_dhcp_ips:
+            return True
+        # Check if external gateway flag is different
+        if obj.get("logical_router_gateway_external") != \
+                self.logical_router_gateway_external:
+            return True
+        # Check if configured route targets are different
+        configured_route_targets = set(obj.get(
+            'configured_route_target_list', {}).get('route_target', []))
+        if self.configured_route_targets ^ configured_route_targets:
+            return True
+        # Check if physical routers are different
+        physical_routers = set([pr['uuid'] for
+                             pr in obj.get('physical_router_refs', [])])
+        if self.physical_routers ^ physical_routers:
+            return True
+        # Check if VMIs are different
+        vmis = set([vmi['uuid'] for
+                    vmi in obj.get('virtual_machine_interface_refs', [])])
+        if self.virtual_machine_interfaces ^ vmis:
+            return True
+
+        return False
 
     def get_internal_vn_name(self):
         return '__contrail_' + self.uuid + '_lr_internal_vn__'
@@ -2201,10 +2575,12 @@ class LogicalRouterDM(DBBaseDM):
     # end get_interfabric_dci
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        obj.delete_job_trans(request_id=request_id,
+                             old_pr_list=obj.physical_routers)
         obj.update_multiple_refs('physical_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('port_tuple', {})
@@ -2219,17 +2595,17 @@ class NetworkIpamDM(DBBaseDM):
     _dict = {}
     obj_type = 'network_ipam'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.ipam_subnets = set()
         self.ipam_method = None
         self.server_discovery_params = None
         self.virtual_networks = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -2245,7 +2621,7 @@ class NetworkIpamDM(DBBaseDM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -2259,17 +2635,17 @@ class IntentMapDM(DBBaseDM):
     _dict = {}
     obj_type = 'intent_map'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.physical_routers = set()
         self.virtual_networks = set()
         self.fabrics = set()
         self.intent_type = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.update_multiple_refs('physical_router', obj)
@@ -2281,7 +2657,7 @@ class IntentMapDM(DBBaseDM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -2296,7 +2672,7 @@ class VirtualNetworkDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_network'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.physical_routers = set()
@@ -2315,7 +2691,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.virtual_network_category = None
         self.routed_properties = None
         self.intent_maps = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
     def get_route_targets(self):
@@ -2395,7 +2771,7 @@ class VirtualNetworkDM(DBBaseDM):
         if vn_routed_props:
             self.routed_properties = vn_routed_props['routed_properties']
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.virtual_machine_interfaces = set(
@@ -2565,7 +2941,7 @@ class VirtualNetworkDM(DBBaseDM):
     # end get_connected_private_networks:w
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -2583,7 +2959,7 @@ class RoutingInstanceDM(DBBaseDM):
     _dict = {}
     obj_type = 'routing_instance'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.virtual_network = None
@@ -2592,13 +2968,13 @@ class RoutingInstanceDM(DBBaseDM):
         self.routing_instances = set()
         self.service_chain_address = None
         self.virtual_machine_interfaces = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
         vn = VirtualNetworkDM.get(self.virtual_network)
         if vn:
             vn.routing_instances.add(self.uuid)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -2626,7 +3002,7 @@ class RoutingInstanceDM(DBBaseDM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -2642,14 +3018,14 @@ class ServiceTemplateDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_template'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_instances = set()
         self.service_appliance_set = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -2669,7 +3045,7 @@ class ServiceTemplateDM(DBBaseDM):
         self.update_single_ref('service_appliance_set', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('service_instance', {})
         self.update_single_ref('service_appliance_set', {})
     # end delete_obj
@@ -2680,29 +3056,74 @@ class ServiceApplianceDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_appliance'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.service_appliance_set = None
         self.physical_interfaces = {}
         self.kvpairs = []
-        obj = self.update(obj_dict)
+        self.attachment_prs = []
+        obj = self.update(obj_dict, request_id)
         self.add_to_parent(obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.display_name = obj.get('display_name')
+        new_attachment_prs = self.get_attachment_prs(obj)
+        self.update_job_trans(
+            request_id=request_id,
+            name=self.display_name or self.name,
+            old_pi_list=self.physical_interfaces,
+            old_pr_list=self.attachment_prs,
+            new_pi_refs=obj.get('physical_interface_refs'),
+            new_pr_list=new_attachment_prs)
+        self.attachment_prs = new_attachment_prs
         kvpairs = obj.get('service_appliance_properties', None)
         if kvpairs:
             self.kvpairs = kvpairs.get('key_value_pair', [])
         self.service_appliance_set = self.get_parent_uuid(obj)
         self.update_multiple_refs_with_attr('physical_interface', obj)
+        self.updated = True
         return obj
     # end update
 
-    def delete_obj(self):
+    def get_attachment_prs(self, obj):
+        left_intf_list = []
+        right_intf_list = []
+        pr_list = set()
+
+        virt_type = obj.get('service_appliance_virtualization_type')
+        sa_props = obj.get('service_appliance_properties', {})
+        kvps = sa_props.get('key_value_pair')
+
+        if (virt_type == 'physical-device') and \
+            sa_props is not None and kvps is not None:
+                for d in kvps:
+                    if d.get('key') == 'left-attachment-point':
+                        value = d.get('value')
+                        left_intf_list = value.split(',')
+                    elif d.get('key') == 'right-attachment-point':
+                        value = d.get('value')
+                        right_intf_list = value.split(',')
+        intf_list = left_intf_list + right_intf_list
+
+        pi_fqname_list=[i.split(':') for i in intf_list]
+        for pi_fqname in pi_fqname_list:
+            pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pi_fqname[1])
+            if pr_obj:
+                pr_list.add(pr_obj.uuid)
+        return pr_list
+
+    def delete_obj(self, request_id=None):
+        self.delete_job_trans(
+            request_id=request_id,
+            name=self.display_name or self.name,
+            old_pi_list=self.physical_interfaces,
+            old_pr_list=self.attachment_prs)
         self.update_multiple_refs_with_attr('physical_interface', {})
         self.remove_from_parent()
     # end delete_obj
@@ -2713,16 +3134,16 @@ class ServiceApplianceSetDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_appliance_set'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_appliances = set()
         self.service_template = None
         self.kvpairs = []
         self.ha_mode = "active-active"
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -2736,7 +3157,7 @@ class ServiceApplianceSetDM(DBBaseDM):
         self.ha_mode = obj.get('service_appliance_ha_mode')
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref("service_template", {})
     # end delete_obj
 # end ServiceApplianceSetDM
@@ -2746,17 +3167,17 @@ class ServiceInstanceDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_instance'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.fq_name = None
         self.name = None
         self.params = None
         self.service_template = None
         self.port_tuples = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -2785,7 +3206,7 @@ class ServiceInstanceDM(DBBaseDM):
         self.bgp_enabled = obj.get('service_instance_bgp_enabled')
     # end
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('service_template', {})
         self._object_db.delete_pnf_resources(uuid)
     # end
@@ -2795,21 +3216,38 @@ class PortTupleDM(DBBaseDM):
     _dict = {}
     obj_type = 'port_tuple'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.logical_routers = set()
         self.virtual_networks = set()
-        obj = self.update(obj_dict)
+        self.attachment_pr_list = set()
+        self.sa_pi_list = []
+        self.si_name = ''
+        obj = self.update(obj_dict, request_id)
         self.add_to_parent(obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         self.svc_instance = self.get_parent_uuid(obj)
+        si_obj = ServiceInstanceDM.get(self.svc_instance)
+        self.si_name = si_obj.name
+        attachment_pr_list, sa_pi_list = self.get_sa_info()
+        self.update_job_trans(
+            request_id=request_id,
+            name=self.si_name,
+            obj_descr="Service Instance",
+            old_pr_list=self.attachment_pr_list,
+            old_pi_list=self.sa_pi_list,
+            new_pr_list=attachment_pr_list,
+            new_pi_list=sa_pi_list)
+        self.attachment_pr_list = attachment_pr_list
+        self.sa_pi_list = sa_pi_list
         annotations = obj.get('annotations')
         if annotations:
             kvps = annotations.get('key_value_pair') or []
@@ -2824,6 +3262,7 @@ class PortTupleDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi)
             if vmi_obj and not vmi_obj.service_instance:
                 vmi_obj.service_instance = self.svc_instance
+        self.updated = True
         return obj
     # end update
 
@@ -2858,7 +3297,22 @@ class PortTupleDM(DBBaseDM):
                         pr_ref_obj.set_associated_port_tuples(self.uuid)
     # end build_pr_pt_map
 
-    def delete_obj(self):
+    def get_sa_info(self):
+        pr_id_list = set()
+        pi_refs = []
+        sa_obj = self.get_sa_obj()
+        if sa_obj:
+            pr_id_list = sa_obj.attachment_prs
+            pi_refs = sa_obj.physical_interfaces
+        return pr_id_list, pi_refs
+
+    def delete_obj(self, request_id=None):
+        self.delete_job_trans(
+            request_id=request_id,
+            name=self.si_name,
+            obj_descr="Service Instance",
+            old_pr_list=self.attachment_pr_list,
+            old_pi_list=self.sa_pi_list)
         sa_obj = self.get_sa_obj()
         if sa_obj is not None:
             for pi in sa_obj.physical_interfaces or {}:
@@ -2886,16 +3340,16 @@ class ServiceEndpointDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_endpoint'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.physical_router = None
         self.service_connection_modules = set()
         self.virtual_machine_interface = None
         self.site_id = 0
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -2905,7 +3359,7 @@ class ServiceEndpointDM(DBBaseDM):
         self.update_single_ref('virtual_machine_interface', obj)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -2920,7 +3374,7 @@ class ServiceConnectionModuleDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_connection_module'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_endpoints = set()
         self.service_object = None
@@ -2939,10 +3393,10 @@ class ServiceConnectionModuleDM(DBBaseDM):
             'commit_status_message': '',
             'total_commits_sent_since_up': 0,
         }
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -2954,7 +3408,7 @@ class ServiceConnectionModuleDM(DBBaseDM):
         self.update_single_ref('service_object', obj)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -2968,7 +3422,7 @@ class ServiceObjectDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_object'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_connection_module = None
         self.sep_list = None
@@ -2977,10 +3431,10 @@ class ServiceObjectDM(DBBaseDM):
         self.management_ip = None
         self.user_creds = None
         self.service_type = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3038,7 +3492,7 @@ class ServiceObjectDM(DBBaseDM):
             pr_msg.send(sandesh=DBBaseDM._sandesh)
     # end uve_send
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -3051,15 +3505,15 @@ class NetworkDeviceConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'network_device_config'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.physical_router = None
         self.management_ip = None
         self.config_manager = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3089,7 +3543,7 @@ class NetworkDeviceConfigDM(DBBaseDM):
     # end uve_send
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -3102,7 +3556,8 @@ class DataCenterInterconnectDM(DBBaseDM):
     _dict = {}
     obj_type = 'data_center_interconnect'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.name = None
         self.logical_routers = set()
@@ -3111,19 +3566,25 @@ class DataCenterInterconnectDM(DBBaseDM):
         self.virtual_networks = set()
         self.dst_lr_pr = {}
         self.src_lr_uuid = None
-        obj = self.update(obj_dict)
+        obj = self.update(obj_dict, request_id)
         self.add_to_parent(obj)
     # end __init__
 
     def is_this_inter_fabric(self):
         return True if self.dci_type == 'inter_fabric' else False
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.update_job_trans(
+            request_id=request_id,
+            obj_descr="DCI",
+            old_pr_list=self.get_connected_pr_ids(),
+            new_pr_list=self.get_obj_connected_pr_ids(obj))
         self.update_multiple_refs('logical_router', obj)
         self.get_intrafabric_properties(obj)
+        self.updated = True
         return obj
     # end update
 
@@ -3171,6 +3632,30 @@ class DataCenterInterconnectDM(DBBaseDM):
                         pr_list.append(pr)
         return pr_list
     # end get_connected_physical_routers
+
+    def _find_lr_prs(self, lr_uuid):
+        pr_id_list = set()
+        lr = LogicalRouterDM.get(lr_uuid)
+        if lr and lr.physical_routers:
+            prs = lr.physical_routers
+            for pr_uuid in prs:
+                pr = PhysicalRouterDM.get(pr_uuid)
+                if pr.has_rb_role("DCI-Gateway"):
+                    pr_id_list.add(pr_uuid)
+        return pr_id_list
+
+    def get_connected_pr_ids(self):
+        pr_id_list = set()
+        for lr_uuid in self.logical_routers or []:
+            pr_id_list.update(self._find_lr_prs(lr_uuid))
+        return pr_id_list
+
+    def get_obj_connected_pr_ids(self, obj):
+        pr_id_list = set()
+        for lr_ref in obj.get('logical_router_refs', []):
+            lr_uuid = lr_ref['uuid']
+            pr_id_list.update(self._find_lr_prs(lr_uuid))
+        return pr_id_list
 
     def get_lr(self, pr):
         if not self.logical_routers or self.is_this_inter_fabric() == False:
@@ -3573,10 +4058,12 @@ class DataCenterInterconnectDM(DBBaseDM):
     # end set_intrafabric_dci_config
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        obj.delete_job_trans(request_id=request_id, obj_descr="DCI",
+                             old_pr_list=obj.get_connected_pr_ids())
         obj._object_db.delete_dci(obj.uuid)
         obj.update_multiple_refs('logical_router', {})
         obj.update_multiple_refs('routing_policy', {})
@@ -3590,7 +4077,8 @@ class FabricDM(DBBaseDM):
     _dict = {}
     obj_type = 'fabric'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.name = None
         self.fq_name = None
@@ -3601,7 +4089,10 @@ class FabricDM(DBBaseDM):
         self.underlay_managed = True
         self.static_asn_pr_map = {}
         self.static_pr_asn_map = {}
-        self.update(obj_dict)
+        self.trans_id = None
+        self.trans_descr = ''
+        self.physical_routers = set()
+        self.update(obj_dict, request_id)
     # end __init__
 
     @classmethod
@@ -3653,11 +4144,33 @@ class FabricDM(DBBaseDM):
     def static_asn_by_pr(self, pr_name):
         return self.static_pr_asn_map.get(pr_name)
 
-    def update(self, obj=None):
+    def cache_trans_info(self, obj):
+        annotations = obj.get('annotations')
+        if annotations:
+            kv_pairs = annotations.get('key_value_pair', [])
+            for kv_pair in kv_pairs:
+                if kv_pair.get('key') == 'job_transaction':
+                    info = json.loads(kv_pair.get('value', '{}'))
+                    self.trans_id = info.get('transaction_id')
+                    self.trans_descr = info.get('transaction_descr', '')
+                    return
+        self.trans_id = None
+        self.trans_descr = ''
+
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
+
+        # Cache transaction info
+        self.cache_trans_info(obj)
+
+        if self.trans_id:
+            self.update_job_trans(
+                request_id=self.trans_id,
+                trans_descr = self.trans_descr,
+                new_pr_refs=obj.get('physical_router_back_refs'))
 
         # Get the 'loopback' type virtual network
         self.lo0_ipam_subnet =\
@@ -3670,9 +4183,13 @@ class FabricDM(DBBaseDM):
         # Get the enterprise-style flag
         self.enterprise_style = obj.get('fabric_enterprise_style', True)
 
+        self.update_multiple_refs('physical_router', obj)
+
         # Cache static underlay ASN values specified in onboarding
         # input YAML file
         self.cache_static_asn(obj)
+
+        self.updated = True
     # end update
 # end class FabricDM
 
@@ -3681,12 +4198,12 @@ class FabricNamespaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'fabric_namespace'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.as_numbers = None
         self.asn_ranges = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
     def _read_as_numbers(self, obj):
@@ -3725,7 +4242,7 @@ class FabricNamespaceDM(DBBaseDM):
                                     for asn_range in value['asn_ranges']])
     # end _read_asn_ranges
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3734,7 +4251,7 @@ class FabricNamespaceDM(DBBaseDM):
         self.add_to_parent(obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.remove_from_parent()
     # end delete_obj
 # end class FabricNamespaceDM
@@ -3744,17 +4261,17 @@ class NodeProfileDM(DBBaseDM):
     _dict = {}
     obj_type = 'node_profile'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.role_configs = set()
         self.physical_routers = set()
         self.job_template = None
         self.job_template_fq_name = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3769,7 +4286,7 @@ class NodeProfileDM(DBBaseDM):
             self.job_template_fq_name = None
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('physical_router', {})
     # end delete_obj
 # end class NodeProfileDM
@@ -3779,14 +4296,14 @@ class PortDM(DBBaseDM):
     _dict = {}
     obj_type = 'port'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.tags = set()
         self.physical_interfaces = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3794,7 +4311,7 @@ class PortDM(DBBaseDM):
         self.update_multiple_refs('physical_interface', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('tag', None)
         self.update_multiple_refs('physical_interface', {})
     # end delete_obj
@@ -3805,20 +4322,20 @@ class TagDM(DBBaseDM):
     _dict = {}
     obj_type = 'tag'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_networks = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1].split('=')[-1]
         self.update_multiple_refs('virtual_network', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_network', {})
     # end delete_obj
 # end class TagDM
@@ -3828,15 +4345,15 @@ class PortProfileDM(DBBaseDM):
     _dict = {}
     obj_type = 'port_profile'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.storm_control_profile = None
         self.virtual_machine_interface = None
         self.virtual_port_groups = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3846,7 +4363,7 @@ class PortProfileDM(DBBaseDM):
         self.update_single_ref('storm_control_profile', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('storm_control_profile', {})
         self.update_single_ref('virtual_machine_interface', {})
         self.update_multiple_refs('virtual_port_group', {})
@@ -3858,13 +4375,13 @@ class StormControlProfileDM(DBBaseDM):
     _dict = {}
     obj_type = 'storm_control_profile'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.port_profile = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3873,7 +4390,7 @@ class StormControlProfileDM(DBBaseDM):
         self.update_single_ref('port_profile', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('port_profile', {})
     # end delete_obj
 # end class StormControlProfileDM
@@ -3883,14 +4400,14 @@ class TelemetryProfileDM(DBBaseDM):
     _dict = {}
     obj_type = 'telemetry_profile'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.sflow_profile = None
         self.physical_routers = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3899,7 +4416,7 @@ class TelemetryProfileDM(DBBaseDM):
         self.update_single_ref('sflow_profile', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('sflow_profile', {})
         self.update_multiple_refs('physical_router', {})
     # end delete_obj
@@ -3910,13 +4427,13 @@ class SflowProfileDM(DBBaseDM):
     _dict = {}
     obj_type = 'sflow_profile'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.telemetry_profiles = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3925,7 +4442,7 @@ class SflowProfileDM(DBBaseDM):
         self.update_multiple_refs('telemetry_profile', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('telemetry_profile', {})
     # end delete_obj
 # end class SflowProfileDM
@@ -3935,14 +4452,14 @@ class FlowNodeDM(DBBaseDM):
     _dict = {}
     obj_type = 'flow_node'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_network = None
         self.virtual_ip_addr = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3951,7 +4468,7 @@ class FlowNodeDM(DBBaseDM):
         self.virtual_ip_addr = obj.get('flow_node_load_balancer_ip')
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('virtual_network', {})
     # end delete_obj
 # end class FlowNodeDM
@@ -3961,14 +4478,14 @@ class LinkAggregationGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'link_aggregation_group'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.physical_interfaces = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -3977,7 +4494,7 @@ class LinkAggregationGroupDM(DBBaseDM):
         self.update_multiple_refs('physical_interface', obj)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.remove_from_parent()
         self.update_multiple_refs('physical_interface', {})
     # end delete_obj
@@ -3988,7 +4505,8 @@ class VirtualPortGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_port_group'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
+        self.updated = False
         self.uuid = uuid
         self.name = None
         self.physical_interfaces = set()
@@ -3997,14 +4515,19 @@ class VirtualPortGroupDM(DBBaseDM):
         self.port_profiles = set()
         self.esi = None
         self.pi_ae_map = {}
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
         self.get_esi()
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        if self.virtual_machine_interfaces:
+            self.update_job_trans(
+                request_id=request_id,
+                old_pi_list=self.physical_interfaces,
+                new_pi_refs=obj.get('physical_interface_refs'))
         self.add_to_parent(obj)
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
@@ -4012,7 +4535,7 @@ class VirtualPortGroupDM(DBBaseDM):
         self.update_multiple_refs('port_profile', obj)
         self.get_ae_for_pi(obj.get('physical_interface_refs'))
         self.build_lag_pr_map()
-
+        self.updated = True
     # end update
 
     def get_ae_for_pi(self, pi_refs):
@@ -4087,7 +4610,10 @@ class VirtualPortGroupDM(DBBaseDM):
 
         return False
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
+        self.delete_job_trans(
+            request_id=request_id,
+            old_pi_list=self.physical_interfaces)
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
@@ -4107,15 +4633,15 @@ class RoleConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'role_config'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.name = None
         self.node_profile = None
         self.config = None
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -4126,7 +4652,7 @@ class RoleConfigDM(DBBaseDM):
             self.config = json.loads(self.config)
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.remove_from_parent()
         self.update_single_ref('job_template', {})
     # end delete_obj
@@ -4137,15 +4663,15 @@ class E2ServiceProviderDM(DBBaseDM):
     _dict = {}
     obj_type = 'e2_service_provider'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.promiscuous = None
         self.physical_routers = set()
         self.peering_policys = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -4154,7 +4680,7 @@ class E2ServiceProviderDM(DBBaseDM):
         self.update_multiple_refs('peering_policy', obj)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -4168,13 +4694,13 @@ class PeeringPolicyDM(DBBaseDM):
     _dict = {}
     obj_type = 'peering_policy'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.e2_service_providers = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -4182,7 +4708,7 @@ class PeeringPolicyDM(DBBaseDM):
         self.update_multiple_refs('e2_service_provider', obj)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -4195,16 +4721,16 @@ class RoutingPolicyDM(DBBaseDM):
     _dict = {}
     obj_type = 'routing_policy'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.routing_policy_entries = []
         self.term_type = 'vrouter'
         self.virtual_networks = set()
         self.data_center_interconnects = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         rp_entries = obj.get('routing_policy_entries', None)
@@ -4394,11 +4920,11 @@ class InterfaceRouteTableDM(DBBaseDM):
     _dict = {}
     obj_type = 'interface_route_table'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.prefix = {}
         self.virtual_machine_interfaces = set()
-        self.update(obj_dict)
+        self.update(obj_dict, request_id)
     # end __init__
 
     def get_route_prefix(self, routes):
@@ -4408,7 +4934,7 @@ class InterfaceRouteTableDM(DBBaseDM):
             self.prefix[route['prefix']] = route['community_attributes']
             ['community_attribute'][-1]
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.get_route_prefix(obj.get('interface_route_table_routes', {}))
@@ -4417,7 +4943,7 @@ class InterfaceRouteTableDM(DBBaseDM):
         self.fq_name = obj['fq_name']
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_machine_interface', {})
     # end delete_obj
 # end InterfaceRouteTableDM

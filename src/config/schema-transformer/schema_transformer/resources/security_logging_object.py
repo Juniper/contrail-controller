@@ -15,13 +15,13 @@ class SecurityLoggingObjectST(ResourceBaseST):
     ref_fields = ['network_policy', 'security_group']
     prop_fields = ['security_logging_object_rate']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.network_policys = {}
         self.security_groups = {}
         self.security_logging_object_rate = None
         self.security_logging_object_rules = set()
-        self.update(obj)
+        self.update(obj, request_id)
         self.uuid = self.obj.uuid
     # end __init__
 
