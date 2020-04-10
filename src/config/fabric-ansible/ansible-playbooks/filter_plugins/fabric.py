@@ -16,6 +16,7 @@ import json
 import socket
 import struct
 import sys
+import time
 import traceback
 import uuid
 
@@ -66,7 +67,8 @@ from filter_utils import (  # noqa
     FilterLog,
     vnc_bulk_get,
     get_job_transaction,
-    set_job_transaction
+    set_job_transaction,
+    set_fabric_job_transaction
 )
 
 
@@ -1273,10 +1275,15 @@ class FilterModule(object):
         try:
             FilterLog.instance("FabricDeleteFilter")
             vnc_api = JobVncApi.vnc_init(job_ctx)
+
             fabric_info = job_ctx.get('job_input')
             fabric_fq_name = fabric_info.get('fabric_fq_name')
             fabric_name = fabric_fq_name[-1]
             fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
+
+            # Set the job transaction ID and description for role assignment
+            self._install_delete_job_transaction(job_ctx, vnc_api)
+
             job_transaction_info = get_job_transaction(job_ctx)
 
             # validate fabric deletion
@@ -1309,12 +1316,24 @@ class FilterModule(object):
         except Exception as ex:
             _task_error_log(str(ex))
             _task_error_log(traceback.format_exc())
+        finally:
+            self._uninstall_delete_job_transaction(job_ctx, vnc_api)
             return {
                 'status': 'failure',
                 'error_msg': str(ex),
                 'deletion_log': FilterLog.instance().dump()
             }
     # end delete_fabric
+
+    def _install_delete_job_transaction(self, job_ctx, vnc_api):
+        # Set transaction info on fabric object annotations
+        job_transaction_info = get_job_transaction(job_ctx)
+        set_fabric_job_transaction(job_ctx, vnc_api, job_transaction_info)
+
+    def _uninstall_delete_job_transaction(self, job_ctx, vnc_api):
+        # Clear transaction info on fabric object annotations
+        job_transaction_info = {}
+        set_fabric_job_transaction(job_ctx, vnc_api, job_transaction_info)
 
     @staticmethod
     def _read_fabric_obj(vnc_api, fq_name, fields=None):
@@ -1629,7 +1648,7 @@ class FilterModule(object):
             return
 
         # Set transaction info for this device
-        set_job_transaction(device_obj, vnc_api, job_transaction_info)
+#        set_job_transaction(device_obj, vnc_api, job_transaction_info)
 
         # delete loopback iip
         loopback_iip_name = "%s/lo0.0" % device_obj.name
@@ -2044,6 +2063,9 @@ class FilterModule(object):
             device2roles_mappings = {}
             devicefqname2_phy_role_map = {}
 
+            # Set the job transaction ID and description for role assignment
+            self._install_role_assignment_job_transaction(job_ctx, vnc_api)
+
             for device_roles in role_assignments:
                 device_fq_name = device_roles.get('device_fq_name')
                 device_obj = vnc_api.physical_router_read(
@@ -2099,10 +2121,6 @@ class FilterModule(object):
                 vnc_api, fabric_fq_name, role_assignments
             )
 
-            # Set the job transaction ID and description for role assignment
-            self._install_role_assignment_job_transaction(
-                job_ctx, vnc_api, role_assignments)
-
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
 
@@ -2136,6 +2154,8 @@ class FilterModule(object):
         finally:
             # make sure ibgp auto mesh is enabled for all cases
             self._enable_ibgp_auto_mesh(vnc_api, True)
+            # Clear the job transaction ID and description for role assignment
+            self._uninstall_role_assignment_job_transaction(job_ctx, vnc_api)
             return {
                 'status': 'failure' if errmsg else 'success',
                 'error_msg': errmsg,
@@ -2328,13 +2348,16 @@ class FilterModule(object):
                     )
     # end _check_rb_role_compatibility
 
-    def _install_role_assignment_job_transaction(self, job_ctx, vnc_api,
-                                                 role_assignments):
+    def _install_role_assignment_job_transaction(self, job_ctx, vnc_api):
+        # Set transaction info on fabric object annotations
         job_transaction_info = get_job_transaction(job_ctx)
+        set_fabric_job_transaction(job_ctx, vnc_api, job_transaction_info)
 
-        for device_roles in role_assignments:
-            set_job_transaction(device_roles.get('device_obj'), vnc_api,
-                                job_transaction_info)
+    def _uninstall_role_assignment_job_transaction(self, job_ctx, vnc_api):
+        time.sleep(5)
+        # Clear transaction info on fabric object annotations
+        job_transaction_info = {}
+        set_fabric_job_transaction(job_ctx, vnc_api, job_transaction_info)
 
     def _read_and_increment_dummy_ip(self, vnc_api):
         gsc_obj = vnc_api.global_system_config_read(
