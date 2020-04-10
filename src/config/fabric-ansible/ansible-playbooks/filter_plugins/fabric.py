@@ -16,6 +16,7 @@ import json
 import socket
 import struct
 import sys
+import time
 import traceback
 import uuid
 
@@ -66,7 +67,8 @@ from filter_utils import (  # noqa
     FilterLog,
     vnc_bulk_get,
     get_job_transaction,
-    set_job_transaction
+    set_job_transaction,
+    set_fabric_job_transaction
 )
 
 
@@ -1270,13 +1272,20 @@ class FilterModule(object):
                     'delete_log': <string: deletion log>
                 }
         """
+        vnc_api = None
+        errmsg = None
         try:
             FilterLog.instance("FabricDeleteFilter")
             vnc_api = JobVncApi.vnc_init(job_ctx)
+
             fabric_info = job_ctx.get('job_input')
             fabric_fq_name = fabric_info.get('fabric_fq_name')
             fabric_name = fabric_fq_name[-1]
             fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
+
+            # Set the job transaction ID and description for role assignment
+            self._install_job_transaction(job_ctx, vnc_api)
+
             job_transaction_info = get_job_transaction(job_ctx)
 
             # validate fabric deletion
@@ -1301,20 +1310,28 @@ class FilterModule(object):
 
             #delete intent map object
             self._delete_intent_maps(vnc_api, fabric_name)
-
-            return {
-                'status': 'success',
-                'deletion_log': FilterLog.instance().dump()
-            }
         except Exception as ex:
-            _task_error_log(str(ex))
+            errmsg = str(ex)
+            _task_error_log(errmsg)
             _task_error_log(traceback.format_exc())
+        finally:
+            self._uninstall_job_transaction(job_ctx, vnc_api)
             return {
-                'status': 'failure',
-                'error_msg': str(ex),
+                'status': 'failure' if errmsg else 'success',
+                'error_msg': errmsg,
                 'deletion_log': FilterLog.instance().dump()
             }
     # end delete_fabric
+
+    def _install_job_transaction(self, job_ctx, vnc_api):
+        # Set transaction info on fabric object annotations
+        job_transaction_info = get_job_transaction(job_ctx)
+        set_fabric_job_transaction(job_ctx, vnc_api, job_transaction_info)
+
+    def _uninstall_job_transaction(self, job_ctx, vnc_api):
+        # Clear transaction info on fabric object annotations
+        job_transaction_info = {}
+        set_fabric_job_transaction(job_ctx, vnc_api, job_transaction_info)
 
     @staticmethod
     def _read_fabric_obj(vnc_api, fq_name, fields=None):
@@ -1629,7 +1646,7 @@ class FilterModule(object):
             return
 
         # Set transaction info for this device
-        set_job_transaction(device_obj, vnc_api, job_transaction_info)
+#        set_job_transaction(device_obj, vnc_api, job_transaction_info)
 
         # delete loopback iip
         loopback_iip_name = "%s/lo0.0" % device_obj.name
@@ -1886,11 +1903,16 @@ class FilterModule(object):
                     'delete_log': <string: deletion log>
                 }
         """
+        vnc_api = None
+        errmsg = None
         try:
             FilterLog.instance("FabricDevicesDeleteFilter")
             vnc_api = JobVncApi.vnc_init(job_ctx)
 
             fabric_info = job_ctx.get('job_input')
+
+            self._install_job_transaction(job_ctx, vnc_api)
+
             self._validate_fabric_device_deletion(vnc_api, fabric_info)
             # Set transaction info first
             job_transaction_info = get_job_transaction(job_ctx)
@@ -1900,16 +1922,13 @@ class FilterModule(object):
                 self._delete_fabric_device(
                     vnc_api, device_fq_name=device_fq_name,
                     job_transaction_info=job_transaction_info)
-
-            return {
-                'status': 'success',
-                'deletion_log': FilterLog.instance().dump()
-            }
         except Exception as ex:
             errmsg = str(ex)
             _task_error_log('%s\n%s' % (errmsg, traceback.format_exc()))
+        finally:
+            self._uninstall_job_transaction(job_ctx, vnc_api)
             return {
-                'status': 'failure',
+                'status': 'failure' if errmsg else 'success',
                 'error_msg': errmsg,
                 'deletion_log': FilterLog.instance().dump()
             }
@@ -2044,6 +2063,9 @@ class FilterModule(object):
             device2roles_mappings = {}
             devicefqname2_phy_role_map = {}
 
+            # Set the job transaction ID and description for role assignment
+            self._install_job_transaction(job_ctx, vnc_api)
+
             for device_roles in role_assignments:
                 device_fq_name = device_roles.get('device_fq_name')
                 device_obj = vnc_api.physical_router_read(
@@ -2099,10 +2121,6 @@ class FilterModule(object):
                 vnc_api, fabric_fq_name, role_assignments
             )
 
-            # Set the job transaction ID and description for role assignment
-            self._install_role_assignment_job_transaction(
-                job_ctx, vnc_api, role_assignments)
-
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
 
@@ -2136,6 +2154,9 @@ class FilterModule(object):
         finally:
             # make sure ibgp auto mesh is enabled for all cases
             self._enable_ibgp_auto_mesh(vnc_api, True)
+            # Clear the job transaction ID and description for role assignment
+            time.sleep(5)
+            self._uninstall_job_transaction(job_ctx, vnc_api)
             return {
                 'status': 'failure' if errmsg else 'success',
                 'error_msg': errmsg,
@@ -2327,14 +2348,6 @@ class FilterModule(object):
                             )
                     )
     # end _check_rb_role_compatibility
-
-    def _install_role_assignment_job_transaction(self, job_ctx, vnc_api,
-                                                 role_assignments):
-        job_transaction_info = get_job_transaction(job_ctx)
-
-        for device_roles in role_assignments:
-            set_job_transaction(device_roles.get('device_obj'), vnc_api,
-                                job_transaction_info)
 
     def _read_and_increment_dummy_ip(self, vnc_api):
         gsc_obj = vnc_api.global_system_config_read(
