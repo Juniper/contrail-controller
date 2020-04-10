@@ -35,6 +35,28 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
         return (True, '')
 
     @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        interface_name = obj_dict['fq_name'][-1]
+        router_name = obj_dict['fq_name'][2]
+        if interface_name[:2] == 'ae' and interface_name[2:].isdigit():
+            ae_id = int(interface_name[2:])
+            if ae_id < cls.vnc_zk_client._VPG_MAX_ID and \
+                    cls.vnc_zk_client.ae_id_is_free(router_name, ae_id):
+                alloc_id = cls.vnc_zk_client.alloc_ae_id(router_name,
+                                                         interface_name, ae_id)
+                if alloc_id:
+                    # Run alloc method for the second time in order
+                    # to send notifications
+                    cls.vnc_zk_client.alloc_ae_id(router_name, interface_name,
+                                                  alloc_id)
+                else:
+                    msg = ("Interface %s can't get AE-ID %d because it is "
+                           "already occupied on %s physical router."
+                           % (interface_name, alloc_id, router_name))
+                    return False, (403, msg)
+        return (True, '')
+
+    @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, read_result = cls.dbe_read(db_conn, 'physical_interface', id,
                                        obj_fields=['display_name',
@@ -57,6 +79,20 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                                         read_result.get('logical_interfaces'))
             if not ok:
                 return ok, result
+        return True, ""
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        interface_name = obj_dict['fq_name'][-1]
+        router_name = obj_dict['fq_name'][2]
+        if interface_name[:2] == 'ae' and interface_name[2:].isdigit():
+            ae_id = int(interface_name[2:])
+            if ae_id < cls.vnc_zk_client._VPG_MAX_ID and not \
+                    cls.vnc_zk_client.ae_id_is_free(router_name, ae_id):
+                cls.vnc_zk_client.free_ae_id(router_name, interface_name,
+                                             ae_id)
+                cls.vnc_zk_client.free_ae_id(router_name, interface_name,
+                                             ae_id, notify=True)
         return True, ""
 
     @classmethod
@@ -110,6 +146,15 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
 
         interface_name = obj_dict['display_name']
         router = obj_dict['fq_name'][:2]
+        router_name = obj_dict['fq_name'][2]
+        if interface_name[:2] == 'ae' and interface_name[2:].isdigit():
+            ae_id = int(interface_name[2:])
+            if ae_id < cls.vnc_zk_client._VPG_MAX_ID and not \
+                    cls.vnc_zk_client.ae_id_is_free(router_name, ae_id):
+                msg = ("Aggregated interface tried to use AE-ID %d which is "
+                       "already occupied on this physical router: %s"
+                       % (ae_id, router_name))
+                return False, (403, msg)
         try:
             router_uuid = db_conn.fq_name_to_uuid('physical_router', router)
         except NoIdError as e:
