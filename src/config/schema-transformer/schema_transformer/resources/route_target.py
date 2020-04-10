@@ -53,7 +53,7 @@ class RouteTargetST(ResourceBaseST):
                       "/id/bgp/route-targets"))
     # end reinit
 
-    def __init__(self, rt_key, obj=None):
+    def __init__(self, rt_key, obj=None, request_id=None):
         self.name = rt_key
         try:
             self.obj = obj or self.read_vnc_obj(fq_name=[rt_key])
@@ -62,7 +62,7 @@ class RouteTargetST(ResourceBaseST):
             self._vnc_lib.route_target_create(self.obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         return False
 
     @classmethod

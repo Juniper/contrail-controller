@@ -53,7 +53,7 @@ class PodKM(KubeDBBase):
     _dict = {}
     obj_type = 'Pod'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj = None, request_id=None):
         self.uuid = uuid
 
         # Metadata.
@@ -75,7 +75,7 @@ class PodKM(KubeDBBase):
         if obj:
             self.update(obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self._update_metadata(obj.get('metadata'))
@@ -199,7 +199,7 @@ class NamespaceKM(KubeDBBase):
     _dict = {}
     obj_type = 'Namespace'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj = None, request_id=None):
         self.uuid = uuid
 
         # Metadata.
@@ -229,7 +229,7 @@ class NamespaceKM(KubeDBBase):
         if obj:
             self.update(obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self._update_metadata(obj.get('metadata'))
@@ -394,7 +394,7 @@ class ServiceKM(KubeDBBase):
     _dict = {}
     obj_type = 'Service'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj = None, request_id=None):
         self.uuid = uuid
 
         # Metadata.
@@ -415,7 +415,7 @@ class ServiceKM(KubeDBBase):
         if obj:
             self.update(obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self._update_metadata(obj.get('metadata'))
@@ -477,7 +477,7 @@ class NetworkPolicyKM(KubeDBBase):
     # inconsistencies between k8s and contrail databases.
     create_sequence = []
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj = None, request_id=None):
         self.uuid = uuid
         # Metadata.
         self.name = None
@@ -492,7 +492,7 @@ class NetworkPolicyKM(KubeDBBase):
         if obj:
             self.update(obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self._update_metadata(obj.get('metadata'))
@@ -666,7 +666,7 @@ class IngressKM(KubeDBBase):
     _dict = {}
     obj_type = 'Ingress'
 
-    def __init__(self, uuid, obj=None):
+    def __init__(self, uuid, obj=None, request_id=None):
         self.uuid = uuid
 
         # Metadata.
@@ -683,7 +683,7 @@ class IngressKM(KubeDBBase):
         if obj:
             self.update(obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self._update_metadata(obj.get('metadata'))
@@ -765,7 +765,7 @@ class NetworkKM(KubeDBBase):
     _dict = {}
     obj_type = 'Network'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj = None, request_id=None):
         self.uuid = uuid
 
         # Metadata.
@@ -777,7 +777,7 @@ class NetworkKM(KubeDBBase):
         if obj:
             self.update(obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self._update_metadata(obj.get('metadata'))

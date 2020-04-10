@@ -14,7 +14,7 @@ class InstanceIpST(ResourceBaseST):
                    'instance_ip_secondary']
     ref_fields = ['virtual_machine_interface']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.is_secondary = False
         self.virtual_machine_interfaces = set()
@@ -25,7 +25,7 @@ class InstanceIpST(ResourceBaseST):
         self.update(obj)
     # end __init
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'instance_ip_address' in changed and self.instance_ip_address:
             self.ip_version = IPAddress(self.instance_ip_address).version

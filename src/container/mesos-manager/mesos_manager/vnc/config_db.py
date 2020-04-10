@@ -176,7 +176,7 @@ class DBBaseMM(DBBase):
         self._update_fq_name_to_uuid(uuid, obj_dict)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -225,7 +225,7 @@ class VirtualMachineMM(DBBaseMM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.owner = None
         self.cluster = None
@@ -237,7 +237,7 @@ class VirtualMachineMM(DBBaseMM):
         super(VirtualMachineMM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
             if not obj:
@@ -259,7 +259,7 @@ class VirtualMachineMM(DBBaseMM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -313,13 +313,13 @@ class VirtualRouterMM(DBBaseMM):
     _fq_name_to_uuid = {}
     _ip_addr_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(VirtualRouterMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machines = set()
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -334,7 +334,7 @@ class VirtualRouterMM(DBBaseMM):
                 self.uuid, self.virtual_router_ip_address)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -387,7 +387,7 @@ class VirtualMachineInterfaceMM(DBBaseMM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(VirtualMachineInterfaceMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.host_id = None
@@ -401,7 +401,7 @@ class VirtualMachineInterfaceMM(DBBaseMM):
         self.add_to_parent(obj_dict)
 
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -427,7 +427,7 @@ class VirtualMachineInterfaceMM(DBBaseMM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -489,7 +489,7 @@ class VirtualNetworkMM(DBBaseMM):
     _fq_name_to_uuid = {}
     ann_fq_name_key = ["kind", "name"]
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(VirtualNetworkMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
@@ -500,7 +500,7 @@ class VirtualNetworkMM(DBBaseMM):
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -532,7 +532,7 @@ class VirtualNetworkMM(DBBaseMM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -599,7 +599,7 @@ class InstanceIpMM(DBBaseMM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(InstanceIpMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.address = None
@@ -609,7 +609,7 @@ class InstanceIpMM(DBBaseMM):
         self.floating_ips = set()
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -622,7 +622,7 @@ class InstanceIpMM(DBBaseMM):
                                  for fip in obj.get('floating_ips', [])])
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -684,7 +684,7 @@ class ProjectMM(DBBaseMM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(ProjectMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.ns_labels = {}
@@ -694,7 +694,7 @@ class ProjectMM(DBBaseMM):
         obj_dict = self.update(obj_dict)
         self.set_children('virtual_network', obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -710,7 +710,7 @@ class ProjectMM(DBBaseMM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -768,12 +768,12 @@ class DomainMM(DBBaseMM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(DomainMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -781,7 +781,7 @@ class DomainMM(DBBaseMM):
         self.build_fq_name_to_uuid(self.uuid, obj)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -820,13 +820,13 @@ class NetworkIpamMM(DBBaseMM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(NetworkIpamMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -836,7 +836,7 @@ class NetworkIpamMM(DBBaseMM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -879,13 +879,13 @@ class NetworkPolicyMM(DBBaseMM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(NetworkPolicyMM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -895,7 +895,7 @@ class NetworkPolicyMM(DBBaseMM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]

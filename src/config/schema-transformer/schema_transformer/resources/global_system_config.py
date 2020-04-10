@@ -28,13 +28,13 @@ class GlobalSystemConfigST(ResourceBaseST):
                     cls.obj_type, gsc.get_fq_name_str(), str(e)))
     # end reinit
 
-    def __init__(self, name, obj):
+    def __init__(self, name, obj, request_id=None):
         self.name = name
         self.uuid = obj.uuid
         self.update(obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'autonomous_system' in changed:
             self.update_autonomous_system(self.obj.autonomous_system)

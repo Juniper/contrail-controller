@@ -13,7 +13,7 @@ class AliasIpST(ResourceBaseST):
     prop_fields = ['floating_ip_address']
     ref_fields = ['virtual_machine_interface']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_machine_interface = None
         self.alias_ip_address = None
@@ -21,7 +21,7 @@ class AliasIpST(ResourceBaseST):
         self.update(obj)
     # end __init
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'alias_ip_address' in changed and self.alias_ip_address:
             self.ip_version = IPAddress(self.alias_ip_address).version

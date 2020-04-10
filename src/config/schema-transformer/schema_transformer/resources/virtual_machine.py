@@ -11,7 +11,7 @@ class VirtualMachineST(ResourceBaseST):
     obj_type = 'virtual_machine'
     ref_fields = ['service_instance']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_machine_interfaces = set()
         self.service_instance = None

@@ -22,7 +22,7 @@ class LoadbalancerSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.device_owner = None
         self.virtual_machine_interface = None
@@ -34,7 +34,7 @@ class LoadbalancerSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -75,7 +75,7 @@ class LoadbalancerSM(DBBaseSM):
     # end evaluate
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -91,7 +91,7 @@ class LoadbalancerListenerSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_listener'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.loadbalancer = None
         self.loadbalancer_pool = None
@@ -99,7 +99,7 @@ class LoadbalancerListenerSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -125,7 +125,7 @@ class LoadbalancerListenerSM(DBBaseSM):
     # end evaluate
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -140,7 +140,7 @@ class LoadbalancerPoolSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.members = set()
         self.loadbalancer_healthmonitors = set()
@@ -162,7 +162,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -229,7 +229,7 @@ class LoadbalancerPoolSM(DBBaseSM):
     # end evaluate
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -247,7 +247,7 @@ class LoadbalancerMemberSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_member'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.vmi = None
         self.loadbalancer_pool = {}
@@ -259,7 +259,7 @@ class LoadbalancerMemberSM(DBBaseSM):
             parent.members.add(self.uuid)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -279,7 +279,7 @@ class LoadbalancerMemberSM(DBBaseSM):
     # end evaluate
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -296,7 +296,7 @@ class VirtualIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_ip'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interface = None
         self.loadbalancer_pool = None
@@ -304,7 +304,7 @@ class VirtualIpSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -321,7 +321,7 @@ class VirtualIpSM(DBBaseSM):
     # end evaluate
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -336,7 +336,7 @@ class HealthMonitorSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_healthmonitor'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.loadbalancer_pools = set()
         self.service_health_check_id = None
@@ -345,7 +345,7 @@ class HealthMonitorSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -377,7 +377,7 @@ class HealthMonitorSM(DBBaseSM):
     # end evaluate
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -391,7 +391,7 @@ class VirtualMachineSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_machine'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_instance = None
         self.service_id = None
@@ -401,7 +401,7 @@ class VirtualMachineSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -428,7 +428,7 @@ class VirtualMachineSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -448,7 +448,7 @@ class VirtualRouterSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_router'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.agent_state = False
         self.agent_down_count = 0
@@ -456,7 +456,7 @@ class VirtualRouterSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -465,7 +465,7 @@ class VirtualRouterSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -492,7 +492,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.device_owner = None
         self.params = None
@@ -521,7 +521,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.add_to_parent(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -567,7 +567,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -602,7 +602,7 @@ class ServiceInstanceSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_instance'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_template = None
         self.loadbalancer = None
@@ -637,7 +637,7 @@ class ServiceInstanceSM(DBBaseSM):
                                      svc_info.get_standby_preference()]
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -690,7 +690,7 @@ class ServiceInstanceSM(DBBaseSM):
     # end check_vn_changes
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -720,7 +720,7 @@ class ServiceTemplateSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_template'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_instances = set()
         self.virtualization_type = 'virtual-machine'
@@ -728,7 +728,7 @@ class ServiceTemplateSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -743,7 +743,7 @@ class ServiceTemplateSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -758,7 +758,7 @@ class VirtualNetworkSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_network'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.instance_ips = set()
@@ -768,7 +768,7 @@ class VirtualNetworkSM(DBBaseSM):
         self.add_to_parent(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -788,7 +788,7 @@ class VirtualNetworkSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -816,7 +816,7 @@ class FloatingIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'floating_ip'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.address = None
         self.virtual_machine_interfaces = set()
@@ -824,7 +824,7 @@ class FloatingIpSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -834,7 +834,7 @@ class FloatingIpSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -852,7 +852,7 @@ class InstanceIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'instance_ip'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.address = None
         self.family = None
@@ -866,7 +866,7 @@ class InstanceIpSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -884,7 +884,7 @@ class InstanceIpSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -904,7 +904,7 @@ class LogicalInterfaceSM(DBBaseSM):
     _dict = {}
     obj_type = 'logical_interface'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interface = None
         self.logical_interface_vlan_tag = 0
@@ -917,7 +917,7 @@ class LogicalInterfaceSM(DBBaseSM):
             parent.logical_interfaces.add(self.uuid)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         if obj['parent_type'] == 'physical-router':
@@ -934,7 +934,7 @@ class LogicalInterfaceSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -955,7 +955,7 @@ class PhysicalInterfaceSM(DBBaseSM):
     fq_name = None
     obj_type = 'physical_interface'
     virtual_machine_interfaces = set()
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.update(obj_dict)
         pr = PhysicalRouterSM.get(self.physical_router)
@@ -963,7 +963,7 @@ class PhysicalInterfaceSM(DBBaseSM):
             pr.physical_interfaces.add(self.uuid)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -975,7 +975,7 @@ class PhysicalInterfaceSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -992,12 +992,12 @@ class PhysicalRouterSM(DBBaseSM):
     _dict = {}
     obj_type = 'physical_router'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1011,7 +1011,7 @@ class PhysicalRouterSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1024,7 +1024,7 @@ class ProjectSM(DBBaseSM):
     _dict = {}
     obj_type = 'project'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_instances = set()
         self.virtual_networks = set()
@@ -1032,7 +1032,7 @@ class ProjectSM(DBBaseSM):
         self.set_children('virtual_network', obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1042,7 +1042,7 @@ class ProjectSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1056,12 +1056,12 @@ class DomainSM(DBBaseSM):
     _dict = {}
     obj_type = 'domain'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1069,7 +1069,7 @@ class DomainSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1082,13 +1082,13 @@ class SecurityGroupSM(DBBaseSM):
     _dict = {}
     obj_type = 'security_group'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1097,7 +1097,7 @@ class SecurityGroupSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1115,7 +1115,7 @@ class InterfaceRouteTableSM(DBBaseSM):
     _dict = {}
     obj_type = 'interface_route_table'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.service_instances = {}
@@ -1124,7 +1124,7 @@ class InterfaceRouteTableSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1138,7 +1138,7 @@ class InterfaceRouteTableSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1158,7 +1158,7 @@ class ServiceApplianceSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_appliance'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_appliance_set = None
         self.physical_interfaces = {}
@@ -1166,7 +1166,7 @@ class ServiceApplianceSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1189,7 +1189,7 @@ class ServiceApplianceSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1206,7 +1206,7 @@ class ServiceApplianceSetSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_appliance_set'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_appliances = set()
         self.service_template = None
@@ -1222,7 +1222,7 @@ class ServiceApplianceSetSM(DBBaseSM):
     def evaluate(self):
         self.add()
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1239,7 +1239,7 @@ class ServiceApplianceSetSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1254,7 +1254,7 @@ class LogicalRouterSM(DBBaseSM):
     _dict = {}
     obj_type = 'logical_router'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_instance = None
         self.virtual_network = None
@@ -1263,7 +1263,7 @@ class LogicalRouterSM(DBBaseSM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1286,7 +1286,7 @@ class LogicalRouterSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1306,14 +1306,14 @@ class PortTupleSM(DBBaseSM):
     _dict = {}
     obj_type = 'port_tuple'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.parent_uuid = self.get_parent_uuid(obj)
@@ -1323,7 +1323,7 @@ class PortTupleSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1340,13 +1340,13 @@ class ServiceHealthCheckSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_health_check'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.service_instances = {}
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.parent_uuid = obj['parent_uuid']
@@ -1356,7 +1356,7 @@ class ServiceHealthCheckSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1369,13 +1369,13 @@ class NetworkIpamSM(DBBaseSM):
     _dict = {}
     obj_type = 'network_ipam'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.virtual_networks = set()
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.parent_uuid = obj['parent_uuid']
@@ -1384,7 +1384,7 @@ class NetworkIpamSM(DBBaseSM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1397,11 +1397,11 @@ class TagSM(DBBaseSM):
     _dict = {}
     obj_type = 'tag'
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1410,7 +1410,7 @@ class TagSM(DBBaseSM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
