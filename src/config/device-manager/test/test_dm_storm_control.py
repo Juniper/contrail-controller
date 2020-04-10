@@ -20,7 +20,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def tearDown(self):
         self.idle_patch.stop()
         super(TestAnsibleStormControlDM, self).tearDown()
-   
+
     def test_01_storm_control_profile_update(self):
         # create objects
 
@@ -478,7 +478,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         vpg_name = "vpg-sc-" + str(vpg_nm) + self.id()
         vlan_tag = 10
-
         vmi_obj_1 = VirtualMachineInterface(vpg_name + "-tagged-" + str(vlan_tag),
                                           parent_type='project',
                                           fq_name = ["default-domain", "default-project",
@@ -488,22 +487,25 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             # if pr2 is not none, it should also have a pi_obj2
             phy_int_name_2 = pi_obj2.get_fq_name()[-1]
             device_name_2 = pr2.get_fq_name()[-1]
-            vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"},{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (
-                phy_int_name, phy_int_name, device_name, fabric_name, phy_int_name_2, phy_int_name_2,
+            vmi_profile = "{\"local_link_information\":[{\"vpg\":\"%s\",\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"},{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (
+                vpg_name, phy_int_name, phy_int_name, device_name, fabric_name, phy_int_name_2, phy_int_name_2,
                 device_name_2, fabric_name)
         elif pi_obj2:
             phy_int_name_2 = pi_obj2.get_fq_name()[-1]
-            vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"},{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (
-            phy_int_name, phy_int_name, device_name, fabric_name, phy_int_name_2, phy_int_name_2,
+            vmi_profile = "{\"local_link_information\":[{\"vpg\":\"%s\",\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"},{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (
+            vpg_name, phy_int_name, phy_int_name, device_name, fabric_name, phy_int_name_2, phy_int_name_2,
             device_name, fabric_name)
         else:
-            vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (phy_int_name,
+            vmi_profile = "{\"local_link_information\":[{\"vpg\":\"%s\",\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (vpg_name, phy_int_name,
                                                                                                                                              phy_int_name,
                                                                                                                                              device_name,
                                                                                                                                              fabric_name)
 
         vmi_bindings = {
             "key_value_pair": [{
+                "key": "vpg",
+                "value": vpg_name
+            }, {
                 "key": "vnic_type",
                 "value": "baremetal"
             }, {
