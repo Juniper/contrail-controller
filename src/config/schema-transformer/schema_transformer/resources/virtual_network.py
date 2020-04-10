@@ -52,7 +52,7 @@ class VirtualNetworkST(ResourceBaseST):
     def me(self, name):
         return name in (self.name, 'any')
 
-    def __init__(self, name, obj=None, acl_dict=None):
+    def __init__(self, name, obj=None, acl_dict=None, request_id=None):
         self.name = name
         self.network_policys = OrderedDict()
         self.routing_policys = {}
@@ -113,7 +113,7 @@ class VirtualNetworkST(ResourceBaseST):
         return routes
     # end
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         ret = self.update_vnc_obj(obj)
 
         old_policies = set(self.network_policys.keys())
@@ -253,7 +253,7 @@ class VirtualNetworkST(ResourceBaseST):
                 else:
                     service_chain.delete()
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         for policy_name in self.network_policys:
             policy = ResourceBaseST.get_obj_type_map().get(
                 'network_policy').get(policy_name)

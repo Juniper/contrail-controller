@@ -22,7 +22,7 @@ class BgpAsAServiceST(ResourceBaseST):
                    'bgpaas_shared']
     ref_fields = ['virtual_machine_interface', 'bgp_router']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_machine_interfaces = set()
         self.bgp_routers = set()
@@ -55,7 +55,7 @@ class BgpAsAServiceST(ResourceBaseST):
                         break
     # end set_bgp_clients
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'bgpaas_session_attributes' in changed:
             session_attrib = self.bgpaas_session_attributes

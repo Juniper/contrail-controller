@@ -186,7 +186,7 @@ class DBBaseKM(DBBase):
         self._update_fq_name_to_uuid(uuid, obj_dict)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -249,7 +249,7 @@ class LoadbalancerKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(LoadbalancerKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
@@ -262,7 +262,7 @@ class LoadbalancerKM(DBBaseKM):
         self.firewall_rule_uuids = set()
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -304,7 +304,7 @@ class LoadbalancerKM(DBBaseKM):
         return self.firewall_rule_uuids
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -367,7 +367,7 @@ class LoadbalancerListenerKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(LoadbalancerListenerKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.loadbalancer = None
@@ -376,7 +376,7 @@ class LoadbalancerListenerKM(DBBaseKM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -396,7 +396,7 @@ class LoadbalancerListenerKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -445,7 +445,7 @@ class LoadbalancerPoolKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(LoadbalancerPoolKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.members = set()
@@ -454,7 +454,7 @@ class LoadbalancerPoolKM(DBBaseKM):
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -475,7 +475,7 @@ class LoadbalancerPoolKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -526,7 +526,7 @@ class LoadbalancerMemberKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(LoadbalancerMemberKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.vmi = None
@@ -539,7 +539,7 @@ class LoadbalancerMemberKM(DBBaseKM):
                 parent.members.add(self.uuid)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -557,7 +557,7 @@ class LoadbalancerMemberKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -602,14 +602,14 @@ class HealthMonitorKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(HealthMonitorKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.loadbalancer_pools = set()
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -623,7 +623,7 @@ class HealthMonitorKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -667,7 +667,7 @@ class VirtualMachineKM(DBBaseKM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.owner = None
         self.cluster = None
@@ -680,7 +680,7 @@ class VirtualMachineKM(DBBaseKM):
         super(VirtualMachineKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
             if not obj:
@@ -704,7 +704,7 @@ class VirtualMachineKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -759,13 +759,13 @@ class VirtualRouterKM(DBBaseKM):
     _fq_name_to_uuid = {}
     _ip_addr_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(VirtualRouterKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machines = set()
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -780,7 +780,7 @@ class VirtualRouterKM(DBBaseKM):
                 self.uuid, self.virtual_router_ip_address)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -834,7 +834,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(VirtualMachineInterfaceKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.host_id = None
@@ -850,7 +850,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         self.add_to_parent(obj_dict)
 
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -916,7 +916,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1014,7 +1014,7 @@ class VirtualNetworkKM(DBBaseKM):
     _fq_name_to_uuid = {}
     ann_fq_name_key = ["kind", "name"]
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(VirtualNetworkKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
@@ -1027,7 +1027,7 @@ class VirtualNetworkKM(DBBaseKM):
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1066,7 +1066,7 @@ class VirtualNetworkKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1138,7 +1138,7 @@ class InstanceIpKM(DBBaseKM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(InstanceIpKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.address = None
@@ -1148,7 +1148,7 @@ class InstanceIpKM(DBBaseKM):
         self.floating_ips = set()
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1161,7 +1161,7 @@ class InstanceIpKM(DBBaseKM):
                                  for fip in obj.get('floating_ips', [])])
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1223,7 +1223,7 @@ class ProjectKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(ProjectKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.ns_labels = {}
@@ -1238,7 +1238,7 @@ class ProjectKM(DBBaseKM):
         obj_dict = self.update(obj_dict)
         self.set_children('virtual_network', obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1266,7 +1266,7 @@ class ProjectKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -1336,12 +1336,12 @@ class DomainKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(DomainKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
@@ -1349,7 +1349,7 @@ class DomainKM(DBBaseKM):
         self.build_fq_name_to_uuid(self.uuid, obj)
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -1389,7 +1389,7 @@ class SecurityGroupKM(DBBaseKM):
     _fq_name_to_uuid = {}
     ann_fq_name_key = ["name"]
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(SecurityGroupKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.project_uuid = None
@@ -1399,7 +1399,7 @@ class SecurityGroupKM(DBBaseKM):
         self.owner = None
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1421,7 +1421,7 @@ class SecurityGroupKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1525,13 +1525,13 @@ class FloatingIpPoolKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(FloatingIpPoolKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_network = None
         self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1543,7 +1543,7 @@ class FloatingIpPoolKM(DBBaseKM):
             self.floating_ip_pool_subnets = obj['floating_ip_pool_subnets']
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1594,7 +1594,7 @@ class FloatingIpKM(DBBaseKM):
     ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(FloatingIpKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.address = None
@@ -1608,7 +1608,7 @@ class FloatingIpKM(DBBaseKM):
                 iip.floating_ips.add(self.uuid)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1621,7 +1621,7 @@ class FloatingIpKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1670,13 +1670,13 @@ class NetworkIpamKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(NetworkIpamKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1686,7 +1686,7 @@ class NetworkIpamKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -1728,13 +1728,13 @@ class NetworkPolicyKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         super(NetworkPolicyKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1744,7 +1744,7 @@ class NetworkPolicyKM(DBBaseKM):
     # end update
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
@@ -1756,12 +1756,12 @@ class TagKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         super(TagKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1771,7 +1771,7 @@ class TagKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1786,12 +1786,12 @@ class PolicyManagementKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         super(PolicyManagementKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1800,7 +1800,7 @@ class PolicyManagementKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         super(PolicyManagementKM, cls).delete(uuid)
@@ -1813,7 +1813,7 @@ class ApplicationPolicySetKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.firewall_policy_refs = None
         # Hold refs to firewall policies on this APS, that are sorted by
@@ -1822,7 +1822,7 @@ class ApplicationPolicySetKM(DBBaseKM):
         super(ApplicationPolicySetKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1841,7 +1841,7 @@ class ApplicationPolicySetKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         super(ApplicationPolicySetKM, cls).delete(uuid)
@@ -1867,13 +1867,13 @@ class FirewallRuleKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         super(FirewallRuleKM, self).__init__(uuid, obj_dict)
         self.address_groups = set()
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1888,7 +1888,7 @@ class FirewallRuleKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1906,7 +1906,7 @@ class FirewallPolicyKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         self.firewall_rules = set()
         self.deny_all_rule_uuid = None
@@ -1929,7 +1929,7 @@ class FirewallPolicyKM(DBBaseKM):
         super(FirewallPolicyKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -1963,7 +1963,7 @@ class FirewallPolicyKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
@@ -1988,12 +1988,12 @@ class AddressGroupKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         super(AddressGroupKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -2002,7 +2002,7 @@ class AddressGroupKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         super(AddressGroupKM, cls).delete(uuid)
@@ -2015,12 +2015,12 @@ class GlobalVrouterConfigKM(DBBaseKM):
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
-    def __init__(self, uuid, obj_dict=None):
+    def __init__(self, uuid, obj_dict=None, request_id=None):
         self.uuid = uuid
         super(GlobalVrouterConfigKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
@@ -2029,7 +2029,7 @@ class GlobalVrouterConfigKM(DBBaseKM):
         return obj
 
     @classmethod
-    def delete(cls, uuid):
+    def delete(cls, uuid, request_id=None):
         if uuid not in cls._dict:
             return
         super(GlobalVrouterConfigKM, cls).delete(uuid)

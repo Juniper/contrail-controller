@@ -13,7 +13,7 @@ class RouteTableST(ResourceBaseST):
 
     _service_instances = {}
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_networks = set()
         self.logical_routers = set()
@@ -24,7 +24,7 @@ class RouteTableST(ResourceBaseST):
         self.update_multiple_refs('logical_router', self.obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'routes' in changed:
             if self.routes is None:
@@ -66,7 +66,7 @@ class RouteTableST(ResourceBaseST):
     def get_by_service_instance(cls, si_name):
         return cls._service_instances.get(si_name, set())
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_network', {})
         self.update_multiple_refs('logical_router', {})
 

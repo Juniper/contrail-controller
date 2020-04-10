@@ -19,7 +19,7 @@ class BgpRouterST(ResourceBaseST):
     prop_fields = ['bgp_router_parameters']
     ref_fields = ['bgp_as_a_service', 'sub_cluster', 'physical_router']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.asn = None
         self.cluster_id_changed = False
@@ -36,13 +36,13 @@ class BgpRouterST(ResourceBaseST):
         self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'bgp_router_parameters' in changed:
             self.set_params(self.obj.get_bgp_router_parameters())
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('bgp_as_a_service', {})
         self.update_single_ref('physical_router', {})
         if self.router_type == 'bgpaas-client':

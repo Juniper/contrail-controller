@@ -12,7 +12,7 @@ class RoutingPolicyST(ResourceBaseST):
     obj_type = 'routing_policy'
     ref_fields = ['service_instance']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.service_instances = {}
         self.routing_instances = set()
@@ -27,7 +27,7 @@ class RoutingPolicyST(ResourceBaseST):
                 ri.routing_policys[self.name] = ref['attr'].sequence
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'service_instance' not in changed:
             return False

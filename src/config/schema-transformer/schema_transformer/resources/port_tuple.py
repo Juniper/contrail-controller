@@ -9,7 +9,7 @@ class PortTupleST(ResourceBaseST):
     _dict = {}
     obj_type = 'port_tuple'
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.service_instance = None
         self.virtual_machine_interfaces = set()
@@ -19,12 +19,12 @@ class PortTupleST(ResourceBaseST):
         self.update_multiple_refs('virtual_machine_interface', self.obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
         return False
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.remove_from_parent()
     # end delete_obj
