@@ -9,6 +9,7 @@ from cfgm_common.exceptions import NoIdError
 from sandesh_common.vns.constants import RESERVED_QFX_L2_VLAN_TAGS
 from vnc_api.gen.resource_common import PhysicalInterface
 
+from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
@@ -32,6 +33,23 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
             if not ok:
                 return ok, result
 
+        if cls._interface_should_be_aggregated_in_zk(obj_dict):
+            interface_name = obj_dict['fq_name'][-1]
+            router_name = obj_dict['fq_name'][1]
+            ae_id = int(interface_name[2:])
+            if not cls.vnc_zk_client.ae_id_is_occupied(router_name, ae_id):
+                cls.vnc_zk_client.alloc_ae_id(router_name, interface_name,
+                                              ae_id)
+
+                def undo_alloc():
+                    cls.vnc_zk_client.free_ae_id(router_name, interface_name,
+                                                 ae_id)
+                get_context().push_undo(undo_alloc())
+            else:
+                msg = ("Interface %s can't get AE-ID %d because it is "
+                       "already occupied on %s physical router."
+                       % (interface_name, ae_id, router_name))
+                return False, (403, msg)
         return (True, '')
 
     @classmethod
@@ -57,6 +75,20 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                                         read_result.get('logical_interfaces'))
             if not ok:
                 return ok, result
+        return True, ""
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        if cls._interface_should_be_aggregated_in_zk(obj_dict):
+            interface_name = obj_dict['fq_name'][-1]
+            router_name = obj_dict['fq_name'][1]
+            ae_id = int(interface_name[2:])
+            if cls.vnc_zk_client.ae_id_is_occupied(router_name, ae_id):
+                cls.vnc_zk_client.free_ae_id(router_name, ae_id,
+                                             interface_name)
+                # Call the method a second time in order to send notifications.
+                cls.vnc_zk_client.free_ae_id(router_name, ae_id,
+                                             interface_name, notify=True)
         return True, ""
 
     @classmethod
@@ -188,3 +220,25 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                             return False, (403, msg)
 
         return True, ""
+
+    @classmethod
+    def _interface_should_be_aggregated_in_zk(cls, obj_dict):
+        interface_name = obj_dict['fq_name'][-1]
+        if interface_name[:2].lower() == 'ae' and interface_name[2:].isdigit():
+            ae_id = int(interface_name[2:])
+            # From API server side we don't use ae-id higher than defined
+            # AE_MAX_ID. If any occur, they don't need to be registered in ZK.
+            if ae_id < cls.vnc_zk_client._AE_MAX_ID:
+                return True
+        return False
+
+    @classmethod
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        if cls._interface_should_be_aggregated_in_zk(obj_dict):
+            interface_name = obj_dict['fq_name'][-1]
+            router_name = obj_dict['fq_name'][1]
+            ae_id = int(interface_name[2:])
+            if cls.vnc_zk_client.ae_id_is_occupied(router_name, ae_id):
+                cls.vnc_zk_client.alloc_ae_id(router_name, interface_name,
+                                              ae_id, notify=True)
+        return True, ''
