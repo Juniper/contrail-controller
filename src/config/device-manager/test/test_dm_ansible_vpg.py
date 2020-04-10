@@ -600,31 +600,32 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr)
 
         vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 101)
-        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 102)
+        vmi2, vm2, pi2 = self.attach_vmi('2', ['xe-0/0/2'], [pr], vn1_obj, None, fabric, None, 102)
 
         gevent.sleep(1)
         ac = self.check_dm_ansible_config_push()
         fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
 
-        pi_name = 'xe-0/0/1'
-        li_name = pi_name + '.101'
-        pi = self.get_phy_interfaces(fc, name=pi_name)
-        li = self.get_logical_interface(pi, name=li_name)
+        pi_name_1 = 'xe-0/0/1'
+        li_name_1 = pi_name_1 + '.101'
+        pi1 = self.get_phy_interfaces(fc, name=pi_name_1)
+        li1 = self.get_logical_interface(pi, name=li_name_1)
 
-        self.assertEqual(li.get('vlan_tag'), '101')
-        self.assertTrue(li.get('is_tagged'))
+        self.assertEqual(li1.get('vlan_tag'), '101')
+        self.assertTrue(li1.get('is_tagged'))
 
-        pi_name = 'xe-0/0/1'
-        li_name = pi_name + '.0'
-        pi = self.get_phy_interfaces(fc, name=pi_name)
-        li = self.get_logical_interface(pi, name=li_name)
+        pi_name_2 = 'xe-0/0/2'
+        li_name_2 = pi_name_2 + '.0'
+        pi2 = self.get_phy_interfaces(fc, name=pi_name_2)
+        li2 = self.get_logical_interface(pi, name=li_name_2)
 
-        self.assertEqual(li.get('vlan_tag'), '102')
-        self.assertFalse(li.get('is_tagged'))
+        self.assertEqual(li2.get('vlan_tag'), '102')
+        self.assertFalse(li2.get('is_tagged'))
 
         self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
         self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
         self._vnc_lib.physical_interface_delete(fq_name=pi1[0].get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi2[0].get_fq_name())
 
         self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi2.get_fq_name())
         self._vnc_lib.virtual_machine_delete(fq_name=vm2.get_fq_name())
@@ -686,31 +687,32 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr)
 
         vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 101)
-        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 102)
+        vmi2, vm2, pi2 = self.attach_vmi('2', ['xe-0/0/2'], [pr], vn1_obj, None, fabric, 102)
 
         gevent.sleep(1)
         ac = self.check_dm_ansible_config_push()
         fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
 
-        pi_name = 'xe-0/0/1'
-        li_name = pi_name + '.0'
-        pi = self.get_phy_interfaces(fc, name=pi_name)
-        li = self.get_logical_interface(pi, name=li_name)
+        pi_name_1 = 'xe-0/0/1'
+        li_name_1 = pi_name_1 + '.0'
+        pi1 = self.get_phy_interfaces(fc, name=pi_name_1)
+        li1 = self.get_logical_interface(pi1, name=li_name_1)
 
-        self.assertEqual(li.get('vlan_tag'), '101')
-        self.assertFalse(li.get('is_tagged'))
+        self.assertEqual(li1.get('vlan_tag'), '101')
+        self.assertFalse(li1.get('is_tagged'))
 
-        pi_name = 'xe-0/0/1'
-        li_name = pi_name + '.102'
-        pi = self.get_phy_interfaces(fc, name=pi_name)
-        li = self.get_logical_interface(pi, name=li_name)
+        pi_name_2 = 'xe-0/0/2'
+        li_name_2 = pi_name_2 + '.102'
+        pi2 = self.get_phy_interfaces(fc, name=pi_name_2)
+        li2 = self.get_logical_interface(pi2, name=li_name_2)
 
-        self.assertEqual(li.get('vlan_tag'), '102')
-        self.assertTrue(li.get('is_tagged'))
+        self.assertEqual(li2.get('vlan_tag'), '102')
+        self.assertTrue(li2.get('is_tagged'))
 
         self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
         self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
         self._vnc_lib.physical_interface_delete(fq_name=pi1[0].get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi2[0].get_fq_name())
 
         self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi2.get_fq_name())
         self._vnc_lib.virtual_machine_delete(fq_name=vm2.get_fq_name())
