@@ -850,7 +850,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 ae_id = alloc_dict.get('ae_id')
                 vpg_name = alloc_dict.get('vpg_name')
                 prouter_name = alloc_dict.get('prouter_name')
-                cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id)
+                cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id,
+                                              notify=True)
 
     # Allocate ae_id:
     # 1. Get the ae_id from the old PI ref which is already assoc with PR
