@@ -124,3 +124,45 @@ class TestPhysicalInterface(test_case.ApiServerTestCase):
         self._vnc_lib.logical_interface_create(li3)
         pi3_obj.set_ethernet_segment_identifier(esi_id)
         self._vnc_lib.physical_interface_update(pi3_obj)
+
+    def test_physical_interface_ae_id_alloc_and_free(self):
+        AE_ID_TEST_CASES = [3, 127]
+
+        mock_zk = self._api_server._db_conn._zk_db
+
+        pr_name = self.id() + '_physical_router'
+        pr = PhysicalRouter(pr_name)
+        pr_uuid = self._vnc_lib.physical_router_create(pr)
+        pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
+
+        for ae_id in AE_ID_TEST_CASES:
+            pi_name = 'ae' + str(ae_id)
+            pi = PhysicalInterface(name=pi_name, parent_obj=pr_obj)
+            pi_uuid = self._vnc_lib.physical_interface_create(pi)
+            self.assertFalse(mock_zk.ae_id_is_free(pr_name, ae_id))
+            self._vnc_lib.physical_interface_delete(id=pi_uuid)
+            self.assertTrue(mock_zk.ae_id_is_free(pr_name, ae_id))
+
+        self._vnc_lib.physical_router_delete(id=pr_uuid)
+
+    def test_physical_interface_ae_id_is_busy(self):
+        AE_ID = 3
+        OBJECT_OCCUPING_AE_ID_NAME = 'VPG_1'
+
+        mock_zk = self._api_server._db_conn._zk_db
+
+        pr_name = self.id() + '_physical_router'
+        pr = PhysicalRouter(pr_name)
+        pr_uuid = self._vnc_lib.physical_router_create(pr)
+        pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
+
+        pi_name = 'ae' + str(AE_ID)
+        mock_zk.alloc_ae_id(pr_name, OBJECT_OCCUPING_AE_ID_NAME, AE_ID)
+        self.assertFalse(mock_zk.ae_id_is_free(pr_name, AE_ID))
+
+        pi = PhysicalInterface(name=pi_name, parent_obj=pr_obj)
+        self.assertRaises(
+            PermissionDenied, self._vnc_lib.physical_interface_create, pi)
+
+        self._vnc_lib.physical_router_delete(id=pr_uuid)
+        mock_zk.free_ae_id(pr_name, AE_ID, OBJECT_OCCUPING_AE_ID_NAME)

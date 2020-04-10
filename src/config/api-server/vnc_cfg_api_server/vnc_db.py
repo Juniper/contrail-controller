@@ -444,7 +444,7 @@ class VncZkClient(object):
     _TAG_VALUE_MAX_ID = (1 << 16) - 1
 
     _AE_ID_ALLOC_PATH = "/id/aggregated-ethernet/%s/"
-    _AE_MAX_ID = (1 << 7) - 1
+    _AE_MAX_ID = 1 << 7
 
     _SUB_CLUSTER_ID_ALLOC_PATH = "/id/sub-clusters/id/"
     _SUB_CLUSTER_MAX_ID_2_BYTES = (1 << 16) - 1
@@ -886,7 +886,7 @@ class VncZkClient(object):
                 ),
             ).read(id)
 
-    def alloc_ae_id(self, phy_rtr_name, fq_name_str, id=None):
+    def ae_id_is_free(self, phy_rtr_name, id):
         ae_id_allocator = self._ae_id_allocator.setdefault(
             phy_rtr_name,
             IndexAllocator(
@@ -895,14 +895,33 @@ class VncZkClient(object):
                 self._AE_MAX_ID,
             ),
         )
-        # If ID provided, it's a notify allocation, just lock allocated ID in
-        # memory
-        if id is not None:
-            if ae_id_allocator.read(id) is not None:
-                ae_id_allocator.set_in_use(id)
-                return id
-        elif fq_name_str is not None:
-            return ae_id_allocator.alloc(fq_name_str)
+        if ae_id_allocator.read(id) is not None:
+            return False
+        return True
+
+    def alloc_ae_id(self, phy_rtr_name, fq_name_str, id=None, notify=False):
+        ae_id_allocator = self._ae_id_allocator.setdefault(
+            phy_rtr_name,
+            IndexAllocator(
+                self._zk_client,
+                self._ae_id_alloc_path % phy_rtr_name,
+                self._AE_MAX_ID,
+            ),
+        )
+        # If notify==True and ID provided, it's a notify allocation,
+        # just lock allocated ID in memory
+        if notify and ae_id_allocator.read(id) is not None:
+            ae_id_allocator.set_in_use(id)
+            return id
+        if fq_name_str is not None:
+            if id is not None:
+                try:
+                    return ae_id_allocator.reserve(id, fq_name_str)
+                except ResourceExistsError:
+                    return False
+            else:
+                return ae_id_allocator.alloc(fq_name_str)
+        return False
 
     def free_ae_id(self, phy_rtr_name, id, fq_name_str, notify=False):
         ae_id_allocator = self._ae_id_allocator.setdefault(
