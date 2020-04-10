@@ -155,6 +155,24 @@ class FakeJobHandler(object):
     # end get_job_input
 
     @classmethod
+    def get_transaction_info(cls):
+        pr_obj = cls.params.get('plugin').physical_router
+        if pr_obj:
+            return pr_obj.transaction_id, pr_obj.transaction_descr
+        return None, ''
+    # end get_transaction_info
+
+    @classmethod
+    def get_dev_transaction_info(cls, dev_name):
+        dev = cls.dev_params.get(dev_name)
+        if dev:
+            pr_obj = dev.get('plugin').physical_router
+            if pr_obj:
+                return pr_obj.transaction_id, pr_obj.transaction_descr
+        return None, ''
+    # end get_dev_transaction_info
+
+    @classmethod
     def reset(cls):
         cls.params = {}
         cls.dev_params = {}
