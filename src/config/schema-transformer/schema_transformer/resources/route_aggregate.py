@@ -14,15 +14,15 @@ class RouteAggregateST(ResourceBaseST):
     prop_fields = ['aggregate_route_entries']
     ref_fields = ['service_instance', 'routing_instance']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.service_instances = {}
         self.routing_instances = set()
         self.aggregate_route_entries = None
-        self.update(obj)
+        self.update(obj, request_id)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'service_instance' in changed:
             new_refs = dict((':'.join(ref['to']), ref['attr'].interface_type)

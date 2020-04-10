@@ -23,7 +23,7 @@ class VirtualMachineInterfaceST(ResourceBaseST):
                   'logical_router', 'bgp_as_a_service', 'routing_instance']
     prop_fields = ['virtual_machine_interface_properties']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.service_interface_type = None
         self.interface_mirror = None
@@ -37,7 +37,7 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         self.floating_ips = set()
         self.alias_ips = set()
         self.routing_instances = {}
-        self.update(obj)
+        self.update(obj, request_id)
         self.uuid = self.obj.uuid
         self.update_multiple_refs('instance_ip', self.obj)
         self.update_multiple_refs('floating_ip', self.obj)
@@ -45,7 +45,7 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if 'virtual_machine_interface_properties' in changed:
             self.set_properties()
@@ -54,7 +54,7 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         return changed
     # end update
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_single_ref('virtual_network', {})
         self.update_single_ref('virtual_machine', {})
         self.update_single_ref('logical_router', {})

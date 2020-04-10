@@ -21,7 +21,7 @@ class NetworkPolicyST(ResourceBaseST):
     _service_instances = {}
     _network_policys = {}
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_networks = set()
         self.service_instances = set()
@@ -32,7 +32,7 @@ class NetworkPolicyST(ResourceBaseST):
         # policies referred in this policy as src or dst
         self.referred_policies = set()
         # policies referring to this policy as src or dst
-        self.update(obj)
+        self.update(obj, request_id)
         for vn_ref in self.obj.get_virtual_network_back_refs() or []:
             vn_name = ':'.join(vn_ref['to'])
             self.virtual_networks.add(vn_name)
@@ -82,7 +82,7 @@ class NetworkPolicyST(ResourceBaseST):
     def get_by_service_instance(cls, si_name):
         return cls._service_instances.get(si_name, set())
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         ret = self.update_vnc_obj(obj)
         if ret:
             self.add_rules(self.obj.get_network_policy_entries())
@@ -160,7 +160,7 @@ class NetworkPolicyST(ResourceBaseST):
         self.service_instances = si_set
     # update_service_instances
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.add_rules(None)
         self._internal_policies.discard(self.name)
         for vn_name in self.virtual_networks:
