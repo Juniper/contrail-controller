@@ -116,6 +116,7 @@ class VncAmqpHandle(object):
 
         oper = self.oper_info['oper']
         obj_id = self.oper_info['uuid']
+        self.request_id = self.oper_info.get('request-id')
         self.create_msgbus_trace(self.oper_info.get('request_id'),
                                  oper, obj_id)
         if oper == 'CREATE':
@@ -148,7 +149,7 @@ class VncAmqpHandle(object):
         obj_fq_name = self.oper_info['fq_name']
         self.db_cls._object_db.cache_uuid_to_fq_name_add(
                 obj_id, obj_fq_name, self.obj_type)
-        self.obj = self.obj_class.locate(obj_key)
+        self.obj = self.obj_class.locate(obj_key, None, self.request_id)
         if self.obj is None:
             self.logger.info('%s id %s fq_name %s not found' % (
                 self.obj_type, obj_id, obj_fq_name))
@@ -171,7 +172,8 @@ class VncAmqpHandle(object):
             return
 
         try:
-            ret = self.obj.update()
+            ret = self.obj.update(request_id = self.request_id)
+
             if ret is not None and not ret:
                 # If update returns None, the function may not support a
                 # return value, hence treat it as if something might have
@@ -207,7 +209,7 @@ class VncAmqpHandle(object):
             self.db_cls.get_obj_type_map(), self.reaction_map)
         self.dependency_tracker.evaluate(self.obj_type, self.obj)
         obj_key = self._get_key_from_oper_info()
-        self.obj_class.delete(obj_key)
+        self.obj_class.delete(obj_key, request_id=self.request_id)
 
     def handle_unknown(self):
         # unknown operation

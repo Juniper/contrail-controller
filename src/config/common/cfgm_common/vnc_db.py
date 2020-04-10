@@ -85,17 +85,17 @@ class DBBase(object, with_metaclass(DBBaseMeta)):
         return cls._dict[key]
     # end locate
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         # Override in derived class to provide additional functionality
         pass
 
     @classmethod
-    def delete(cls, key):
+    def delete(cls, key, request_id=None):
         try:
             obj = cls.get(key)
             if obj is None:
                 return
-            obj.delete_obj()
+            obj.delete_obj(request_id=request_id)
         finally:
             # Even if an error is encountered, delete the object from cache
             try:
