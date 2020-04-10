@@ -184,3 +184,20 @@ def set_job_transaction(device_obj, vnc_api, trans_info):
     device_obj.set_annotations(annotations)
     if vnc_api:
         vnc_api.physical_router_update(device_obj)
+
+
+def set_fabric_job_transaction(job_ctx, vnc_api, trans_info):
+    try:
+        fabric_info = job_ctx.get('job_input')
+        fabric_fq_name = fabric_info.get('fabric_fq_name')
+        fabric_obj = vnc_api.fabric_read(fq_name=fabric_fq_name)
+        trans_val = json.dumps(trans_info)
+        annotations = fabric_obj.get_annotations()
+        if not annotations:
+            annotations = KeyValuePairs()
+        annotations.add_key_value_pair(
+            KeyValuePair(key='job_transaction', value=trans_val))
+        fabric_obj.set_annotations(annotations)
+        vnc_api.fabric_update(fabric_obj)
+    except Exception:
+        pass
