@@ -40,7 +40,7 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_TRUE(ribout3 != NULL);
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -54,7 +54,7 @@ TEST_F(BgpTableTest, RiboutBasic) {
     rt_table_->RibOutDelete(policy2);
     ribout2 = rt_table_->RibOutFind(policy2);
     ASSERT_TRUE(ribout2 == NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 2);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 2U);
 
     // Check if we can find the others.
     temp = rt_table_->RibOutFind(policy1);
@@ -67,12 +67,12 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_TRUE(ribout2 != NULL);
     temp = rt_table_->RibOutFind(policy2);
     ASSERT_EQ(temp, ribout2);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Call locate again and make sure we didn't add a new one.
     temp = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_EQ(temp, ribout2);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can still find the others.
     temp = rt_table_->RibOutFind(policy1);
@@ -84,7 +84,7 @@ TEST_F(BgpTableTest, RiboutBasic) {
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -101,7 +101,7 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_TRUE(ribout1 != NULL);
     ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -114,13 +114,13 @@ TEST_F(BgpTableTest, RiboutBasic) {
     // Call locate again and make sure we didn't add a new one.
     temp = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_EQ(temp, ribout3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Delete all of them.
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -145,7 +145,7 @@ TEST_F(BgpTableTest, RiboutEncoding1) {
     ASSERT_TRUE(ribout2 != NULL);
     ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -159,7 +159,7 @@ TEST_F(BgpTableTest, RiboutEncoding1) {
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -184,7 +184,7 @@ TEST_F(BgpTableTest, RiboutEncoding2) {
     ASSERT_TRUE(ribout3 != NULL);
     ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -198,7 +198,7 @@ TEST_F(BgpTableTest, RiboutEncoding2) {
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -223,7 +223,7 @@ TEST_F(BgpTableTest, RiboutClusterId) {
     ASSERT_TRUE(ribout1 != NULL);
     ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -237,7 +237,7 @@ TEST_F(BgpTableTest, RiboutClusterId) {
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -265,7 +265,7 @@ TEST_F(BgpTableTest, RiboutAS) {
     ASSERT_TRUE(ribout2 != NULL);
     ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -279,7 +279,7 @@ TEST_F(BgpTableTest, RiboutAS) {
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -303,7 +303,7 @@ TEST_F(BgpTableTest, RiboutASOverride) {
     ASSERT_TRUE(ribout1 != NULL);
     ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 2);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 2U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -314,7 +314,7 @@ TEST_F(BgpTableTest, RiboutASOverride) {
     // Delete all of them.
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -348,7 +348,7 @@ TEST_F(BgpTableTest, RiboutNexthop) {
     ASSERT_TRUE(ribout2 != NULL);
     ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3U);
 
     // Check if we can find them.
     temp = rt_table_->RibOutFind(policy1);
@@ -362,7 +362,7 @@ TEST_F(BgpTableTest, RiboutNexthop) {
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
     rt_table_->RibOutDelete(policy3);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -386,7 +386,7 @@ TEST_F(BgpTableTest, RiboutLlgrDisabled) {
     ASSERT_TRUE(ribout1 != NULL);
     ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 1);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 1U);
     EXPECT_EQ(ribout1, ribout2);
 
     // Check if we can find them.
@@ -397,7 +397,7 @@ TEST_F(BgpTableTest, RiboutLlgrDisabled) {
 
     // Delete all of them.
     rt_table_->RibOutDelete(policy1);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);
@@ -419,7 +419,7 @@ TEST_F(BgpTableTest, RiboutLlgrEnabled) {
     ASSERT_TRUE(ribout1 != NULL);
     ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 2);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 2U);
     EXPECT_NE(ribout1, ribout2);
 
     // Check if we can find them.
@@ -431,7 +431,7 @@ TEST_F(BgpTableTest, RiboutLlgrEnabled) {
     // Delete all of them.
     rt_table_->RibOutDelete(policy1);
     rt_table_->RibOutDelete(policy2);
-    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0U);
 
     // Make sure they are all gone.
     ribout1 = rt_table_->RibOutFind(policy1);

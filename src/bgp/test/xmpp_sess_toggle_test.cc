@@ -157,7 +157,8 @@ protected:
 
         cout << "*******************************************************"<<endl;
         for (size_t i = 0; i < resp->get_tables().size(); i++) {
-            EXPECT_EQ(result[i], resp->get_tables()[i].routes.size());
+            EXPECT_EQ(static_cast<size_t>(result[i]),
+                      resp->get_tables()[i].routes.size());
             cout << resp->get_tables()[i].routing_instance << " "
                  << resp->get_tables()[i].routing_table_name << endl;
             for (size_t j = 0; j < resp->get_tables()[i].routes.size(); j++) {
@@ -205,12 +206,12 @@ TEST_F(BgpXmppUnitTest, TestSessionUpDown) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->FindChannel(SUB_ADDR) != NULL);
 
     TcpServer *ts = static_cast<TcpServer *>(xs_a_);
-    EXPECT_EQ(1, ts->GetSessionCount());
+    EXPECT_EQ(1U, ts->GetSessionCount());
 
     //bring-down client session
     agent_a_->SessionDown();
     TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(0, ts->GetSessionCount());
+    TASK_UTIL_EXPECT_EQ(0U, ts->GetSessionCount());
 
     if (!xs_a_->IsPeerCloseGraceful()) {
         // Ensure XmppConnection is removed both from connection_map_

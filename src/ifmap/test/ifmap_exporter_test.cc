@@ -579,7 +579,7 @@ TEST_F(IFMapExporterTest, NodeAddDependency) {
                 << link->ToString() << " before " << link->right()->ToString();
         }
     }
-    EXPECT_EQ(4, seen.size());
+    EXPECT_EQ(4U, seen.size());
 }
 
 // Link is deleted.
@@ -640,7 +640,7 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
                 << link->ToString() << " after " << link->right()->ToString();
         }
     }
-    EXPECT_EQ(4, seen.size());
+    EXPECT_EQ(4U, seen.size());
 }
 
 TEST_F(IFMapExporterTest, DISABLED_CrcChecks) {
@@ -1006,9 +1006,9 @@ TEST_F(IFMapExporterTest, PR1383393) {
     std::string name2 = "name2";
 
     IFMapTable *vn_tbl = IFMapTable::FindTable(&db_, "virtual-network");
-    TASK_UTIL_EXPECT_EQ(0, vn_tbl->Size());
+    TASK_UTIL_EXPECT_EQ(0U, vn_tbl->Size());
     IFMapTable *ni_tbl = IFMapTable::FindTable(&db_, "network-ipam");
-    TASK_UTIL_EXPECT_EQ(0, ni_tbl->Size());
+    TASK_UTIL_EXPECT_EQ(0U, ni_tbl->Size());
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) == NULL);
@@ -1025,8 +1025,8 @@ TEST_F(IFMapExporterTest, PR1383393) {
     IFMapMsgUnlink("virtual-network", "network-ipam", samename, samename);
     IFMapMsgUnlink("virtual-network", "network-ipam", name1, name2);
 
-    TASK_UTIL_EXPECT_EQ(0, vn_tbl->Size());
-    TASK_UTIL_EXPECT_EQ(0, ni_tbl->Size());
+    TASK_UTIL_EXPECT_EQ(0U, vn_tbl->Size());
+    TASK_UTIL_EXPECT_EQ(0U, ni_tbl->Size());
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) == NULL);
@@ -1162,7 +1162,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c4:veth0", "blue");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 10);
+    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 10U);
 
     EXPECT_TRUE(InterestConfigTrackerEmpty(c1.index()));
     EXPECT_TRUE(InterestConfigTrackerEmpty(c2.index()));
@@ -1219,16 +1219,16 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     EXPECT_TRUE(ConfigTrackerHasInterestState(c3.index(), state));
     EXPECT_TRUE(ConfigTrackerHasInterestState(c4.index(), state));
     // VR, VM, VMI, VN, VR-VM, VM-VMI, VMI-VN i.e. 7
-    EXPECT_EQ(InterestConfigTrackerSize(c1.index()), 7);
-    EXPECT_EQ(InterestConfigTrackerSize(c2.index()), 7);
-    EXPECT_EQ(InterestConfigTrackerSize(c3.index()), 7);
-    EXPECT_EQ(InterestConfigTrackerSize(c4.index()), 7);
+    EXPECT_EQ(InterestConfigTrackerSize(c1.index()), 7U);
+    EXPECT_EQ(InterestConfigTrackerSize(c2.index()), 7U);
+    EXPECT_EQ(InterestConfigTrackerSize(c3.index()), 7U);
+    EXPECT_EQ(InterestConfigTrackerSize(c4.index()), 7U);
 
     ProcessQueue();
     task_util::WaitForIdle();
 
     // 10 from before and 4 new VR-VM links.
-    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 14);
+    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 14U);
 
     // Remove the vr-vm link for c1.
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
@@ -1264,7 +1264,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     ProcessQueue();
     task_util::WaitForIdle();
     // The 4 VR-VM links have been deleted.
-    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 10);
+    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 10U);
 }
 
 int main(int argc, char **argv) {

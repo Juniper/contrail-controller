@@ -179,7 +179,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix1) {
         EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -213,7 +214,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix2) {
         EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -227,7 +229,7 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix2) {
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
+        EXPECT_EQ(0U, label2);
 
         proto_prefix.prefix.resize(EvpnPrefix::kMinAutoDiscoveryRouteSize);
         prefix2 = EvpnPrefix::kNullPrefix;
@@ -237,7 +239,7 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix2) {
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
+        EXPECT_EQ(0U, label2);
     }
 }
 
@@ -265,7 +267,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix3) {
         EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -304,7 +307,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix4) {
         EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -344,7 +348,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix5) {
         EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -356,7 +361,7 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix5) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
-        EXPECT_EQ(0, label2);
+        EXPECT_EQ(0U, label2);
     }
 }
 
@@ -383,7 +388,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix6) {
         EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -691,7 +697,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix1a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -733,7 +740,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix1b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -751,7 +759,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix1b) {
         EXPECT_EQ(esi1, attr_out2->esi());
         EXPECT_NE(attr_in2.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -776,7 +784,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix2a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -818,7 +827,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix2b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -861,7 +871,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix3a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -903,7 +914,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix3b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -941,7 +953,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
         size_t esi_offset = EvpnPrefix::kRdSize;
         EthernetSegmentId esi(&proto_prefix.prefix[esi_offset]);
@@ -960,8 +973,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4a) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -981,7 +994,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
         size_t esi_offset = EvpnPrefix::kRdSize;
         EthernetSegmentId esi(&proto_prefix.prefix[esi_offset]);
@@ -1000,8 +1014,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4b) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1034,8 +1048,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4c) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1055,7 +1069,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
         size_t esi_offset = EvpnPrefix::kRdSize;
         EthernetSegmentId esi(&proto_prefix.prefix[esi_offset]);
@@ -1074,8 +1089,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5a) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1095,7 +1110,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
         size_t esi_offset = EvpnPrefix::kRdSize;
         EthernetSegmentId esi(&proto_prefix.prefix[esi_offset]);
@@ -1114,8 +1130,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5b) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1149,8 +1165,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5c) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1170,7 +1186,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
         size_t esi_offset = EvpnPrefix::kRdSize;
         EthernetSegmentId esi(&proto_prefix.prefix[esi_offset]);
@@ -1189,8 +1206,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6a) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1210,7 +1227,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
         size_t esi_offset = EvpnPrefix::kRdSize;
         EthernetSegmentId esi(&proto_prefix.prefix[esi_offset]);
@@ -1229,8 +1247,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6b) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1264,8 +1282,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6c) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_TRUE(attr_out2.get() == NULL);
-        EXPECT_EQ(0, label2);
-        EXPECT_EQ(0, l3_label2);
+        EXPECT_EQ(0U, label2);
+        EXPECT_EQ(0U, l3_label2);
     }
 }
 
@@ -1294,7 +1312,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix7a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1337,7 +1356,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix7b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1352,7 +1372,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix7b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(tag, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1380,7 +1400,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix8a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1422,7 +1443,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix8b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1437,7 +1459,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix8b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1466,7 +1488,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix9a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1509,7 +1532,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix9b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1524,7 +1548,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix9b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(tag, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1552,7 +1576,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix10a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1594,7 +1619,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix10b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1609,7 +1635,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix10b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1638,7 +1664,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix11a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1681,7 +1708,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix11b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1696,7 +1724,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix11b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(tag, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1724,7 +1752,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix12a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1766,7 +1795,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix12b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1781,7 +1811,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix12b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1810,7 +1840,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix13a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size =
             EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1853,7 +1884,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix13b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1868,7 +1900,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix13b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1897,7 +1929,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix14a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1940,7 +1973,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix14b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 4;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -1955,7 +1989,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix14b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -1984,7 +2018,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix15a) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -2027,7 +2062,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix15b) {
         EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
         size_t expected_size = EvpnPrefix::kMinMacAdvertisementRouteSize +
             2 * EvpnPrefix::kLabelSize + 16;
-        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size * 8,
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(expected_size, proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
@@ -2042,7 +2078,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix15b) {
         EXPECT_TRUE(prefix2.esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
         EXPECT_EQ(label1, label2);
-        EXPECT_EQ(20000, l3_label2);
+        EXPECT_EQ(20000U, l3_label2);
     }
 }
 
@@ -2498,7 +2534,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix1) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
             proto_prefix.prefix.size());
 
@@ -2512,7 +2548,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix1) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
-        EXPECT_EQ(10000, label2);
+        EXPECT_EQ(10000U, label2);
     }
 }
 
@@ -2541,7 +2577,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
             proto_prefix.prefix.size());
 
@@ -2555,7 +2591,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
-        EXPECT_EQ(10000, label2);
+        EXPECT_EQ(10000U, label2);
     }
 }
 
@@ -2590,7 +2626,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix3) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
             proto_prefix.prefix.size());
 
@@ -2639,7 +2675,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix4) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
             proto_prefix.prefix.size());
 
@@ -2689,7 +2725,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix5) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
             proto_prefix.prefix.size());
 
@@ -2738,7 +2774,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix6) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
             proto_prefix.prefix.size());
 
@@ -2787,7 +2823,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix7) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
             proto_prefix.prefix.size());
 
@@ -2837,7 +2873,7 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix8) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), 0);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
             proto_prefix.prefix.size());
 
@@ -3084,7 +3120,7 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix1) {
     prefix1.BuildProtoPrefix(&proto_prefix, &attr1, 0);
     EXPECT_EQ(EvpnPrefix::SegmentRoute, proto_prefix.type);
     EXPECT_EQ((EvpnPrefix::kMinSegmentRouteSize + 4) * 8,
-        proto_prefix.prefixlen);
+              static_cast<size_t>(proto_prefix.prefixlen));
     EXPECT_EQ(EvpnPrefix::kMinSegmentRouteSize + 4,
         proto_prefix.prefix.size());
 
@@ -3100,7 +3136,7 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix1) {
     EXPECT_EQ(prefix1, prefix2);
     EXPECT_TRUE(attr_out2->esi().IsZero());
     EXPECT_EQ(attr_in2.get(), attr_out2.get());
-    EXPECT_EQ(0, label2);
+    EXPECT_EQ(0U, label2);
 }
 
 TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix2) {
@@ -3115,7 +3151,7 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix2) {
     prefix1.BuildProtoPrefix(&proto_prefix, &attr1, 0);
     EXPECT_EQ(EvpnPrefix::SegmentRoute, proto_prefix.type);
     EXPECT_EQ((EvpnPrefix::kMinSegmentRouteSize + 16) * 8,
-        proto_prefix.prefixlen);
+              static_cast<size_t>(proto_prefix.prefixlen));
     EXPECT_EQ(EvpnPrefix::kMinSegmentRouteSize + 16,
         proto_prefix.prefix.size());
 
@@ -3131,7 +3167,7 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix2) {
     EXPECT_EQ(prefix1, prefix2);
     EXPECT_TRUE(attr_out2->esi().IsZero());
     EXPECT_EQ(attr_in2.get(), attr_out2.get());
-    EXPECT_EQ(0, label2);
+    EXPECT_EQ(0U, label2);
 }
 
 // Smaller than minimum size.
@@ -3489,7 +3525,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix1) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), label1);
         EXPECT_EQ(EvpnPrefix::IpPrefixRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInetPrefixRouteSize + 3) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInetPrefixRouteSize + 3,
             proto_prefix.prefix.size());
 
@@ -3503,7 +3539,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix1) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
-        EXPECT_EQ(10000, label2);
+        EXPECT_EQ(10000U, label2);
     }
 }
 
@@ -3529,7 +3565,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix2) {
         prefix1.BuildProtoPrefix(&proto_prefix, attr.get(), label1);
         EXPECT_EQ(EvpnPrefix::IpPrefixRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInetPrefixRouteSize + 3) * 8,
-            proto_prefix.prefixlen);
+                  static_cast<size_t>(proto_prefix.prefixlen));
         EXPECT_EQ(EvpnPrefix::kMinInetPrefixRouteSize + 3,
             proto_prefix.prefix.size());
 
@@ -3543,7 +3579,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix2) {
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
         EXPECT_EQ(attr.get(), attr_out2.get());
-        EXPECT_EQ(10000, label2);
+        EXPECT_EQ(10000U, label2);
     }
 }
 

@@ -31,7 +31,7 @@ TEST_F(CommunityTypeTest, FromString_2) {
     boost::system::error_code ec;
     uint32_t community = CommunityType::CommunityFromString(str, &ec);
     EXPECT_NE(0, ec.value());
-    EXPECT_EQ(community, 0x0);
+    EXPECT_EQ(community, 0x0U);
 }
 
 TEST_F(CommunityTypeTest, FromString_3) {
@@ -39,7 +39,7 @@ TEST_F(CommunityTypeTest, FromString_3) {
     boost::system::error_code ec;
     uint32_t community = CommunityType::CommunityFromString(str, &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(community, 0xFFFF0001);
+    EXPECT_EQ(community, 0xFFFF0001U);
 }
 
 TEST_F(CommunityTypeTest, ToString_0) {

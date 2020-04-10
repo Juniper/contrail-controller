@@ -104,7 +104,7 @@ TEST_F(IFMapGraphWalkerTest, VNPropagation_1) {
                                "f40a487f-09b8-4918-83a0-8cc0ac148cf0", true, 1);
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, c1.object_map().count("virtual-network"));
+    TASK_UTIL_EXPECT_EQ(1U, c1.object_map().count("virtual-network"));
 }
 
 TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
@@ -121,20 +121,20 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
     string left, l_mid;
     boost::tie(left, l_mid) = c1.LinkFind("virtual-network",
                                           "virtual-network-network-ipam");
-    TASK_UTIL_EXPECT_NE(0, left.size());
-    TASK_UTIL_EXPECT_NE(0, l_mid.size());
+    TASK_UTIL_EXPECT_NE(0U, left.size());
+    TASK_UTIL_EXPECT_NE(0U, l_mid.size());
     string r_mid, right;
     boost::tie(r_mid, right) = c1.LinkFind("virtual-network-network-ipam",
                                            "network-ipam");
     TASK_UTIL_EXPECT_EQ(l_mid, r_mid);
-    TASK_UTIL_EXPECT_NE(0, right.size());
+    TASK_UTIL_EXPECT_NE(0U, right.size());
 
 #if 0
     ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-network", left,
                                     "network-ipam", right,
                                     "virtual-network-network-ipam");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, c1.object_map().count("network-ipam"));
+    TASK_UTIL_EXPECT_EQ(0U, c1.object_map().count("network-ipam"));
 
     int current = c1.count();
     ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", left,
@@ -142,7 +142,7 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
                                   "virtual-network-network-ipam");
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, c1.object_map().count("network-ipam"));
+    TASK_UTIL_EXPECT_EQ(1U, c1.object_map().count("network-ipam"));
     // virtual-network-network-ipam is a LinkAttr. There are 2 nodes and
     // 2 links that are added.
     TASK_UTIL_EXPECT_EQ(4, c1.count() - current);
@@ -184,9 +184,9 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm3Add) {
                                          "default-domain:demo:vn28"));
     TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-router",
         "default-global-system-config:a1s27.contrail.juniper.net"));
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 3);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 3);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 3U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 3U);
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
@@ -230,9 +230,9 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
         "default-global-system-config:a1s27.contrail.juniper.net"));
     TASK_UTIL_EXPECT_FALSE(c1.NodeExists("virtual-router",
         "default-global-system-config:a1s28.contrail.juniper.net"));
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 1);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 1U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 1U);
 
     TASK_UTIL_EXPECT_TRUE(c2.NodeExists("virtual-network",
                                         "default-domain:demo:vn28"));
@@ -242,9 +242,9 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
         "default-global-system-config:a1s28.contrail.juniper.net"));
     TASK_UTIL_EXPECT_FALSE(c2.NodeExists("virtual-router",
         "default-global-system-config:a1s27.contrail.juniper.net"));
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-network"), 1);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine"), 1);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine-interface"), 1);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-network"), 1U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine"), 1U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine-interface"), 1U);
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
@@ -285,17 +285,19 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
     TASK_UTIL_EXPECT_FALSE(c1.LinkExists("virtual-network",
         "virtual-network-network-policy", "default-domain:demo:vn27-2",
         "attr(default-domain:demo:vn27-2,default-domain:demo:vn27-2to1)"));
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 2);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 2);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 2);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 2U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 2U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 2U);
 
     // Since network-policy and virtual-network-network-policy is not downloaded
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network",
-                                        "virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network-network-policy",
-                                        "network-policy"), 0);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network-network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network", "virtual-network-network-policy"),
+        0U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network-network-policy", "network-policy"),
+        0U);
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
@@ -337,16 +339,18 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
         "virtual-network-network-policy", "default-domain:demo:vn27-2",
         "attr(default-domain:demo:v27-1-2,default-domain:demo:vn27-2)"));
 
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 2);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 2);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 2);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network",
-                                        "virtual-network-network-policy"), 0);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 2U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 2U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 2U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network-network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network", "virtual-network-network-policy"),
+        0U);
     // Since network-policy and virtual-network-network-policy is not downloaded
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network-network-policy",
-                                        "network-policy"), 0);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network-network-policy", "network-policy"),
+        0U);
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
@@ -389,8 +393,9 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     TASK_UTIL_EXPECT_FALSE(c1.LinkExists("virtual-network",
         "virtual-network-network-policy", "default-domain:demo:vn27",
         "attr(default-domain:demo:27to28tcp,default-domain:demo:vn27)"));
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network",
-                                        "virtual-network-network-policy"), 0);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network", "virtual-network-network-policy"),
+        0U);
 
     TASK_UTIL_EXPECT_TRUE(c2.NodeExists("virtual-network",
                                         "default-domain:demo:vn28"));
@@ -403,19 +408,23 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     TASK_UTIL_EXPECT_FALSE(c2.LinkExists("virtual-network",
         "virtual-network-network-policy", "default-domain:demo:vn28",
         "attr(default-domain:demo:2728biIcmp,default-domain:demo:vn28)"));
-    TASK_UTIL_EXPECT_FALSE(c2.LinkExists("virtual-network",
-        "virtual-network-network-policy", "default-domain:demo:vn28",
-        "attr(default-domain:demo:28to27udp,default-domain:demo:vn28)"));
-    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-network",
-                                        "virtual-network-network-policy"), 0);
+    TASK_UTIL_EXPECT_FALSE(c2.LinkExists(
+        "virtual-network", "virtual-network-network-policy",
+        "default-domain:demo:vn28",
+        "attr(default-domain:demo:28to27Udp,default-domain:demo:vn28)"));
+    TASK_UTIL_EXPECT_EQ(
+        c2.LinkKeyCount("virtual-network", "virtual-network-network-policy"),
+        0U);
 
     // Since network-policy and virtual-network-network-policy is not downloaded
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network-network-policy",
-                                        "network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-network-network-policy",
-                                        "network-policy"), 0);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network-network-policy", "network-policy"),
+        0U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c2.LinkKeyCount("virtual-network-network-policy", "network-policy"),
+        0U);
 }
 
 // 2 servers
@@ -469,36 +478,40 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
     "virtual-network-network-policy", "default-domain:demo:vn27-2",
     "attr(default-domain:demo:vn27-1tovn27-2_BI,default-domain:demo:vn27-2)"));
 
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 2);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 4);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 4);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network",
-                                        "virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
-                                        "virtual-machine"), 4);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 2U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 4U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 4U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network-network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network", "virtual-network-network-policy"),
+        0U);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router", "virtual-machine"),
+                        4U);
 
     TASK_UTIL_EXPECT_FALSE(c2.LinkExists("virtual-network",
     "virtual-network-network-policy", "default-domain:demo:vn28-1",
     "attr(default-domain:demo:vn27-1tovn28-1_BI,default-domain:demo:vn28-1)"));
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-network"), 1);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine"), 2);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine-interface"), 2);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-network",
-                                        "virtual-network-network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-router",
-                                        "virtual-machine"), 2);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-network"), 1U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine"), 2U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-machine-interface"), 2U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("virtual-network-network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c2.LinkKeyCount("virtual-network", "virtual-network-network-policy"),
+        0U);
+    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-router", "virtual-machine"),
+                        2U);
 
     // Since network-policy and virtual-network-network-policy is not downloaded
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network-network-policy",
-                                        "network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("network-policy"), 0);
-    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-network-network-policy",
-                                        "network-policy"), 0);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c1.LinkKeyCount("virtual-network-network-policy", "network-policy"),
+        0U);
+    TASK_UTIL_EXPECT_EQ(c2.NodeKeyCount("network-policy"), 0U);
+    TASK_UTIL_EXPECT_EQ(
+        c2.LinkKeyCount("virtual-network-network-policy", "network-policy"),
+        0U);
 
     c1.PrintNodes();
     c1.PrintLinks();
@@ -522,10 +535,10 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
     TASK_UTIL_EXPECT_EQ(2, c1.node_count());
     TASK_UTIL_EXPECT_EQ(1, c1.link_count());
 
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
-    TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("virtual-router",
-                                           "global-system-config"));
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1U);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1U);
+    TASK_UTIL_EXPECT_EQ(
+        1U, c1.LinkKeyCount("virtual-router", "global-system-config"));
     TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router","global-system-config",
                                         "gsc1:vr1","gsc1"));
     c1.PrintLinks();
@@ -554,11 +567,11 @@ TEST_F(IFMapGraphWalkerTest, VrsubConfig) {
     TASK_UTIL_EXPECT_LE(2, c1.node_count());
     TASK_UTIL_EXPECT_EQ(1, c1.link_count());
 
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
-    TASK_UTIL_EXPECT_GE(2,c1.NodeKeyCount("global-system-config"));
-    TASK_UTIL_EXPECT_LE(1,c1.NodeKeyCount("global-system-config"));
-    TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("virtual-router",
-                                           "global-system-config"));
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1U);
+    TASK_UTIL_EXPECT_GE(2U, c1.NodeKeyCount("global-system-config"));
+    TASK_UTIL_EXPECT_LE(1U, c1.NodeKeyCount("global-system-config"));
+    TASK_UTIL_EXPECT_EQ(
+        1U, c1.LinkKeyCount("virtual-router", "global-system-config"));
     TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router","global-system-config",
                                         "gsc1:vr1","gsc1"));
     c1.PrintLinks();

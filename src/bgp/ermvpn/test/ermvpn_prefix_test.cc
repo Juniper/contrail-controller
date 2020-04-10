@@ -333,7 +333,7 @@ TEST_F(ErmVpnRouteTest, LocalFromProtoPrefix) {
     EXPECT_EQ(0, result);
     EXPECT_EQ(ErmVpnPrefix::LocalTreeRoute, proto_prefix.type);
     EXPECT_EQ(22 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(22, proto_prefix.prefix.size());
+    EXPECT_EQ(22U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 
@@ -419,7 +419,7 @@ TEST_F(ErmVpnRouteTest, GlobalFromProtoPrefix) {
     EXPECT_EQ(0, result);
     EXPECT_EQ(ErmVpnPrefix::GlobalTreeRoute, proto_prefix.type);
     EXPECT_EQ(22 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(22, proto_prefix.prefix.size());
+    EXPECT_EQ(22U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 

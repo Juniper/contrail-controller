@@ -179,8 +179,8 @@ TEST_F(DBGraphTest, EdgeRemove) {
     graph_.Visit(vertices_[0],
                  boost::bind(&GraphVisitor::VertexVisitor, &visitor, _1),
                  boost::bind(&GraphVisitor::EdgeVisitor, &visitor, _1));
-    EXPECT_EQ(4, visitor.vertices.size());
-    EXPECT_EQ(4, visitor.edges.size());
+    EXPECT_EQ(4U, visitor.vertices.size());
+    EXPECT_EQ(4U, visitor.edges.size());
 
     EXPECT_TRUE(HasEdge(visitor.edges, "b", "c"));
 
@@ -192,8 +192,8 @@ TEST_F(DBGraphTest, EdgeRemove) {
     graph_.Visit(vertices_[0],
                  boost::bind(&GraphVisitor::VertexVisitor, &visitor, _1),
                  boost::bind(&GraphVisitor::EdgeVisitor, &visitor, _1));
-    EXPECT_EQ(4, visitor.vertices.size());
-    EXPECT_EQ(3, visitor.edges.size());
+    EXPECT_EQ(4U, visitor.vertices.size());
+    EXPECT_EQ(3U, visitor.edges.size());
     EXPECT_FALSE(HasEdge(visitor.edges, "b", "c"));
 
     graph_.Unlink(edges_[2]);
@@ -208,8 +208,8 @@ TEST_F(DBGraphTest, EdgeRemove) {
     graph_.Visit(vertices_[0],
                  boost::bind(&GraphVisitor::VertexVisitor, &visitor, _1),
                  boost::bind(&GraphVisitor::EdgeVisitor, &visitor, _1));
-    EXPECT_EQ(3, visitor.vertices.size());
-    EXPECT_EQ(2, visitor.edges.size());
+    EXPECT_EQ(3U, visitor.vertices.size());
+    EXPECT_EQ(2U, visitor.edges.size());
 
     EXPECT_TRUE(HasEdge(visitor.edges, "a", "c"));
     EXPECT_TRUE(HasEdge(visitor.edges, "a", "d"));
@@ -264,7 +264,7 @@ TEST_F(DBGraphTest, GraphWithFilterTraversal) {
                  boost::bind(&GraphVisitor::VertexVisitor, &test_visitor, _1),
                  boost::bind(&GraphVisitor::EdgeVisitor, &test_visitor, _1),
                  test_filter);
-    EXPECT_EQ(2, test_visitor.vertices.size());
+    EXPECT_EQ(2U, test_visitor.vertices.size());
 }
 
 int main(int argc, char **argv) {

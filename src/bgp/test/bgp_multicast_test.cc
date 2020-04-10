@@ -303,29 +303,31 @@ protected:
             McastForwarder *forwarder) {
         ConcurrencyScope scope("db::DBTable");
 
-        EXPECT_GE(forwarder->label(), 1000);
-        EXPECT_LE(forwarder->label(), 1499);
-        EXPECT_GE(forwarder->tree_links_.size(), 1);
-        EXPECT_LE(forwarder->tree_links_.size(), McastTreeManager::kDegree + 1);
+        EXPECT_GE(forwarder->label(), 1000U);
+        EXPECT_LE(forwarder->label(), 1499U);
+        EXPECT_GE(forwarder->tree_links_.size(), 1U);
+        EXPECT_LE(forwarder->tree_links_.size(),
+                  static_cast<size_t>(McastTreeManager::kDegree + 1));
         TASK_UTIL_EXPECT_TRUE(forwarder->route() != NULL);
-        TASK_UTIL_EXPECT_EQ(1, forwarder->route()->count());
+        TASK_UTIL_EXPECT_EQ(1U, forwarder->route()->count());
 
         boost::scoped_ptr<UpdateInfo> uinfo(forwarder->GetUpdateInfo(table));
         TASK_UTIL_EXPECT_TRUE(uinfo.get() != NULL);
         BgpOList *olist = uinfo->roattr.attr()->olist().get();
         TASK_UTIL_EXPECT_TRUE(olist != NULL);
-        EXPECT_GE(olist->elements().size(), 1);
-        EXPECT_LE(olist->elements().size(), McastTreeManager::kDegree + 1);
+        EXPECT_GE(olist->elements().size(), 1U);
+        EXPECT_LE(olist->elements().size(),
+                  static_cast<size_t>(McastTreeManager::kDegree + 1));
     }
 
     void VerifyOnlyForwarderProperties(ErmVpnTable *table,
             McastForwarder *forwarder) {
         ConcurrencyScope scope("db::DBTable");
 
-        TASK_UTIL_EXPECT_NE(0, forwarder->label());
-        TASK_UTIL_EXPECT_EQ(0, forwarder->tree_links_.size());
+        TASK_UTIL_EXPECT_NE(0U, forwarder->label());
+        TASK_UTIL_EXPECT_EQ(0U, forwarder->tree_links_.size());
         TASK_UTIL_EXPECT_TRUE(forwarder->route() != NULL);
-        TASK_UTIL_EXPECT_EQ(1, forwarder->route()->count());
+        TASK_UTIL_EXPECT_EQ(1U, forwarder->route()->count());
 
         boost::scoped_ptr<UpdateInfo> uinfo(forwarder->GetUpdateInfo(table));
         TASK_UTIL_EXPECT_TRUE(uinfo.get() != NULL);
@@ -370,7 +372,7 @@ protected:
                 return;
             }
         }
-        TASK_UTIL_EXPECT_EQ(0, count);
+        TASK_UTIL_EXPECT_EQ(0U, count);
     }
 
     void VerifyForwarderCount(McastTreeManager *tm,
@@ -722,19 +724,19 @@ TEST_F(BgpMulticastTest, TreeUpdateCompression) {
     AddRouteAllPeers(red_table_, "192.168.1.255");
     scheduler->Start();
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, VerifyTreeUpdateCount(red_tm_));
+    TASK_UTIL_EXPECT_EQ(2U, VerifyTreeUpdateCount(red_tm_));
 
     scheduler->Stop();
     DelRouteOddPeers(red_table_, "192.168.1.255");
     scheduler->Start();
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(4, VerifyTreeUpdateCount(red_tm_));
+    TASK_UTIL_EXPECT_EQ(4U, VerifyTreeUpdateCount(red_tm_));
 
     scheduler->Stop();
     DelRouteEvenPeers(red_table_, "192.168.1.255");
     scheduler->Start();
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(6, VerifyTreeUpdateCount(red_tm_));
+    TASK_UTIL_EXPECT_EQ(6U, VerifyTreeUpdateCount(red_tm_));
 }
 
 int main(int argc, char **argv) {

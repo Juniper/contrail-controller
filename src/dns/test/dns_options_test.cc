@@ -187,7 +187,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5U);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -319,7 +319,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5U);
     EXPECT_EQ(options_.xmpp_auth_enabled(), true);
     EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server-privkey.pem");
@@ -428,7 +428,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7U);
     EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
     std::remove("./dns_options_test_config_file.conf");
 }

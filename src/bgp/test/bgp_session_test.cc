@@ -242,14 +242,14 @@ TEST_F(BgpSessionUnitTest, StreamRead) {
         session_->Read(buf_list[i]);
     }
 
-    int i = 0;
+    size_t i = 0;
     for (vector<int>::const_iterator iter = peer_->begin();
          iter != peer_->end(); ++iter) {
         EXPECT_EQ(sizes[i], *iter);
         i++;
     }
     EXPECT_EQ(ARRAYLEN(sizes), i);
-    EXPECT_EQ(buf_list.size(), session_->release_count());
+    EXPECT_EQ(buf_list.size(), static_cast<size_t>(session_->release_count()));
 }
 
 static void SetUp() {

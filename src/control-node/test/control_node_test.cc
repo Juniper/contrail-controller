@@ -69,7 +69,7 @@ void ControlNodeTest::Shutdown() {
     bgp_server_->Shutdown();
     map_server_->Shutdown();
     task_util::WaitForIdle();
-    TASK_UTIL_ASSERT_EQ(0, bgp_server_->routing_instance_mgr()->count());
+    TASK_UTIL_ASSERT_EQ(0U, bgp_server_->routing_instance_mgr()->count());
     map_manager_.reset();
     xmpp_manager_.reset();
     TearDown();

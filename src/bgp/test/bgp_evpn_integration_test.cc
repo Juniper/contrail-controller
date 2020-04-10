@@ -392,8 +392,8 @@ TEST_P(BgpEvpnOneControllerTest, Basic) {
         task_util::WaitForIdle();
 
         // Verify that smet route gets added
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(0, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(0U, green_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i, master_->Size());
 
         agent_xb_->AddMcastRoute(red.str(), sg.str(), "10.1.1.5", "30-40");
@@ -401,7 +401,7 @@ TEST_P(BgpEvpnOneControllerTest, Basic) {
                                 nexthop_red);
 
         // another smet route should generate
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i, master_->Size());
         //VerifyOList(agent_xa_, red.str(), sg.str(), 1, "10.1.1.3",
             //"192.168.0.101");
@@ -756,10 +756,10 @@ TEST_P(BgpEvpnTwoControllerTest, Basic) {
         task_util::WaitForIdle();
 
         // Verify that the smet route gets added to red and master tables
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i, master_->Size());
         TASK_UTIL_EXPECT_EQ(i, master_y_->Size());
-        TASK_UTIL_EXPECT_EQ(1, red_y_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_y_[i - 1]->Size());
 
         // Add smet route from another agent, it should not propagate since it
         // is not forest node
@@ -769,8 +769,8 @@ TEST_P(BgpEvpnTwoControllerTest, Basic) {
         task_util::WaitForIdle();
 
         // verify that smet route gets added to red_y_ table only
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(2, red_y_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, red_y_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(i, master_->Size());
         // Verify that every agent should have eceived ermvpn route
@@ -806,10 +806,10 @@ TEST_P(BgpEvpnTwoControllerTest, DISABLED_RemoteReceiver) {
         task_util::WaitForIdle();
 
         // Verify that the smet route gets added to red and master tables
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(2*i-1, master_->Size());
         TASK_UTIL_EXPECT_EQ(2*i-1, master_y_->Size());
-        TASK_UTIL_EXPECT_EQ(1, red_y_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_y_[i - 1]->Size());
 
         // add smet route from remote mx
         test::RouteParams mx_params;
@@ -824,8 +824,8 @@ TEST_P(BgpEvpnTwoControllerTest, DISABLED_RemoteReceiver) {
                 (unsigned int)instance_count_, 3,
                 "192.168.0.101/32", sg.str().c_str());
         VerifyOList(agent_xa_, red.str(), sg_mac, 1, nh.str());
-        TASK_UTIL_EXPECT_EQ(2, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(2, red_y_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, red_y_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(2*i, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(2*i, master_->Size());
     }
@@ -848,14 +848,14 @@ TEST_P(BgpEvpnTwoControllerTest, EvpnWithoutErmvpnRoute) {
         task_util::WaitForIdle();
 
         // Verify that tables get the smet route
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i, master_y_->Size());
 
         // Delete the ermvpn route
         agent_xa_->DeleteMcastRoute(red.str(), sg.str());
         // Verify that smet route gets deleted from master table
         // In red table, it will only be marked as invalid
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i - 1, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(i - 1, master_->Size());
 
@@ -863,7 +863,7 @@ TEST_P(BgpEvpnTwoControllerTest, EvpnWithoutErmvpnRoute) {
         agent_xa_->AddMcastRoute(red.str(), sg.str(), "10.1.2.2", "100-200");
 
         // Verify that smet route gets added back
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(i, master_->Size());
     }
 }

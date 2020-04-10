@@ -93,7 +93,8 @@ public:
                           strlen("IcmpPktSandesh")) == 0) {
             IcmpPktSandesh *icmp = (IcmpPktSandesh *)sandesh;
             EXPECT_EQ(icmp->get_pkt_list().size(),
-                      std::min((int)PktTrace::kPktNumBuffers, 2 * count));
+                      std::min(PktTrace::kPktNumBuffers,
+                               static_cast<size_t>(2 * count)));
         }
     }
 

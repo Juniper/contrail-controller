@@ -4199,7 +4199,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
             ret = false;
 
         if (rev_nh_id != -1) {
-            EXPECT_EQ(rev_nh_id, rev->key().nh);
+            EXPECT_EQ(static_cast<size_t>(rev_nh_id), rev->key().nh);
             ret = false;
         } else {
             //EXPECT_EQ((uint32_t) rflow_vrf, rev->key().vrf);

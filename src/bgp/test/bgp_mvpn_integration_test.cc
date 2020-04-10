@@ -432,27 +432,28 @@ public:
 TEST_P(BgpMvpnOneControllerTest, Basic) {
     for (size_t i = 1; i <= instance_count_; i++) {
         // 1 type1 from red and 1 from green
-        TASK_UTIL_EXPECT_EQ(2, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                         red_[i-1]->FindType1ADRoute());
 
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                         blue_[i-1]->FindType1ADRoute());
 
         // 1 type1 from red, blue and green
-        TASK_UTIL_EXPECT_EQ(3, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(3U, green_[i - 1]->Size());
 
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                         green_[i-1]->FindType1ADRoute());
 
-        TASK_UTIL_EXPECT_EQ(1, fabric_mvpn_->Size());
+        TASK_UTIL_EXPECT_EQ(1U, fabric_mvpn_->Size());
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                         fabric_mvpn_->FindType1ADRoute());
     }
 
     // red, blue, green, kFabricInstance
-    TASK_UTIL_EXPECT_EQ(1 + 3 * instance_count_, master_->Size());
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(1 + 3 * instance_count_),
+                        master_->Size());
     // Register agents and add source active mvpn routes
     Subscribe("red", 1);
     Subscribe("green", 2);
@@ -473,11 +474,11 @@ TEST_P(BgpMvpnOneControllerTest, Basic) {
         task_util::WaitForIdle();
 
         // Verify that Type5 route gets added
-        TASK_UTIL_EXPECT_EQ(3, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(4, green_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(1, red_inet_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(1, green_inet_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(3U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(4U, green_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, red_inet_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, green_inet_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(2 + 3*instance_count_ + 4*(i-1), master_->Size());
 
         ostringstream grn;
@@ -486,9 +487,9 @@ TEST_P(BgpMvpnOneControllerTest, Basic) {
 
         // Type7, Type3, Type4 routes should have generated
         TASK_UTIL_EXPECT_EQ(3*i, fabric_ermvpn_->Size());
-        TASK_UTIL_EXPECT_EQ(7, green_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(6, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(7U, green_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(6U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(1 + 3 * instance_count_ + 4 * i, master_->Size());
         // Verify that sender should have received a route
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
@@ -852,18 +853,21 @@ protected:
 
 TEST_P(BgpMvpnTwoControllerTest, RedSenderGreenReceiver) {
     for (size_t i = 1; i <= instance_count_; i++) {
-        TASK_UTIL_EXPECT_EQ(4, red_[i-1]->Size()); // 1 type1 each from A, B
-        TASK_UTIL_EXPECT_EQ(4, red_y_[i-1]->Size()); // 1 type1 each from A, B
+        TASK_UTIL_EXPECT_EQ(4U, red_[i - 1]->Size());  // 1 type1 each from A, B
+        TASK_UTIL_EXPECT_EQ(4U,
+                            red_y_[i - 1]->Size());  // 1 type1 each from A, B
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                             red_[i-1]->FindType1ADRoute());
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                             red_y_[i-1]->FindType1ADRoute());
 
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size()); // 1 type1 each from A, B
+        TASK_UTIL_EXPECT_EQ(2U,
+                            blue_[i - 1]->Size());  // 1 type1 each from A, B
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                             blue_[i-1]->FindType1ADRoute());
 
-        TASK_UTIL_EXPECT_EQ(6, green_[i-1]->Size()); // 1 type1 each from A, B
+        TASK_UTIL_EXPECT_EQ(6U,
+                            green_[i - 1]->Size());  // 1 type1 each from A, B
 
         TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                             green_[i-1]->FindType1ADRoute());
@@ -890,11 +894,11 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderGreenReceiver) {
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), nh.str());
 
         // Verify that the type5 route gets added to red and master only
-        TASK_UTIL_EXPECT_EQ(5, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(5U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
         // For every i, 4 routes get added
         TASK_UTIL_EXPECT_EQ(3 + 6*instance_count_ + 4*(i-1), master_->Size());
-        TASK_UTIL_EXPECT_EQ(7, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(7U, green_[i - 1]->Size());
 
         ostringstream grn;
         grn << "green" << i;
@@ -903,12 +907,12 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderGreenReceiver) {
         TASK_UTIL_EXPECT_EQ(3*i, fabric_ermvpn_->Size());
 
         // verify that t7, t3, t4 primary routes get added to red, master
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(8, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, green_[i - 1]->Size());
         // total 3 more routes got added
         TASK_UTIL_EXPECT_EQ(3 + 6*instance_count_ + 4*i -1, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(3 + 6*instance_count_ + 4*i -1, master_->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
         // Verify that sender agent should have received a mvpn route
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
@@ -945,9 +949,9 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiver) {
         agent_yb_->AddType7MvpnRoute(red.str(), sg.str(), "10.1.2.3", "30-40");
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_EQ(4*i, fabric_ermvpn_->Size());
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(8, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, green_[i - 1]->Size());
         // 2 + 6*instance_count_
         // For every i, 4 routes get added
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i, master_y_->Size());
@@ -961,7 +965,7 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiver) {
         TASK_UTIL_EXPECT_EQ((int)i+1, agent_xa_->MvpnRouteCount());
         TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
                     agent_xa_, grn.str(), sg.str()));
-        TASK_UTIL_EXPECT_EQ(9, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(9U, green_[i - 1]->Size());
         agent_xa_->DeleteMvpnRoute(grn.str(), sg.str(), 7);
         agent_xa_->DeleteMcastRoute(kFabricInstance, sg.str());
         TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
@@ -985,9 +989,9 @@ TEST_P(BgpMvpnTwoControllerTest, MultipleReceivers) {
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), nh.str());
 
         // Verify that the type5 route gets added to red, green and master only
-        TASK_UTIL_EXPECT_EQ(5, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(7, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(5U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(7U, green_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*(i-1) + 1, master_->Size());
 
         agent_ya_->AddType7MvpnRoute(red.str(), sg.str(), "10.1.2.2", "30-40");
@@ -997,10 +1001,10 @@ TEST_P(BgpMvpnTwoControllerTest, MultipleReceivers) {
         TASK_UTIL_EXPECT_EQ(5*i, fabric_ermvpn_->Size());
 
         // verify that t7, t3, t4 primary routes get added to red, master
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i, master_->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
         // Verify that sender agent should have received a mvpn route
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
@@ -1041,9 +1045,9 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiverGreenDown) {
         green << "green" << i;
         agent_ya_->AddType7MvpnRoute(green.str(), sg.str(), "10.1.1.3", "50-60");
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(8, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, green_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_->Size());
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.2",
@@ -1056,7 +1060,7 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiverGreenDown) {
         Configure(delete_green.c_str());
         agent_ya_->McastUnsubscribe(kFabricInstance, 1000);
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(6, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(6U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * instance_count_ - 2 * i,
                 master_->Size());
         ostringstream sg;
@@ -1076,8 +1080,8 @@ TEST_P(BgpMvpnTwoControllerTest, Type5AfterType7) {
 
         // verify that nothing changes since source is not resolvable
         // Only type7 route should get added to green_y_
-        TASK_UTIL_EXPECT_EQ(6, green_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(7, green_y_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(6U, green_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(7U, green_y_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * (i - 1), master_y_->Size());
 
         ostringstream red;
@@ -1093,15 +1097,15 @@ TEST_P(BgpMvpnTwoControllerTest, Type5AfterType7) {
         // Howver, type3 route does not get generated since no type5 route
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*(i-1) + 1, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*(i-1) + 1, master_->Size());
-        TASK_UTIL_EXPECT_EQ(5, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(5U, red_[i - 1]->Size());
 
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), nh.str());
         // verify that t5, t3, t4 primary routes get added to red, master
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(8, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, green_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_->Size());
-        TASK_UTIL_EXPECT_EQ(2, blue_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(2U, blue_[i - 1]->Size());
         // Verify that sender agent should have received a mvpn route
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
@@ -1131,8 +1135,8 @@ TEST_P(BgpMvpnTwoControllerTest, MvpnWithoutErmvpnRoute) {
         agent_yb_->AddType7MvpnRoute(red.str(), sg.str(), "10.1.2.2", "30-40");
 
         // Verify that tables get all mvpn routes
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(8, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, green_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(3 * i, fabric_ermvpn_->Size());
 
@@ -1140,7 +1144,7 @@ TEST_P(BgpMvpnTwoControllerTest, MvpnWithoutErmvpnRoute) {
         agent_yb_->DeleteMcastRoute(kFabricInstance, sg.str());
         // Verify that type4 route gets deleted
         TASK_UTIL_EXPECT_EQ(3*(i-1), fabric_ermvpn_->Size());
-        TASK_UTIL_EXPECT_EQ(7, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(7U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i - 1, master_y_->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i - 1, master_->Size());
         // Verify that type5 route is withdrawn since there are no receivers
@@ -1153,7 +1157,7 @@ TEST_P(BgpMvpnTwoControllerTest, MvpnWithoutErmvpnRoute) {
 
         TASK_UTIL_EXPECT_EQ(3*i, fabric_ermvpn_->Size());
         // Verify that type4 route gets added back
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_y_->Size());
         // Verify that mvpn and ermvpn routes are ok
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.2",
@@ -1179,14 +1183,14 @@ TEST_P(BgpMvpnTwoControllerTest, ReceiverSenderLeave) {
         agent_yb_->AddType7MvpnRoute(green.str(), sg.str(), "10.1.2.2", "30-40");
 
         // Verify that tables get all mvpn routes
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(8, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, green_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_y_->Size());
 
         // Delete the type7 join route
         agent_yb_->DeleteMvpnRoute(green.str(), sg.str(), 7);
         // Verify that type7, type3 and type4 routes get deleted
-        TASK_UTIL_EXPECT_EQ(5, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(5U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*(i-1) + 1, master_->Size());
         // Verify that type5 route is withdrawn since there are no receivers
         TASK_UTIL_EXPECT_EQ(static_cast<NetworkAgentMock::MvpnRouteEntry *>(NULL),
@@ -1196,7 +1200,7 @@ TEST_P(BgpMvpnTwoControllerTest, ReceiverSenderLeave) {
         agent_yb_->AddType7MvpnRoute(green.str(), sg.str(), "10.1.2.2", "30-40");
 
         // Verify that type7, type3 and type4 routes get added back
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(3+ 6*instance_count_ + 4*i -1, master_->Size());
         // Verify that mvpn and ermvpn routes are ok
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.2",
@@ -1205,7 +1209,7 @@ TEST_P(BgpMvpnTwoControllerTest, ReceiverSenderLeave) {
         // Delete the type5 source active route
         agent_xa_->DeleteMvpnRoute(red.str(), sg.str(), 5);
         // Verify that type5, type3 and type4 routes get deleted
-        TASK_UTIL_EXPECT_EQ(5, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(5U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*(i -1) + 1, master_->Size());
         // Verify that type5 route is withdrawn since there are no receivers
         TASK_UTIL_EXPECT_EQ(static_cast<NetworkAgentMock::MvpnRouteEntry *>
@@ -1215,7 +1219,7 @@ TEST_P(BgpMvpnTwoControllerTest, ReceiverSenderLeave) {
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), nh.str());
 
         // Verify that type5, type3 and type4 routes get added back
-        TASK_UTIL_EXPECT_EQ(8, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(8U, red_[i - 1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4 * i, master_->Size());
         // Verify that mvpn and ermvpn routes are ok
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.2",
@@ -1226,8 +1230,8 @@ TEST_P(BgpMvpnTwoControllerTest, ReceiverSenderLeave) {
 TEST_P(BgpMvpnTwoControllerTest, ChangeIdentifier) {
     for (size_t i = 1; i <= instance_count_; i++) {
         // Verify that tables get all mvpn routes
-        TASK_UTIL_EXPECT_EQ(4, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(6, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(4U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(6U, green_[i - 1]->Size());
     }
     TASK_UTIL_EXPECT_EQ(8 + 6*(instance_count_-1), master_y_->Size());
 
@@ -1253,8 +1257,8 @@ TEST_P(BgpMvpnTwoControllerTest, ChangeIdentifier) {
 
     for (size_t i = 1; i <= instance_count_; i++) {
         // Verify that tables get all mvpn routes
-        TASK_UTIL_EXPECT_EQ(4, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(6, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(4U, red_[i - 1]->Size());
+        TASK_UTIL_EXPECT_EQ(6U, green_[i - 1]->Size());
     }
     TASK_UTIL_EXPECT_EQ(8 + 6*(instance_count_-1), master_y_->Size());
 }

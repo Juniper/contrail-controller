@@ -115,8 +115,7 @@ protected:
         server2_->Shutdown();
         XmppShutdown();
 
-        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
-
+        TASK_UTIL_EXPECT_EQ(0U, TcpServerManager::GetServerCount());
 
         evm_.Shutdown();
         if (thread_.get() != NULL)
@@ -254,7 +253,7 @@ protected:
     void XmppShutdown() {
         xmpp_server_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, xmpp_server_->ConnectionCount());
+        TASK_UTIL_EXPECT_EQ(0U, xmpp_server_->ConnectionCount());
         channel_manager_.reset();
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(xmpp_server_);
@@ -1350,9 +1349,9 @@ TEST_P(BGPaaSTest, Basic) {
         boost::bind(&BGPaaSTest::CheckSplitHorizon, this, 0, 0));
 
     BgpPeerTest *vm1_peer = WaitForPeerToComeUp(vm1_.get(), "vm1");
-    int vm1_flap_count = vm1_peer->flap_count();
+    auto vm1_flap_count = vm1_peer->flap_count();
     BgpPeerTest *vm2_peer = WaitForPeerToComeUp(vm2_.get(), "vm2");
-    int vm2_flap_count = vm2_peer->flap_count();
+    auto vm2_flap_count = vm2_peer->flap_count();
     EXPECT_EQ(ebgp_ ? BgpProto::EBGP : BgpProto::IBGP, vm1_peer->PeerType());
 
     // Verify that route-target routes are advertised from server_ to server2_

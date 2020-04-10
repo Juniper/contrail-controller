@@ -418,7 +418,7 @@ protected:
         BOOST_FOREACH(const string &instance_name, instance_names) {
             RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
             ASSERT_TRUE(rti != NULL);
-            ASSERT_EQ(1, rti->GetExportList().size());
+            ASSERT_EQ(1U, rti->GetExportList().size());
             RouteTarget rtarget = *(rti->GetExportList().begin());
             extcomm_spec.communities.push_back(rtarget.GetExtCommunityValue());
         }
@@ -752,7 +752,7 @@ protected:
         TASK_UTIL_EXPECT_NE((ShowStaticRouteResp *)NULL, resp);
         self->validate_done_ = true;
 
-        TASK_UTIL_EXPECT_EQ(1, resp->get_static_route_entries().size());
+        TASK_UTIL_EXPECT_EQ(1U, resp->get_static_route_entries().size());
         int i = 0;
         BOOST_FOREACH(const StaticRouteEntriesInfo &info,
                       resp->get_static_route_entries()) {

@@ -1075,11 +1075,11 @@ TEST_F(BgpRouteTest, CheckPrimaryPathsCountInTable1) {
     path.SetLlgrStale();
     path.SetPolicyReject(); // Make the path infeasible.
 
-    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
-    int stale_path_count = table_.GetStalePathCount();
-    int infeasible_path_count = table_.GetInfeasiblePathCount();
-    int primary_path_count = table_.GetPrimaryPathCount();
-    int secondary_path_count = table_.GetSecondaryPathCount();
+    auto llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    auto stale_path_count = table_.GetStalePathCount();
+    auto infeasible_path_count = table_.GetInfeasiblePathCount();
+    auto primary_path_count = table_.GetPrimaryPathCount();
+    auto secondary_path_count = table_.GetSecondaryPathCount();
 
     table_.UpdatePathCount(&path, +1);
     EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
@@ -1107,11 +1107,11 @@ TEST_F(BgpRouteTest, CheckPrimaryPathsCountInTable2) {
     path.SetStale();
     path.SetPolicyReject(); // Make the path infeasible.
 
-    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
-    int stale_path_count = table_.GetStalePathCount();
-    int infeasible_path_count = table_.GetInfeasiblePathCount();
-    int primary_path_count = table_.GetPrimaryPathCount();
-    int secondary_path_count = table_.GetSecondaryPathCount();
+    auto llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    auto stale_path_count = table_.GetStalePathCount();
+    auto infeasible_path_count = table_.GetInfeasiblePathCount();
+    auto primary_path_count = table_.GetPrimaryPathCount();
+    auto secondary_path_count = table_.GetSecondaryPathCount();
 
     table_.UpdatePathCount(&path, +1);
     EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
@@ -1139,11 +1139,11 @@ TEST_F(BgpRouteTest, CheckPrimaryPathsCountInTable3) {
     path.SetLlgrStale();
     path.SetPolicyReject(); // Make the path infeasible.
 
-    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
-    int stale_path_count = table_.GetStalePathCount();
-    int infeasible_path_count = table_.GetInfeasiblePathCount();
-    int primary_path_count = table_.GetPrimaryPathCount();
-    int secondary_path_count = table_.GetSecondaryPathCount();
+    auto llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    auto stale_path_count = table_.GetStalePathCount();
+    auto infeasible_path_count = table_.GetInfeasiblePathCount();
+    auto primary_path_count = table_.GetPrimaryPathCount();
+    auto secondary_path_count = table_.GetSecondaryPathCount();
 
     table_.UpdatePathCount(&path, +1);
     EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
@@ -1172,11 +1172,11 @@ TEST_F(BgpRouteTest, CheckSecondaryPathsCountInTable1) {
     path.SetLlgrStale();
     path.SetPolicyReject(); // Make the path infeasible.
 
-    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
-    int stale_path_count = table_.GetStalePathCount();
-    int infeasible_path_count = table_.GetInfeasiblePathCount();
-    int primary_path_count = table_.GetPrimaryPathCount();
-    int secondary_path_count = table_.GetSecondaryPathCount();
+    auto llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    auto stale_path_count = table_.GetStalePathCount();
+    auto infeasible_path_count = table_.GetInfeasiblePathCount();
+    auto primary_path_count = table_.GetPrimaryPathCount();
+    auto secondary_path_count = table_.GetSecondaryPathCount();
 
     table_.UpdatePathCount(&path, +1);
     EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
@@ -1204,11 +1204,11 @@ TEST_F(BgpRouteTest, CheckSecondaryPathsCountInTable2) {
     path.SetStale();
     path.SetLlgrStale();
 
-    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
-    int stale_path_count = table_.GetStalePathCount();
-    int infeasible_path_count = table_.GetInfeasiblePathCount();
-    int primary_path_count = table_.GetPrimaryPathCount();
-    int secondary_path_count = table_.GetSecondaryPathCount();
+    auto llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    auto stale_path_count = table_.GetStalePathCount();
+    auto infeasible_path_count = table_.GetInfeasiblePathCount();
+    auto primary_path_count = table_.GetPrimaryPathCount();
+    auto secondary_path_count = table_.GetSecondaryPathCount();
 
     table_.UpdatePathCount(&path, +1);
     EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
@@ -1236,11 +1236,11 @@ TEST_F(BgpRouteTest, CheckSecondaryPathsCountInTable3) {
     path.SetStale();
     path.SetPolicyReject(); // Make the path infeasible.
 
-    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
-    int stale_path_count = table_.GetStalePathCount();
-    int infeasible_path_count = table_.GetInfeasiblePathCount();
-    int primary_path_count = table_.GetPrimaryPathCount();
-    int secondary_path_count = table_.GetSecondaryPathCount();
+    auto llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    auto stale_path_count = table_.GetStalePathCount();
+    auto infeasible_path_count = table_.GetInfeasiblePathCount();
+    auto primary_path_count = table_.GetPrimaryPathCount();
+    auto secondary_path_count = table_.GetSecondaryPathCount();
 
     table_.UpdatePathCount(&path, +1);
     EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());

@@ -489,7 +489,7 @@ static void SgListResponse(Sandesh *sandesh, int id, int sg_id, int num_entries)
             return;
     }
 
-    EXPECT_EQ(resp->get_sg_list().size(), num_entries);
+    EXPECT_EQ(resp->get_sg_list().size(), static_cast<size_t>(num_entries));
     if (!sg_id) {
         EXPECT_EQ(resp->get_sg_list()[0].sg_uuid, UuidToString(MakeUuid(id)));
         EXPECT_EQ(resp->get_sg_list()[0].sg_id, sg_id);

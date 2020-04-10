@@ -18,7 +18,6 @@
 using namespace boost::asio;
 using namespace boost::asio::ip;
 using namespace std;
-using boost::system::error_code;
 
 class BgpSessionManagerCustom : public BgpSessionManager {
 public:
@@ -326,12 +325,12 @@ void BgpServerUnitTest::ValidateShowBgpServerResponse(Sandesh *sandesh) {
     ShowBgpServerResp *resp = dynamic_cast<ShowBgpServerResp *>(sandesh);
     EXPECT_TRUE(resp != NULL);
     const SocketIOStats &rx_stats = resp->get_rx_socket_stats();
-    EXPECT_NE(0, rx_stats.calls);
-    EXPECT_NE(0, rx_stats.bytes);
+    EXPECT_NE(0U, rx_stats.calls);
+    EXPECT_NE(0U, rx_stats.bytes);
     EXPECT_NE(0, rx_stats.average_bytes);
     const SocketIOStats &tx_stats = resp->get_tx_socket_stats();
-    EXPECT_NE(0, tx_stats.calls);
-    EXPECT_NE(0, tx_stats.bytes);
+    EXPECT_NE(0U, tx_stats.calls);
+    EXPECT_NE(0U, tx_stats.bytes);
     EXPECT_NE(0, tx_stats.average_bytes);
     validate_done_ = true;
 }
@@ -340,19 +339,19 @@ void BgpServerUnitTest::ValidateShowRibOutStatisticsResponse(Sandesh *sandesh) {
     ShowRibOutStatisticsResp *resp =
         dynamic_cast<ShowRibOutStatisticsResp *>(sandesh);
     EXPECT_TRUE(resp != NULL);
-    EXPECT_EQ(2, resp->get_ribouts().size());
+    EXPECT_EQ(2U, resp->get_ribouts().size());
 
     EXPECT_EQ("inet.0", resp->get_ribouts()[0].table);
     EXPECT_EQ("BGP", resp->get_ribouts()[0].encoding);
-    EXPECT_EQ(64512, resp->get_ribouts()[0].peer_as);
+    EXPECT_EQ(64512U, resp->get_ribouts()[0].peer_as);
     EXPECT_EQ("BULK", resp->get_ribouts()[0].queue);
-    EXPECT_EQ(1, resp->get_ribouts()[0].peers);
+    EXPECT_EQ(1U, resp->get_ribouts()[0].peers);
 
     EXPECT_EQ("inet.0", resp->get_ribouts()[1].table);
     EXPECT_EQ("BGP", resp->get_ribouts()[1].encoding);
-    EXPECT_EQ(64512, resp->get_ribouts()[1].peer_as);
+    EXPECT_EQ(64512U, resp->get_ribouts()[1].peer_as);
     EXPECT_EQ("UPDATE", resp->get_ribouts()[1].queue);
-    EXPECT_EQ(1, resp->get_ribouts()[1].peers);
+    EXPECT_EQ(1U, resp->get_ribouts()[1].peers);
 
     // Updates are sent out either as bulk as as individual updates.
     EXPECT_TRUE(resp->get_ribouts()[0].reach || resp->get_ribouts()[1].reach);
@@ -2305,10 +2304,10 @@ TEST_P(BgpServerUnitTest, ResetStatsOnFlap) {
                                              uuid);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_EQ(0, peer_a->get_rx_keepalive());
-        TASK_UTIL_EXPECT_EQ(0, peer_a->get_tx_keepalive());
-        TASK_UTIL_EXPECT_EQ(0, peer_b->get_rx_keepalive());
-        TASK_UTIL_EXPECT_EQ(0, peer_b->get_tx_keepalive());
+        TASK_UTIL_EXPECT_EQ(0U, peer_a->get_rx_keepalive());
+        TASK_UTIL_EXPECT_EQ(0U, peer_a->get_tx_keepalive());
+        TASK_UTIL_EXPECT_EQ(0U, peer_b->get_rx_keepalive());
+        TASK_UTIL_EXPECT_EQ(0U, peer_b->get_tx_keepalive());
     }
 
     StateMachineTest::set_keepalive_time_msecs(0);
@@ -2859,7 +2858,7 @@ TEST_P(BgpServerUnitTest, DisableSessionQueue1) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ACTIVE);
-        TASK_UTIL_EXPECT_EQ(0, peer_a->get_hold_timer_expired());
+        TASK_UTIL_EXPECT_EQ(0U, peer_a->get_hold_timer_expired());
     }
 
     SetSessionQueueDisable(b_session_manager_, false);
@@ -3263,7 +3262,7 @@ TEST_P(BgpServerUnitTest, CloseDeferred) {
                bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
-    TASK_UTIL_EXPECT_EQ(3, GetBgpPeerCount(b_.get()));
+    TASK_UTIL_EXPECT_EQ(3U, GetBgpPeerCount(b_.get()));
     task_util::WaitForIdle();
 
     //
@@ -3281,7 +3280,7 @@ TEST_P(BgpServerUnitTest, CloseDeferred) {
                bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
-    TASK_UTIL_EXPECT_EQ(3, GetBgpPeerCount(a_.get()));
+    TASK_UTIL_EXPECT_EQ(3U, GetBgpPeerCount(a_.get()));
     task_util::WaitForIdle();
 
 

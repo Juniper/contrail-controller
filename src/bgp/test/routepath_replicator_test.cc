@@ -598,13 +598,13 @@ TEST_F(ReplicationTest, PathImport) {
     task_util::WaitForIdle();
 
     // make sure that there are no changes.
-    VERIFY_EQ(1, rt->count());
+    VERIFY_EQ(1U, rt->count());
     VERIFY_EQ(1, RouteCount("blue"));
     VERIFY_EQ(1, RouteCount("red"));
 
     AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, {"green"});
     task_util::WaitForIdle();
-    VERIFY_EQ(1, rt->count());
+    VERIFY_EQ(1U, rt->count());
     VERIFY_EQ(0, RouteCount("blue"));
     VERIFY_EQ(0, RouteCount("red"));
     VERIFY_EQ(1, RouteCount("green"));
@@ -613,7 +613,7 @@ TEST_F(ReplicationTest, PathImport) {
     AddVPNRouteWithTarget(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
                           "target:1:1");
     task_util::WaitForIdle();
-    VERIFY_EQ(1, rt->count());
+    VERIFY_EQ(1U, rt->count());
     VERIFY_EQ(0, RouteCount("green"));
 
     DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
@@ -643,7 +643,7 @@ TEST_F(ReplicationTest, NoExtCommunities) {
     AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, vector<string>());
     task_util::WaitForIdle();
     BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
-    VERIFY_EQ(1, rt->count());
+    VERIFY_EQ(1U, rt->count());
     VERIFY_EQ(0, RouteCount("blue"));
 
     DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
@@ -729,7 +729,7 @@ TEST_F(ReplicationTest, MultiplePaths)  {
     VERIFY_EQ(1, RouteCount("red"));
     BgpRoute *rt = InetRouteLookup("blue", "10.0.1.1/32");
     // Verify that all 3 paths are replicated
-    VERIFY_EQ(3, rt->count());
+    VERIFY_EQ(3U, rt->count());
 
     DeleteVPNRoute(peers_[0], "192.2.0.1:1:10.0.1.1/32");
     DeleteVPNRoute(peers_[1], "192.2.0.1:1:10.0.1.1/32");
@@ -766,17 +766,17 @@ TEST_F(ReplicationTest, UpdatePathData)  {
     BgpRoute *rt_red = InetRouteLookup("red", "10.0.1.1/32");
     BgpRoute *rt_green = InetRouteLookup("green", "10.0.1.1/32");
 
-    VERIFY_EQ(1, rt_blue->count());
-    VERIFY_EQ(1, rt_red->count());
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_blue->count());
+    VERIFY_EQ(1U, rt_red->count());
+    VERIFY_EQ(1U, rt_green->count());
 
-    EXPECT_EQ(0, rt_blue->BestPath()->GetFlags());
-    EXPECT_EQ(0, rt_green->BestPath()->GetFlags());
-    EXPECT_EQ(0, rt_red->BestPath()->GetFlags());
+    EXPECT_EQ(0U, rt_blue->BestPath()->GetFlags());
+    EXPECT_EQ(0U, rt_green->BestPath()->GetFlags());
+    EXPECT_EQ(0U, rt_red->BestPath()->GetFlags());
 
-    EXPECT_EQ(0, rt_blue->BestPath()->GetLabel());
-    EXPECT_EQ(0, rt_green->BestPath()->GetLabel());
-    EXPECT_EQ(0, rt_red->BestPath()->GetLabel());
+    EXPECT_EQ(0U, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(0U, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(0U, rt_red->BestPath()->GetLabel());
 
     // Update primary path's flag.
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
@@ -787,9 +787,9 @@ TEST_F(ReplicationTest, UpdatePathData)  {
     rt_red = InetRouteLookup("red", "10.0.1.1/32");
     rt_green = InetRouteLookup("green", "10.0.1.1/32");
 
-    VERIFY_EQ(1, rt_blue->count());
-    VERIFY_EQ(1, rt_red->count());
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_blue->count());
+    VERIFY_EQ(1U, rt_red->count());
+    VERIFY_EQ(1U, rt_green->count());
 
     EXPECT_EQ(BgpPath::Stale, rt_blue->BestPath()->GetFlags());
     EXPECT_EQ(BgpPath::Stale, rt_green->BestPath()->GetFlags());
@@ -804,13 +804,13 @@ TEST_F(ReplicationTest, UpdatePathData)  {
     rt_red = InetRouteLookup("red", "10.0.1.1/32");
     rt_green = InetRouteLookup("green", "10.0.1.1/32");
 
-    VERIFY_EQ(1, rt_blue->count());
-    VERIFY_EQ(1, rt_red->count());
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_blue->count());
+    VERIFY_EQ(1U, rt_red->count());
+    VERIFY_EQ(1U, rt_green->count());
 
-    EXPECT_EQ(200, rt_blue->BestPath()->GetLabel());
-    EXPECT_EQ(200, rt_green->BestPath()->GetLabel());
-    EXPECT_EQ(200, rt_red->BestPath()->GetLabel());
+    EXPECT_EQ(200U, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(200U, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(200U, rt_red->BestPath()->GetLabel());
 
     // Update primary path's flag and label.
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
@@ -821,17 +821,17 @@ TEST_F(ReplicationTest, UpdatePathData)  {
     rt_red = InetRouteLookup("red", "10.0.1.1/32");
     rt_green = InetRouteLookup("green", "10.0.1.1/32");
 
-    VERIFY_EQ(1, rt_blue->count());
-    VERIFY_EQ(1, rt_red->count());
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_blue->count());
+    VERIFY_EQ(1U, rt_red->count());
+    VERIFY_EQ(1U, rt_green->count());
 
     EXPECT_EQ(BgpPath::LlgrStale, rt_blue->BestPath()->GetFlags());
     EXPECT_EQ(BgpPath::LlgrStale, rt_green->BestPath()->GetFlags());
     EXPECT_EQ(BgpPath::LlgrStale, rt_red->BestPath()->GetFlags());
 
-    EXPECT_EQ(200, rt_blue->BestPath()->GetLabel());
-    EXPECT_EQ(200, rt_green->BestPath()->GetLabel());
-    EXPECT_EQ(200, rt_red->BestPath()->GetLabel());
+    EXPECT_EQ(200U, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(200U, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(200U, rt_red->BestPath()->GetLabel());
 
     // Reset path's label and flag
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
@@ -842,17 +842,17 @@ TEST_F(ReplicationTest, UpdatePathData)  {
     rt_red = InetRouteLookup("red", "10.0.1.1/32");
     rt_green = InetRouteLookup("green", "10.0.1.1/32");
 
-    VERIFY_EQ(1, rt_blue->count());
-    VERIFY_EQ(1, rt_red->count());
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_blue->count());
+    VERIFY_EQ(1U, rt_red->count());
+    VERIFY_EQ(1U, rt_green->count());
 
-    EXPECT_EQ(0, rt_blue->BestPath()->GetFlags());
-    EXPECT_EQ(0, rt_green->BestPath()->GetFlags());
-    EXPECT_EQ(0, rt_red->BestPath()->GetFlags());
+    EXPECT_EQ(0U, rt_blue->BestPath()->GetFlags());
+    EXPECT_EQ(0U, rt_green->BestPath()->GetFlags());
+    EXPECT_EQ(0U, rt_red->BestPath()->GetFlags());
 
-    EXPECT_EQ(0, rt_blue->BestPath()->GetLabel());
-    EXPECT_EQ(0, rt_green->BestPath()->GetLabel());
-    EXPECT_EQ(0, rt_red->BestPath()->GetLabel());
+    EXPECT_EQ(0U, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(0U, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(0U, rt_red->BestPath()->GetLabel());
 
     DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
     task_util::WaitForIdle();
@@ -888,9 +888,9 @@ TEST_F(ReplicationTest, IdentifySecondary)  {
     BgpRoute *rt_red = InetRouteLookup("red", "10.0.1.1/32");
     BgpRoute *rt_green = InetRouteLookup("green", "10.0.1.1/32");
 
-    VERIFY_EQ(1, rt_blue->count());
-    VERIFY_EQ(1, rt_red->count());
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_blue->count());
+    VERIFY_EQ(1U, rt_red->count());
+    VERIFY_EQ(1U, rt_green->count());
 
     //
     // Add 2 more paths in blue
@@ -899,11 +899,11 @@ TEST_F(ReplicationTest, IdentifySecondary)  {
     AddInetRoute(peers_[2], "blue", "10.0.1.1/32", 100);
     task_util::WaitForIdle();
 
-    VERIFY_EQ(3, rt_blue->count());
+    VERIFY_EQ(3U, rt_blue->count());
     // Verify that all three paths are replicated
-    VERIFY_EQ(3, rt_red->count());
+    VERIFY_EQ(3U, rt_red->count());
     // Verify that all three paths are replicated
-    VERIFY_EQ(3, rt_green->count());
+    VERIFY_EQ(3U, rt_green->count());
 
     AddInetRoute(peers_[0], "red", "10.0.1.1/32", 100);
 
@@ -920,39 +920,39 @@ TEST_F(ReplicationTest, IdentifySecondary)  {
 
     rt_green = InetRouteLookup("green", "10.0.1.1/32");
     // 2 replicated path and 3 paths sourced from peer
-    VERIFY_EQ(5, rt_blue->count());
+    VERIFY_EQ(5U, rt_blue->count());
     // 3 replicated path and 1 path from the peer_[0]
-    VERIFY_EQ(4, rt_red->count());
+    VERIFY_EQ(4U, rt_red->count());
     // 3 replicated path and 1 path from the peer_[0]
-    VERIFY_EQ(4, rt_green->count());
+    VERIFY_EQ(4U, rt_green->count());
 
     DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
     task_util::WaitForIdle();
     // 2 replicatd  and 2 paths from peer
-    VERIFY_EQ(4, rt_blue->count());
+    VERIFY_EQ(4U, rt_blue->count());
     // 2 replicatd  and 1 path from peer[0]
-    VERIFY_EQ(3, rt_red->count());
+    VERIFY_EQ(3U, rt_red->count());
     // 2 replicatd  and 1 path from peer[0]
-    VERIFY_EQ(3, rt_green->count());
+    VERIFY_EQ(3U, rt_green->count());
 
     DeleteInetRoute(peers_[1], "blue", "10.0.1.1/32");
     DeleteInetRoute(peers_[2], "blue", "10.0.1.1/32");
     task_util::WaitForIdle();
 
     // 2 replicated paths
-    VERIFY_EQ(2, rt_blue->count());
+    VERIFY_EQ(2U, rt_blue->count());
     // path from peer[0]
-    VERIFY_EQ(1, rt_red->count());
+    VERIFY_EQ(1U, rt_red->count());
     // path from peer[0]
-    VERIFY_EQ(1, rt_green->count());
+    VERIFY_EQ(1U, rt_green->count());
 
     DeleteInetRoute(peers_[0], "red", "10.0.1.1/32");
     task_util::WaitForIdle();
 
     VERIFY_EQ(0, InetRouteLookup("red", "10.0.1.1/32"));
 
-    VERIFY_EQ(1, rt_green->count()); // peers_[0]
-    VERIFY_EQ(1, rt_blue->count());  // green(peers_[0])
+    VERIFY_EQ(1U, rt_green->count());  // peers_[0]
+    VERIFY_EQ(1U, rt_blue->count());   // green(peers_[0])
 
     DeleteInetRoute(peers_[0], "green", "10.0.1.1/32");
     task_util::WaitForIdle();
@@ -990,14 +990,14 @@ TEST_F(ReplicationTest, MultiplePathsDiffRD)  {
     VERIFY_EQ(1, RouteCount("blue"));
     BgpRoute *rt = InetRouteLookup("blue", "10.0.1.1/32");
     ASSERT_TRUE(rt != NULL);
-    VERIFY_EQ(2, rt->count());
+    VERIFY_EQ(2U, rt->count());
     VERIFY_EQ(1, RouteCount("red"));
 
     DeleteVPNRoute(peers_[1], "192.168.0.2:1:10.0.1.1/32");
     task_util::WaitForIdle();
     rt = InetRouteLookup("blue", "10.0.1.1/32");
     ASSERT_TRUE(rt != NULL);
-    VERIFY_EQ(1, rt->count());
+    VERIFY_EQ(1U, rt->count());
 
     DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
     task_util::WaitForIdle();
@@ -1074,7 +1074,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
 
     const RtReplicated *rts = InetRouteReplicationState("red", rt);
     ASSERT_TRUE(rts != NULL);
-    VERIFY_EQ(2, rts->GetList().size());
+    VERIFY_EQ(2U, rts->GetList().size());
     BOOST_FOREACH(const RtReplicated::SecondaryRouteInfo rinfo,
                   rts->GetList()) {
         BGP_DEBUG_UT(rinfo.table_->name() << " " << rinfo.rt_->ToString());
@@ -1086,7 +1086,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
     VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
     rts = InetRouteReplicationState("red", rt);
     ASSERT_TRUE(rts != NULL);
-    VERIFY_EQ(2, rts->GetList().size());
+    VERIFY_EQ(2U, rts->GetList().size());
 
     // change the best path
     AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 110, {"blue"});
@@ -1139,7 +1139,7 @@ TEST_F(ReplicationTest, ResurrectInetRoute) {
 
     // Two paths.. One replicated from bgp.l3vpn.0 from peer[0]
     // other one from blue.inet.0 from peer[1]
-    VERIFY_EQ(2, rt->count());
+    VERIFY_EQ(2U, rt->count());
 
     // Delete the INET route. This causes the VPN route to be imported to the
     // VRF
@@ -1185,7 +1185,7 @@ TEST_F(ReplicationTest, LocalRouteFirst) {
     AddVPNRoute(peers_[0], rt1_vpn_prefix, 80, {"blue"});
     task_util::WaitForIdle();
     VERIFY_EQ(peers_[1], rt1->BestPath()->GetPeer());
-    VERIFY_EQ(2, rt1_vpn->count());
+    VERIFY_EQ(2U, rt1_vpn->count());
 
     BgpRoute *rt2 = InetRouteLookup("green", "10.0.1.1/32");
     rts = InetRouteReplicationState("green", rt2);
@@ -1241,12 +1241,12 @@ TEST_F(ReplicationTest, ResurrectVPNRoute) {
     task_util::WaitForIdle();
 
     BgpRoute *rt_vpn = VPNRouteLookup(vpn_prefix_str);
-    VERIFY_EQ(1, rt_vpn->count());
+    VERIFY_EQ(1U, rt_vpn->count());
     VERIFY_EQ(peers_[0], rt_vpn->BestPath()->GetPeer());
 
     // Update local-pref so that the path becomes ecmp eligible
     AddInetRoute(peers_[1], "blue", "10.0.1.1/32", 100);
-    VERIFY_EQ(2, rt_vpn->count());
+    VERIFY_EQ(2U, rt_vpn->count());
 
     // Delete the VPN route. This causes the inet route to be exported to
     // the l3vpn table.
@@ -1459,7 +1459,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets1) {
 
     // Verify targets for blue instance.
     vector<string> instance_targets = GetInstanceRouteTargetList("blue");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
 
     // Add route to blue table.
@@ -1479,7 +1479,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets1) {
 
     // Add another target to blue instance and verify targets.
     AddInstanceRouteTarget("blue", "target:64496:101");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("blue").size());
     instance_targets = GetInstanceRouteTargetList("blue");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:101", instance_targets[1]);
@@ -1497,7 +1497,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets1) {
 
     // Remove original target from blue instance and verify targets.
     RemoveInstanceRouteTarget("blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("blue").size());
     instance_targets = GetInstanceRouteTargetList("blue");
     TASK_UTIL_EXPECT_EQ("target:64496:101", instance_targets[0]);
 
@@ -1536,7 +1536,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
 
     // Verify targets for blue instance.
     vector<string> instance_targets = GetInstanceRouteTargetList("blue");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
 
     // Add route to blue table.
@@ -1556,7 +1556,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
 
     // Remove original target from blue instance and verify targets.
     RemoveInstanceRouteTarget("blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceRouteTargetList("blue").size());
 
     // Make sure the route is in the blue table but not in the red table.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -1569,7 +1569,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
 
     // Add a new target to blue instance and verify targets.
     AddInstanceRouteTarget("blue", "target:64496:101");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("blue").size());
     instance_targets = GetInstanceRouteTargetList("blue");
     TASK_UTIL_EXPECT_EQ("target:64496:101", instance_targets[0]);
 
@@ -1608,7 +1608,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets3) {
 
     // Verify targets for red instance.
     vector<string> instance_targets = GetInstanceRouteTargetList("red");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
 
     // Add route to blue table.
@@ -1629,7 +1629,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets3) {
 
     // Add another target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
@@ -1648,7 +1648,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets3) {
 
     // Remove original target from red instance and verify targets.
     RemoveInstanceRouteTarget("red", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
 
@@ -1688,7 +1688,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
 
     // Verify targets for red instance.
     vector<string> instance_targets = GetInstanceRouteTargetList("red");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
 
     // Add route to blue table.
@@ -1709,7 +1709,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
 
     // Remove original target from red instance and verify targets.
     RemoveInstanceRouteTarget("red", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceRouteTargetList("red").size());
 
     // Make sure the route is in the blue and red tables.
     // Even though red has no export targets, it's still importing blue.
@@ -1726,7 +1726,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
 
     // Add a new target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
 
@@ -1783,7 +1783,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets5) {
 
     // Add another target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
@@ -1796,7 +1796,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets5) {
 
     // Remove original target from red instance and verify targets.
     RemoveInstanceRouteTarget("red", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
 
@@ -1847,7 +1847,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
 
     // Remove original target from red instance and verify targets.
     RemoveInstanceRouteTarget("red", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceRouteTargetList("red").size());
 
     // Make sure the route is in the blue and red tables.
     // Even though red has no export targets, it's still importing blue.
@@ -1858,7 +1858,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
 
     // Add a new target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
 
@@ -1910,7 +1910,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
 
     // Add another target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
@@ -1923,7 +1923,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
 
     // Remove original target from red instance and verify targets.
     RemoveInstanceRouteTarget("red", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
 
@@ -1993,7 +1993,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
 
     // Remove original target from red instance and verify targets.
     RemoveInstanceRouteTarget("red", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceRouteTargetList("red").size());
 
     // Make sure the route is in the blue table but not the red table.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -2003,7 +2003,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
 
     // Add a new target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceRouteTargetList("red").size());
     instance_targets = GetInstanceRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
 
@@ -2056,10 +2056,10 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
     // Verify targets for blue and red instances.
     vector<string> instance_targets;
     instance_targets = GetInstanceRouteTargetList("blue");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
     instance_targets = GetInstanceRouteTargetList("red");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
 
     // Add route to blue table.
@@ -2074,7 +2074,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
 
     // Add blue export target to red import target list.
     AddInstanceImportRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(4, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(4U, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[2]);
@@ -2088,7 +2088,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
 
     // Remove blue export target from red import target list.
     RemoveInstanceRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(3, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(3U, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[2]);
@@ -2123,10 +2123,10 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
     // Verify targets for blue and red instances.
     vector<string> instance_targets;
     instance_targets = GetInstanceRouteTargetList("blue");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
     instance_targets = GetInstanceRouteTargetList("red");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
 
     // Add route to VPN table with blue target.
@@ -2141,7 +2141,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
 
     // Add blue export target to red import target list.
     AddInstanceImportRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(4, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(4U, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[2]);
@@ -2155,7 +2155,7 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
 
     // Remove blue export target from red import target list.
     RemoveInstanceRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(3, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(3U, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[2]);
@@ -2190,11 +2190,11 @@ TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
     // Verify targets for blue and red instances.
     vector<string> instance_targets;
     instance_targets = GetInstanceExportRouteTargetList("blue");
-    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(1U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
     AddInstanceImportRouteTarget("red", "target:64496:202");
     instance_targets = GetInstanceImportRouteTargetList("red");
-    TASK_UTIL_EXPECT_EQ(4, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(4U, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:192.168.0.100:2", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[2]);
@@ -2212,7 +2212,7 @@ TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
 
     // Add red import-only target to blue export target list.
     AddInstanceExportRouteTarget("blue", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceExportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceExportRouteTargetList("blue").size());
     instance_targets = GetInstanceExportRouteTargetList("blue");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
@@ -2225,7 +2225,7 @@ TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
 
     // Remove red import-only target from blue export target list.
     RemoveInstanceRouteTarget("blue", "target:64496:202");
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceExportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(1U, GetInstanceExportRouteTargetList("blue").size());
     instance_targets = GetInstanceExportRouteTargetList("blue");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
 
@@ -2292,7 +2292,7 @@ TEST_F(ReplicationTest, OriginVn2) {
 
     // Add another target to blue instance.
     AddInstanceRouteTarget("blue", "target:64496:101");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("blue").size());
 
     boost::system::error_code ec;
     peers_.push_back(
@@ -2332,7 +2332,7 @@ TEST_F(ReplicationTest, OriginVn3) {
 
     // Add another target to blue instance.
     AddInstanceRouteTarget("blue", "target:64496:101");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("blue").size());
 
     boost::system::error_code ec;
     peers_.push_back(
@@ -2374,7 +2374,7 @@ TEST_F(ReplicationTest, OriginVn4) {
 
     // Add another target to blue instance.
     AddInstanceRouteTarget("blue", "target:64496:101");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceRouteTargetList("blue").size());
 
     boost::system::error_code ec;
     peers_.push_back(
@@ -2595,24 +2595,24 @@ TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
 
     const TableState *ts_blue = VerifyVRFTableStateExists("blue", true);
     const TableState *ts_red = VerifyVRFTableStateExists("red", true);
-    TASK_UTIL_EXPECT_EQ(1, ts_blue->route_count());
-    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+    TASK_UTIL_EXPECT_EQ(1U, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_red->route_count());
 
     RemoveInstanceRouteTarget("blue", "target:64496:1");
     RemoveInstanceRouteTarget("red", "target:64496:2");
 
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("blue").size());
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("red").size());
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceImportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceExportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceExportRouteTargetList("blue").size());
 
     ts_blue = VerifyVRFTableStateExists("blue", true);
     ts_red = VerifyVRFTableStateExists("red", true);
 
     TASK_UTIL_EXPECT_TRUE(ts_red->empty());
     TASK_UTIL_EXPECT_TRUE(ts_blue->empty());
-    TASK_UTIL_EXPECT_EQ(0, ts_blue->route_count());
-    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_red->route_count());
 
     DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
     task_util::WaitForIdle();
@@ -2649,26 +2649,26 @@ TEST_F(ReplicationTest, TableStateOnVRFInBulkSyncList) {
 
     const TableState *ts_blue = VerifyVRFTableStateExists("blue", true);
     const TableState *ts_red = VerifyVRFTableStateExists("red", true);
-    TASK_UTIL_EXPECT_EQ(1, ts_blue->route_count());
-    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+    TASK_UTIL_EXPECT_EQ(1U, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_red->route_count());
 
     DisableBulkSync();
 
     RemoveInstanceRouteTarget("blue", "target:64496:1");
     RemoveInstanceRouteTarget("red", "target:64496:2");
 
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("blue").size());
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("red").size());
-    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2U, GetInstanceImportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceExportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0U, GetInstanceExportRouteTargetList("blue").size());
 
     ts_blue = VerifyVRFTableStateExists("blue", true);
     ts_red = VerifyVRFTableStateExists("red", true);
 
     TASK_UTIL_EXPECT_TRUE(ts_red->empty());
     TASK_UTIL_EXPECT_TRUE(ts_blue->empty());
-    TASK_UTIL_EXPECT_EQ(1, ts_blue->route_count());
-    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+    TASK_UTIL_EXPECT_EQ(1U, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_red->route_count());
 
     DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
     task_util::WaitForIdle();
@@ -2683,8 +2683,8 @@ TEST_F(ReplicationTest, TableStateOnVRFInBulkSyncList) {
 
     ts_blue = VerifyVRFTableStateExists("blue", true);
     ts_red = VerifyVRFTableStateExists("red", true);
-    TASK_UTIL_EXPECT_EQ(0, ts_blue->route_count());
-    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0U, ts_red->route_count());
     TASK_UTIL_EXPECT_TRUE(ts_blue->table()->IsDeleted());
     TASK_UTIL_EXPECT_TRUE(ts_red->table()->IsDeleted());
 

@@ -233,11 +233,11 @@ protected:
         cout << "****************************************************" << endl;
         cout << endl;
 
-        EXPECT_NE(0, rx_stats.calls);
-        EXPECT_NE(0, rx_stats.bytes);
+        EXPECT_NE(0U, rx_stats.calls);
+        EXPECT_NE(0U, rx_stats.bytes);
         EXPECT_NE(0, rx_stats.average_bytes);
-        EXPECT_NE(0, tx_stats.calls);
-        EXPECT_NE(0, tx_stats.bytes);
+        EXPECT_NE(0U, tx_stats.calls);
+        EXPECT_NE(0U, tx_stats.bytes);
         EXPECT_NE(0, tx_stats.average_bytes);
         validate_done_ = true;
     }
@@ -340,7 +340,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(1, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(1U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message 1 at Server \n ");
 
     //send subscribe message to vrf=blue from agent to bgp
@@ -349,7 +349,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(2, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(2U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message 2 at Server \n ");
 
     //send subscribe message to vrf=red from agent to bgp
@@ -358,7 +358,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(3, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(3U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message 3 at Server \n ");
 
     //send publish  message to vrf=blue from agent to bgp
@@ -367,11 +367,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(4, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(4U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received publish message at Server \n ");
 
     // route reflected back to the Xmpp vnsw client + route leaked to red vrf.
-    WAIT_EQ(2, xmpp_cchannel_->Count());
+    WAIT_EQ(2U, xmpp_cchannel_->Count());
     BGP_DEBUG_UT("Received route message at Client \n ");
 
     BgpSandeshContext sandesh_context;
@@ -425,11 +425,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(5, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(5U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received route dissociate at Server \n ");
 
     // route reflected back to the Xmpp vnsw client + route leaked to red vrf.
-    WAIT_EQ(4, xmpp_cchannel_->Count());
+    WAIT_EQ(4U, xmpp_cchannel_->Count());
     BGP_DEBUG_UT("Received reflected route dissociate at Client \n ");
 
     //send unsubscribe message to vrf=blue from agent to bgp
@@ -438,7 +438,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(6, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(6U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 1 at Server \n ");
 
     //send unsubscribe message to vrf=red from agent to bgp
@@ -447,7 +447,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(7, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(7U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 2 at Server \n ");
 
     //send unsubscribe message to vrf=__default__ from agent to bgp
@@ -456,7 +456,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(8, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(8U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 3 at Server \n ");
 
     // Wait for all unsubscribe requests to get processed
@@ -515,7 +515,7 @@ TEST_F(BgpXmppUnitTest, ShowXmppServer) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(1, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(1U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message 1 at Server");
 
     //send unsubscribe message to vrf=red from agent to bgp
@@ -524,7 +524,7 @@ TEST_F(BgpXmppUnitTest, ShowXmppServer) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(2, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(2U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 1 at Server");
 
     XmppSandeshContext xmpp_sandesh_context;

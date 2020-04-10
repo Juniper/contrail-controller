@@ -27,12 +27,12 @@ TEST_F(RTargetPrefixTest, Parse) {
         RTargetPrefix::FromString("80000:target:80000:1"));
     EXPECT_EQ(prefix.ToString(), "80000:target:80000:1");
     EXPECT_EQ(prefix.rtarget().ToString(), "target:80000:1");
-    EXPECT_EQ(prefix.as(), 80000);
+    EXPECT_EQ(prefix.as(), 80000U);
 }
 
 TEST_F(RTargetPrefixTest, Default) {
     RTargetPrefix prefix;
-    EXPECT_EQ(prefix.as(), 0);
+    EXPECT_EQ(prefix.as(), 0U);
     EXPECT_EQ(prefix.rtarget(), RouteTarget::null_rtarget);
     EXPECT_EQ(prefix.ToString(), RTargetPrefix::kDefaultPrefixString);
     EXPECT_EQ(prefix,

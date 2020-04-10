@@ -192,7 +192,7 @@ void XmppServerTest::TestBasicConnection (const string &local_name,
 
     // Tear down client and check if server peer count has gone to 0.
     ConfigUpdate(b_, new XmppConfigData());
-    TASK_UTIL_EXPECT_EQ(0, xmpp_peer_manager_->peer_mux_map().size());
+    TASK_UTIL_EXPECT_EQ(0U, xmpp_peer_manager_->peer_mux_map().size());
 
     // Config update will close the peer from client side
     // which will generate server side close event and

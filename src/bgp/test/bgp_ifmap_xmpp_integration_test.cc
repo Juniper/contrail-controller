@@ -305,17 +305,17 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         IFMapTable *vmitable =
             IFMapTable::FindTable(config_db_, "virtual-machine-interface");
 
-        TASK_UTIL_EXPECT_EQ(1, domaintable->Size());
+        TASK_UTIL_EXPECT_EQ(1U, domaintable->Size());
         TASK_UTIL_EXPECT_TRUE(NodeLookup("domain", "default-domain") != NULL);
         TASK_UTIL_EXPECT_TRUE(NodeLookup("domain", "default-domain")->Find(
                                   IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
-        TASK_UTIL_EXPECT_EQ(1, projecttable->Size());
+        TASK_UTIL_EXPECT_EQ(1U, projecttable->Size());
         TASK_UTIL_EXPECT_TRUE(
             NodeLookup("project", "default-domain:service") != NULL);
         TASK_UTIL_EXPECT_TRUE(
             NodeLookup("project", "default-domain:service")->Find(
                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
-        TASK_UTIL_EXPECT_EQ(1, vmitable->Size());
+        TASK_UTIL_EXPECT_EQ(1U, vmitable->Size());
         TASK_UTIL_EXPECT_TRUE(
             NodeLookup(
                 "virtual-machine-interface",

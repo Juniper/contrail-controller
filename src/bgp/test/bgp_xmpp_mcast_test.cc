@@ -553,11 +553,11 @@ TEST_F(BgpXmppMcastMultiAgentTest, MultipleRoutes) {
 
     // Verify that all agents have all routes.
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list) / sizeof(mroute_list[0]),
-        agent_xa_->McastRouteCount());
+                        static_cast<size_t>(agent_xa_->McastRouteCount()));
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list) / sizeof(mroute_list[0]),
-        agent_xb_->McastRouteCount());
+                        static_cast<size_t>(agent_xb_->McastRouteCount()));
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list) / sizeof(mroute_list[0]),
-        agent_xc_->McastRouteCount());
+                        static_cast<size_t>(agent_xc_->McastRouteCount()));
 
     // Verify all OList elements for all routes on all agents.
     BOOST_FOREACH(const char *mroute, mroute_list) {
@@ -594,7 +594,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion1) {
     task_util::WaitForIdle();
 
     // Verify that all native, local and global routes got added.
-    TASK_UTIL_EXPECT_EQ(5, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(5U, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 0 on all agents.
     VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
@@ -614,7 +614,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion1) {
     task_util::WaitForIdle();
 
     // Verify that all native, local and global routes got added.
-    TASK_UTIL_EXPECT_EQ(10, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(10U, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 1 on agents a and b.
     // Verify that there's no route on agent c.
@@ -653,7 +653,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion2) {
     task_util::WaitForIdle();
 
     // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(5, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(5U, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 0 on all agents.
     VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
@@ -673,7 +673,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion2) {
     task_util::WaitForIdle();
 
     // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(10, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(10U, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 1 on agents b and c.
     // Verify that there's no route on agent c.
@@ -712,7 +712,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion3) {
     task_util::WaitForIdle();
 
     // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(5, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(5U, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 0 on all agents.
     VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
@@ -733,7 +733,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion3) {
 
     // Verify that all native routes got added.
     // There should be a local route for only the first mcast route.
-    TASK_UTIL_EXPECT_EQ(8, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(8U, GetVrfTableSize(bs_x_, "blue"));
     task_util::WaitForIdle();
 
     // Verify that there's no route on all agents.
@@ -1516,9 +1516,9 @@ TEST_F(BgpXmppMcast2ServerTest, SingleAgentMultipleRoutes) {
 
     // Verify that all agents have all routes.
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list) / sizeof(mroute_list[0]),
-        agent_xa_->McastRouteCount());
+                        static_cast<size_t>(agent_xa_->McastRouteCount()));
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list) / sizeof(mroute_list[0]),
-        agent_ya_->McastRouteCount());
+                        static_cast<size_t>(agent_ya_->McastRouteCount()));
 
     // Verify all OList elements and labels for all routes on all agents.
     BOOST_FOREACH(const char *mroute, mroute_list) {

@@ -102,7 +102,7 @@ protected:
         session_.reset(new BgpSessionMock(server_.session_manager()));
         peer_.reset(new BgpPeerMock(&server_, &config_));
         peer_->set_session(session_.get());
-        TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
+        TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
     }
 
     void TearDown() {
@@ -286,9 +286,9 @@ TEST_F(BgpPeerTest, BufferCapacity7) {
 //
 TEST_F(BgpPeerTest, MessageBuffer1) {
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(0, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 }
 
 //
@@ -300,13 +300,13 @@ TEST_F(BgpPeerTest, MessageBuffer2) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(1, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(1U, session_->message_count());
 }
 
 //
@@ -319,23 +319,23 @@ TEST_F(BgpPeerTest, MessageBuffer3) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(2 * msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(3 * msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(3, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(3U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(3, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(1, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(3U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(1U, session_->message_count());
 }
 
 //
@@ -349,18 +349,18 @@ TEST_F(BgpPeerTest, MessageBuffer4) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->SendUpdate(msg, 127);
     TASK_UTIL_EXPECT_EQ(bufcap - 1, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(1, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(1U, session_->message_count());
 }
 
 //
@@ -374,18 +374,18 @@ TEST_F(BgpPeerTest, MessageBuffer5) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->SendUpdate(msg, 128);
     TASK_UTIL_EXPECT_EQ(bufcap, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(1, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(1U, session_->message_count());
 }
 
 //
@@ -398,18 +398,18 @@ TEST_F(BgpPeerTest, MessageBuffer6) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->SendUpdate(msg, 129);
-    TASK_UTIL_EXPECT_EQ(129, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(1, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(129U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(1U, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(2, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(2U, session_->message_count());
 }
 
 //
@@ -424,19 +424,19 @@ TEST_F(BgpPeerTest, MessageBuffer7) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->SendUpdate(msg, 128);
     TASK_UTIL_EXPECT_EQ(bufcap, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->clear_session();
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 }
 
 //
@@ -450,19 +450,19 @@ TEST_F(BgpPeerTest, MessageBuffer8) {
 
     peer_->SendUpdate(msg, msgsize);
     TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->clear_session();
     peer_->SendUpdate(msg, 129);
-    TASK_UTIL_EXPECT_EQ(129, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(129U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
-    TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(0, session_->message_count());
+    TASK_UTIL_EXPECT_EQ(0U, peer_->buffer_size());
+    TASK_UTIL_EXPECT_EQ(2U, peer_->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(0U, session_->message_count());
 }
 
 typedef std::tr1::tuple<time_t, uint64_t, bool, Address::Family, time_t, bool,
@@ -562,23 +562,24 @@ TEST_P(BgpPeerParamTest, SendEndOfRib) {
     EXPECT_TRUE(peer_->sent_eor_);
 }
 
-INSTANTIATE_TEST_CASE_P(BgpPeerTestWithParams, BgpPeerParamTest,
-    testing::Combine(::testing::Values(
-            0,
-            BgpGlobalSystemConfig::kEndOfRibTime * 0.20/2,
-            BgpGlobalSystemConfig::kEndOfRibTime * 0.20,
-            BgpGlobalSystemConfig::kEndOfRibTime * 0.50,
-            BgpGlobalSystemConfig::kEndOfRibTime,
-            BgpGlobalSystemConfig::kEndOfRibTime * 2),
-        ::testing::Values(0, 100),
+INSTANTIATE_TEST_CASE_P(
+    BgpPeerTestWithParams,
+    BgpPeerParamTest,
+    testing::Combine(
+        ::testing::Values(0,
+                          BgpGlobalSystemConfig::kEndOfRibTime / 10,
+                          BgpGlobalSystemConfig::kEndOfRibTime / 5,
+                          BgpGlobalSystemConfig::kEndOfRibTime / 2,
+                          BgpGlobalSystemConfig::kEndOfRibTime,
+                          BgpGlobalSystemConfig::kEndOfRibTime * 2),
+        ::testing::Values(0U, 100u),
         ::testing::Bool(),
         ::testing::Values(Address::INET, Address::RTARGET),
         ::testing::Values(
             UTCTimestamp(),
-            UTCTimestamp() - 0.20 * BgpGlobalSystemConfig::kEndOfRibTime,
-            UTCTimestamp() - 0.50 * BgpGlobalSystemConfig::kEndOfRibTime,
-            UTCTimestamp() - 1.00 * BgpGlobalSystemConfig::kEndOfRibTime
-        ),
+            UTCTimestamp() - BgpGlobalSystemConfig::kEndOfRibTime / 5,
+            UTCTimestamp() - BgpGlobalSystemConfig::kEndOfRibTime / 2,
+            UTCTimestamp() - BgpGlobalSystemConfig::kEndOfRibTime),
         ::testing::Bool(),
         ::testing::Bool()));
 

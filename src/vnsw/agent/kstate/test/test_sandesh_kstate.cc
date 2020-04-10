@@ -1113,9 +1113,9 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_1) {
 
 TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
     FlowSetUp();
-    int total_flows = 110;
+    size_t total_flows = 110;
 
-    for (int i = 0; i < total_flows; i++) {
+    for (size_t i = 0; i < total_flows; i++) {
         Ip4Address dip(0x1010101 + i);
         //Add route for all of them
         CreateRemoteRoute("vrf5", dip.to_string().c_str(), remote_router_ip,

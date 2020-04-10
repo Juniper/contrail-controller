@@ -2762,7 +2762,7 @@ TEST_F(IntfTest, IntfStaticRouteWithCommunity) {
    EXPECT_TRUE(rt != NULL);
    const AgentPath *path = rt->GetActivePath();
    EXPECT_TRUE(path != NULL);
-   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities().size(), 2U);
    EXPECT_EQ(path->communities(), communities);
 
    DoInterfaceSandesh("vnet1");
@@ -2818,7 +2818,7 @@ TEST_F(IntfTest, IntfStaticRouteWithCommunityWithNexthop) {
    EXPECT_TRUE(rt != NULL);
    const AgentPath *path = rt->GetActivePath();
    EXPECT_TRUE(path != NULL);
-   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities().size(), 2U);
    EXPECT_EQ(path->communities(), communities);
    DoInterfaceSandesh("vnet1");
    client->WaitForIdle();
@@ -2872,7 +2872,7 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_0) {
    EXPECT_TRUE(rt != NULL);
    const AgentPath *path = rt->GetActivePath();
    EXPECT_TRUE(path != NULL);
-   EXPECT_EQ(path->communities().size(), 0);
+   EXPECT_EQ(path->communities().size(), 0U);
 
    DoInterfaceSandesh("vnet1");
    client->WaitForIdle();
@@ -2895,7 +2895,7 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_0) {
    EXPECT_TRUE(rt != NULL);
    path = rt->GetActivePath();
    EXPECT_TRUE(path != NULL);
-   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities().size(), 2U);
    EXPECT_EQ(path->communities(), update_communities);
 
    DoInterfaceSandesh("vnet1");
@@ -2950,7 +2950,7 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_1) {
    EXPECT_TRUE(rt != NULL);
    const AgentPath *path = rt->GetActivePath();
    EXPECT_TRUE(path != NULL);
-   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities().size(), 2U);
    EXPECT_EQ(path->communities(), communities);
 
    DoInterfaceSandesh("vnet1");
@@ -2973,7 +2973,7 @@ TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_1) {
    EXPECT_TRUE(rt != NULL);
    path = rt->GetActivePath();
    EXPECT_TRUE(path != NULL);
-   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities().size(), 2U);
    EXPECT_EQ(path->communities(), update_communities);
 
    DoInterfaceSandesh("vnet1");

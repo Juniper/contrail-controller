@@ -1348,7 +1348,7 @@ TEST_F(BgpXmppEvpnTest1, 2TorAgentSameTor) {
     // Verify that a single inclusive multicast route got added with 2 paths.
     string eroute_im("3-10.1.1.1:99-0-10.1.1.1");
     EvpnRoute *rt = VerifyBgpRouteExists(bs_x_, "blue", eroute_im);
-    TASK_UTIL_EXPECT_EQ(2, rt->count());
+    TASK_UTIL_EXPECT_EQ(2U, rt->count());
     boost::system::error_code ec;
     uint32_t path_id_a =
         IpAddress::from_string("127.0.0.1", ec).to_v4().to_ulong();
@@ -1415,12 +1415,12 @@ TEST_F(BgpXmppEvpnTest1, 1AgentConnectedInstances) {
     RoutingInstanceMgr *mgr = bs_x_->routing_instance_mgr();
     RoutingInstance *blue = mgr->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
-    TASK_UTIL_EXPECT_EQ(1, blue->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, blue->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, blue->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4U, blue->GetImportList().size());
     RoutingInstance *pink = mgr->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink != NULL);
-    TASK_UTIL_EXPECT_EQ(1, pink->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, pink->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, pink->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4U, pink->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server X.
     agent_a_.reset(
@@ -3965,23 +3965,23 @@ TEST_F(BgpXmppEvpnTest2, ConnectedInstances) {
     RoutingInstanceMgr *mgr_x = bs_x_->routing_instance_mgr();
     RoutingInstance *blue_x = mgr_x->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_x != NULL);
-    TASK_UTIL_EXPECT_EQ(1, blue_x->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, blue_x->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_x->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4U, blue_x->GetImportList().size());
     RoutingInstance *pink_x = mgr_x->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_x != NULL);
-    TASK_UTIL_EXPECT_EQ(1, pink_x->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, pink_x->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, pink_x->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4U, pink_x->GetImportList().size());
 
     // Make sure that the config got applied properly on Y.
     RoutingInstanceMgr *mgr_y = bs_y_->routing_instance_mgr();
     RoutingInstance *blue_y = mgr_y->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_y != NULL);
-    TASK_UTIL_EXPECT_EQ(1, blue_y->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, blue_y->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_y->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4U, blue_y->GetImportList().size());
     RoutingInstance *pink_y = mgr_y->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_y != NULL);
-    TASK_UTIL_EXPECT_EQ(1, pink_y->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, pink_y->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, pink_y->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4U, pink_y->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server X.
     agent_a_.reset(

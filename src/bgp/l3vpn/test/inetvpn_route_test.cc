@@ -154,9 +154,9 @@ TEST_F(InetVpnRouteTest, FromProtoPrefix1) {
     int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
     EXPECT_EQ(0, result);
     EXPECT_EQ(11 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(11, proto_prefix.prefix.size());
+    EXPECT_EQ(11U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
-    EXPECT_EQ(1048575, label);
+    EXPECT_EQ(1048575U, label);
 }
 
 TEST_F(InetVpnRouteTest, FromProtoPrefix2) {
@@ -170,9 +170,9 @@ TEST_F(InetVpnRouteTest, FromProtoPrefix2) {
     int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
     EXPECT_EQ(0, result);
     EXPECT_EQ(14 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(14, proto_prefix.prefix.size());
+    EXPECT_EQ(14U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
-    EXPECT_EQ(1048575, label);
+    EXPECT_EQ(1048575U, label);
 }
 
 TEST_F(InetVpnRouteTest, FromProtoPrefix3) {
@@ -186,9 +186,9 @@ TEST_F(InetVpnRouteTest, FromProtoPrefix3) {
     int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
     EXPECT_EQ(0, result);
     EXPECT_EQ(15 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(15, proto_prefix.prefix.size());
+    EXPECT_EQ(15U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
-    EXPECT_EQ(1048575, label);
+    EXPECT_EQ(1048575U, label);
 }
 
 TEST_F(InetVpnRouteTest, FromProtoPrefixError1) {

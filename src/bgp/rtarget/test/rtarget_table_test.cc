@@ -175,8 +175,10 @@ TEST_F(RTargetTableTest, SinglePartition) {
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(rtable_->GetTablePartition(idx));
-        if (idx) TASK_UTIL_EXPECT_EQ(0, tbl_partition->size());
-        else TASK_UTIL_EXPECT_EQ(1000, tbl_partition->size());
+        if (idx)
+            TASK_UTIL_EXPECT_EQ(0U, tbl_partition->size());
+        else
+            TASK_UTIL_EXPECT_EQ(1000U, tbl_partition->size());
     }
 
     for (int i = 1; i <= 1000; i++) {

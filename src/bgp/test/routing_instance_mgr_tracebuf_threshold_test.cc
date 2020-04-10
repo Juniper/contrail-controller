@@ -97,8 +97,8 @@ TEST_F(RoutingInstanceMgrTraceBuffThresholdTest,
     size_t env_dormant_tracebuf_capacity =
         GetEnvRoutingInstanceDormantTraceBufferCapacity();
 
-    TASK_UTIL_EXPECT_EQ(4, env_dormant_tracebuf_capacity);
-    TASK_UTIL_EXPECT_EQ(4, dormant_tracebuf_capacity);
+    TASK_UTIL_EXPECT_EQ(4U, env_dormant_tracebuf_capacity);
+    TASK_UTIL_EXPECT_EQ(4U, dormant_tracebuf_capacity);
 
     scoped_ptr<BgpInstanceConfigTest> ri1_cfg;
     ri1_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#1"));
@@ -126,7 +126,7 @@ TEST_F(RoutingInstanceMgrTraceBuffThresholdTest,
     CreateRoutingInstance(ri6_cfg.get());
     size_t active_tracebuf_count = GetRoutingInstanceActiveTraceBufSize();
     size_t dormant_tracebuf_count = GetRoutingInstanceDormantTraceBufSize();
-    TASK_UTIL_EXPECT_EQ(0, dormant_tracebuf_count);
+    TASK_UTIL_EXPECT_EQ(0U, dormant_tracebuf_count);
 
     DeleteRoutingInstance(ri1_cfg.get());
     DeleteRoutingInstance(ri2_cfg.get());
@@ -142,10 +142,10 @@ TEST_F(RoutingInstanceMgrTraceBuffThresholdTest,
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#4"));
     TASK_UTIL_EXPECT_EQ((active_tracebuf_count - 4),
                               GetRoutingInstanceActiveTraceBufSize());
-    TASK_UTIL_EXPECT_EQ(4, GetRoutingInstanceDormantTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(4U, GetRoutingInstanceDormantTraceBufSize());
     // With the following delete, exceeding the Dormant capacity
     DeleteRoutingInstance(ri5_cfg.get());
-    TASK_UTIL_EXPECT_EQ(4, GetRoutingInstanceDormantTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(4U, GetRoutingInstanceDormantTraceBufSize());
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#5"));
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#2"));

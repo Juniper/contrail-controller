@@ -314,8 +314,8 @@ protected:
         TASK_UTIL_EXPECT_TRUE(agent_b_1_->IsEstablished());
         TASK_UTIL_EXPECT_TRUE(agent_a_2_->IsEstablished());
         TASK_UTIL_EXPECT_TRUE(agent_b_2_->IsEstablished());
-        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn1_->NumUpPeer());
-        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn2_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_channel_manager_cn1_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_channel_manager_cn2_->NumUpPeer());
 
         SubscribeAgentsToInstances();
         task_util::WaitForIdle();
@@ -396,10 +396,10 @@ protected:
     }
 
     void VerifyAllPeerUp(BgpServerTest *server) {
-        TASK_UTIL_EXPECT_EQ_MSG(2, server->num_bgp_peer(),
-            "Wait for all peers to get configured");
-        TASK_UTIL_EXPECT_EQ_MSG(2, server->NumUpPeer(),
-            "Wait for all peers to come up");
+        TASK_UTIL_EXPECT_EQ_MSG(2U, server->num_bgp_peer(),
+                                "Wait for all peers to get configured");
+        TASK_UTIL_EXPECT_EQ_MSG(2U, server->NumUpPeer(),
+                                "Wait for all peers to come up");
 
         LOG(DEBUG, "All Peers are up: " << server->localname());
     }

@@ -834,13 +834,13 @@ protected:
         const string &instance, size_t path_count, size_t nexthop_count) {
         RespT *resp = dynamic_cast<RespT *>(sandesh);
         TASK_UTIL_EXPECT_NE((RespT *) NULL, resp);
-        TASK_UTIL_EXPECT_EQ(1, resp->get_resolvers().size());
+        TASK_UTIL_EXPECT_EQ(1U, resp->get_resolvers().size());
         const ShowPathResolver &spr = resp->get_resolvers().at(0);
         TASK_UTIL_EXPECT_TRUE(spr.get_name().find(instance) != string::npos);
         TASK_UTIL_EXPECT_EQ(path_count, spr.get_path_count());
-        TASK_UTIL_EXPECT_EQ(0, spr.get_modified_path_count());
+        TASK_UTIL_EXPECT_EQ(0U, spr.get_modified_path_count());
         TASK_UTIL_EXPECT_EQ(nexthop_count, spr.get_nexthop_count());
-        TASK_UTIL_EXPECT_EQ(0, spr.get_modified_nexthop_count());
+        TASK_UTIL_EXPECT_EQ(0U, spr.get_modified_nexthop_count());
         cout << spr.log() << endl;
         validate_done_ = true;
     }
@@ -968,30 +968,30 @@ TYPED_TEST(PathResolverTest, SinglePrefixAddDelete) {
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverPathUpdateListSize("blue"));
     this->DisableResolverPathUpdateProcessing("blue");
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverPathUpdateListSize("blue"));
 
     this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer1->ToString()));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverPathUpdateListSize("blue"));
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverPathUpdateListSize("blue"));
 
     this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer1->ToString()));
-    TASK_UTIL_EXPECT_EQ(3, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(3U, this->ResolverPathUpdateListSize("blue"));
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(3, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(3U, this->ResolverPathUpdateListSize("blue"));
 
     this->EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverPathUpdateListSize("blue"));
     this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"));
 
@@ -1254,14 +1254,14 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath3) {
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->DisableResolverNexthopUpdateProcessing("blue");
 
     this->AddXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
@@ -1269,7 +1269,7 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath3) {
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10002);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
@@ -1277,12 +1277,12 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath3) {
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10003);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
     this->EnableResolverNexthopUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10003);
 
@@ -1310,26 +1310,26 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath4) {
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->DisableResolverNexthopUpdateProcessing("blue");
 
     this->AddXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
     this->DeleteXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
     this->EnableResolverNexthopUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"));
 
@@ -1352,13 +1352,13 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath5) {
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->DisableResolverNexthopUpdateProcessing("blue");
 
     this->DeleteXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
@@ -1366,12 +1366,12 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath5) {
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
     this->EnableResolverNexthopUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
         this->BuildNextHopAddress("172.16.1.1"), 10001);
 
@@ -2187,7 +2187,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath1) {
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverPathUpdateListSize("blue"));
     this->DisableResolverPathUpdateProcessing("blue");
 
     this->AddXmppPath(xmpp_peer1, "blue",
@@ -2211,7 +2211,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath1) {
     }
 
     this->EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->VerifyPathAttributes("blue", this->BuildPrefix(idx), bgp_peer1,
             this->BuildNextHopAddress("172.16.1.1"), 10002);
@@ -2250,7 +2250,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath2) {
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverPathUpdateListSize("blue"));
     this->DisableResolverPathUpdateProcessing("blue");
 
     this->AddXmppPath(xmpp_peer1, "blue",
@@ -2275,7 +2275,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath2) {
     }
 
     this->EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->VerifyPathNoExists("blue", this->BuildPrefix(idx), bgp_peer1,
             this->BuildNextHopAddress("172.16.1.1"));
@@ -2428,8 +2428,8 @@ TYPED_TEST(PathResolverTest, ResolverNexthopCleanup2) {
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopRegUnregListSize("blue"));
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopUpdateListSize("blue"));
     this->EnableResolverNexthopUpdateProcessing("blue");
     task_util::WaitForIdle();
 
@@ -2453,28 +2453,28 @@ TYPED_TEST(PathResolverTest, ResolverNexthopCleanup3) {
     this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer2->ToString()));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopRegUnregListSize("blue"));
 
     this->DisableResolverNexthopRegUnregProcessing("blue");
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopRegUnregListSize("blue"));
 
     this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer1->ToString()));
     this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer2->ToString()));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopRegUnregListSize("blue"));
 
     this->EnableResolverNexthopRegUnregProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopRegUnregListSize("blue"));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
@@ -2494,29 +2494,29 @@ TYPED_TEST(PathResolverTest, ResolverNexthopCleanup4) {
     this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer2->ToString()));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopDeleteListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopDeleteListSize("blue"));
 
     this->DisableConditionListener();
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopDeleteListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopDeleteListSize("blue"));
 
     this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer1->ToString()));
     this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer2->ToString()));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopDeleteListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopDeleteListSize("blue"));
 
     this->EnableConditionListener();
 
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopMapSize("blue"));
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopDeleteListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopMapSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopDeleteListSize("blue"));
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
@@ -2538,11 +2538,11 @@ TYPED_TEST(PathResolverTest, Shutdown1) {
 
     bgp_server->Shutdown(false);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1U, bgp_server->routing_instance_mgr()->count());
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(0U, bgp_server->routing_instance_mgr()->count());
 }
 
 //
@@ -2562,16 +2562,16 @@ TYPED_TEST(PathResolverTest, Shutdown2) {
 
     bgp_server->Shutdown(false);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1U, bgp_server->routing_instance_mgr()->count());
 
     this->DisableResolverNexthopRegUnregProcessing("blue");
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1U, bgp_server->routing_instance_mgr()->count());
 
     this->EnableResolverNexthopRegUnregProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(0U, bgp_server->routing_instance_mgr()->count());
 }
 
 //
@@ -2594,11 +2594,11 @@ TYPED_TEST(PathResolverTest, Shutdown3) {
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverPathUpdateListSize("blue"));
 
     bgp_server->Shutdown(false);
-    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1U, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverPathUpdateListSize("blue"));
 
     // Ensure that all bgp::ResolverPath tasks are created before any of
     // them run. Otherwise, it's possible that some of them run, trigger
@@ -2610,7 +2610,7 @@ TYPED_TEST(PathResolverTest, Shutdown3) {
     this->EnableResolverPathUpdateProcessing("blue");
     this->EnableTaskGroup("bgp::ResolverPath");
 
-    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(0U, bgp_server->routing_instance_mgr()->count());
 }
 
 //
@@ -2631,19 +2631,19 @@ TYPED_TEST(PathResolverTest, Shutdown4) {
         this->BuildHostAddress(bgp_peer1->ToString()));
     this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
         this->BuildHostAddress(bgp_peer2->ToString()));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverNexthopRegUnregListSize("blue"));
 
     bgp_server->Shutdown(false);
-    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1U, bgp_server->routing_instance_mgr()->count());
 
     this->EnableResolverNexthopRegUnregProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopRegUnregListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, this->ResolverNexthopRegUnregListSize("blue"));
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(0U, bgp_server->routing_instance_mgr()->count());
 }
 
 //
@@ -2666,15 +2666,15 @@ TYPED_TEST(PathResolverTest, Shutdown5) {
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2U, this->ResolverPathUpdateListSize("blue"));
 
-    TASK_UTIL_EXPECT_EQ(3, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(3U, bgp_server->routing_instance_mgr()->count());
     bgp_server->Shutdown(false, false);
 
     // Verify that all instances are intact.
     for (int idx = 0; idx < 100; ++idx) {
         usleep(10000);
-        TASK_UTIL_EXPECT_EQ(3, bgp_server->routing_instance_mgr()->count());
+        TASK_UTIL_EXPECT_EQ(3U, bgp_server->routing_instance_mgr()->count());
     }
 
     // Ensure that all bgp::ResolverPath tasks are resumed before any of
@@ -2687,7 +2687,7 @@ TYPED_TEST(PathResolverTest, Shutdown5) {
     this->ResumeResolverPathUpdateProcessing("blue");
     TaskScheduler::GetInstance()->Start();
 
-    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(0U, bgp_server->routing_instance_mgr()->count());
 }
 
 // Verify that nexthop is resolved over a route that is more specific match.
@@ -2885,7 +2885,7 @@ TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
     DB db;
     InetTable table(&db, "red.inet.0");
     ResolverNexthopMock rnexthop(&table);
-    EXPECT_EQ(0, rnexthop.routes().size());
+    EXPECT_EQ(0U, rnexthop.routes().size());
 
     boost::system::error_code error;
     InetRoute route1(Ip4Prefix::FromString("1.2.3.0/24", &error));
@@ -2894,7 +2894,7 @@ TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route1,
               IpAddress::from_string("1.2.3.4")));
     rnexthop.routes().insert(&route1);
-    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(1U, rnexthop.routes().size());
     EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
 
     // Add more speific
@@ -2902,7 +2902,7 @@ TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route2,
               IpAddress::from_string("1.2.3.4")));
     rnexthop.routes().insert(&route2);
-    EXPECT_EQ(2, rnexthop.routes().size());
+    EXPECT_EQ(2U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
@@ -2911,7 +2911,7 @@ TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route3,
               IpAddress::from_string("1.2.3.4")));
     rnexthop.routes().insert(&route3);
-    EXPECT_EQ(3, rnexthop.routes().size());
+    EXPECT_EQ(3U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
@@ -2920,26 +2920,26 @@ TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route4,
               IpAddress::from_string("1.2.3.4")));
     rnexthop.routes().insert(&route4);
-    EXPECT_EQ(4, rnexthop.routes().size());
+    EXPECT_EQ(4U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
     // Remove a less specific entry.
     rnexthop.routes().erase(&route3);
-    EXPECT_EQ(3, rnexthop.routes().size());
+    EXPECT_EQ(3U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
     // Remove more specific entry.
     rnexthop.routes().erase(&route2);
-    EXPECT_EQ(2, rnexthop.routes().size());
+    EXPECT_EQ(2U, rnexthop.routes().size());
     // Ensure that new one now becomes the most specific.
     EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
 
     // Remove the most specific again and ensure that default now becomes
     // the only entry as the most specific entry.
     rnexthop.routes().erase(&route1);
-    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(1U, rnexthop.routes().size());
     // Ensure that new one now becomes the most specific.
     EXPECT_EQ(&route4, *(rnexthop.routes().begin()));
 
@@ -2948,26 +2948,26 @@ TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route5,
               IpAddress::from_string("1.2.3.4")));
     rnexthop.routes().insert(&route5);
-    EXPECT_EQ(2, rnexthop.routes().size());
+    EXPECT_EQ(2U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
 
     // Remove the default entry.
     rnexthop.routes().erase(&route4);
-    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(1U, rnexthop.routes().size());
     // Ensure that new one now becomes the most specific.
     EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
 
     // Delete the only entry present.
     rnexthop.routes().erase(&route5);
-    EXPECT_EQ(0, rnexthop.routes().size());
+    EXPECT_EQ(0U, rnexthop.routes().size());
 }
 
 TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     DB db;
     InetTable table(&db, "red.inet.0");
     ResolverNexthopMock rnexthop(&table);
-    EXPECT_EQ(0, rnexthop.routes().size());
+    EXPECT_EQ(0U, rnexthop.routes().size());
 
     boost::system::error_code error;
     Inet6Route route1(Inet6Prefix::FromString("dead::1:2:3:0/120", &error));
@@ -2977,7 +2977,7 @@ TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route1,
               IpAddress::from_string("dead::1:2:3:4")));
     rnexthop.routes().insert(&route1);
-    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(1U, rnexthop.routes().size());
     EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
 
     // Add more speific
@@ -2985,7 +2985,7 @@ TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route2,
               IpAddress::from_string("dead::1:2:3:4")));
     rnexthop.routes().insert(&route2);
-    EXPECT_EQ(2, rnexthop.routes().size());
+    EXPECT_EQ(2U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
@@ -2994,7 +2994,7 @@ TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route3,
               IpAddress::from_string("dead::1:2:3:4")));
     rnexthop.routes().insert(&route3);
-    EXPECT_EQ(3, rnexthop.routes().size());
+    EXPECT_EQ(3U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
@@ -3003,26 +3003,26 @@ TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route4,
               IpAddress::from_string("dead::1:2:3:4")));
     rnexthop.routes().insert(&route4);
-    EXPECT_EQ(4, rnexthop.routes().size());
+    EXPECT_EQ(4U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
     // Remove a less specific entry.
     rnexthop.routes().erase(&route3);
-    EXPECT_EQ(3, rnexthop.routes().size());
+    EXPECT_EQ(3U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
 
     // Remove more specific entry.
     rnexthop.routes().erase(&route2);
-    EXPECT_EQ(2, rnexthop.routes().size());
+    EXPECT_EQ(2U, rnexthop.routes().size());
     // Ensure that new one now becomes the most specific.
     EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
 
     // Remove the most specific again and ensure that default now becomes
     // the only entry as the most specific entry.
     rnexthop.routes().erase(&route1);
-    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(1U, rnexthop.routes().size());
     // Ensure that new one now becomes the most specific.
     EXPECT_EQ(&route4, *(rnexthop.routes().begin()));
 
@@ -3031,19 +3031,19 @@ TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route5,
               IpAddress::from_string("dead::1:2:3:4")));
     rnexthop.routes().insert(&route5);
-    EXPECT_EQ(2, rnexthop.routes().size());
+    EXPECT_EQ(2U, rnexthop.routes().size());
     // Ensure that most specific one is always at the front.
     EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
 
     // Remove the default entry.
     rnexthop.routes().erase(&route4);
-    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(1U, rnexthop.routes().size());
     // Ensure that new one now becomes the most specific.
     EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
 
     // Delete the only entry present.
     rnexthop.routes().erase(&route5);
-    EXPECT_EQ(0, rnexthop.routes().size());
+    EXPECT_EQ(0U, rnexthop.routes().size());
 }
 
 class TestEnvironment : public ::testing::Environment {

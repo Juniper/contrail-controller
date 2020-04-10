@@ -480,18 +480,16 @@ TEST_P(L3VPNPeerTest, RouteExchange) {
     DeleteRoute(a_red_inet_, "192.168.24.0/24", a_peer_red_);
     DeleteRoute(b_blue_inet_, "192.168.25.0/24", b_peer_blue_);
 
-    TASK_UTIL_EXPECT_EQ_MSG(0, a_red_inet_->Size(),
-                           "Routes are cleaned up in RED VRF");
-    TASK_UTIL_EXPECT_EQ_MSG(0, a_blue_inet_->Size(),
-                           "Routes are cleaned up in BLUE VRF");
-    TASK_UTIL_EXPECT_EQ_MSG(0, b_red_inet_->Size(),
-                           "Routes are cleaned up in BLUE VRF");
-    TASK_UTIL_EXPECT_EQ_MSG(0, b_blue_inet_->Size(),
-                           "Routes are cleaned up in RED VRF");
-    TASK_UTIL_EXPECT_EQ_MSG(0, a_vpn_->Size(),
-                           "Routes are cleaned up in VPN");
-    TASK_UTIL_EXPECT_EQ_MSG(0, b_vpn_->Size(),
-                           "Routes are cleaned up in VPN");
+    TASK_UTIL_EXPECT_EQ_MSG(0U, a_red_inet_->Size(),
+                            "Routes are cleaned up in RED VRF");
+    TASK_UTIL_EXPECT_EQ_MSG(0U, a_blue_inet_->Size(),
+                            "Routes are cleaned up in BLUE VRF");
+    TASK_UTIL_EXPECT_EQ_MSG(0U, b_red_inet_->Size(),
+                            "Routes are cleaned up in BLUE VRF");
+    TASK_UTIL_EXPECT_EQ_MSG(0U, b_blue_inet_->Size(),
+                            "Routes are cleaned up in RED VRF");
+    TASK_UTIL_EXPECT_EQ_MSG(0U, a_vpn_->Size(), "Routes are cleaned up in VPN");
+    TASK_UTIL_EXPECT_EQ_MSG(0U, b_vpn_->Size(), "Routes are cleaned up in VPN");
 }
 
 TEST_P(L3VPNPeerTest, AsPathLoop) {

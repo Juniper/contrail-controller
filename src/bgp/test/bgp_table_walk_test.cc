@@ -432,8 +432,8 @@ TEST_F(BgpTableWalkTest, ClubWalk) {
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
     TASK_UTIL_EXPECT_EQ(2, walk_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
     DeleteInetRoute(blue_, "22.2.2.0/24");
@@ -465,21 +465,21 @@ TEST_F(BgpTableWalkTest, SerialWalk) {
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
     // Ensure that walk did not start on BLUE table
-    TASK_UTIL_EXPECT_EQ(0, blue_->walk_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->walk_complete_count());
 
     // Enable the Walk trigger.
     // Note: WalkDoneToStopWalkProcessing which is the WalkCompleteCallback,
     // disables the walk processing task trigger
     EnableWalkProcessing();
     TASK_UTIL_EXPECT_EQ(2, walk_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
     DeleteInetRoute(blue_, "22.2.2.0/24");
@@ -517,11 +517,11 @@ TEST_F(BgpTableWalkTest, SerialWalk_1) {
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
     // Ensure that walk did not start on BLUE table
-    TASK_UTIL_EXPECT_EQ(0, blue_->walk_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->walk_complete_count());
 
     ResetWalkStats();
 
@@ -532,8 +532,8 @@ TEST_F(BgpTableWalkTest, SerialWalk_1) {
 
     TASK_UTIL_EXPECT_EQ(2, walk_count_);
     // Ensure that table is walked only once
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
     DeleteInetRoute(blue_, "22.2.2.0/24");
@@ -564,8 +564,8 @@ TEST_F(BgpTableWalkTest, StopWalk) {
     TASK_UTIL_EXPECT_FALSE(walk_done_);
 
     TASK_UTIL_EXPECT_EQ(0, walk_count_);
-    TASK_UTIL_EXPECT_EQ(0, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(0, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(0U, red_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
     DeleteInetRoute(blue_, "22.2.2.0/24");
@@ -602,8 +602,8 @@ TEST_F(BgpTableWalkTest, StopWalk_1) {
     TASK_UTIL_EXPECT_TRUE(walk_done_);
     // Table is walked only for walk_ref_1
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     ResetWalkStats();
 
@@ -612,8 +612,8 @@ TEST_F(BgpTableWalkTest, StopWalk_1) {
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
     DeleteInetRoute(blue_, "22.2.2.0/24");
@@ -658,7 +658,7 @@ TEST_F(BgpTableWalkTest, StopWalk_2) {
     EnableWalkProcessingInline();
 
     // Walk started?
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
 
     // After the walk has started, ReleaseWalker the walker
     // ReleaseWalker can be invoked from any task context
@@ -669,7 +669,7 @@ TEST_F(BgpTableWalkTest, StopWalk_2) {
 
     TASK_UTIL_EXPECT_FALSE(walk_done_);
     TASK_UTIL_EXPECT_EQ(walk_count_, 0);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(0, walk_done_count_);
 
     for (int idx = 0; idx < 255; idx++) {
@@ -724,7 +724,7 @@ TEST_F(BgpTableWalkTest, StopWalk_3) {
     EnableWalkProcessingInline();
 
     // Wait till walk has been initiated
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
 
     // ReleaseWalker the walker
     red_->ReleaseWalker(walk_ref);
@@ -737,11 +737,11 @@ TEST_F(BgpTableWalkTest, StopWalk_3) {
 
     // Red is walked but no DBEntries are notified as ReleaseWalker was called
     TASK_UTIL_EXPECT_EQ(walk_count_1_, 0 );
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
 
     for (int idx = 0; idx < 255; idx++) {
@@ -786,7 +786,7 @@ TEST_F(BgpTableWalkTest, WalkAgain) {
                         "bgp::RTFilter");
     EnableWalkProcessingInline();
 
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
 
     // Call WalkAgain() and validate that table is walked mutliple times and
     // walk_done is invoked only once
@@ -798,12 +798,12 @@ TEST_F(BgpTableWalkTest, WalkAgain) {
     // Stop the PauseTask to resume table walk
     ResumeTableWalk();
 
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_count());
     TASK_UTIL_EXPECT_TRUE(walk_done_);
     TASK_UTIL_EXPECT_EQ(walk_count_,  255);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_complete_count());
 
     for (int idx = 0; idx < 255; idx++) {
         string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
@@ -830,8 +830,8 @@ TEST_F(BgpTableWalkTest, WalkAgain_1) {
     TASK_UTIL_EXPECT_TRUE(walk_done_);
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     DeleteInetRoute(red_, "1.1.1.0/24");
 }
@@ -858,8 +858,8 @@ TEST_F(BgpTableWalkTest, WalkDone) {
 
     TASK_UTIL_EXPECT_TRUE(walk_count_ < 255);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     for (int idx = 0; idx < 255; idx++) {
         string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
@@ -904,8 +904,8 @@ TEST_F(BgpTableWalkTest, WalkDone_1) {
     // Walk Done is called twice
     TASK_UTIL_EXPECT_EQ(2, walk_done_count_);
     // Table is walked once
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     for (int idx = 0; idx < 255; idx++) {
         string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
@@ -932,8 +932,8 @@ TEST_F(BgpTableWalkTest, WalkTaskContext) {
 
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
 }
@@ -975,7 +975,7 @@ TEST_F(BgpTableWalkTest, WalkInprogress) {
                         "bgp::RTFilter");
     EnableWalkProcessingInline();
 
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
 
     DisableWalkProcessingInline();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref_1),
@@ -993,8 +993,8 @@ TEST_F(BgpTableWalkTest, WalkInprogress) {
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_1_);
     // Table is walked twice
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_complete_count());
 
     for (int idx = 0; idx < 255; idx++) {
         string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
@@ -1029,10 +1029,10 @@ TEST_F(BgpTableWalkTest, WalkInprogress_1) {
     WalkTable(blue_, walk_ref_1);
     WalkTable(red_, walk_ref_2);
 
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2U, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->walk_complete_count());
 
     DeleteInetRoute(red_, "1.1.1.0/24");
     DeleteInetRoute(blue_, "2.2.2.0/24");
@@ -1070,8 +1070,8 @@ TEST_F(BgpTableWalkTest, WalkEmptyTable) {
                         "bgp::RTFilter");
     EnableWalkProcessingInline();
 
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 
     // Resume the table walk
     ResumeTableWalk();
@@ -1081,8 +1081,8 @@ TEST_F(BgpTableWalkTest, WalkEmptyTable) {
     TASK_UTIL_EXPECT_TRUE(walk_done_);
     TASK_UTIL_EXPECT_EQ(0, walk_count_);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
-    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1U, red_->walk_complete_count());
 }
 
 class TestEnvironment : public ::testing::Environment {

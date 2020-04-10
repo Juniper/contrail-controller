@@ -130,7 +130,7 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
     ShowLoadBalance show_load_balance;
     lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("source-bias", show_load_balance.decision_type);
-    EXPECT_EQ(0, show_load_balance.fields.size());
+    EXPECT_EQ(0U, show_load_balance.fields.size());
 }
 
 // Reset all boolean options
@@ -189,7 +189,7 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
     EXPECT_EQ("field-hash", show_load_balance.decision_type);
 
     // Expect default values set even though ext-community is fully reset.
-    EXPECT_EQ(5, show_load_balance.fields.size());
+    EXPECT_EQ(5U, show_load_balance.fields.size());
 }
 
 // Set all boolean options alternately
@@ -252,7 +252,7 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
     ShowLoadBalance show_load_balance;
     lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("source-bias", show_load_balance.decision_type);
-    EXPECT_EQ(0, show_load_balance.fields.size());
+    EXPECT_EQ(0U, show_load_balance.fields.size());
 }
 
 // Set all boolean options alternately
@@ -391,7 +391,7 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
     ShowLoadBalance show_load_balance;
     lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("source-bias", show_load_balance.decision_type);
-    EXPECT_EQ(0, show_load_balance.fields.size());
+    EXPECT_EQ(0U, show_load_balance.fields.size());
 }
 
 int main(int argc, char **argv) {

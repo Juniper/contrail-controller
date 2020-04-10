@@ -685,8 +685,8 @@ TYPED_TEST(BgpIpTest, PrefixLimit2) {
     }
 
     usleep(3000000);
-    TASK_UTIL_EXPECT_EQ(1, peer_yx->flap_count());
-    TASK_UTIL_EXPECT_EQ(1, peer_xy->flap_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_yx->flap_count());
+    TASK_UTIL_EXPECT_EQ(1U, peer_xy->flap_count());
 
     this->Configure(DB::PartitionCount() * 2, 3600);
     task_util::WaitForIdle();

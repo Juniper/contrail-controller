@@ -234,7 +234,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
                    "8.8.8.8", "1.1.1.1", 1, 10);
     client->WaitForIdle();
 
-    EXPECT_EQ(2, flow_proto_->FlowCount());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
     EXPECT_TRUE(rev_entry->data().rpf_nh->id() == GetFlowKeyNH(1));
 

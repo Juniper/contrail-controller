@@ -101,7 +101,7 @@ protected:
         task_util::WaitForIdle();
         XmppShutdown();
 
-        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+        TASK_UTIL_EXPECT_EQ(0U, TcpServerManager::GetServerCount());
 
         evm_.Shutdown();
         if (thread_.get() != NULL)
@@ -141,7 +141,7 @@ protected:
     void XmppShutdown() {
         xmpp_server_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, xmpp_server_->ConnectionCount());
+        TASK_UTIL_EXPECT_EQ(0U, xmpp_server_->ConnectionCount());
         channel_manager_.reset();
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(xmpp_server_);

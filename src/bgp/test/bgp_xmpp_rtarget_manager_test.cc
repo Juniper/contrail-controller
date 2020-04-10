@@ -209,19 +209,15 @@ INSTANTIATE_TEST_CASE_P(
     BgpXmppRTargetManagerTestRunWithParams,
     BgpXmppRTargetManagerTestRun,
     ::testing::Combine(
-        ::testing::Values(
-            0,
-            BgpPath::Stale,
-            BgpPath::Stale | BgpPath::LlgrStale
-        ),
-        ::testing::Values(
-            0,
-            BgpPath::Stale,
-            BgpPath::Stale | BgpPath::LlgrStale
-        ),
-        ::testing::Bool()
-    )
-);
+        ::testing::Values(0U,
+                          static_cast<uint32_t>(BgpPath::Stale),
+                          static_cast<uint32_t>(BgpPath::Stale |
+                                                BgpPath::LlgrStale)),
+        ::testing::Values(0U,
+                          static_cast<uint32_t>(BgpPath::Stale),
+                          static_cast<uint32_t>(BgpPath::Stale |
+                                                BgpPath::LlgrStale)),
+        ::testing::Bool()));
 
 static void SetUp() {
     bgp_log_test::init();

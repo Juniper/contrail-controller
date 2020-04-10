@@ -2289,7 +2289,7 @@ TEST_F(CfgTest, AssymetricLinkSeqTest) {
 
     const IFMapAgentLinkTable::LinkDefMap &def_list =
         ltable->GetLinkDefMap();
-    EXPECT_EQ(def_list.size(), 2);
+    EXPECT_EQ(def_list.size(), 2U);
 
     TestFoo = ftable->FindNode("testfoo");
     ASSERT_TRUE(TestFoo == NULL);
@@ -2314,7 +2314,7 @@ TEST_F(CfgTest, AssymetricLinkSeqTest) {
     EXPECT_TRUE(result);
     parser_->ConfigParse(xdoc_, 2);
     WaitForIdle();
-    EXPECT_EQ(def_list.size(), 2);
+    EXPECT_EQ(def_list.size(), 2U);
 
     TestFoo = ftable->FindNode("testfoo");
     ASSERT_TRUE(TestFoo !=NULL);
@@ -2350,13 +2350,13 @@ TEST_F(CfgTest, AssymetricLinkSeqTest) {
         EXPECT_EQ("testbar", TestBar->name());
     }
     //Defer list should still exist, as above link is directly added
-    EXPECT_EQ(def_list.size(), 2);
+    EXPECT_EQ(def_list.size(), 2U);
 
     //Run the stale timer and ensure defer list is cleaned
     IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(&db_, &graph_);
     cl->StaleTimeout(2);
     WaitForIdle();
-    EXPECT_EQ(def_list.size(), 0);
+    EXPECT_EQ(def_list.size(), 0U);
     delete cl;
 }
 

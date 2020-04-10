@@ -271,7 +271,7 @@ protected:
         xmpp_server_->Shutdown();
         WaitForIdle();
         if (n_agents_) {
-            TASK_UTIL_EXPECT_EQ(0, xmpp_server_->ConnectionCount());
+            TASK_UTIL_EXPECT_EQ(0U, xmpp_server_->ConnectionCount());
         }
         AgentCleanup();
         channel_manager_.reset();
@@ -937,7 +937,8 @@ TEST_P(BgpPeerCloseTest, DeleteRoutingInstances) {
     UnSubscribe();
     WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ_MSG(1, server_->routing_instance_mgr()->count(),
+    TASK_UTIL_EXPECT_EQ_MSG(
+        1U, server_->routing_instance_mgr()->count(),
         "Waiting for the completion of routing-instances' deletion");
 }
 

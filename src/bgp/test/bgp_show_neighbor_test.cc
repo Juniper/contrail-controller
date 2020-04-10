@@ -185,9 +185,9 @@ protected:
         bgp_server_y1_->Configure(config);
         bgp_server_y2_->Configure(config);
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(2, bgp_server_x_->NumUpPeer());
-        TASK_UTIL_EXPECT_EQ(2, bgp_server_y1_->NumUpPeer());
-        TASK_UTIL_EXPECT_EQ(2, bgp_server_y2_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_server_x_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_server_y1_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_server_y2_->NumUpPeer());
 
         if (RequestIsDetail()) {
             vector<string> instance_names;
@@ -241,7 +241,8 @@ protected:
             }
         }
         // VNs * Tables per VN * Agents + Peers * AFs
-        TASK_UTIL_EXPECT_EQ(4 * 5 * 12 + 2 * 1,
+        TASK_UTIL_EXPECT_EQ(
+            static_cast<size_t>(4 * 5 * 12 + 2 * 1),
             bgp_server_x_->membership_mgr()->GetMembershipCount());
         task_util::WaitForIdle();
     }
@@ -660,7 +661,7 @@ TYPED_TEST(BgpShowNeighborTest, RequestWithSearch8) {
     this->PauseBgpPeerDelete();
     this->bcm_x_->SetQueueDisable(true);
     this->ShutdownAgents();
-    TASK_UTIL_EXPECT_EQ(12, this->bcm_x_->GetQueueSize());
+    TASK_UTIL_EXPECT_EQ(12U, this->bcm_x_->GetQueueSize());
     this->bgp_server_x_->Shutdown(false);
     this->VerifyBgpPeerDelete();
     this->sandesh_context_.set_page_limit(0);

@@ -38,8 +38,8 @@ TEST_F(BFDTest, Test1) {
     EXPECT_EQ(0, packet->demand);
     EXPECT_EQ(0, packet->multipoint);
     EXPECT_EQ(2, packet->detection_time_multiplier);
-    EXPECT_EQ(0x11223344, packet->sender_discriminator);
-    EXPECT_EQ(0x55667788, packet->receiver_discriminator);
+    EXPECT_EQ(0x11223344U, packet->sender_discriminator);
+    EXPECT_EQ(0x55667788U, packet->receiver_discriminator);
     EXPECT_EQ(boost::posix_time::seconds(1), packet->desired_min_tx_interval);
     EXPECT_EQ(boost::posix_time::seconds(2), packet->required_min_rx_interval);
     EXPECT_EQ(boost::posix_time::milliseconds(30), packet->required_min_echo_rx_interval);

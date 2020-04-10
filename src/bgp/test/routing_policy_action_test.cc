@@ -147,8 +147,8 @@ TEST_F(UpdateAsPathTest, UpdateNull) {
     const AsPath *as_path = attr.as_path();
     EXPECT_TRUE(as_path != NULL);
     const AsPathSpec &as_path_spec = as_path->path();
-    EXPECT_EQ(1, as_path_spec.path_segments.size());
-    EXPECT_EQ(2, as_path_spec.path_segments[0]->path_segment.size());
+    EXPECT_EQ(1U, as_path_spec.path_segments.size());
+    EXPECT_EQ(2U, as_path_spec.path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);
     EXPECT_EQ(2000, as_path_spec.path_segments[0]->path_segment[1]);
 }
@@ -189,8 +189,8 @@ TEST_F(UpdateAsPathTest, UpdateNonNull) {
     const AsPath *as_path = attr.as_path();
     EXPECT_TRUE(as_path != NULL);
     const AsPathSpec &as_path_spec = as_path->path();
-    EXPECT_EQ(1, as_path_spec.path_segments.size());
-    EXPECT_EQ(4, as_path_spec.path_segments[0]->path_segment.size());
+    EXPECT_EQ(1U, as_path_spec.path_segments.size());
+    EXPECT_EQ(4U, as_path_spec.path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);
     EXPECT_EQ(2000, as_path_spec.path_segments[0]->path_segment[1]);
     EXPECT_EQ(3000, as_path_spec.path_segments[0]->path_segment[2]);

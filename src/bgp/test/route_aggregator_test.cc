@@ -162,7 +162,7 @@ protected:
         task_util::WaitForIdle();
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_ASSERT_EQ(0, bgp_server_->routing_instance_mgr()->count());
+        TASK_UTIL_ASSERT_EQ(0U, bgp_server_->routing_instance_mgr()->count());
         db_util::Clear(&config_db_);
     }
 
@@ -409,9 +409,9 @@ protected:
         TASK_UTIL_EXPECT_NE((RespT *) NULL, resp);
 
         if (empty) {
-            TASK_UTIL_EXPECT_EQ(0, resp->get_aggregate_route_entries().size());
+            TASK_UTIL_EXPECT_EQ(0U, resp->get_aggregate_route_entries().size());
         } else {
-            TASK_UTIL_EXPECT_EQ(1, resp->get_aggregate_route_entries().size());
+            TASK_UTIL_EXPECT_EQ(1U, resp->get_aggregate_route_entries().size());
         }
         int i = 0;
         BOOST_FOREACH(const AggregateRouteEntriesInfo &info,
@@ -480,7 +480,7 @@ TEST_F(RouteAggregatorTest, Default) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "0.0.0.0/0");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -522,7 +522,7 @@ TEST_F(RouteAggregatorTest, Basic) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -572,7 +572,7 @@ TEST_F(RouteAggregatorTest, Basic_0) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -616,7 +616,7 @@ TEST_F(RouteAggregatorTest, Basic_1) {
     VERIFY_EQ(2, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::BGP_XMPP);
 
@@ -625,7 +625,7 @@ TEST_F(RouteAggregatorTest, Basic_1) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 3);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 3U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
@@ -645,7 +645,7 @@ TEST_F(RouteAggregatorTest, Basic_1) {
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
     // Two paths in aggregate route. one for resolved and other for aggregation
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
@@ -686,7 +686,7 @@ TEST_F(RouteAggregatorTest, Basic_NoReplication) {
     VERIFY_EQ(3, RouteCount("test_0.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test_0.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
 
@@ -694,11 +694,11 @@ TEST_F(RouteAggregatorTest, Basic_NoReplication) {
     VERIFY_EQ(2, RouteCount("test_1.inet.0"));
     rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     // Verify that nexthop route is replicated
     rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.2.1/32");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     // Verify that more specific route is no longer replicated
     rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.1.1/32");
     ASSERT_TRUE(rt == NULL);
@@ -734,11 +734,11 @@ TEST_F(RouteAggregatorTest, Basic_MultipleAggregatePrefix) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
 
     // Verify the sandesh
@@ -776,7 +776,7 @@ TEST_F(RouteAggregatorTest, Basic_ErrConfig_DiffFamily) {
     VERIFY_EQ(2, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
 
     // Verify the sandesh
@@ -822,7 +822,7 @@ TEST_F(RouteAggregatorTest, Basic_ErrConfig_DiffFamily_1) {
     BgpRoute *rt =
         RouteLookup<Inet6Definition>("test.inet6.0", "2001:db8:85a3::/64");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
 
     // Verify that inet route aggregation is not done
@@ -857,7 +857,7 @@ TEST_F(RouteAggregatorTest, Basic_DeleteNexthop) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -867,7 +867,7 @@ TEST_F(RouteAggregatorTest, Basic_DeleteNexthop) {
     VERIFY_EQ(2, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible() == false);
 
@@ -904,7 +904,7 @@ TEST_F(RouteAggregatorTest, Basic_MoreSpecificDelete) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -946,7 +946,7 @@ TEST_F(RouteAggregatorTest, Basic_LastMoreSpecificDelete) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1003,13 +1003,13 @@ TEST_F(RouteAggregatorTest, ServiceChain) {
     VERIFY_EQ(4, RouteCount("blue.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("blue.inet.0", "2.2.2.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(GetOriginVnFromRoute(rt->BestPath()) == "red-vn");
     rt = RouteLookup<InetDefinition>("blue.inet.0", "2.2.2.1/32");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ServiceChain);
@@ -1018,13 +1018,13 @@ TEST_F(RouteAggregatorTest, ServiceChain) {
 
     rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.1.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(GetOriginVnFromRoute(rt->BestPath()) == "blue-vn");
     rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.1.1/32");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ServiceChain);
@@ -1081,14 +1081,14 @@ TEST_F(RouteAggregatorTest, ServiceChain_0) {
 
     rt = RouteLookup<InetDefinition>("blue.inet.0", "0/0");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(GetOriginVnFromRoute(rt->BestPath()) == "red-vn");
 
     rt = RouteLookup<InetDefinition>("blue.inet.0", "2.2.2.1/32");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ServiceChain);
@@ -1116,14 +1116,14 @@ TEST_F(RouteAggregatorTest, ServiceChain_0) {
 
     rt = RouteLookup<InetDefinition>("red.inet.0", "0/0");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(GetOriginVnFromRoute(rt->BestPath()) == "blue-vn");
 
     rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.1.1/32");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ServiceChain);
@@ -1171,7 +1171,7 @@ TEST_F(RouteAggregatorTest, OriginVnCheck) {
     VERIFY_EQ(4, RouteCount("red.inet.0"));
     rt = RouteLookup<InetDefinition>("red.inet.0", "0/0");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1211,7 +1211,7 @@ TEST_F(RouteAggregatorTest, ConfigDelete) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1253,7 +1253,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdatePrefix) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1273,7 +1273,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdatePrefix) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1306,7 +1306,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdateNexthop) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1325,7 +1325,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdateNexthop) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1356,7 +1356,7 @@ TEST_F(RouteAggregatorTest, ConfigDelete_Add) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1378,12 +1378,12 @@ TEST_F(RouteAggregatorTest, ConfigDelete_Add) {
     VerifyRouteAggregateSandesh("test");
 
     EnableUnregResolveTask("test", Address::INET);
-    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
+    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0U);
 
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1414,7 +1414,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdatePrefixLen) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1431,7 +1431,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdatePrefixLen) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1460,7 +1460,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_AddNew) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1471,7 +1471,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_AddNew) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1482,12 +1482,12 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_AddNew) {
     VERIFY_EQ(7, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     rt = RouteLookup<InetDefinition>("test.inet.0", "4.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1517,7 +1517,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1528,7 +1528,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/17");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1539,12 +1539,12 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting) {
     VERIFY_EQ(7, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/17");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     rt = RouteLookup<InetDefinition>("test.inet.0", "4.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1574,19 +1574,19 @@ TEST_F(RouteAggregatorTest, OverlappingPrefixes) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1617,7 +1617,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1631,18 +1631,18 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1674,19 +1674,19 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_RemoveOverlappingPrefixes) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1699,8 +1699,8 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_RemoveOverlappingPrefixes) {
         "route-aggregate", "vn_subnet_2", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
-    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
+    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0U);
+    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0U);
 
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
@@ -1710,7 +1710,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_RemoveOverlappingPrefixes) {
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1765,7 +1765,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes_1) {
     VERIFY_EQ(8, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.1.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1780,12 +1780,12 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes_1) {
     VERIFY_EQ(11, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.1.0/24");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1803,7 +1803,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes_1) {
     ASSERT_TRUE(rt == NULL);
     rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     // Verify the sandesh
@@ -1839,7 +1839,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting_1) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/17");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1853,7 +1853,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting_1) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1864,12 +1864,12 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting_1) {
     VERIFY_EQ(7, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/17");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     rt = RouteLookup<InetDefinition>("test.inet.0", "4.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1903,13 +1903,13 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_DeleteExisting) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "4.0.0.0/8");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1931,7 +1931,7 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_DeleteExisting) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "4.3.2.1/32");
@@ -1965,13 +1965,13 @@ TEST_F(RouteAggregatorTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     VERIFY_EQ(3, RouteCount("test_1.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test_0.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -1997,12 +1997,12 @@ TEST_F(RouteAggregatorTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     VERIFY_EQ(4, RouteCount("test_1.inet.0"));
     rt = RouteLookup<InetDefinition>("test_0.inet.0", "3.3.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     rt = RouteLookup<InetDefinition>("test_1.inet.0", "3.3.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2045,7 +2045,7 @@ TEST_F(RouteAggregatorTest, MultipleRoutes_DifferentPartition) {
     VERIFY_EQ(257, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2090,11 +2090,11 @@ TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing) {
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
+    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0U);
     VerifyRouteAggregateSandesh("test", true);
 
     EnableRouteAggregateUpdate("test", Address::INET);
-    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
+    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0U);
 
     VERIFY_EQ(2, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
@@ -2127,7 +2127,7 @@ TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing_1) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2142,7 +2142,7 @@ TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing_1) {
     VerifyRouteAggregateSandesh("test", true);
 
     EnableRouteAggregateUpdate("test", Address::INET);
-    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
+    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0U);
 
     VERIFY_EQ(2, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
@@ -2178,7 +2178,7 @@ TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing_2) {
     VERIFY_EQ(3, RouteCount("test.inet.0"));
     BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2237,7 +2237,7 @@ TEST_F(RouteAggregatorTest, DefaultInet6) {
     VERIFY_EQ(3, RouteCount("test.inet6.0"));
     BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0", "::/0");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2273,7 +2273,7 @@ TEST_F(RouteAggregatorTest, BasicInet6) {
     BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0",
                                                 "2001:db8:85a3::/64");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2316,7 +2316,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_0) {
     rt = RouteLookup<Inet6Definition>("test.inet6.0",
                                                 "2002:db8:85a3::/64");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2352,7 +2352,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_1) {
     BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0",
                                                 "2002:db8:85a3::/64");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::BGP_XMPP);
 
@@ -2364,7 +2364,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_1) {
     rt = RouteLookup<Inet6Definition>("test.inet6.0",
                                                 "2002:db8:85a3::/64");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 3);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 3U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
@@ -2376,7 +2376,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_1) {
     rt = RouteLookup<Inet6Definition>("test.inet6.0",
                                                 "2002:db8:85a3::/64");
     ASSERT_TRUE(rt != NULL);
-    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2U);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
@@ -2440,7 +2440,7 @@ TEST_F(RouteAggregatorTest, MultipleInstances1) {
         TASK_UTIL_EXPECT_TRUE(
             RouteLookup<InetDefinition>(table, "2.2.0.0/16") != NULL);
         BgpRoute *rt = RouteLookup<InetDefinition>(table, "2.2.0.0/16");
-        TASK_UTIL_EXPECT_EQ(2, rt->count());
+        TASK_UTIL_EXPECT_EQ(2U, rt->count());
         TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
         TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2521,7 +2521,7 @@ TEST_F(RouteAggregatorTest, MultipleInstances2) {
         TASK_UTIL_EXPECT_TRUE(
             RouteLookup<InetDefinition>(table, "2.2.0.0/16") != NULL);
         BgpRoute *rt = RouteLookup<InetDefinition>(table, "2.2.0.0/16");
-        TASK_UTIL_EXPECT_EQ(2, rt->count());
+        TASK_UTIL_EXPECT_EQ(2U, rt->count());
         TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
         TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
@@ -2554,7 +2554,7 @@ TEST_F(RouteAggregatorTest, MultipleInstances2) {
         TASK_UTIL_EXPECT_TRUE(
             RouteLookup<InetDefinition>(table, "2.2.0.0/16") != NULL);
         BgpRoute *rt = RouteLookup<InetDefinition>(table, "2.2.0.0/16");
-        TASK_UTIL_EXPECT_EQ(2, rt->count());
+        TASK_UTIL_EXPECT_EQ(2U, rt->count());
         TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
         TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 

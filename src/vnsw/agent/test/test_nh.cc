@@ -109,7 +109,7 @@ TEST_F(CfgTest, DiscardNhIndex_) {
     NextHopTable *table = Agent::GetInstance()->nexthop_table();
     EXPECT_TRUE(table->FindNextHop(0) == NULL);
     NextHop *nh = table->discard_nh();
-    EXPECT_NE(nh->id(), 0);
+    EXPECT_NE(nh->id(), 0U);
 }
 
 TEST_F(CfgTest, TunnelNh_1) {

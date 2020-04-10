@@ -136,7 +136,7 @@ TEST_F(InetRouteTest, FromProtoPrefix1) {
     int result = Ip4Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(4 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(4, proto_prefix.prefix.size());
+    EXPECT_EQ(4U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 
@@ -150,7 +150,7 @@ TEST_F(InetRouteTest, FromProtoPrefix2) {
     int result = Ip4Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(3 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(3, proto_prefix.prefix.size());
+    EXPECT_EQ(3U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 

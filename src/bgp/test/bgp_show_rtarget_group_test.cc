@@ -99,7 +99,7 @@ protected:
              iter != instance_names.end(); ++iter, ++idx) {
             TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(*iter) != NULL);
             const RoutingInstance *rtinstance = rim->GetRoutingInstance(*iter);
-            TASK_UTIL_EXPECT_EQ(1, rtinstance->GetExportList().size());
+            TASK_UTIL_EXPECT_EQ(1U, rtinstance->GetExportList().size());
             string rtarget_str = string("target:64496:") + integerToString(idx);
             TASK_UTIL_EXPECT_EQ(rtarget_str,
                 rtinstance->GetExportList().begin()->ToString());

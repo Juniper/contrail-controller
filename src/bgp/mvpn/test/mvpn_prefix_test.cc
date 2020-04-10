@@ -85,7 +85,7 @@ TEST_F(MvpnPrefixTest, Type2BuildPrefix) {
     EXPECT_EQ("2-10.1.1.1:65535,12345", prefix.ToString());
     EXPECT_EQ(MvpnPrefix::InterASPMSIADRoute, prefix.type());
     EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
-    EXPECT_EQ(12345, prefix.asn());
+    EXPECT_EQ(12345U, prefix.asn());
 }
 
 TEST_F(MvpnPrefixTest, Type2ParsePrefix) {
@@ -94,7 +94,7 @@ TEST_F(MvpnPrefixTest, Type2ParsePrefix) {
     EXPECT_TRUE(prefix.IsValid(prefix.type()));
     EXPECT_EQ(MvpnPrefix::InterASPMSIADRoute, prefix.type());
     EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
-    EXPECT_EQ(23456, prefix.asn());
+    EXPECT_EQ(23456U, prefix.asn());
     EXPECT_EQ(prefix_str, prefix.ToString());
 }
 
@@ -386,7 +386,7 @@ TEST_F(MvpnPrefixTest, Type7BuildPrefix) {
     EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
     EXPECT_EQ("224.1.2.3", prefix.group().to_string());
     EXPECT_EQ("192.168.1.1", prefix.source().to_string());
-    EXPECT_EQ(1234, prefix.asn());
+    EXPECT_EQ(1234U, prefix.asn());
 }
 
 TEST_F(MvpnPrefixTest, Type7ParsePrefix) {
@@ -397,7 +397,7 @@ TEST_F(MvpnPrefixTest, Type7ParsePrefix) {
     EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
     EXPECT_EQ("224.1.2.3", prefix.group().to_string());
     EXPECT_EQ("9.8.7.6", prefix.source().to_string());
-    EXPECT_EQ(12345, prefix.asn());
+    EXPECT_EQ(12345U, prefix.asn());
     EXPECT_EQ(prefix_str, prefix.ToString());
 }
 
@@ -521,7 +521,8 @@ TEST_F(MvpnRouteTest, FromProtoPrefix) {
     int result = MvpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(MvpnPrefix::SPMSIADRoute, proto_prefix.type);
-    EXPECT_EQ(MvpnPrefix::kSPMSIADRouteSize * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(MvpnPrefix::kSPMSIADRouteSize * 8,
+              static_cast<size_t>(proto_prefix.prefixlen));
     EXPECT_EQ(MvpnPrefix::kSPMSIADRouteSize, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
@@ -538,7 +539,7 @@ TEST_F(MvpnRouteTest, FromProtoPrefixType4) {
     EXPECT_EQ(0, result);
     EXPECT_EQ(MvpnPrefix::LeafADRoute, proto_prefix.type);
     EXPECT_EQ(28 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(28, proto_prefix.prefix.size());
+    EXPECT_EQ(28U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 

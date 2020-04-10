@@ -80,7 +80,7 @@ protected:
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+        TASK_UTIL_EXPECT_EQ(0U, TcpServerManager::GetServerCount());
         db_util::Clear(&db_);
     }
 
@@ -142,7 +142,7 @@ class BgpIfmapConfigManagerShowTest : public ::testing::Test {
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+        TASK_UTIL_EXPECT_EQ(0U, TcpServerManager::GetServerCount());
         db_util::Clear(&db_);
     }
 
@@ -454,8 +454,8 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterIdentifierChange) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, BgpRouterAutonomousSystemChange) {
@@ -475,12 +475,12 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterAutonomousSystemChange) {
     // AS time should change to 100.
     string content_b = FileRead("controller/src/bgp/testdata/config_test_24b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
-    TASK_UTIL_EXPECT_EQ(100, protocol_cfg->autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100U, protocol_cfg->autonomous_system());
 
     // AS time should change to 101.
     string content_c = FileRead("controller/src/bgp/testdata/config_test_24c.xml");
     EXPECT_TRUE(parser_.Parse(content_c));
-    TASK_UTIL_EXPECT_EQ(101, protocol_cfg->autonomous_system());
+    TASK_UTIL_EXPECT_EQ(101U, protocol_cfg->autonomous_system());
 
     // AS should go back to kDefaultAutonomousSystem as it's not specified.
     content_a = FileRead("controller/src/bgp/testdata/config_test_24a.xml");
@@ -493,8 +493,8 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterAutonomousSystemChange) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, BgpRouterHoldTimeChange) {
@@ -509,32 +509,32 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterHoldTimeChange) {
     ASSERT_TRUE(protocol_cfg != NULL);
 
     // Hold time should be 0 since it's not specified explicitly.
-    EXPECT_EQ(0, protocol_cfg->hold_time());
+    EXPECT_EQ(0U, protocol_cfg->hold_time());
 
     // Hold time should change to 9.
     string content_b = FileRead(
         "controller/src/bgp/testdata/config_test_23b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
-    TASK_UTIL_EXPECT_EQ(9, protocol_cfg->hold_time());
+    TASK_UTIL_EXPECT_EQ(9U, protocol_cfg->hold_time());
 
     // Hold time should change to 27.
     string content_c = FileRead(
         "controller/src/bgp/testdata/config_test_23c.xml");
     EXPECT_TRUE(parser_.Parse(content_c));
-    TASK_UTIL_EXPECT_EQ(27, protocol_cfg->hold_time());
+    TASK_UTIL_EXPECT_EQ(27U, protocol_cfg->hold_time());
 
     // Hold time should go back to 0 since it's not specified explicitly.
     content_a = FileRead("controller/src/bgp/testdata/config_test_23a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
-    TASK_UTIL_EXPECT_EQ(0, protocol_cfg->hold_time());
+    TASK_UTIL_EXPECT_EQ(0U, protocol_cfg->hold_time());
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest,
@@ -577,8 +577,8 @@ TEST_F(BgpIfmapConfigManagerTest,
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest,
@@ -593,7 +593,7 @@ TEST_F(BgpIfmapConfigManagerTest,
     BOOST_FOREACH(iter_t iter,
                   config_manager_->NeighborMapItems(
                       BgpConfigManager::kMasterInstance)) {
-        TASK_UTIL_EXPECT_EQ(100, iter.second->local_as());
+        TASK_UTIL_EXPECT_EQ(100U, iter.second->local_as());
         count++;
     }
     EXPECT_EQ(3, count);
@@ -609,7 +609,7 @@ TEST_F(BgpIfmapConfigManagerTest,
     BOOST_FOREACH(iter_t iter,
                   config_manager_->NeighborMapItems(
                       BgpConfigManager::kMasterInstance)) {
-        TASK_UTIL_EXPECT_EQ(200, iter.second->local_as());
+        TASK_UTIL_EXPECT_EQ(200U, iter.second->local_as());
     }
 
     boost::replace_all(content_a, "<config>", "<delete>");
@@ -617,8 +617,8 @@ TEST_F(BgpIfmapConfigManagerTest,
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, MasterNeighbors) {
@@ -655,7 +655,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighbors) {
             config_manager_->FindNeighbor(
                 BgpConfigManager::kMasterInstance, "remote1");
     ASSERT_TRUE(peer_config);
-    EXPECT_EQ(102, peer_config->peer_as());
+    EXPECT_EQ(102U, peer_config->peer_as());
 
     const char config_delete[] = "\
 <delete>\
@@ -682,9 +682,9 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighbors) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
     for (DBGraph::edge_iterator edge_iter = db_graph_.edge_list_begin();
          edge_iter != db_graph_.edge_list_end(); ++edge_iter) {
         const DBGraph::DBEdgeInfo &tuple = *edge_iter;
@@ -693,7 +693,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighbors) {
         BGP_DEBUG_UT("[" << left->name() << ", " << right->name() << "]");
     }
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
     for (DBGraph::vertex_iterator v_iter = db_graph_.vertex_list_begin();
          v_iter != db_graph_.vertex_list_end(); ++v_iter) {
         IFMapNode *node = static_cast<IFMapNode *>(v_iter.operator->());
@@ -723,10 +723,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighborsAdd) {
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, MasterNeighborsDelete) {
@@ -751,10 +751,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighborsDelete) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    EXPECT_EQ(1, config_manager_->config()->instances().size());
+    EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, MasterNeighborAttributes) {
@@ -767,7 +767,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighborAttributes) {
         1, config_manager_->NeighborCount(BgpConfigManager::kMasterInstance));
     const BgpNeighborConfig *config1 = config_manager_->FindNeighbor(
         BgpConfigManager::kMasterInstance, "remote:100");
-    EXPECT_EQ(2, config1->family_attributes_list().size());
+    EXPECT_EQ(2U, config1->family_attributes_list().size());
     BOOST_FOREACH(const BgpFamilyAttributesConfig &family_config,
         config1->family_attributes_list()) {
         if (family_config.family == "inet") {
@@ -786,7 +786,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighborAttributes) {
 
     const BgpNeighborConfig *config2 = config_manager_->FindNeighbor(
         BgpConfigManager::kMasterInstance, "remote:100");
-    EXPECT_EQ(2, config2->family_attributes_list().size());
+    EXPECT_EQ(2U, config2->family_attributes_list().size());
     BOOST_FOREACH(const BgpFamilyAttributesConfig &family_config,
         config2->family_attributes_list()) {
         if (family_config.family == "inet") {
@@ -803,10 +803,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighborAttributes) {
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 // Add and delete new sessions between existing ones.
@@ -823,7 +823,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate1) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    TASK_UTIL_EXPECT_EQ(2U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1004");
 
@@ -833,7 +833,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate1) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    TASK_UTIL_EXPECT_EQ(4U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1002");
     VerifyBgpSessionExists(peering, "1003");
@@ -843,7 +843,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate1) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    TASK_UTIL_EXPECT_EQ(2U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1004");
 
@@ -852,10 +852,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate1) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 // Add and delete new sessions after existing ones.
@@ -872,7 +872,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate2) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    TASK_UTIL_EXPECT_EQ(2U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1002");
 
@@ -882,7 +882,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate2) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    TASK_UTIL_EXPECT_EQ(4U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1002");
     VerifyBgpSessionExists(peering, "1003");
@@ -892,7 +892,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate2) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    TASK_UTIL_EXPECT_EQ(2U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1002");
 
@@ -901,10 +901,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate2) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 // Add and delete new sessions before existing ones.
@@ -921,7 +921,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate3) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    TASK_UTIL_EXPECT_EQ(2U, peering->size());
     VerifyBgpSessionExists(peering, "1003");
     VerifyBgpSessionExists(peering, "1004");
 
@@ -931,7 +931,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate3) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    TASK_UTIL_EXPECT_EQ(4U, peering->size());
     VerifyBgpSessionExists(peering, "1001");
     VerifyBgpSessionExists(peering, "1002");
     VerifyBgpSessionExists(peering, "1003");
@@ -941,7 +941,7 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate3) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
     peering = FindPeeringConfig(full_name);
-    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    TASK_UTIL_EXPECT_EQ(2U, peering->size());
     VerifyBgpSessionExists(peering, "1003");
     VerifyBgpSessionExists(peering, "1004");
 
@@ -950,10 +950,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate3) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 static string GeneratePeeringConfig(const bitset<8> &session_mask) {
@@ -1046,10 +1046,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate4) {
         EXPECT_TRUE(parser_.Parse(content_a));
         task_util::WaitForIdle();
 
-        TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+        TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-        TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-        TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+        TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+        TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
     }
 }
 
@@ -1100,10 +1100,10 @@ TEST_F(BgpIfmapConfigManagerTest, MasterPeeringUpdate5) {
         EXPECT_TRUE(parser_.Parse(content_a));
         task_util::WaitForIdle();
 
-        TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+        TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
 
-        TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-        TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+        TASK_UTIL_EXPECT_EQ(0U, db_graph_.edge_count());
+        TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
     }
 }
 
@@ -1112,17 +1112,17 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(2U, config_manager_->config()->instances().size());
     const BgpInstanceConfig *red = FindInstanceConfig("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
 
     const BgpInstanceConfig::RouteTargetList elist = red->export_list();
-    TASK_UTIL_EXPECT_EQ(2, elist.size());
+    TASK_UTIL_EXPECT_EQ(2U, elist.size());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:1") != elist.end());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:2") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(2, ilist.size());
+    TASK_UTIL_EXPECT_EQ(2U, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
@@ -1131,8 +1131,8 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport2) {
@@ -1140,18 +1140,18 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport2) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(2U, config_manager_->config()->instances().size());
     const BgpInstanceConfig *red = FindInstanceConfig("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
 
     const BgpInstanceConfig::RouteTargetList elist = red->export_list();
-    TASK_UTIL_EXPECT_EQ(3, elist.size());
+    TASK_UTIL_EXPECT_EQ(3U, elist.size());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:1") != elist.end());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:2") != elist.end());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:3") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(2, ilist.size());
+    TASK_UTIL_EXPECT_EQ(2U, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
@@ -1160,8 +1160,8 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport2) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport1) {
@@ -1169,16 +1169,16 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(2U, config_manager_->config()->instances().size());
     const BgpInstanceConfig *red = FindInstanceConfig("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
 
     const BgpInstanceConfig::RouteTargetList elist = red->export_list();
-    TASK_UTIL_EXPECT_EQ(1, elist.size());
+    TASK_UTIL_EXPECT_EQ(1U, elist.size());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:1") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(3, ilist.size());
+    TASK_UTIL_EXPECT_EQ(3U, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:2") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
@@ -1188,8 +1188,8 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport2) {
@@ -1197,16 +1197,16 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport2) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(2U, config_manager_->config()->instances().size());
     const BgpInstanceConfig *red = FindInstanceConfig("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
 
     const BgpInstanceConfig::RouteTargetList elist = red->export_list();
-    TASK_UTIL_EXPECT_EQ(1, elist.size());
+    TASK_UTIL_EXPECT_EQ(1U, elist.size());
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:1") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(4, ilist.size());
+    TASK_UTIL_EXPECT_EQ(4U, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:2") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:3") != ilist.end());
@@ -1217,8 +1217,8 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport2) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork1) {
@@ -1226,7 +1226,7 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(3, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(3U, config_manager_->config()->instances().size());
 
     const BgpInstanceConfig *blue = FindInstanceConfig("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
@@ -1243,8 +1243,8 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork2) {
@@ -1253,7 +1253,7 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork2) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(3, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(3U, config_manager_->config()->instances().size());
 
     const BgpInstanceConfig *blue = FindInstanceConfig("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
@@ -1280,8 +1280,8 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork2) {
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork3) {
@@ -1290,7 +1290,7 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork3) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(3, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(3U, config_manager_->config()->instances().size());
 
     const BgpInstanceConfig *blue = FindInstanceConfig("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
@@ -1318,8 +1318,8 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork3) {
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 // Config parser sets network-id using virtual-network-properties property.
@@ -1329,7 +1329,7 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork4) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(3, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(3U, config_manager_->config()->instances().size());
 
     const BgpInstanceConfig *blue = FindInstanceConfig("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
@@ -1364,8 +1364,8 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork4) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, Instances) {
@@ -1378,8 +1378,8 @@ TEST_F(BgpIfmapConfigManagerTest, Instances) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, InstanceNeighbors) {
@@ -1400,7 +1400,7 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceNeighbors) {
         }
     }
     ASSERT_TRUE(peer);
-    TASK_UTIL_EXPECT_EQ(2, peer->peer_as());
+    TASK_UTIL_EXPECT_EQ(2U, peer->peer_as());
 
     string update = FileRead("controller/src/bgp/testdata/config_test_4.xml");
     EXPECT_TRUE(parser_.Parse(update));
@@ -1409,7 +1409,7 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceNeighbors) {
 
     typedef std::pair<std::string, const BgpNeighborConfig *> iter_t;
     BOOST_FOREACH(iter_t iter, config_manager_->NeighborMapItems("test")) {
-        EXPECT_EQ(3, iter.second->peer_as());
+        EXPECT_EQ(3U, iter.second->peer_as());
     }
 
     const char config_delete[] = "\
@@ -1429,8 +1429,8 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceNeighbors) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
@@ -1447,9 +1447,9 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
     EXPECT_TRUE(nbr_config1 != NULL);
     EXPECT_EQ("bgpaas-client", nbr_config1->router_type());
-    EXPECT_EQ(64512, nbr_config1->local_as());
+    EXPECT_EQ(64512U, nbr_config1->local_as());
     EXPECT_EQ("192.168.1.1", nbr_config1->local_identifier_string());
-    EXPECT_EQ(65001, nbr_config1->peer_as());
+    EXPECT_EQ(65001U, nbr_config1->peer_as());
     EXPECT_EQ("10.0.0.1", nbr_config1->peer_address_string());
     EXPECT_EQ(1024, nbr_config1->source_port());
 
@@ -1457,9 +1457,9 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
     EXPECT_TRUE(nbr_config2 != NULL);
     EXPECT_EQ("bgpaas-client", nbr_config2->router_type());
-    EXPECT_EQ(64512, nbr_config2->local_as());
+    EXPECT_EQ(64512U, nbr_config2->local_as());
     EXPECT_EQ("192.168.1.1", nbr_config2->local_identifier_string());
-    EXPECT_EQ(65002, nbr_config2->peer_as());
+    EXPECT_EQ(65002U, nbr_config2->peer_as());
     EXPECT_EQ("10.0.0.2", nbr_config2->peer_address_string());
     EXPECT_EQ(1025, nbr_config2->source_port());
 
@@ -1471,11 +1471,11 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     // Verify that instance neighbors use the new values.
     nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
     EXPECT_TRUE(nbr_config1 != NULL);
-    EXPECT_EQ(64513, nbr_config1->local_as());
+    EXPECT_EQ(64513U, nbr_config1->local_as());
     EXPECT_EQ("192.168.1.2", nbr_config1->local_identifier_string());
     nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
     EXPECT_TRUE(nbr_config2 != NULL);
-    EXPECT_EQ(64513, nbr_config2->local_as());
+    EXPECT_EQ(64513U, nbr_config2->local_as());
     EXPECT_EQ("192.168.1.2", nbr_config1->local_identifier_string());
 
     // Cleanup.
@@ -1484,9 +1484,9 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
     TASK_UTIL_EXPECT_EQ(0, config_manager_->NeighborCount("test"));
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors2) {
@@ -1527,9 +1527,9 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors2) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
     TASK_UTIL_EXPECT_EQ(0, config_manager_->NeighborCount("test"));
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances1) {
@@ -1612,8 +1612,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances1) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances2) {
@@ -1657,8 +1657,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances2) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances3) {
@@ -1702,8 +1702,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances3) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowGlobalSystemConfig) {
@@ -1749,8 +1749,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowGlobalSystemConfig) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowNeighbors) {
@@ -1798,8 +1798,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowNeighbors) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSNeighbors) {
@@ -1844,8 +1844,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSNeighbors) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowPeerings1) {
@@ -1890,8 +1890,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowPeerings1) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowPeerings2) {
@@ -1937,8 +1937,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowPeerings2) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSPeerings) {
@@ -1955,7 +1955,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSPeerings) {
             "test", "bgpaas-server", "test", "vm", idx);
         TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
         const BgpIfmapPeeringConfig *config = FindPeeringConfig(full_name);
-        TASK_UTIL_EXPECT_EQ(1, config->size());
+        TASK_UTIL_EXPECT_EQ(1U, config->size());
 
         ShowBgpPeeringConfig peering;
         peering.set_name(config->name());
@@ -1984,8 +1984,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSPeerings) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    TASK_UTIL_EXPECT_EQ(1U, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0U, db_graph_.vertex_count());
 }
 
 TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink1) {
@@ -2019,7 +2019,7 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink1) {
         "bgp-router", bgp_router_id1, "bgp-router", bgp_router_id2,
         "bgp-peering", 0, new autogen::BgpPeeringAttributes());
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetPeeringCount());
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
 
     // Now add a link between the bgp-routers and the routing-instance.
@@ -2030,7 +2030,7 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink1) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
         "bgp-router", bgp_router_id2, "instance-bgp-router");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetPeeringCount());
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
 }
 
@@ -2065,7 +2065,7 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink2) {
         "bgp-router", bgp_router_id1, "bgp-router", bgp_router_id2,
         "bgp-peering", 0, new autogen::BgpPeeringAttributes());
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetPeeringCount());
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
 
     // Now add the parent routing-instance.
@@ -2080,7 +2080,7 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink2) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
         "bgp-router", bgp_router_id2, "instance-bgp-router");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetPeeringCount());
     TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
 }
 
@@ -2106,7 +2106,7 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpRouterBeforeParentLink) {
     const BgpProtocolConfig *protocol =
             config_manager_->GetProtocolConfig(
                 BgpConfigManager::kMasterInstance);
-    TASK_UTIL_EXPECT_EQ(100, protocol->autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100U, protocol->autonomous_system());
     TASK_UTIL_EXPECT_EQ("10.1.1.100",
                         BgpIdentifierToString(protocol->identifier()));
     //TASK_UTIL_EXPECT_EQ("127.0.0.100", protocol->address());
@@ -2138,7 +2138,7 @@ TEST_F(BgpIfmapConfigManagerTest, RemoveParentLinkBeforeBgpRouter) {
     const BgpProtocolConfig *protocol =
             config_manager_->GetProtocolConfig(
                 BgpConfigManager::kMasterInstance);
-    TASK_UTIL_EXPECT_EQ(100, protocol->autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100U, protocol->autonomous_system());
     TASK_UTIL_EXPECT_EQ("10.1.1.100",
                         BgpIdentifierToString(protocol->identifier()));
     //TASK_UTIL_EXPECT_EQ("127.0.0.100", router_params.address);
@@ -2157,7 +2157,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingPolicyAddDelete) {
             config_manager_->FindRoutingPolicy("basic");
     ASSERT_TRUE(policy_cfg != NULL);
 
-    ASSERT_EQ(policy_cfg->terms().size(), 1);
+    ASSERT_EQ(policy_cfg->terms().size(), 1U);
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content_a));
@@ -2176,7 +2176,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingPolicyUpdate) {
     const BgpRoutingPolicyConfig *policy_cfg =
             config_manager_->FindRoutingPolicy("basic");
     ASSERT_TRUE(policy_cfg != NULL);
-    ASSERT_EQ(policy_cfg->terms().size(), 1);
+    ASSERT_EQ(policy_cfg->terms().size(), 1U);
 
     // Update the routing policy with additional term
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_0b.xml");
@@ -2184,7 +2184,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingPolicyUpdate) {
     task_util::WaitForIdle();
     policy_cfg = config_manager_->FindRoutingPolicy("basic");
     ASSERT_TRUE(policy_cfg != NULL);
-    ASSERT_EQ(policy_cfg->terms().size(), 2);
+    ASSERT_EQ(policy_cfg->terms().size(), 2U);
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");

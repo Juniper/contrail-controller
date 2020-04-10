@@ -97,7 +97,7 @@ TEST_F(FirewallPolicy, Test2) {
 
     EXPECT_TRUE(AclFind(1));
     AclDBEntry *acl = AclGet(1);
-    EXPECT_EQ(acl->Size(), 2);
+    EXPECT_EQ(acl->Size(), 2U);
 
     const AddressMatch *am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -110,11 +110,11 @@ TEST_F(FirewallPolicy, Test2) {
     client->Reset();
     AddFirewall("rule1", 1, match, src, 3, dst, 2, "pass");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 0);
+    EXPECT_EQ(client->acl_notify(), 0U);
 
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 0);
+    EXPECT_EQ(acl->Size(), 0U);
 
     DelNode("firewall-policy", "app1");
     DelNode("firewall-rule", "rule1");
@@ -142,7 +142,7 @@ TEST_F(FirewallPolicy, Test3) {
 
     EXPECT_TRUE(AclFind(1));
     AclDBEntry *acl = AclGet(1);
-    EXPECT_EQ(acl->Size(), 2);
+    EXPECT_EQ(acl->Size(), 2U);
 
     const AddressMatch *am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -155,7 +155,7 @@ TEST_F(FirewallPolicy, Test3) {
     client->Reset();
     AddFirewall("rule1", 1, match, src, 3, dst, 1, "pass");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 1);
+    EXPECT_EQ(client->acl_notify(), 1U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -167,7 +167,7 @@ TEST_F(FirewallPolicy, Test3) {
 
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 0);
+    EXPECT_EQ(acl->Size(), 0U);
 
     DelNode("firewall-policy", "app1");
     DelNode("firewall-rule", "rule1");
@@ -197,22 +197,22 @@ TEST_F(FirewallPolicy, Test4) {
     client->WaitForIdle();
 
     AclDBEntry *acl = AclGet(1);
-    EXPECT_EQ(acl->Size(), 1);
+    EXPECT_EQ(acl->Size(), 1U);
 
     const ServiceGroupMatch *sg = dynamic_cast<const ServiceGroupMatch*>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(sg->size(), 2);
+    EXPECT_EQ(sg->size(), 2U);
 
     client->Reset();
     protocol.clear();
     protocol.push_back("all");
     AddServiceGroup("sg1", 1, protocol, port);
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 1);
+    EXPECT_EQ(client->acl_notify(), 1U);
 
     sg = dynamic_cast<const ServiceGroupMatch*>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(sg->size(), 1);
+    EXPECT_EQ(sg->size(), 1U);
 
     DelNode("service-group", "sg1");
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
@@ -244,21 +244,21 @@ TEST_F(FirewallPolicy, Test5) {
     client->WaitForIdle();
 
     AclDBEntry *acl = AclGet(1);
-    EXPECT_EQ(acl->Size(), 1);
+    EXPECT_EQ(acl->Size(), 1U);
 
     const ServiceGroupMatch *sg = dynamic_cast<const ServiceGroupMatch*>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(sg->size(), 2);
+    EXPECT_EQ(sg->size(), 2U);
 
     client->Reset();
     //Dummy change
     AddServiceGroup("sg1", 1, protocol, port);
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 0);
+    EXPECT_EQ(client->acl_notify(), 0U);
 
     sg = dynamic_cast<const ServiceGroupMatch*>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(sg->size(), 2);
+    EXPECT_EQ(sg->size(), 2U);
 
     DelNode("service-group", "sg1");
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
@@ -379,11 +379,11 @@ TEST_F(FirewallPolicy, Test7) {
 
     EXPECT_TRUE(AclFind(1));
     AclDBEntry *acl = AclGet(1);
-    EXPECT_EQ(acl->Size(), 2);
+    EXPECT_EQ(acl->Size(), 2U);
 
     const TagsMatch *tm = dynamic_cast<const TagsMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(tm->size(), 1);
+    EXPECT_EQ(tm->size(), 1U);
     TagList tag_match;
     tag_match.push_back(TagTable::APPLICATION);
     EXPECT_EQ(tm->tag_list(), tag_match);
@@ -391,7 +391,7 @@ TEST_F(FirewallPolicy, Test7) {
     client->Reset();
     AddFirewall("rule1", 1, match, src, 0, dst, 0, "pass");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 0);
+    EXPECT_EQ(client->acl_notify(), 0U);
 
     PacketHeader *packet1 = new PacketHeader();
     packet1->protocol = 18;
@@ -416,7 +416,7 @@ TEST_F(FirewallPolicy, Test7) {
     match.push_back("tier");
     AddFirewall("rule1", 1, match, src, 0, dst, 0, "pass");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 1);
+    EXPECT_EQ(client->acl_notify(), 1U);
 
     tm = dynamic_cast<const TagsMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -443,7 +443,7 @@ TEST_F(FirewallPolicy, Test7) {
 
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 0);
+    EXPECT_EQ(acl->Size(), 0U);
 
     delete packet1;
     DelNode("firewall-policy", "app1");
@@ -473,23 +473,23 @@ TEST_F(FirewallPolicy, Test8) {
 
     EXPECT_TRUE(AclFind(1));
     AclDBEntry *acl = AclGet(1);
-    EXPECT_EQ(acl->Size(), 6);
+    EXPECT_EQ(acl->Size(), 6U);
 
     AddFirewallPolicyRuleLink("fpfr2", "app1", "rule2", "abc");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 4);
+    EXPECT_EQ(acl->Size(), 4U);
 
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 4);
+    EXPECT_EQ(acl->Size(), 4U);
 
     DelFirewallPolicyRuleLink("fpfr2", "app1", "rule2");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 2);
+    EXPECT_EQ(acl->Size(), 2U);
 
     DelFirewallPolicyRuleLink("fpfr3", "app1", "rule3");
     client->WaitForIdle();
-    EXPECT_EQ(acl->Size(), 0);
+    EXPECT_EQ(acl->Size(), 0U);
 
     DelNode("firewall-policy", "app1");
     DelNode("firewall-rule", "rule1");
@@ -516,12 +516,12 @@ TEST_F(FirewallPolicy, Test9) {
 
     const AddressMatch *am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(am->tags().size(), 3);
+    EXPECT_EQ(am->tags().size(), 3U);
 
     client->Reset();
     AddLink("firewall-rule", "rule1", "tag", "Tag1");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 0);
+    EXPECT_EQ(client->acl_notify(), 0U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -530,7 +530,7 @@ TEST_F(FirewallPolicy, Test9) {
     client->Reset();
     AddLink("firewall-rule", "rule1", "tag", "Tag2");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 0);
+    EXPECT_EQ(client->acl_notify(), 0U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -539,7 +539,7 @@ TEST_F(FirewallPolicy, Test9) {
     client->Reset();
     DelLink("firewall-rule", "rule1", "tag", "Tag2");
     client->WaitForIdle();
-    EXPECT_EQ(client->acl_notify(), 0);
+    EXPECT_EQ(client->acl_notify(), 0U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
@@ -588,29 +588,29 @@ TEST_F(FirewallPolicy, Test10) {
 
     const AddressMatch *am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(am->tags().size(), 0);
-    EXPECT_EQ(am->ip_list_size(), 2);
+    EXPECT_EQ(am->tags().size(), 0U);
+    EXPECT_EQ(am->ip_list_size(), 2U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(1));
-    EXPECT_EQ(am->tags().size(), 0);
-    EXPECT_EQ(am->ip_list_size(), 3);
+    EXPECT_EQ(am->tags().size(), 0U);
+    EXPECT_EQ(am->ip_list_size(), 3U);
 
     client->Reset();
     AddLink("address-group", "SrcAg", "tag", "label1");
     AddLink("address-group", "DstAg", "tag", "label1");
     client->WaitForIdle();
-    EXPECT_GE(client->acl_notify(), 1);
+    EXPECT_GE(client->acl_notify(), 1U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(am->tags().size(), 1);
-    EXPECT_EQ(am->ip_list_size(), 2);
+    EXPECT_EQ(am->tags().size(), 1U);
+    EXPECT_EQ(am->ip_list_size(), 2U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(1));
-    EXPECT_EQ(am->tags().size(), 1);
-    EXPECT_EQ(am->ip_list_size(), 3);
+    EXPECT_EQ(am->tags().size(), 1U);
+    EXPECT_EQ(am->ip_list_size(), 3U);
 
     PacketHeader *packet1 = new PacketHeader();
     packet1->src_ip = Ip4Address::from_string("17.1.1.1");
@@ -683,29 +683,29 @@ TEST_F(FirewallPolicy, Test11) {
 
     const AddressMatch *am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(am->tags().size(), 0);
-    EXPECT_EQ(am->ip_list_size(), 0);
+    EXPECT_EQ(am->tags().size(), 0U);
+    EXPECT_EQ(am->ip_list_size(), 0U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(1));
-    EXPECT_EQ(am->tags().size(), 0);
-    EXPECT_EQ(am->ip_list_size(), 0);
+    EXPECT_EQ(am->tags().size(), 0U);
+    EXPECT_EQ(am->ip_list_size(), 0U);
 
     client->Reset();
     AddLink("address-group", "SrcAg", "tag", "label1");
     AddLink("address-group", "DstAg", "tag", "label1");
     client->WaitForIdle();
-    EXPECT_GE(client->acl_notify(), 1);
+    EXPECT_GE(client->acl_notify(), 1U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(0));
-    EXPECT_EQ(am->tags().size(), 1);
-    EXPECT_EQ(am->ip_list_size(), 0);
+    EXPECT_EQ(am->tags().size(), 1U);
+    EXPECT_EQ(am->ip_list_size(), 0U);
 
     am = dynamic_cast<const AddressMatch *>(
             acl->GetAclEntryAtIndex(0)->Get(1));
-    EXPECT_EQ(am->tags().size(), 1);
-    EXPECT_EQ(am->ip_list_size(), 0);
+    EXPECT_EQ(am->tags().size(), 1U);
+    EXPECT_EQ(am->ip_list_size(), 0U);
 
     PacketHeader *packet1 = new PacketHeader();
     packet1->src_tags_.push_back(100);

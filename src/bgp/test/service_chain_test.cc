@@ -631,7 +631,7 @@ protected:
         BOOST_FOREACH(const string &instance_name, instance_names) {
             RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
             ASSERT_TRUE(rti != NULL);
-            ASSERT_EQ(1, rti->GetExportList().size());
+            ASSERT_EQ(1U, rti->GetExportList().size());
             RouteTarget rtarget = *(rti->GetExportList().begin());
             extcomm_spec.communities.push_back(rtarget.GetExtCommunityValue());
         }
@@ -1923,7 +1923,7 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd1) {
     // Fix service chain address.
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
 
     // Check for aggregated routes
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -2906,7 +2906,7 @@ TYPED_TEST(ServiceChainTest, DeletePendingChain) {
         "controller/src/bgp/testdata/service_chain_9.xml");
 
     // Verify that it's on the pending queue.
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
 
     // Pause processing of pending chains.
     this->DisableResolveTrigger();
@@ -5966,13 +5966,13 @@ TYPED_TEST(ServiceChainTest, Shutdown2) {
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
 
     this->service_chain_mgr_->ManagedDelete();
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->ClearServiceChainInformation("blue-i1");
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
 }
 
 //
@@ -5989,7 +5989,7 @@ TYPED_TEST(ServiceChainTest, Shutdown3) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->DisableGroupTrigger();
@@ -6015,7 +6015,7 @@ TYPED_TEST(ServiceChainTest, GroupBasic1) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 }
 
@@ -6032,7 +6032,7 @@ TYPED_TEST(ServiceChainTest, GroupBasic2) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6052,13 +6052,13 @@ TYPED_TEST(ServiceChainTest, GroupBasic3) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10b.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6079,13 +6079,13 @@ TYPED_TEST(ServiceChainTest, GroupBasic4) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyNoServiceChainGroup("blue-i1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10b.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6106,13 +6106,13 @@ TYPED_TEST(ServiceChainTest, GroupBasic5) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyNoServiceChainGroup("blue-i1");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6131,7 +6131,7 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain1) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     // Add "red" routing instance and create connection with "red-i2"
@@ -6143,7 +6143,7 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain1) {
     this->VerifyNetworkConfig(instance_names);
 
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 }
 
@@ -6160,13 +6160,13 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain2) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10b.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     // Add "red" routing instance and create connection with "red-i2"
@@ -6178,7 +6178,7 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain2) {
     this->VerifyNetworkConfig(instance_names);
 
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(0U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 }
 
@@ -6195,7 +6195,7 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain1) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6216,13 +6216,13 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain2) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10b.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6246,13 +6246,13 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain3) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10b.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6274,13 +6274,13 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain4) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyNoServiceChainGroup("blue-i1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10b.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     this->ClearServiceChainInformation("blue-i1");
@@ -6300,13 +6300,13 @@ TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain5) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_10a.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
     this->VerifyServiceChainCount(1);
-    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    TASK_UTIL_EXPECT_EQ(1U, this->ServiceChainPendingQSize());
     this->VerifyNoServiceChainGroup("blue-i1");
 
     this->ClearServiceChainInformation("blue-i1");

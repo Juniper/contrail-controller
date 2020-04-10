@@ -162,7 +162,8 @@ protected:
         task_util::WaitForIdle();
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ_MSG(0, bgp_server_->routing_instance_mgr()->count(),
+        TASK_UTIL_EXPECT_EQ_MSG(0U,
+                                bgp_server_->routing_instance_mgr()->count(),
                                 "Waiting for all routing-instances' deletion");
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);

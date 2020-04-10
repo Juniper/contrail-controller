@@ -100,7 +100,7 @@ TEST_F(TestKSync, SeqNum_1) {
         EXPECT_TRUE(GetRoute(ip + i) == NULL);
     }
 
-    EXPECT_EQ(0, sock_->WaitTreeSize());
+    EXPECT_EQ(0U, sock_->WaitTreeSize());
 }
 
 int main(int argc, char *argv[]) {

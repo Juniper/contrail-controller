@@ -97,7 +97,7 @@ void BgpServerTest::Shutdown(bool verify, bool wait_for_idle) {
 
 void BgpServerTest::VerifyShutdown() const {
     task_util::WaitForIdle();
-    TASK_UTIL_ASSERT_EQ(0, routing_instance_mgr()->count());
+    TASK_UTIL_ASSERT_EQ(0U, routing_instance_mgr()->count());
     TASK_UTIL_ASSERT_TRUE(session_mgr_ == NULL);
 }
 

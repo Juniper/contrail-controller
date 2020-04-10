@@ -44,7 +44,7 @@ public:
         client->WaitForIdle();
         DelIPAM("vn1");
         client->WaitForIdle();
-        EXPECT_EQ(0, vnswif_->GetHostInterfaceCount());
+        EXPECT_EQ(0U, vnswif_->GetHostInterfaceCount());
         WAIT_FOR(1000, 100, (VmPortFindRetDel(1) == false));
         WAIT_FOR(1000, 100, (VmPortFindRetDel(2) == false));
         DelNode("virtual-machine-interface", "vhost0");
@@ -213,7 +213,7 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     string vhost_ip = "1.1.1.1";
 
     // vnswif module does not know IP address yet
-    EXPECT_EQ(entry->addr_.to_ulong(), 0);
+    EXPECT_EQ(entry->addr_.to_ulong(), 0U);
 
     InterfaceAddressEvent(true, agent_->vhost_interface_name(), "1.1.1.1");
 
@@ -221,7 +221,7 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     EXPECT_STREQ(entry->addr_.to_string().c_str(), "1.1.1.1");
 
     // Message not sent to kernel since vhost already has IP
-    EXPECT_EQ(vnswif_->vhost_update_count(), 1);
+    EXPECT_EQ(vnswif_->vhost_update_count(), 1U);
 
     InterfaceAddressEvent(true, agent_->vhost_interface_name(), "2.2.2.2");
 
@@ -229,7 +229,7 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     EXPECT_STREQ(entry->addr_.to_string().c_str(), "2.2.2.2");
 
     // Message not sent to kernel since vhost already has IP
-    EXPECT_EQ(vnswif_->vhost_update_count(), 1);
+    EXPECT_EQ(vnswif_->vhost_update_count(), 1U);
 
     // Ensure there is no change vhost-ip
     EXPECT_STREQ(vhost->primary_ip_addr().to_string().c_str(), vhost_ip.c_str());
@@ -240,7 +240,7 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     EXPECT_STREQ(entry->addr_.to_string().c_str(), "0.0.0.0");
 
     // Message not sent to kernel since vhost already has IP
-    EXPECT_EQ(vnswif_->vhost_update_count(), 1);
+    EXPECT_EQ(vnswif_->vhost_update_count(), 1U);
 
     // Ensure there is no change vhost-ip
     EXPECT_STREQ(vhost->primary_ip_addr().to_string().c_str(), vhost_ip.c_str());
@@ -320,14 +320,14 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     const CompositeNH *nh;
     WAIT_FOR(100, 1000, ((nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop())) != NULL));
-    EXPECT_EQ(nh->ActiveComponentNHCount(), 3);
+    EXPECT_EQ(nh->ActiveComponentNHCount(), 3U);
 
     // Set oper-state of vnet3 down. We should have ECMP with 2 NH
     InterfaceEvent(true, "vnet3", 0);
     WAIT_FOR(100, 100, (VmPortActive(input, 0) == false));
     client->WaitForIdle();
     nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
-    EXPECT_EQ(nh->ActiveComponentNHCount(), 2);
+    EXPECT_EQ(nh->ActiveComponentNHCount(), 2U);
 
     // Set oper-state of vnet4 down. We should have non-ECMP route
     InterfaceEvent(true, "vnet4", 0);
@@ -354,7 +354,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     EXPECT_TRUE(rt != NULL);
     nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(nh != NULL);
-    EXPECT_EQ(nh->ActiveComponentNHCount(), 2);
+    EXPECT_EQ(nh->ActiveComponentNHCount(), 2U);
 
     //Clean up
     DeleteVmportEnv(input, 3, true);

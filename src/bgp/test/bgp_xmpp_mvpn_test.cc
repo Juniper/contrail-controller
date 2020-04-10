@@ -283,12 +283,12 @@ protected:
 
 TEST_F(BgpXmppMvpnErrorTest, BadGroupAddress) {
     agent_xa_->AddType7MvpnRoute("blue", "225.0.0,90.1.1.1");
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnErrorTest, BadSourceAddress) {
     agent_xa_->AddType7MvpnRoute("blue", "225.0.0.1,90.1.1");
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetVrfTableSize(bs_x_, "blue"));
 }
 
 class BgpXmppMvpnSubscriptionTest : public BgpXmppMvpnTest {
@@ -318,24 +318,24 @@ TEST_F(BgpXmppMvpnSubscriptionTest, PendingSubscribeType5) {
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
 
     // Verify that the route gets added
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Add the route again, there should still be only 1 route
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Add another route, there should be 2 routes
     const char *mroute2 = "225.0.0.1,20.1.1.20";
     agent_xa_->AddType5MvpnRoute("blue", mroute2, "20.1.1.12");
-    TASK_UTIL_EXPECT_EQ(3, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(3U, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete one mvpn route, there should still be a route
     agent_xa_->DeleteMvpnRoute("blue", mroute2, MvpnPrefix::SourceActiveADRoute);
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete second route, it should get deleted
     agent_xa_->DeleteMvpnRoute("blue", mroute, MvpnPrefix::SourceActiveADRoute);
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnSubscriptionTest, PendingSubscribeType7) {
@@ -348,23 +348,23 @@ TEST_F(BgpXmppMvpnSubscriptionTest, PendingSubscribeType7) {
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
 
     // Verify that the route gets added
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Add the route again, there should still be only 1 route
     agent_xb_->MvpnSubscribe("blue", 1);
     agent_xb_->MvpnSubscribe(BgpConfigManager::kFabricInstance, 1000);
     agent_xb_->AddType5MvpnRoute("blue", mroute, "20.1.1.12");
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete mvpn route from one agent, there should still be a route
     agent_xa_->DeleteMvpnRoute("blue", mroute, MvpnPrefix::SourceActiveADRoute);
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete route from second agent, it should get deleted
     agent_xb_->DeleteMvpnRoute("blue", mroute, MvpnPrefix::SourceActiveADRoute);
     // Delete route from second agent, it should get deleted
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnSubscriptionTest, PendingUnsubscribe) {
@@ -380,7 +380,7 @@ TEST_F(BgpXmppMvpnSubscriptionTest, PendingUnsubscribe) {
     agent_xa_->MvpnUnsubscribe(BgpConfigManager::kFabricInstance);
 
     // Verify number of routes.
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnSubscriptionTest, SubsequentSubscribeUnsubscribe) {
@@ -409,7 +409,7 @@ TEST_F(BgpXmppMvpnSubscriptionTest, SubsequentSubscribeUnsubscribe) {
     agent_xa_->AddType7MvpnRoute("blue", mroute);
 
     // Verify number of routes in blue table.
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify that agent a mvpn route was added.
     const char *route = "7-0:0,0,10.1.1.10,225.0.0.1";
@@ -484,8 +484,9 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     // Verify that all routes are added once.
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 1,
                         GetVrfTableSize(bs_x_, "blue"));
-    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_,
-                        BgpConfigManager::kFabricInstance, Address::ERMVPN));
+    TASK_UTIL_EXPECT_EQ(
+        4U, GetVrfTableSize(bs_x_, BgpConfigManager::kFabricInstance,
+                            Address::ERMVPN));
 
     // Verify routes via sandesh.
     BgpSandeshContext sandesh_context;
@@ -575,7 +576,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnManagerDetail) {
     AddMvpnRoute(master, prefix, "target:1:1");
 
     // Verify that all routes are added once.
-    TASK_UTIL_EXPECT_EQ(2, blue->Size());
+    TASK_UTIL_EXPECT_EQ(2U, blue->Size());
 
     // Verify multicast manager detail via sandesh.
     BgpSandeshContext sandesh_context;
@@ -595,8 +596,8 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnManagerDetail) {
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
 
     DeleteMvpnRoute(master, prefix);
-    TASK_UTIL_EXPECT_EQ(1, blue->Size());
-    TASK_UTIL_EXPECT_EQ(2, master->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue->Size());
+    TASK_UTIL_EXPECT_EQ(2U, master->Size());
 
     // Get blue.mvpn.0 again.
     result.resize(0);
@@ -634,8 +635,8 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnProjectManagerDetail) {
                         GetVrfTableSize(bs_x_, "blue"));
 
     // Verify that all routes are added once.
-    TASK_UTIL_EXPECT_EQ(3, master->Size());
-    TASK_UTIL_EXPECT_EQ(3, blue->Size());
+    TASK_UTIL_EXPECT_EQ(3U, master->Size());
+    TASK_UTIL_EXPECT_EQ(3U, blue->Size());
 
     // Verify multicast manager detail via sandesh.
     BgpSandeshContext sandesh_context;
@@ -664,8 +665,8 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnProjectManagerDetail) {
     DeleteMvpnRoute(master, prefix);
 
     // Verify that only type-1 ad route remains.
-    TASK_UTIL_EXPECT_EQ(1, blue->Size());
-    TASK_UTIL_EXPECT_EQ(2, master->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue->Size());
+    TASK_UTIL_EXPECT_EQ(2U, master->Size());
 
     result.resize(0);
     Sandesh::set_response_callback(

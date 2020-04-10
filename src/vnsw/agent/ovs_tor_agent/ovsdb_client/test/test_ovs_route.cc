@@ -91,7 +91,7 @@ protected:
                    "client/test/xml/ucast-local-test-teardown.xml");
         client->WaitForIdle();
         //Clean up any pending routes in conrol node mock
-        EXPECT_EQ(peer_manager_->Size(), 1);
+        EXPECT_EQ(peer_manager_->Size(), 1U);
     }
 
     Agent *agent_;

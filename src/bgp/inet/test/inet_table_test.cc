@@ -87,7 +87,7 @@ protected:
         InetTable::RequestKey key(prefix, NULL);
         InetRoute *rt = dynamic_cast<InetRoute *>(blue_->Find(&key));
         TASK_UTIL_EXPECT_TRUE(rt != NULL);
-        TASK_UTIL_EXPECT_EQ(1, rt->count());
+        TASK_UTIL_EXPECT_EQ(1U, rt->count());
         return true;
     }
 
@@ -180,7 +180,7 @@ TEST_F(InetTableTest, Hashing) {
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(blue_->GetTablePartition(idx));
-        TASK_UTIL_EXPECT_NE(0, tbl_partition->size());
+        TASK_UTIL_EXPECT_NE(0U, tbl_partition->size());
     }
 
     for (int idx = 1; idx <= kRouteCount; idx++) {

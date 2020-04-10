@@ -166,8 +166,8 @@ TEST_F(MvpnTableTest, AddDeleteSingleRoute) {
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr.str());
     TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
@@ -176,8 +176,8 @@ TEST_F(MvpnTableTest, AddDeleteSingleRoute) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(del_notification_, 1);
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -286,8 +286,8 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr.str());
     TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, repr.str());
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
@@ -299,8 +299,8 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     string prefix_str = type4_prefix.ToString();
     AddRoute(blue_, prefix_str);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(2, master_->Size());
+    TASK_UTIL_EXPECT_EQ(2U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(2U, master_->Size());
 
     MvpnRoute *type4_rt = FindRoute(blue_, prefix_str);
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
@@ -314,15 +314,15 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, prefix_str);
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(del_notification_, 2);
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
@@ -332,8 +332,8 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr.str());
     TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, repr.str());
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
@@ -343,8 +343,8 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     string prefix_str = type3_prefix.ToString();
     AddRoute(blue_, prefix_str);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(2, master_->Size());
+    TASK_UTIL_EXPECT_EQ(2U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(2U, master_->Size());
 
     MvpnRoute *type3_rt = FindRoute(blue_, prefix_str);
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
@@ -360,15 +360,15 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, prefix_str);
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(del_notification_, 2);
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 TEST_F(MvpnTableTest, CreateType2RoutePrefix) {
@@ -376,8 +376,8 @@ TEST_F(MvpnTableTest, CreateType2RoutePrefix) {
     string prefix_str = type2_prefix.ToString();
     AddRoute(blue_, prefix_str);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, prefix_str);
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
@@ -389,8 +389,8 @@ TEST_F(MvpnTableTest, CreateType2RoutePrefix) {
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, prefix_str);
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 TEST_F(MvpnTableTest, CreateType1RoutePrefix) {
@@ -398,8 +398,8 @@ TEST_F(MvpnTableTest, CreateType1RoutePrefix) {
     string prefix_str = type1_prefix.ToString();
     AddRoute(blue_, prefix_str);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, prefix_str);
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
@@ -411,8 +411,8 @@ TEST_F(MvpnTableTest, CreateType1RoutePrefix) {
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, prefix_str);
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 TEST_F(MvpnTableTest, Hashing) {
@@ -426,7 +426,7 @@ TEST_F(MvpnTableTest, Hashing) {
     for (int idx = 0; idx < blue_->PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(blue_->GetTablePartition(idx));
-        TASK_UTIL_EXPECT_NE(0, tbl_partition->size());
+        TASK_UTIL_EXPECT_NE(0U, tbl_partition->size());
     }
 
     for (int idx = 1; idx <= 255; idx++) {

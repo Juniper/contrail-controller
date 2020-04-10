@@ -22,7 +22,7 @@ TEST_F(MacAddressTest, Broadcast) {
 TEST_F(MacAddressTest, ByteArray) {
     uint8_t data[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
     MacAddress mac(data);
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("01:02:03:04:05:06", mac.ToString());
 }
 
@@ -30,7 +30,7 @@ TEST_F(MacAddressTest, NumbersOnly1) {
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString("01:02:03:04:05:06", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("01:02:03:04:05:06", mac.ToString());
 }
 
@@ -38,7 +38,7 @@ TEST_F(MacAddressTest, NumbersOnly2) {
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString("1:2:3:4:5:6", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("01:02:03:04:05:06", mac.ToString());
 }
 
@@ -46,7 +46,7 @@ TEST_F(MacAddressTest, NumbersAndLetters1) {
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString("a1:02:f3:04:d5:b6", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("a1:02:f3:04:d5:b6", mac.ToString());
 }
 
@@ -54,7 +54,7 @@ TEST_F(MacAddressTest, NumbersAndLetters2) {
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString("a1:2:f3:4:d5:b6", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("a1:02:f3:04:d5:b6", mac.ToString());
 }
 
@@ -62,7 +62,7 @@ TEST_F(MacAddressTest, NumbersAndLetters3) {
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString("A1:02:F3:04:D5:B6", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("a1:02:f3:04:d5:b6", mac.ToString());
 }
 
@@ -70,7 +70,7 @@ TEST_F(MacAddressTest, NumbersAndLetters4) {
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString("A1:2:F3:4:D5:B6", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(17, mac.ToString().size());
+    EXPECT_EQ(17U, mac.ToString().size());
     EXPECT_EQ("a1:02:f3:04:d5:b6", mac.ToString());
 }
 
@@ -187,7 +187,7 @@ TEST_F(MacAddressTest, CastTo_sockaddr) {
 TEST_F(MacAddressTest, SizeIsETHER_ADDR_LEN) {
     struct ether_addr a = { { 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f } };
     MacAddress mac(a);
-    EXPECT_EQ(ETHER_ADDR_LEN, mac.size());
+    EXPECT_EQ(static_cast<size_t>(ETHER_ADDR_LEN), mac.size());
 }
 
 TEST_F(MacAddressTest, last_octet) {

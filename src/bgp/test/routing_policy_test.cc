@@ -604,9 +604,9 @@ TEST_F(RoutingPolicyTest, PolicyNoMatchUpdateAsPath) {
     ASSERT_TRUE(rt != NULL);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     const BgpAttr *attr = rt->BestPath()->GetAttr();
-    ASSERT_EQ(1, attr->as_path()->path().path_segments.size());
-    ASSERT_EQ(2,
-        attr->as_path()->path().path_segments[0]->path_segment.size());
+    ASSERT_EQ(1U, attr->as_path()->path().path_segments.size());
+    ASSERT_EQ(2U,
+              attr->as_path()->path().path_segments[0]->path_segment.size());
     ASSERT_EQ(1000,
         attr->as_path()->path().path_segments[0]->path_segment[0]);
     ASSERT_EQ(2000,
@@ -703,16 +703,16 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAll1a) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -752,16 +752,16 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAll1b) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -801,16 +801,16 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAll2a) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -850,16 +850,16 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAll2b) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -913,30 +913,30 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAll3a) {
     VERIFY_EQ(12, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt14 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(99, rt14->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt14->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt15 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(99, rt15->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt15->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.1/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.2/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt23 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.3/32");
-    VERIFY_EQ(100, rt23->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt23->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt24 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.4/32");
-    VERIFY_EQ(100, rt24->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt24->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt25 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.5/32");
-    VERIFY_EQ(100, rt25->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt25->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt26 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.6/32");
-    VERIFY_EQ(100, rt26->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt26->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt27 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.7/32");
-    VERIFY_EQ(100, rt27->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt27->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -997,30 +997,30 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAll3b) {
     VERIFY_EQ(12, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt14 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(99, rt14->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt14->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt15 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(99, rt15->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt15->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.1/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.2/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt23 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.3/32");
-    VERIFY_EQ(100, rt23->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt23->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt24 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.4/32");
-    VERIFY_EQ(100, rt24->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt24->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt25 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.5/32");
-    VERIFY_EQ(100, rt25->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt25->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt26 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.6/32");
-    VERIFY_EQ(100, rt26->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt26->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt27 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.7/32");
-    VERIFY_EQ(100, rt27->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt27->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -1065,14 +1065,14 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAny1a) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -1109,14 +1109,14 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAny1b) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -1152,14 +1152,14 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAny2a) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -1195,14 +1195,14 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAny2b) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -1241,16 +1241,16 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAny3a) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt14 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(99, rt14->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt14->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -1290,16 +1290,16 @@ TEST_F(RoutingPolicyTest, PolicyCommunityMatchAny3b) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt14 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(99, rt14->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt14->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -3255,16 +3255,16 @@ TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAll1a) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -3306,16 +3306,16 @@ TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAll2a) {
     VERIFY_EQ(5, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -3379,30 +3379,30 @@ TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAll3a) {
     VERIFY_EQ(12, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt14 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(99, rt14->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt14->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt15 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
-    VERIFY_EQ(99, rt15->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt15->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.1/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.2/32");
-    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt22->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt23 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.3/32");
-    VERIFY_EQ(100, rt23->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt23->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt24 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.4/32");
-    VERIFY_EQ(100, rt24->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt24->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt25 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.5/32");
-    VERIFY_EQ(100, rt25->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt25->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt26 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.6/32");
-    VERIFY_EQ(100, rt26->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt26->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt27 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.7/32");
-    VERIFY_EQ(100, rt27->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt27->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -3447,14 +3447,14 @@ TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAny1a) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -3490,14 +3490,14 @@ TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAny2a) {
     VERIFY_EQ(4, RouteCount("test.inet.0"));
 
     BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
-    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt11->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
-    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt12->BestPath()->GetAttr()->local_pref());
     BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
-    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(99U, rt13->BestPath()->GetAttr()->local_pref());
 
     BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
-    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    VERIFY_EQ(100U, rt21->BestPath()->GetAttr()->local_pref());
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
@@ -4414,7 +4414,7 @@ static void ValidateShowRoutingInstanceRoutingPolicyResponse(
     ShowRoutingInstanceResp *resp =
         dynamic_cast<ShowRoutingInstanceResp *>(sandesh);
     EXPECT_TRUE(resp != NULL);
-    EXPECT_EQ(1, resp->get_instances().size());
+    EXPECT_EQ(1U, resp->get_instances().size());
     EXPECT_EQ(policy_list.size(),
               resp->get_instances()[0].get_routing_policies().size());
     BOOST_FOREACH(const ShowInstanceRoutingPolicyInfo &info, policy_list) {

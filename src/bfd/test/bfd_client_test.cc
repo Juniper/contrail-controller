@@ -385,7 +385,7 @@ TEST_F(ClientTest, BasicSingleHop3) {
     // Check state of all sessions
     Server *server = client_.GetConnection()->GetServer();
     Sessions *client_sessions = server->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),2);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 2U);
     stringstream ss;
     for (Sessions::iterator it = client_sessions->begin(), next ;
          it != client_sessions->end(); it = next) {
@@ -402,7 +402,7 @@ TEST_F(ClientTest, BasicSingleHop3) {
     task_util::WaitForIdle();
     Server *server_test = client_test_.GetConnection()->GetServer();
     Sessions *client_test_sessions = server_test->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),2);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 2U);
     stringstream ss2;
     for (Sessions::iterator it = client_test_sessions->begin(), next ;
          it != client_test_sessions->end(); it = next) {
@@ -430,8 +430,8 @@ TEST_F(ClientTest, BasicSingleHop3) {
     TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key2));
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),0);
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),0);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 0U);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 0U);
 }
 
 
@@ -576,7 +576,7 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_MinRxInterval) {
     task_util::WaitForIdle();
     Server *server = client_.GetConnection()->GetServer();
     Sessions *client_sessions = server->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 1U);
     stringstream ss;
     Session *session =  server->SessionByKey(client_key);
     TASK_UTIL_EXPECT_GE(session->Stats().rx_count, 2);
@@ -587,7 +587,7 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_MinRxInterval) {
     task_util::WaitForIdle();
     Server *server_test = client_test_.GetConnection()->GetServer();
     Sessions *client_test_sessions = server_test->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 1U);
     stringstream ss2;
     Session *session_test =  server_test->SessionByKey(client_test_key);
     TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 2);
@@ -604,8 +604,8 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_MinRxInterval) {
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 1U);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 1U);
 
     TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 4);
     TASK_UTIL_EXPECT_EQ(sc_updt.requiredMinRxInterval,
@@ -654,7 +654,7 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DesiredMinTxInterval) {
     task_util::WaitForIdle();
     Server *server = client_.GetConnection()->GetServer();
     Sessions *client_sessions = server->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 1U);
     stringstream ss;
     Session *session =  server->SessionByKey(client_key);
     TASK_UTIL_EXPECT_GE(session->Stats().rx_count, 2);
@@ -665,7 +665,7 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DesiredMinTxInterval) {
     task_util::WaitForIdle();
     Server *server_test = client_test_.GetConnection()->GetServer();
     Sessions *client_test_sessions = server_test->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 1U);
     stringstream ss2;
     Session *session_test =  server_test->SessionByKey(client_test_key);
     TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 2);
@@ -682,8 +682,8 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DesiredMinTxInterval) {
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 1U);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 1U);
 
     TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 4);
     TASK_UTIL_EXPECT_EQ(sc_updt.desiredMinTxInterval, session_test->remote_state().minTxInterval);
@@ -730,7 +730,7 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DetectionTime) {
     task_util::WaitForIdle();
     Server *server = client_.GetConnection()->GetServer();
     Sessions *client_sessions = server->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 1U);
     stringstream ss;
     Session *session =  server->SessionByKey(client_key);
     TASK_UTIL_EXPECT_GE(session->Stats().rx_count, 2);
@@ -741,7 +741,7 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DetectionTime) {
     task_util::WaitForIdle();
     Server *server_test = client_test_.GetConnection()->GetServer();
     Sessions *client_test_sessions = server_test->GetSessions();
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 1U);
     stringstream ss2;
     Session *session_test =  server_test->SessionByKey(client_test_key);
     TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 2);
@@ -764,8 +764,8 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DetectionTime) {
     ASSERT_EQ(session->detection_time(), boost::posix_time::milliseconds(600));
     ASSERT_EQ(session_test->detection_time(),
               boost::posix_time::milliseconds(600));
-    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
-    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(), 1U);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(), 1U);
 
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));

@@ -504,8 +504,8 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     bool   set_log_disable = false;
     SandeshTraceBufferPtr   trace_buf;
 
-    TASK_UTIL_EXPECT_EQ(4, GetRoutingInstanceDormantTraceBufferCapacity());
-    TASK_UTIL_EXPECT_EQ(2, GetRoutingInstanceDormantTraceBufferThreshold());
+    TASK_UTIL_EXPECT_EQ(4U, GetRoutingInstanceDormantTraceBufferCapacity());
+    TASK_UTIL_EXPECT_EQ(2U, GetRoutingInstanceDormantTraceBufferThreshold());
 
     ri1_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#1"));
     scoped_ptr<BgpInstanceConfigTest> ri2_cfg;
@@ -592,7 +592,7 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     DeleteRoutingInstance(ri4_cfg.get());
     // checking with threshold
     DeleteRoutingInstance(ri5_cfg.get());
-    TASK_UTIL_EXPECT_EQ(3,GetRoutingInstanceDormantTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(3U, GetRoutingInstanceDormantTraceBufSize());
     TASK_UTIL_EXPECT_EQ(false,
             HasRoutingInstanceDormantTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(true,

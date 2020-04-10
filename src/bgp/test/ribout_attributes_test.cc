@@ -121,7 +121,7 @@ TEST_F(RibOutAttributesTest, Paths) {
     //
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(1, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(1U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     }
 
@@ -136,7 +136,7 @@ TEST_F(RibOutAttributesTest, Paths) {
 
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(1).address());
     }
@@ -153,7 +153,7 @@ TEST_F(RibOutAttributesTest, Paths) {
 
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(1).address());
     }
@@ -164,7 +164,7 @@ TEST_F(RibOutAttributesTest, Paths) {
     route.RemovePath(&peer2);
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(1, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(1U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     }
 
@@ -179,7 +179,7 @@ TEST_F(RibOutAttributesTest, Paths) {
 
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(1).address());
     }
@@ -190,7 +190,7 @@ TEST_F(RibOutAttributesTest, Paths) {
     route.RemovePath(&peer3);
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(1).address());
     }
@@ -206,7 +206,7 @@ TEST_F(RibOutAttributesTest, Paths) {
 
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(1).address());
     }
@@ -217,7 +217,7 @@ TEST_F(RibOutAttributesTest, Paths) {
     route.RemovePath(&peer2);
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_EQ(path3->GetAttr()->nexthop(),
               ribout_attr.nexthop_list().at(1).address());
@@ -229,7 +229,7 @@ TEST_F(RibOutAttributesTest, Paths) {
     route.RemovePath(&peer1);
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(1, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(1U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(path3->GetAttr()->nexthop(),
               ribout_attr.nexthop_list().at(0).address());
     }
@@ -278,7 +278,7 @@ TEST_F(RibOutAttributesTest, SequenceNumber1) {
 
     // RibOutAttr should have only path2.
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(1, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(1U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(0).address());
 
     // Cleanup.
@@ -322,7 +322,7 @@ TEST_F(RibOutAttributesTest, SequenceNumber2) {
 
     // RibOutAttr should have both paths.
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
-    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(2U, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
     EXPECT_NE(ribout_attr.nexthop_list().at(0).address(),
               ribout_attr.nexthop_list().at(1).address());

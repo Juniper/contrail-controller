@@ -578,7 +578,7 @@ void BgpStressTest::TearDown() {
     WaitForIdle();
     xmpp_server_test_->Shutdown();
     WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, xmpp_server_test_->ConnectionCount());
     channel_manager_.reset();
     WaitForIdle();
     TcpServerManager::DeleteServer(xmpp_server_test_);
@@ -2400,7 +2400,8 @@ void BgpStressTest::DeleteRoutingInstances() {
         DeleteRoutingInstance(instance_id, n_targets_);
     }
 
-    TASK_UTIL_EXPECT_EQ_MSG(0, server_->routing_instance_mgr()->count(),
+    TASK_UTIL_EXPECT_EQ_MSG(
+        0U, server_->routing_instance_mgr()->count(),
         "Waiting for the completion of routing-instances' deletion");
 }
 

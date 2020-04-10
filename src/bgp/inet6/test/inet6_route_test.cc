@@ -109,7 +109,7 @@ TEST_F(Inet6RouteTest, FromProtoPrefix1) {
     int result = Inet6Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(16 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(16, proto_prefix.prefix.size());
+    EXPECT_EQ(16U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 
@@ -123,7 +123,7 @@ TEST_F(Inet6RouteTest, FromProtoPrefix2) {
     int result = Inet6Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(8 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(8, proto_prefix.prefix.size());
+    EXPECT_EQ(8U, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 

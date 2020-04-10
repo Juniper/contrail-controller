@@ -665,8 +665,8 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
-    EXPECT_EQ(0, uve.get_phy_band_in_bps().size());
-    EXPECT_EQ(0, uve.get_phy_band_out_bps().size());
+    EXPECT_EQ(0U, uve.get_phy_band_in_bps().size());
+    EXPECT_EQ(0U, uve.get_phy_band_out_bps().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_band_in_bps(),
             uve.get_phy_band_out_bps(),
             0, 0));
@@ -764,7 +764,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 
     EXPECT_EQ(9, vr->bandwidth_count());
     //Verify the 5-min bandwidth usage
-    EXPECT_EQ(0, uve.get_phy_if_5min_usage().size());
+    EXPECT_EQ(0U, uve.get_phy_if_5min_usage().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 0, 0));
 
     //Run Vrouter stats collector again
@@ -871,7 +871,7 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
         }
     };
 
-    EXPECT_EQ(0, flow_proto_->FlowCount());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
     CreateFlow(flow, 2);
     EXPECT_EQ(4U, flow_proto_->FlowCount());
 
@@ -960,12 +960,12 @@ TEST_F(UveVrouterUveTest, config_1) {
         EXPECT_STREQ(uve.get_ds_addr().c_str(), "0.0.0.0");
         EXPECT_EQ(uve.get_ds_xs_instances(), 0);
         EXPECT_STREQ(uve.get_control_ip().c_str(), "0.0.0.0");
-        EXPECT_EQ(uve.get_ll_max_system_flows_cfg(), 3);
-        EXPECT_EQ(uve.get_ll_max_vm_flows_cfg(), 2);
-        EXPECT_EQ(uve.get_max_vm_flows_cfg(), 100);
-        EXPECT_EQ(uve.get_dns_server_list_cfg().size(), 2);
-        EXPECT_EQ(uve.get_control_node_list_cfg().size(), 2);
-        EXPECT_EQ(uve.get_gateway_cfg_list().size(), 2);
+        EXPECT_EQ(uve.get_ll_max_system_flows_cfg(), 3U);
+        EXPECT_EQ(uve.get_ll_max_vm_flows_cfg(), 2U);
+        EXPECT_EQ(uve.get_max_vm_flows_cfg(), 100U);
+        EXPECT_EQ(uve.get_dns_server_list_cfg().size(), 2U);
+        EXPECT_EQ(uve.get_control_node_list_cfg().size(), 2U);
+        EXPECT_EQ(uve.get_gateway_cfg_list().size(), 2U);
         vr->clear_count();
     }
 }
@@ -1093,7 +1093,7 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
     };
 
     //Create Flows
-    EXPECT_EQ(0, flow_proto_->FlowCount());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
     CreateFlow(flow, 2);
     EXPECT_EQ(4U, flow_proto_->FlowCount());
 

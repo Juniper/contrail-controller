@@ -29,7 +29,7 @@ public:
 private:
 };
 
-static const int kRouteCount = 255;
+static const size_t kRouteCount = 255;
 
 class EvpnTableTest : public ::testing::Test {
 protected:
@@ -85,7 +85,7 @@ protected:
         master_->Unregister(tid_);
         server_.Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_ASSERT_EQ(0, server_.routing_instance_mgr()->count());
+        TASK_UTIL_ASSERT_EQ(0U, server_.routing_instance_mgr()->count());
     }
 
     void AddRoute(EvpnTable *table, string prefix_str,
@@ -170,9 +170,9 @@ protected:
             DBTablePartition *tbl_partition =
                 static_cast<DBTablePartition *>(table->GetTablePartition(idx));
             if (empty) {
-                TASK_UTIL_EXPECT_EQ(0, tbl_partition->size());
+                TASK_UTIL_EXPECT_EQ(0U, tbl_partition->size());
             } else {
-                TASK_UTIL_EXPECT_NE(0, tbl_partition->size());
+                TASK_UTIL_EXPECT_NE(0U, tbl_partition->size());
             }
         }
     }
@@ -235,7 +235,7 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteSingleRoute) {
 
 // Prefixes differ only in the IP address field of the RD.
 TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute1) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-65536";
@@ -243,18 +243,18 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-65536";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-65536";
@@ -262,19 +262,19 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-65536";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 
 // Prefixes differ only in the esi field.
 TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-65536";
@@ -282,18 +282,18 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-65536";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-65536";
@@ -301,18 +301,18 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-65536";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 // Prefixes differ only in the tag field.
 TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-" << idx;
@@ -320,18 +320,18 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-" << idx;
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-" << idx;
@@ -339,13 +339,13 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "1-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-" << idx;
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 //
@@ -358,16 +358,16 @@ TEST_F(EvpnTableAutoDiscoveryTest, ReplicateRouteFromVPN1) {
     AddRoute(master_, repr1.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -380,16 +380,16 @@ TEST_F(EvpnTableAutoDiscoveryTest, ReplicateRouteFromVPN2) {
     AddRoute(master_, repr1.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -401,16 +401,16 @@ TEST_F(EvpnTableAutoDiscoveryTest, ReplicateRouteToVPN) {
     AddRoute(blue_, repr.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 class EvpnTableMacAdvertisementTest : public EvpnTableTest {
@@ -456,7 +456,7 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteSingleRoute) {
 
 // Prefixes differ only in the IP address field of the RD.
 TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute1) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1." << idx << ":65535-";
         repr << "0-07:00:00:00:00:01,192.168.1.1";
@@ -464,15 +464,15 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1." << idx << ":65535-";
         repr << "0-07:00:00:00:00:01,192.168.1.1";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1." << idx << ":65535-";
         repr << "0-07:00:00:00:00:01,192.168.1.1";
@@ -480,19 +480,19 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1." << idx << ":65535-";
         repr << "0-07:00:00:00:00:01,192.168.1.1";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 
 // Prefixes differ only in the mac_addr field.
 TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:" << hex << idx << ",192.168.1.1";
@@ -500,15 +500,15 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:" << hex << idx << ",192.168.1.1";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:" << hex << idx << ",192.168.1.1";
@@ -516,18 +516,18 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:" << hex << idx << ",192.168.1.1";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 // Prefixes differ only in the ip_addr field.
 TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:01,192.168.1." << idx;
@@ -535,15 +535,15 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:01,192.168.1." << idx;
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:01,192.168.1." << idx;
@@ -551,13 +551,13 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:01,192.168.1." << idx;
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 TEST_F(EvpnTableMacAdvertisementTest, AddDeleteBroadcastRoute) {
@@ -577,7 +577,7 @@ TEST_F(EvpnTableMacAdvertisementTest, AddDeleteBroadcastRoute) {
 }
 
 TEST_F(EvpnTableMacAdvertisementTest, Hashing) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:" << hex << idx << ",192.168.1.1";
@@ -587,7 +587,7 @@ TEST_F(EvpnTableMacAdvertisementTest, Hashing) {
 
     VerifyTablePartitionNonEmpty(master_, 0, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "2-10.1.1.1:65535-";
         repr << "0-07:00:00:00:00:" << hex << idx << ",192.168.1.1";
@@ -606,16 +606,16 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN1) {
     AddRoute(master_, repr1.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -625,7 +625,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN2) {
     ostringstream repr2;
     repr2 << "2-0:0-0-11:12:13:14:15:16,192.168.1.1";
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-10.1.1." << idx << ":65535-0-11:12:13:14:15:16,192.168.1.1";
         AddRoute(master_, repr1.str(), "target:64512:1");
@@ -634,9 +634,9 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN2) {
         VerifyRouteExists(blue_, repr2.str(), idx);
     }
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-10.1.1." << idx << ":65535-0-11:12:13:14:15:16,192.168.1.1";
         DelRoute(master_, repr1.str());
@@ -649,15 +649,15 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN2) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different MAC addresses result in different routes in VRF.
 //
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-10.1.1.1:65535-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -665,7 +665,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-10.1.1.1:65535-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -677,7 +677,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN3) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-10.1.1.1:65535-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -685,7 +685,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-10.1.1.1:65535-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -694,22 +694,22 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN3) {
         VerifyRouteNoExists(master_, repr1.str());
         VerifyRouteNoExists(blue_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses result in different routes in VRF.
 //
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN4) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1." << idx;
         AddRoute(master_, repr1.str(), "target:64512:1");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1." << idx;
         repr2 << "2-0:0-0-11:12:13:14:15:16,192.168.1." << idx;
@@ -719,22 +719,22 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN4) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1." << idx;
         DelRoute(master_, repr1.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1." << idx;
         repr2 << "2-0:0-0-11:12:13:14:15:16,192.168.1." << idx;
         VerifyRouteNoExists(master_, repr1.str());
         VerifyRouteNoExists(blue_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -747,16 +747,16 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN5) {
     AddRoute(master_, repr1.str(), "target:64512:1", 2);
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -770,16 +770,16 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_1) {
     AddRoute(master_, repr1.str(), "target:64512:7999999", 2);
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -793,16 +793,16 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_2) {
     AddRoute(master_, repr1.str(), "target:64512:7999999", 2);
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -817,16 +817,16 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_3) {
     AddRoute(master_, repr1.str(), "target:65536:7999", 2);
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -863,23 +863,23 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN1) {
     AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     DelRoute(blue_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different MAC addresses result in different routes in VPN.
 //
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-0:0-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -887,7 +887,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-0:0-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -899,7 +899,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN3) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-0:0-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -907,7 +907,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-0:0-0-";
         repr1 << "11:12:13:14:15:" << hex << idx << ",192.168.1.1";
@@ -916,22 +916,22 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN3) {
         VerifyRouteNoExists(blue_, repr1.str());
         VerifyRouteNoExists(master_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses result in different routes in VPN.
 //
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN4) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-0:0-0-11:12:13:14:15:16,192.168.1." << idx;
         AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-0:0-0-11:12:13:14:15:16,192.168.1." << idx;
         repr2 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1." << idx;
@@ -941,22 +941,22 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN4) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "2-0:0-0-11:12:13:14:15:16,192.168.1." << idx;
         DelRoute(blue_, repr1.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "2-0:0-0-11:12:13:14:15:16,192.168.1." << idx;
         repr2 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1." << idx;
         VerifyRouteNoExists(blue_, repr1.str());
         VerifyRouteNoExists(master_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -969,22 +969,22 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteVRFToVRF) {
     AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteNoExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_si_->Size());
 
     DelRoute(blue_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_si_->Size());
 }
 
 class EvpnTableSelectiveMulticastTest : public EvpnTableTest {
@@ -1041,105 +1041,105 @@ TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteSingleRoute) {
 
 // Prefixes differ only in the IP address field of the RD.
 TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteMultipleRoute1) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         AddRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         DelRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 
 // Prefixes differ only in the tag field.
 TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteMultipleRoute2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-" << idx << "-192.1.1.1";
         AddRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-" << idx << "-192.1.1.1";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-" << idx << "-192.1.1.1";
         DelRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-" << idx << "-192.1.1.1";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 // Prefixes differ only in the IP address field.
 TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteMultipleRoute3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         AddRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         DelRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 //
@@ -1151,30 +1151,30 @@ TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteFromVPN1) {
     AddRoute(master_, repr.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
 // Different RDs result in different routes in VRF.
 //
 TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteFromVPN2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         AddRoute(master_, repr.str(), "target:64512:1");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         VerifyRouteExists(master_, repr.str());
@@ -1183,35 +1183,35 @@ TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteFromVPN2) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         DelRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         VerifyRouteNoExists(master_, repr.str());
         VerifyRouteNoExists(blue_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses result in different routes in VRF.
 //
 TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteFromVPN3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         AddRoute(master_, repr.str(), "target:64512:1");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         VerifyRouteExists(master_, repr.str());
@@ -1220,21 +1220,21 @@ TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteFromVPN3) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         DelRoute(master_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         VerifyRouteNoExists(master_, repr.str());
         VerifyRouteNoExists(blue_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -1246,30 +1246,30 @@ TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteToVPN1) {
     AddRoute(blue_, repr.str());
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different RDs result in different routes in VRF.
 //
 TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteToVPN2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         AddRoute(blue_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         VerifyRouteExists(blue_, repr.str());
@@ -1278,35 +1278,35 @@ TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteToVPN2) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         DelRoute(blue_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1." << idx << ":65535-65536-192.1.1.1";
         VerifyRouteNoExists(blue_, repr.str());
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
 // Different IP addresses result in different routes in VPN.
 //
 TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteToVPN3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         AddRoute(blue_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         VerifyRouteExists(blue_, repr.str());
@@ -1315,21 +1315,21 @@ TEST_F(EvpnTableInclusiveMulticastTest, ReplicateRouteToVPN3) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         DelRoute(blue_, repr.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "3-10.1.1.1:65535-65536-192.1.1." << idx;
         VerifyRouteNoExists(blue_, repr.str());
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 class EvpnTableSegmentTest : public EvpnTableTest {
@@ -1365,7 +1365,7 @@ TEST_F(EvpnTableSegmentTest, AddDeleteSingleRoute) {
 
 // Prefixes differ only in the IP address field of the RD.
 TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute1) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1.1";
@@ -1373,18 +1373,18 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1.1";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1.1";
@@ -1392,19 +1392,19 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1." << idx << ":65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1.1";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 
 // Prefixes differ only in the esi field.
 TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-192.1.1.1";
@@ -1412,18 +1412,18 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-192.1.1.1";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-192.1.1.1";
@@ -1431,18 +1431,18 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:" << hex << idx << "-192.1.1.1";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 // Prefixes differ only in the IP address field.
 TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1." << idx;
@@ -1450,18 +1450,18 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1." << idx;
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
     VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1." << idx;
@@ -1469,13 +1469,13 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "4-10.1.1.1:65535-";
         repr << "00:01:02:03:04:05:06:07:08:09-192.1.1." << idx;
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 //
@@ -1487,16 +1487,16 @@ TEST_F(EvpnTableSegmentTest, ReplicateRouteFromVPN) {
     AddRoute(master_, repr.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 
     DelRoute(master_, repr.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -1508,16 +1508,16 @@ TEST_F(EvpnTableSegmentTest, ReplicateRouteToVPN) {
     AddRoute(blue_, repr.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 class EvpnTableIpPrefixTest : public EvpnTableTest {
@@ -1577,7 +1577,7 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteSingleRoute2) {
 
 // Prefixes differ only in the IP address field of the RD.
 TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute1) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1." << idx << ":65535-";
         repr << "0-192.168.1.1/32";
@@ -1585,15 +1585,15 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1." << idx << ":65535-";
         repr << "0-192.168.1.1/32";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1." << idx << ":65535-";
         repr << "0-192.168.1.1/32";
@@ -1601,18 +1601,18 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute1) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1." << idx << ":65535-";
         repr << "0-192.168.1.1/32";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 // Prefixes differ only in the address field (ipv4) of the prefix.
 TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-192.168.1." << idx << "/32";
@@ -1620,15 +1620,15 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-192.168.1." << idx << "/32";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-192.168.1." << idx << "/32";
@@ -1636,18 +1636,18 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute2) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-192.168.1." << idx << "/32";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 // Prefixes differ only in the address field (ipv6) of the prefix.
 TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-2001:db8:0:9::" << idx << "/128";
@@ -1655,15 +1655,15 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-2001:db8:0:9::" << idx << "/128";
         VerifyRouteExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(adc_notification_), kRouteCount);
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-2001:db8:0:9::" << idx << "/128";
@@ -1671,17 +1671,17 @@ TEST_F(EvpnTableIpPrefixTest, AddDeleteMultipleRoute3) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-2001:db8:0:9::" << idx << "/128";
         VerifyRouteNoExists(master_, repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(del_notification_), kRouteCount);
 }
 
 TEST_F(EvpnTableIpPrefixTest, Hashing1) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-192.168.1." << idx << "/32";
@@ -1691,7 +1691,7 @@ TEST_F(EvpnTableIpPrefixTest, Hashing1) {
 
     VerifyTablePartitionNonEmpty(master_, 0, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-192.168.1." << idx << "/32";
@@ -1701,7 +1701,7 @@ TEST_F(EvpnTableIpPrefixTest, Hashing1) {
 }
 
 TEST_F(EvpnTableIpPrefixTest, Hashing2) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-2001:db8:0:9::" << hex << idx << "/128";
@@ -1711,7 +1711,7 @@ TEST_F(EvpnTableIpPrefixTest, Hashing2) {
 
     VerifyTablePartitionNonEmpty(master_, 0, master_->PartitionCount());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
         repr << "5-10.1.1.1:65535-";
         repr << "0-2001:db8:0:9::" << hex << idx << "/128";
@@ -1730,16 +1730,16 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN1) {
     AddRoute(master_, repr1.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -1752,16 +1752,16 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN2) {
     AddRoute(master_, repr1.str(), "target:64512:1");
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
 }
 
 //
@@ -1771,7 +1771,7 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN3) {
     ostringstream repr2;
     repr2 << "5-0:0-0-192.168.1.1/32";
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1." << idx << ":65535-0-192.168.1.1/32";
         AddRoute(master_, repr1.str(), "target:64512:1");
@@ -1780,9 +1780,9 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN3) {
         VerifyRouteExists(blue_, repr2.str(), idx);
     }
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1." << idx << ":65535-0-192.168.1.1/32";
         DelRoute(master_, repr1.str());
@@ -1795,8 +1795,8 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN3) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -1806,7 +1806,7 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN4) {
     ostringstream repr2;
     repr2 << "5-0:0-0-2001:db8:0:9::1/32";
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1." << idx << ":65535-0-2001:db8:0:9::1/32";
         AddRoute(master_, repr1.str(), "target:64512:1");
@@ -1815,9 +1815,9 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN4) {
         VerifyRouteExists(blue_, repr2.str(), idx);
     }
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1." << idx << ":65535-0-2001:db8:0:9::1/32";
         DelRoute(master_, repr1.str());
@@ -1830,22 +1830,22 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN4) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses (v4) result in different routes in VRF.
 //
 TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN5) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1.1:65535-0-192.168.1." << idx << "/32";
         AddRoute(master_, repr1.str(), "target:64512:1");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-10.1.1.1:65535-0-192.168.1." << idx << "/32";
         repr2 << "5-0:0-0-192.168.1." << idx << "/32";
@@ -1855,36 +1855,36 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN5) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1.1:65535-0-192.168.1." << idx << "/32";
         DelRoute(master_, repr1.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-10.1.1.1:65535-0-192.168.1." << idx << "/32";
         repr2 << "5-0:0-0-192.168.1." << idx << "/32";
         VerifyRouteNoExists(master_, repr1.str());
         VerifyRouteNoExists(blue_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses (v6) result in different routes in VRF.
 //
 TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN6) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1.1:65535-0-2001:db8:0:9::" << hex << idx << "/128";
         AddRoute(master_, repr1.str(), "target:64512:1");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-10.1.1.1:65535-0-2001:db8:0:9::" << hex << idx << "/128";
         repr2 << "5-0:0-0-2001:db8:0:9::" << hex << idx << "/128";
@@ -1894,22 +1894,22 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteFromVPN6) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-10.1.1.1:65535-0-2001:db8:0:9::" << hex << idx << "/128";
         DelRoute(master_, repr1.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-10.1.1.1:65535-0-2001:db8:0:9::" << hex << idx << "/128";
         repr2 << "5-0:0-0-2001:db8:0:9::" << hex << idx << "/128";
         VerifyRouteNoExists(master_, repr1.str());
         VerifyRouteNoExists(blue_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -1922,16 +1922,16 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteToVPN1) {
     AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     DelRoute(blue_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -1944,30 +1944,30 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteToVPN2) {
     AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
 
     DelRoute(blue_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses (v4) result in different routes in VPN.
 //
 TEST_F(EvpnTableIpPrefixTest, ReplicateRouteToVPN3) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-0:0-0-192.168.1." << idx << "/32";
         AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-0:0-0-192.168.1." << idx << "/32";
         repr2 << "5-10.1.1.1:65535-0-192.168.1." << idx << "/32";
@@ -1977,36 +1977,36 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteToVPN3) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-0:0-0-192.168.1." << idx << "/32";
         DelRoute(blue_, repr1.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-0:0-0-192.168.1." << idx << "/32";
         repr2 << "5-10.1.1.1:65535-0-192.168.1." << idx << "/32";
         VerifyRouteNoExists(blue_, repr1.str());
         VerifyRouteNoExists(master_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
 // Different IP addresses (v6) result in different routes in VPN.
 //
 TEST_F(EvpnTableIpPrefixTest, ReplicateRouteToVPN4) {
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-0:0-0-2001:db8:0:9::" << hex << idx << "/128";
         AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-0:0-0-2001:db8:0:9::" << hex << idx << "/128";
         repr2 << "5-10.1.1.1:65535-0-2001:db8:0:9::" << hex << idx << "/128";
@@ -2016,22 +2016,22 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteToVPN4) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, master_->Size());
     TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1;
         repr1 << "5-0:0-0-2001:db8:0:9::" << hex << idx << "/128";
         DelRoute(blue_, repr1.str());
     }
     task_util::WaitForIdle();
 
-    for (int idx = 1; idx <= kRouteCount; idx++) {
+    for (size_t idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr1, repr2;
         repr1 << "5-0:0-0-2001:db8:0:9::" << hex << idx << "/128";
         repr2 << "5-10.1.1.1:65535-0-2001:db8:0:9::" << hex << idx << "/128";
         VerifyRouteNoExists(blue_, repr1.str());
         VerifyRouteNoExists(master_, repr2.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 }
 
 //
@@ -2044,22 +2044,22 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteVRFToVRF1) {
     AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_si_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_si_->Size());
 
     DelRoute(blue_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_si_->Size());
 }
 
 //
@@ -2072,22 +2072,22 @@ TEST_F(EvpnTableIpPrefixTest, ReplicateRouteVRFToVRF2) {
     AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
     task_util::WaitForIdle();
     VerifyRouteExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_->Size());
     VerifyRouteExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, master_->Size());
     VerifyRouteExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(1, blue_si_->Size());
+    TASK_UTIL_EXPECT_EQ(1U, blue_si_->Size());
 
     DelRoute(blue_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(blue_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_->Size());
     VerifyRouteNoExists(master_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     VerifyRouteNoExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_si_->Size());
 }
 
 int main(int argc, char **argv) {

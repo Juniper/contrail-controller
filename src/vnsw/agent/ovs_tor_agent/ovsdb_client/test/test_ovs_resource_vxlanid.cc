@@ -90,15 +90,15 @@ TEST_F(OvsdbResourceVxLanIdTest, ResourceAlloc) {
 
     // acquire vxlan id and verify
     EXPECT_TRUE(entry->id_.AcquireVxLanId(1));
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 1);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 1U);
     entry->id_.set_active_vxlan_id(1);
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 1);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 1U);
     EXPECT_TRUE(entry->id_.AcquireVxLanId(2));
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 1);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 1U);
     entry->id_.set_active_vxlan_id(2);
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 2);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 2U);
     EXPECT_TRUE(entry->id_.AcquireVxLanId(3));
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 2);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 2U);
 
     vxlan_table->Delete(entry);
 }
@@ -114,44 +114,44 @@ TEST_F(OvsdbResourceVxLanIdTest, Resourcewait) {
     // acquire vxlan id and verify
     EXPECT_TRUE(entry->id_.AcquireVxLanId(1));
     entry->id_.set_active_vxlan_id(1);
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 1);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 1U);
 
     // acquire vxlan id 2 and verify
     EXPECT_TRUE(entry_1->id_.AcquireVxLanId(2));
     entry_1->id_.set_active_vxlan_id(2);
-    EXPECT_EQ(entry_1->id_.active_vxlan_id(), 2);
+    EXPECT_EQ(entry_1->id_.active_vxlan_id(), 2U);
 
     // change from vxlan id 1 to 2 and wait for resource
     EXPECT_FALSE(entry->id_.AcquireVxLanId(2));
-    EXPECT_EQ(entry->id_.VxLanId(), 0);
+    EXPECT_EQ(entry->id_.VxLanId(), 0U);
     EXPECT_TRUE(entry->id_.AcquireVxLanId(3));
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 1);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 1U);
     EXPECT_TRUE(entry->id_.AcquireVxLanId(1));
 
     // change from vxlan id 1 to 2 and wait for resource
     EXPECT_FALSE(entry->id_.AcquireVxLanId(2));
     EXPECT_FALSE(entry_2->id_.AcquireVxLanId(2));
-    EXPECT_EQ(entry->id_.VxLanId(), 0);
-    EXPECT_EQ(entry_2->id_.VxLanId(), 0);
+    EXPECT_EQ(entry->id_.VxLanId(), 0U);
+    EXPECT_EQ(entry_2->id_.VxLanId(), 0U);
     EXPECT_TRUE(entry->id_.AcquireVxLanId(1));
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 1);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 1U);
     EXPECT_TRUE(entry_2->id_.AcquireVxLanId(4));
-    EXPECT_EQ(entry_2->id_.active_vxlan_id(), 4);
+    EXPECT_EQ(entry_2->id_.active_vxlan_id(), 4U);
 
     // change from vxlan id cyclic manner
     EXPECT_FALSE(entry->id_.AcquireVxLanId(2));
-    EXPECT_EQ(entry->id_.VxLanId(), 0);
+    EXPECT_EQ(entry->id_.VxLanId(), 0U);
     EXPECT_FALSE(entry_1->id_.AcquireVxLanId(1));
-    EXPECT_EQ(entry_1->id_.VxLanId(), 0);
+    EXPECT_EQ(entry_1->id_.VxLanId(), 0U);
     // release active id
     entry->id_.set_active_vxlan_id(0);
-    EXPECT_EQ(entry_1->id_.VxLanId(), 1);
-    EXPECT_EQ(entry_1->id_.active_vxlan_id(), 2);
+    EXPECT_EQ(entry_1->id_.VxLanId(), 1U);
+    EXPECT_EQ(entry_1->id_.active_vxlan_id(), 2U);
     entry_1->id_.set_active_vxlan_id(1);
-    EXPECT_EQ(entry_1->id_.active_vxlan_id(), 1);
-    EXPECT_EQ(entry->id_.VxLanId(), 2);
+    EXPECT_EQ(entry_1->id_.active_vxlan_id(), 1U);
+    EXPECT_EQ(entry->id_.VxLanId(), 2U);
     entry->id_.set_active_vxlan_id(2);
-    EXPECT_EQ(entry->id_.active_vxlan_id(), 2);
+    EXPECT_EQ(entry->id_.active_vxlan_id(), 2U);
 
     vxlan_table->Delete(entry);
     vxlan_table->Delete(entry_1);

@@ -125,7 +125,7 @@ protected:
         Route *vpn_rt = static_cast<Route *>(vpn_->Find(&key));
         EXPECT_TRUE(vpn_rt != NULL);
 
-        TASK_UTIL_EXPECT_EQ(1, vpn_rt->GetPathList().size());
+        TASK_UTIL_EXPECT_EQ(1U, vpn_rt->GetPathList().size());
         // Walk the Path and verify ..
         Route::PathList::const_iterator it = vpn_rt->GetPathList().begin();
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
@@ -171,7 +171,7 @@ protected:
             EXPECT_TRUE(rt != NULL);
         }
         // One Path
-        TASK_UTIL_EXPECT_EQ(1, rt->GetPathList().size());
+        TASK_UTIL_EXPECT_EQ(1U, rt->GetPathList().size());
         Route::PathList::const_iterator it = rt->GetPathList().begin();
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
         // Verify that it is Replicated Route
@@ -535,8 +535,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     scheduler->Stop();
     BGP_DEBUG_UT("Update the import of orange with Invalid Rtarget");
-    TASK_UTIL_EXPECT_EQ(1, orange->GetImportList().size());
-    TASK_UTIL_EXPECT_EQ(1, orange->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, orange->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1U, orange->GetExportList().size());
     BgpTestUtil::UpdateBgpInstanceConfig(orange_cfg_.get(),
             "target:80000:80000", "target:80000:80000");
     server_.routing_instance_mgr()->UpdateRoutingInstance(

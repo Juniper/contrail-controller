@@ -327,7 +327,8 @@ protected:
         cout << "From line number: " << called_from_line << endl;
         cout << "*****************************************************" << endl;
         for (size_t i = 0; i < resp->get_tables().size(); i++) {
-            EXPECT_EQ(result[i], resp->get_tables()[i].routes.size());
+            EXPECT_EQ(static_cast<size_t>(result[i]),
+                      resp->get_tables()[i].routes.size());
             cout << resp->get_tables()[i].routing_instance << " "
                  << resp->get_tables()[i].routing_table_name << endl;
             for (size_t j = 0; j < resp->get_tables()[i].routes.size(); j++) {
@@ -347,12 +348,13 @@ protected:
         cout << "From line number: " << called_from_line << endl;
         EXPECT_EQ(result.size(), resp->get_tables().size());
         size_t retval = next_batch.compare(resp->get_next_batch());
-        EXPECT_EQ(retval, 0);
+        EXPECT_EQ(retval, 0U);
 
         cout << "From line number: " << called_from_line << endl;
         cout << "*****************************************************" << endl;
         for (size_t i = 0; i < resp->get_tables().size(); i++) {
-            EXPECT_EQ(result[i], resp->get_tables()[i].routes.size());
+            EXPECT_EQ(static_cast<size_t>(result[i]),
+                      resp->get_tables()[i].routes.size());
             cout << resp->get_tables()[i].routing_instance << " "
                  << resp->get_tables()[i].routing_table_name << endl;
             for (size_t j = 0; j < resp->get_tables()[i].routes.size(); j++) {
@@ -383,7 +385,7 @@ protected:
         string sorted_list[]) {
         ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
         EXPECT_NE((ShowRouteResp *)NULL, resp);
-        EXPECT_NE(table_name.size(), 0);
+        EXPECT_NE(table_name.size(), 0U);
 
         ValidateShowRouteSandeshResponse(sandesh, result, called_from_line);
         // Compare the received route list with the expected route list
@@ -401,7 +403,7 @@ protected:
                     cout << "Expected " <<  sorted_list[j] << " ,Received "
                          << resp->get_tables()[i].routes[j].prefix << endl;
                 }
-                EXPECT_EQ(retval, 0);
+                EXPECT_EQ(retval, 0U);
             }
             break;
         }
@@ -412,7 +414,7 @@ protected:
         ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
         EXPECT_NE((ShowRouteResp *)NULL, resp);
 
-        EXPECT_EQ(1, resp->get_tables().size());
+        EXPECT_EQ(1U, resp->get_tables().size());
         const ShowRouteTable &table = resp->get_tables()[0];
         const vector<ShowTableListener> &listeners = table.get_listeners();
         EXPECT_EQ(ids.size(), listeners.size());
@@ -422,7 +424,7 @@ protected:
         cout << "*****************************************************" << endl;
         cout << "Listeners for " << table.routing_table_name << endl;
         for (size_t i = 0; i < listeners.size(); i++) {
-            EXPECT_EQ(ids[i], listeners[i].id);
+            EXPECT_EQ(static_cast<size_t>(ids[i]), listeners[i].id);
             EXPECT_EQ(names[i], listeners[i].name);
             cout << "Id: " << listeners[i].id << " ";
             cout << "Name: " << listeners[i].name << endl;
@@ -503,7 +505,7 @@ TEST_F(ShowRouteTest1, SortingTest) {
     DeleteInetRoute("1.2.3.48/28", peers_[0], rem_count--, "red");
     DeleteInetRoute("1.2.5.0/24", peers_[0], rem_count--, "red");
     DeleteInetRoute("4.0.0.0/8", peers_[0], rem_count, "red");
-    EXPECT_EQ(rem_count, 0);
+    EXPECT_EQ(rem_count, 0U);
 }
 
 TEST_F(ShowRouteTest1, Basic) {
@@ -634,7 +636,7 @@ TEST_F(ShowRouteTest1, Basic) {
 
 TEST_F(ShowRouteTest1, TableListeners) {
     Configure();
-    TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, ListenerCount("blue"));
 
     AddInetRoute("192.240.11.0/12", peers_[0], "blue");
     AddInetRoute("192.168.12.0/24", peers_[1], "blue");
@@ -648,7 +650,7 @@ TEST_F(ShowRouteTest1, TableListeners) {
     int id1 = Register("blue", name1);
     int id2 = Register("blue", name2);
     int id3 = Register("blue", name3);
-    TASK_UTIL_EXPECT_EQ(4, ListenerCount("blue"));
+    TASK_UTIL_EXPECT_EQ(4U, ListenerCount("blue"));
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = a_.get();
@@ -688,7 +690,7 @@ TEST_F(ShowRouteTest1, TableListeners) {
     Unregister("blue", id0);
     Unregister("blue", id1);
     Unregister("blue", id3);
-    TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0U, ListenerCount("blue"));
 
     DeleteInetRoute("192.240.11.0/12", peers_[0], 2, "blue");
     DeleteInetRoute("192.168.12.0/24", peers_[1], 1, "blue");

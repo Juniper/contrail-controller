@@ -108,7 +108,7 @@ TEST_F(IgmpTest, SendV2Reports) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
@@ -197,7 +197,7 @@ TEST_F(IgmpTest, SendV2Reports) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
@@ -276,7 +276,7 @@ TEST_F(IgmpTest, SendV2ReportsWithDelVnFirst) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
@@ -360,7 +360,7 @@ TEST_F(IgmpTest, SendV2ReportsWithDelVnFirst) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
@@ -530,12 +530,12 @@ TEST_F(IgmpTest, SendV3Reports) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(5, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(5U, cnh->ActiveComponentNHCount());
 
     idx = 0;
     igmp_gs[0].record_type = 6;
@@ -709,12 +709,12 @@ TEST_F(IgmpTest, SendV3ReportsNonSequential) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group_v4, source_v4);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     idx = 0;
     igmp_gs[1].record_type = 6;
@@ -827,12 +827,12 @@ TEST_F(IgmpTest, IgmpIntfConfig) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(2U, cnh->ActiveComponentNHCount());
 
     idx = 0;
     igmp_gs[0].record_type = 6;
@@ -885,12 +885,12 @@ TEST_F(IgmpTest, IgmpIntfConfig) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     idx = 6;
     igmp_gs[0].record_type = 6;
@@ -923,12 +923,12 @@ TEST_F(IgmpTest, IgmpIntfConfig) {
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     idx = 0;
     igmp_gs[0].record_type = 6;

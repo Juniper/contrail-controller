@@ -175,7 +175,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.config_db_server_list());
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5U);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
@@ -322,7 +322,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
     EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5U);
     EXPECT_EQ(options_.config_db_user(), "test-db-user");
     EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
@@ -430,7 +430,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7U);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
     EXPECT_TRUE(options_.sandesh_config().disable_object_logs);

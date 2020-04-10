@@ -26,7 +26,7 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_3) {
         for (size_t i = 1; i <= instances_set_count_; i++) {
             // 1 local + 1 remote(red1)
             TASK_UTIL_EXPECT_EQ(groups_count_ + 1, red_[i-1]->Size());
-            TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size()); // 1 local
+            TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());  // 1 local
             // 1 local + 2 remote(red1) + 1 remote(green1)
             TASK_UTIL_EXPECT_EQ(groups_count_+3, green_[i-1]->Size());
         }
@@ -62,7 +62,7 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_3) {
     for (size_t i = 1; i <= instances_set_count_; i++) {
         // 1 local-ad + 1 remote-sa(red1)+1 remote-join + 1 spmsi
         TASK_UTIL_EXPECT_EQ(1 + 3*groups_count_, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size()); // 1 local
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());  // 1 local
         // 1 local-ad + 1 remote-ad(red1) + 1 remote-ad(blue1) +
         // 1 remote-sa(red) + 1 spmsi(red1)
         TASK_UTIL_EXPECT_EQ(3 + 2*groups_count_, green_[i-1]->Size());
@@ -79,7 +79,7 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_3) {
     for (size_t i = 1; i <= instances_set_count_; i++) {
         // 1 local+ 1 join
         TASK_UTIL_EXPECT_EQ(1+groups_count_, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size()); // 1 local
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());  // 1 local
         // 1 localad + 1 remote-ad(red1) + 1 remote-ad(blue1) + 1 remote-sa(red)
         TASK_UTIL_EXPECT_EQ(3+groups_count_, green_[i-1]->Size());
     }
@@ -92,9 +92,9 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_3) {
     // 4 local-ad
     TASK_UTIL_EXPECT_EQ(4*instances_set_count_ + 1, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++) {
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size()); // 1 local+ 1 join
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size()); // 1 local
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());   // 1 local+ 1 join
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());  // 1 local
         // 1 local + 1 remote(red1) + 1 remote(blue1)
-        TASK_UTIL_EXPECT_EQ(3, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(3U, green_[i - 1]->Size());
     }
 }

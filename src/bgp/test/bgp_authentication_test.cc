@@ -429,8 +429,8 @@ TEST_F(BgpAuthenticationTest, 2CnsWithDifferentKeys) {
     // The keys are different. The connection should not come up.
     TASK_UTIL_EXPECT_EQ(0, peer12->GetInuseAuthKeyValue().compare(key_string1));
     TASK_UTIL_EXPECT_EQ(0, peer21->GetInuseAuthKeyValue().compare(key_string2));
-    TASK_UTIL_EXPECT_GT(peer12->get_connect_timer_expired(), 5);
-    TASK_UTIL_EXPECT_GT(peer21->get_connect_timer_expired(), 5);
+    TASK_UTIL_EXPECT_GT(peer12->get_connect_timer_expired(), 5U);
+    TASK_UTIL_EXPECT_GT(peer21->get_connect_timer_expired(), 5U);
 
     // Change key on CN2 to key_string3 as key for peering CN1-CN2.
     keys2.clear();

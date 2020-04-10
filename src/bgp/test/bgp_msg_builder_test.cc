@@ -140,7 +140,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
 
     BgpMpNlri *nlri = static_cast<BgpMpNlri *>(*(result->path_attributes.end() - 1));
     EXPECT_TRUE(nlri != NULL);
-    EXPECT_EQ(1, nlri->nlri.size());
+    EXPECT_EQ(1U, nlri->nlri.size());
     BgpProtoPrefix prefix;
     route.BuildProtoPrefix(&prefix, 0);
     EXPECT_EQ(prefix.prefixlen, nlri->nlri[0]->prefixlen);
@@ -175,7 +175,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
 
     nlri = static_cast<BgpMpNlri *>(*(result->path_attributes.end() - 1));
     EXPECT_TRUE(nlri != NULL);
-    EXPECT_EQ(2, nlri->nlri.size());
+    EXPECT_EQ(2U, nlri->nlri.size());
     route2.BuildProtoPrefix(&prefix, 0);
     EXPECT_EQ(prefix.prefixlen, nlri->nlri[1]->prefixlen);
     EXPECT_EQ(prefix.prefix, nlri->nlri[1]->prefix);

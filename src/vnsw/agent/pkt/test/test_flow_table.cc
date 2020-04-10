@@ -133,7 +133,7 @@ protected:
 };
 
 TEST_F(TestFlowTable, TestParam_1) {
-    EXPECT_EQ(flow_proto_->flow_table_count(), 4);
+    EXPECT_EQ(flow_proto_->flow_table_count(), 4U);
 }
 
 TEST_F(TestFlowTable, flow_hash_sport_1) {
@@ -205,7 +205,7 @@ TEST_F(TestFlowTable, AgeOutVrouterEvictedFlow) {
 
     //Fetch the delete_count_ for delete enqueues
     uint32_t evict_count = agent_->GetFlowProto()->flow_stats()->evict_count_;
-    uint32_t tx_count = sock->tx_count();
+    auto tx_count = sock->tx_count();
 
     //Invoke FlowStatsCollector to check whether flow gets evicted
     util_.EnqueueFlowStatsCollectorTask();

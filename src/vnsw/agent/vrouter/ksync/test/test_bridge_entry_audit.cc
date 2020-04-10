@@ -88,7 +88,7 @@ TEST_F(BridgeEntryAuditTest, BridgeAudit_1) {
     EXPECT_TRUE(KAddHoldBridgeEntry(1, 1, mac1));
     EXPECT_TRUE(KAddHoldBridgeEntry(2, 1, mac2));
 
-    EXPECT_EQ(2, KHoldBridgeEntryCount());
+    EXPECT_EQ(2U, KHoldBridgeEntryCount());
     RunBridgeEntryAudit();
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (0 == KHoldBridgeEntryCount()));

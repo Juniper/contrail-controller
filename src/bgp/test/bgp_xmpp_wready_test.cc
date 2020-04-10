@@ -262,19 +262,19 @@ TEST_F(BgpXmppUnitTest, WriteReadyTest) {
         bgp_channel_manager_->channel_->xmpp_channel()->GetPeerState());
 
     agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
-    WAIT_EQ(1, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(1U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message for default at Server \n ");
 
     agent_a_->Subscribe("blue", 1);
-    WAIT_EQ(2, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(2U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message for blue at Server \n ");
 
     agent_a_->Subscribe("red", 2);
-    WAIT_EQ(3, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(3U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received subscribe message for red at Server \n ");
 
     agent_a_->AddRoute("blue","10.1.1.1/32");
-    WAIT_EQ(4, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(4U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received route for blue at Server \n ");
 
     // We may receive one or two routes depending on when the write-block
@@ -282,7 +282,7 @@ TEST_F(BgpXmppUnitTest, WriteReadyTest) {
     TASK_UTIL_EXPECT_GE(2, agent_a_->RouteCount());
 
     agent_a_->AddRoute("red","20.1.1.1/32");
-    WAIT_EQ(5, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(5U, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received route for red at Server \n ");
 
     // send blocked, no route should be reflected back after the first one

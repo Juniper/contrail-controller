@@ -474,12 +474,12 @@ protected:
 
     void VerifyExportReject() {
         EXPECT_TRUE(false == result_);
-        EXPECT_EQ(0, uinfo_slist_->size());
+        EXPECT_EQ(0U, uinfo_slist_->size());
     }
 
     void VerifyExportAccept() {
         EXPECT_TRUE(true == result_);
-        EXPECT_EQ(1, uinfo_slist_->size());
+        EXPECT_EQ(1U, uinfo_slist_->size());
         const UpdateInfo &uinfo = uinfo_slist_->front();
         RibPeerSet peerset = ribout_->PeerSet();
         int index = ribout_->GetPeerIndex(peer_.get());
@@ -651,7 +651,7 @@ protected:
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         EXPECT_EQ(NULL, attr->cluster_list());
-        EXPECT_EQ(0, attr->cluster_list_length());
+        EXPECT_EQ(0U, attr->cluster_list_length());
     }
 
     void VerifyAttrExtCommunity(bool is_null) {
@@ -2336,7 +2336,7 @@ public:
         // then do not expect any change.
         if (!path_llgr_ && !comm_llgr_) {
             EXPECT_EQ(static_cast<Community *>(NULL), attr->community());
-            EXPECT_EQ(internal_ ? 100 : 0, attr->local_pref());
+            EXPECT_EQ(internal_ ? 100U : 0u, attr->local_pref());
             return true;
         }
 
@@ -2345,14 +2345,14 @@ public:
         if (peer_llgr_) {
             EXPECT_TRUE(
                     attr->community()->ContainsValue(CommunityType::LlgrStale));
-            EXPECT_EQ(internal_ ? 100 : 0, attr->local_pref());
+            EXPECT_EQ(internal_ ? 100U : 0u, attr->local_pref());
             return true;
         }
 
         // Since peer does not support LLGR, expect NoExport community and
         // local preference as 0.
         EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::NoExport));
-        EXPECT_EQ(0, attr->local_pref());
+        EXPECT_EQ(0U, attr->local_pref());
         return true;
     }
 

@@ -577,8 +577,12 @@ TEST_P(BgpUpdateRxParamTest1, RouteOriginOverride) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest1, ::testing::Bool());
-INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest2,
-    ::testing::Values(0, 1, 2, 3));
+INSTANTIATE_TEST_CASE_P(Instance,
+                        BgpUpdateRxParamTest2,
+                        ::testing::Values(static_cast<uint8_t>(0),
+                                          static_cast<uint8_t>(1),
+                                          static_cast<uint8_t>(2),
+                                          static_cast<uint8_t>(3)));
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();

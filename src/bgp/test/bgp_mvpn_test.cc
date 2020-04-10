@@ -413,7 +413,7 @@ protected:
     void TearDown() {
         server_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+        TASK_UTIL_EXPECT_EQ(0U, TcpServerManager::GetServerCount());
         evm_->Shutdown();
         task_util::WaitForIdle();
         if (thread_.get() != NULL) {
@@ -618,23 +618,24 @@ protected:
                                 green_[i-1]->FindType1ADRoute());
 
             // Verify that only green1 has discovered a neighbor from red1.
-            TASK_UTIL_EXPECT_EQ(0, red_[i-1]->manager()->neighbors_count());
-            TASK_UTIL_EXPECT_EQ(0, blue_[i-1]->manager()->neighbors_count());
-            TASK_UTIL_EXPECT_EQ(2, green_[i-1]->manager()->neighbors_count());
+            TASK_UTIL_EXPECT_EQ(0U, red_[i - 1]->manager()->neighbors_count());
+            TASK_UTIL_EXPECT_EQ(0U, blue_[i - 1]->manager()->neighbors_count());
+            TASK_UTIL_EXPECT_EQ(2U,
+                                green_[i - 1]->manager()->neighbors_count());
 
             MvpnNeighbor nbr;
             error_code err;
             EXPECT_TRUE(green_[i-1]->manager()->FindNeighbor(
                         *(red_[i-1]->routing_instance()->GetRD()), &nbr));
             EXPECT_EQ(*(red_[i-1]->routing_instance()->GetRD()), nbr.rd());
-            EXPECT_EQ(0, nbr.source_as());
+            EXPECT_EQ(0U, nbr.source_as());
             EXPECT_EQ(IpAddress::from_string("127.0.0.1", err),
                       nbr.originator());
 
             EXPECT_TRUE(green_[i-1]->manager()->FindNeighbor(
                         *(blue_[i-1]->routing_instance()->GetRD()), &nbr));
             EXPECT_EQ(*(blue_[i-1]->routing_instance()->GetRD()), nbr.rd());
-            EXPECT_EQ(0, nbr.source_as());
+            EXPECT_EQ(0U, nbr.source_as());
             EXPECT_EQ(IpAddress::from_string("127.0.0.1", err),
                       nbr.originator());
         }
@@ -832,11 +833,14 @@ static size_t GetPathCount() {
     return count;
 }
 
-INSTANTIATE_TEST_CASE_P(BgpMvpnTestWithParams, BgpMvpnTest,
-    ::testing::Combine(::testing::Bool(),
-                       ::testing::Values(1, 2, GetInstanceCount()),
-                       ::testing::Values(1, 2, GetGroupCount()),
-                       ::testing::Values(1, 2, GetPathCount())));
+INSTANTIATE_TEST_CASE_P(
+    BgpMvpnTestWithParams,
+    BgpMvpnTest,
+    ::testing::Combine(
+        ::testing::Bool(),
+        ::testing::Values(1, 2, static_cast<int>(GetInstanceCount())),
+        ::testing::Values(1, 2, static_cast<int>(GetGroupCount())),
+        ::testing::Values(1, 2, static_cast<int>(GetPathCount()))));
 
 static void SetUp() {
     bgp_log_test::init();

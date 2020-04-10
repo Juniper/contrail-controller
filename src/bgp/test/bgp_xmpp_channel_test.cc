@@ -555,7 +555,7 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel_a_, instname, false), 1 /* seconds */);
-    TASK_UTIL_EXPECT_EQ(0, channel_a_->table_membership_requests());
+    TASK_UTIL_EXPECT_EQ(0U, channel_a_->table_membership_requests());
 
     mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
 
@@ -648,7 +648,7 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel_a_, instname, false), 1 /* seconds */);
-    TASK_UTIL_EXPECT_EQ(0, channel_a_->table_membership_requests());
+    TASK_UTIL_EXPECT_EQ(0U, channel_a_->table_membership_requests());
 
     mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_sent());
@@ -681,7 +681,7 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_3) {
     TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
 
-    TASK_UTIL_EXPECT_EQ(0, channel_a_->table_membership_requests());
+    TASK_UTIL_EXPECT_EQ(0U, channel_a_->table_membership_requests());
 
     mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
     TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
@@ -704,7 +704,7 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_4) {
     // Verify that EndOfRib Send timer is started after the channel is UP.
     EXPECT_TRUE(channel_a_->eor_send_timer()->running());
     EXPECT_FALSE(channel_a_->eor_sent());
-    TASK_UTIL_EXPECT_EQ(0, channel_a_->table_membership_requests());
+    TASK_UTIL_EXPECT_EQ(0U, channel_a_->table_membership_requests());
 
     mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_sent());

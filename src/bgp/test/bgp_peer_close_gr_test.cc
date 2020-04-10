@@ -158,8 +158,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest1) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -173,8 +173,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest2) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -188,8 +188,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest3) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -203,8 +203,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest4) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -218,8 +218,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest5) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -233,8 +233,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest6) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -248,8 +248,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest7) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_FALSE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -263,8 +263,8 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest8) {
     bgp_peer_close_test_->set_capabilities(capabilities);
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
-    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_TRUE(bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -484,25 +484,31 @@ static Address::Family afi[] = {
     Address::EVPN, Address::INETVPN, Address::ERMVPN
 };
 
-#define COMBINE_PARAMS                                                         \
-    Combine(                                                                   \
-        ::testing::Bool(),                                                     \
-        ::testing::ValuesIn(GetSubSets(                                        \
-            std::vector<std::string>(af, af + sizeof(af)/sizeof(af[0])))),     \
-        ::testing::ValuesIn(GetSubSets(                                        \
-            std::vector<std::string>(af, af + sizeof(af)/sizeof(af[0])))),     \
-        ::testing::Values(0,                                                   \
-            BgpProto::OpenMessage::Capability::GR::RestartTimeMask),           \
-        ::testing::Values(0, 1, 2),                                            \
-        ::testing::ValuesIn(GetSubSets(                                        \
-           std::vector<Address::Family>(afi, afi+sizeof(afi)/sizeof(afi[0])))),\
-        ::testing::Values(0,                                                   \
-            BgpProto::OpenMessage::Capability::LLGR::RestartTimeMask),         \
-        ::testing::Values(0,                                                   \
-        BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreservedFlag),\
-        ::testing::ValuesIn(GetSubSets(                                        \
-           std::vector<Address::Family>(afi, afi+sizeof(afi)/sizeof(afi[0])))) \
-    )
+#define COMBINE_PARAMS                                                      \
+    Combine(                                                                \
+        ::testing::Bool(),                                                  \
+        ::testing::ValuesIn(GetSubSets(                                     \
+            std::vector<std::string>(std::begin(af), std::end(af)))),       \
+        ::testing::ValuesIn(GetSubSets(                                     \
+            std::vector<std::string>(std::begin(af), std::end(af)))),       \
+        ::testing::Values(                                                  \
+            static_cast<uint16_t>(0),                                       \
+            static_cast<uint16_t>(                                          \
+                BgpProto::OpenMessage::Capability::GR::RestartTimeMask)),   \
+        ::testing::Values(static_cast<uint8_t>(0), static_cast<uint8_t>(1), \
+                          static_cast<uint8_t>(2)),                         \
+        ::testing::ValuesIn(GetSubSets(                                     \
+            std::vector<Address::Family>(std::begin(afi), std::end(afi)))), \
+        ::testing::Values(                                                  \
+            static_cast<uint32_t>(0),                                       \
+            static_cast<uint32_t>(                                          \
+                BgpProto::OpenMessage::Capability::LLGR::RestartTimeMask)), \
+        ::testing::Values(                                                  \
+            static_cast<uint8_t>(0),                                        \
+            static_cast<uint8_t>(BgpProto::OpenMessage::Capability::LLGR::  \
+                                     ForwardingStatePreservedFlag)),        \
+        ::testing::ValuesIn(GetSubSets(                                     \
+            std::vector<Address::Family>(std::begin(afi), std::end(afi)))))
 
 INSTANTIATE_TEST_CASE_P(BgpPeerCloseGrTestWithParams, BgpPeerCloseGrTestParam,
                         COMBINE_PARAMS);

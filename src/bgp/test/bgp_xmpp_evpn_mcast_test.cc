@@ -64,7 +64,7 @@ public:
         const vector<string> &ar_leaf_replicators) {
         ShowEvpnTableResp *resp = dynamic_cast<ShowEvpnTableResp *>(sandesh);
         EXPECT_TRUE(resp != NULL);
-        EXPECT_EQ(1, resp->get_tables().size());
+        EXPECT_EQ(1U, resp->get_tables().size());
         const ShowEvpnTable &sevt = resp->get_tables()[0];
         cout << "*****************************************************" << endl;
         cout << sevt.log() << endl;
@@ -634,7 +634,7 @@ protected:
     }
 
     void CreateTors() {
-        EXPECT_NE(0, tsns_.size());
+        EXPECT_NE(0U, tsns_.size());
         for (int idx = 0; idx < kTorCount; ++idx) {
             string name = string("tor-") + integerToString(idx);
             string remote_addr;
@@ -1579,10 +1579,12 @@ TEST_P(BgpXmppEvpnArMcastTest, ArIntrospect) {
 }
 
 INSTANTIATE_TEST_CASE_P(Default, BgpXmppEvpnArMcastTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Values(512, 65536)));
+    ::testing::Combine(::testing::Bool(), ::testing::Values(512U, 65536u)));
 #endif
-INSTANTIATE_TEST_CASE_P(Default, BgpXmppEvpnMcastTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Values(0, 4093)));
+INSTANTIATE_TEST_CASE_P(Default,
+                        BgpXmppEvpnMcastTest,
+                        ::testing::Combine(::testing::Bool(),
+                                           ::testing::Values(0U, 4093u)));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

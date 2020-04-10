@@ -293,7 +293,7 @@ protected:
     void TearDown() {
         server_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+        TASK_UTIL_EXPECT_EQ(0U, TcpServerManager::GetServerCount());
         evm_->Shutdown();
         task_util::WaitForIdle();
         if (thread_.get() != NULL) {
@@ -490,10 +490,13 @@ static size_t GetPathCount() {
     return count;
 }
 
-INSTANTIATE_TEST_CASE_P(BgpEvpnTestWithParams, BgpEvpnTest,
-    ::testing::Combine(::testing::Values(1, 2, GetInstanceCount()),
-                       ::testing::Values(1, 2, GetGroupCount()),
-                       ::testing::Values(1, 2, GetPathCount())));
+INSTANTIATE_TEST_CASE_P(
+    BgpEvpnTestWithParams,
+    BgpEvpnTest,
+    ::testing::Combine(
+        ::testing::Values(1, 2, static_cast<int>(GetInstanceCount())),
+        ::testing::Values(1, 2, static_cast<int>(GetGroupCount())),
+        ::testing::Values(1, 2, static_cast<int>(GetPathCount()))));
 
 static void SetUp() {
     bgp_log_test::init();
@@ -536,7 +539,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 
     for (size_t i = 1; i <= instances_set_count_; i++) {
         for (size_t j = 1; j <= groups_count_; j++) {
@@ -564,9 +567,9 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++) {
-        TASK_UTIL_EXPECT_EQ(0, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(0U, red_[i - 1]->Size());
     }
 }
 
@@ -583,7 +586,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_2) {
     for (size_t i = 1; i <= instances_set_count_; i++) {
         TASK_UTIL_EXPECT_EQ(groups_count_, red_[i-1]->Size());
     }
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 
     // Make ermvpn route available now and verifiy that leaf-ad is originated.
     // Add a ermvpn route into the table.
@@ -621,9 +624,9 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_2) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++)
-        TASK_UTIL_EXPECT_EQ(0, red_ermvpn_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(0U, red_ermvpn_[i - 1]->Size());
 
     for (size_t i = 1; i <= instances_set_count_; i++)
         for (size_t j = 1; j <= groups_count_; j++) {
@@ -641,8 +644,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
             AddEvpnRoute(red_[i-1], prefix6(i, j));
         }
 
-
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     // Make ermvpn route available now and verifiy that smet route gets copied.
     // to master table. Add a ermvpn route into the table.
     ErmVpnRoute *ermvpn_rt[instances_set_count_*groups_count_];
@@ -656,7 +658,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
 
     for (size_t i = 1; i <= instances_set_count_; i++) {
         for (size_t j = 1; j <= groups_count_; j++) {
@@ -702,11 +704,11 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++) {
-        TASK_UTIL_EXPECT_EQ(0, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(0U, red_[i - 1]->Size());
         if (red_ermvpn_[i-1]->Size() > 0)
             WalkTable(red_ermvpn_[i-1]);
-        TASK_UTIL_EXPECT_EQ(0, red_ermvpn_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(0U, red_ermvpn_[i - 1]->Size());
     }
 }

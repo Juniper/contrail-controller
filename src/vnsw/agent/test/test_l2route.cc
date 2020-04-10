@@ -453,7 +453,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
                                             local_vm_ip4_);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
-    EXPECT_EQ(vnet1_rt->GetActivePath()->GetActiveLabel(), 1);
+    EXPECT_EQ(vnet1_rt->GetActivePath()->GetActiveLabel(), 1U);
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() ==
                 TunnelType::VXLAN);
     InetUnicastRouteEntry *inet_rt = RouteGet(vrf_name_, local_vm_ip4_, 32);

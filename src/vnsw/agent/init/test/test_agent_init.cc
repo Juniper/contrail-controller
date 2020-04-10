@@ -41,16 +41,16 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
               Ip4Address::from_string("10.1.1.254").to_ulong());
     EXPECT_STREQ(param.eth_port().c_str(), "vnet0");
 
-    EXPECT_EQ(param.controller_server_list().size(), 1);
+    EXPECT_EQ(param.controller_server_list().size(), 1U);
     std::vector<string>servers;
     boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
     EXPECT_STREQ("127.0.0.1", servers[0].c_str());
 
-    EXPECT_EQ(param.dns_server_list().size(), 1);
+    EXPECT_EQ(param.dns_server_list().size(), 1U);
     boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":"));
     EXPECT_STREQ("127.0.0.1", servers[0].c_str());
 
-    EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
+    EXPECT_EQ(param.mgmt_ip().to_ulong(), 0U);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
@@ -58,10 +58,10 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.dns_client_port(), 8997);
     EXPECT_EQ(param.mirror_client_port(), 8999);
     EXPECT_EQ(param.max_vm_flows(), 50.5);
-    EXPECT_EQ(param.linklocal_system_flows(), 1024);
-    EXPECT_EQ(param.linklocal_vm_flows(), 512);
-    EXPECT_EQ(param.flow_cache_timeout(), 30);
-    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 120);
+    EXPECT_EQ(param.linklocal_system_flows(), 1024U);
+    EXPECT_EQ(param.linklocal_vm_flows(), 512U);
+    EXPECT_EQ(param.flow_cache_timeout(), 30U);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 120U);
     EXPECT_STREQ(param.config_file().c_str(),
                  "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
@@ -82,13 +82,13 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     const std::vector<uint16_t> &ports2 = param.bgp_as_a_service_port_range_value();
     EXPECT_EQ(ports2[0], 100);
     EXPECT_EQ(ports2[1], 199);
-    EXPECT_EQ(param.services_queue_limit(), 8192);
-    EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4);
+    EXPECT_EQ(param.services_queue_limit(), 8192U);
+    EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4U);
 
     // By default, flow-tracing must be enabled
     EXPECT_TRUE(param.flow_trace_enable());
-    EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
-    EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000U);
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000U);
     EXPECT_EQ(param.get_nic_queue(1), 1);
     EXPECT_EQ(param.get_nic_queue(3), 1);
     EXPECT_EQ(param.get_nic_queue(8), 2);
@@ -110,18 +110,18 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
 
     // QOS.priorty_tagging is configured as true in cfg1.ini.
     EXPECT_TRUE(param.qos_priority_tagging());
-    EXPECT_EQ(param.max_vm_flows(), 100);
-    EXPECT_EQ(param.linklocal_system_flows(), 2048);
-    EXPECT_EQ(param.linklocal_vm_flows(), 2048);
+    EXPECT_EQ(param.max_vm_flows(), 100U);
+    EXPECT_EQ(param.linklocal_system_flows(), 2048U);
+    EXPECT_EQ(param.linklocal_vm_flows(), 2048U);
 
     std::vector<string>servers;
-    EXPECT_EQ(param.controller_server_list().size(), 2);
+    EXPECT_EQ(param.controller_server_list().size(), 2U);
     boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
     EXPECT_STREQ("11.1.1.1", servers[0].c_str());
     boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":"));
     EXPECT_STREQ("12.1.1.1", servers[0].c_str());
 
-    EXPECT_EQ(param.dns_server_list().size(), 2);
+    EXPECT_EQ(param.dns_server_list().size(), 2U);
     boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":"));
     EXPECT_STREQ("13.1.1.1", servers[0].c_str());
     boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":"));
@@ -134,8 +134,8 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.dns_client_port(), 8098);
     EXPECT_EQ(param.mirror_client_port(), 8097);
     // Default value for pkt0_tx_buffer_count
-    EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
-    EXPECT_EQ(param.services_queue_limit(), 1024);
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000U);
+    EXPECT_EQ(param.services_queue_limit(), 1024U);
     EXPECT_TRUE(param.sandesh_config().disable_object_logs);
 
     EXPECT_EQ(param.huge_page_file_1G(0), "/var/lib/contrail/vrouter_flow_1G");
@@ -215,10 +215,10 @@ TEST_F(AgentParamTest, Agent_Tbb_Option_1) {
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/tbb.ini", "test-param");
 
-    EXPECT_EQ(param.tbb_thread_count(), 8);
-    EXPECT_EQ(param.tbb_exec_delay(), 10);
-    EXPECT_EQ(param.tbb_schedule_delay(), 25);
-    EXPECT_EQ(param.tbb_keepawake_timeout(), 50);
+    EXPECT_EQ(param.tbb_thread_count(), 8U);
+    EXPECT_EQ(param.tbb_exec_delay(), 10U);
+    EXPECT_EQ(param.tbb_schedule_delay(), 25U);
+    EXPECT_EQ(param.tbb_keepawake_timeout(), 50U);
     EXPECT_STREQ(param.ksync_thread_cpu_pin_policy().c_str(), "last");
 }
 
@@ -237,10 +237,10 @@ TEST_F(AgentParamTest, Agent_Tbb_Option_Arguments) {
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/tbb.ini", "test-param");
 
-    EXPECT_EQ(param.tbb_thread_count(), 4);
-    EXPECT_EQ(param.tbb_exec_delay(), 100);
-    EXPECT_EQ(param.tbb_schedule_delay(), 200);
-    EXPECT_EQ(param.tbb_keepawake_timeout(), 300);
+    EXPECT_EQ(param.tbb_thread_count(), 4U);
+    EXPECT_EQ(param.tbb_exec_delay(), 100U);
+    EXPECT_EQ(param.tbb_schedule_delay(), 200U);
+    EXPECT_EQ(param.tbb_keepawake_timeout(), 300U);
     EXPECT_STREQ(param.ksync_thread_cpu_pin_policy().c_str(), "2");
 }
 
@@ -258,10 +258,10 @@ TEST_F(AgentParamTest, Agent_Conf_file_3) {
             param.bgp_as_a_service_port_range_value();
         EXPECT_EQ(ports[0], 100);
         EXPECT_EQ(ports[1], 199);
-        EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4);
+        EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4U);
 
-        EXPECT_EQ(param.linklocal_system_flows(), 511);
-        EXPECT_EQ(param.linklocal_vm_flows(), 511);
+        EXPECT_EQ(param.linklocal_system_flows(), 511U);
+        EXPECT_EQ(param.linklocal_vm_flows(), 511U);
     }
 }
 
@@ -274,8 +274,8 @@ TEST_F(AgentParamTest, Agent_Conf_file_4) {
         AgentParam param;
         param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
-        EXPECT_EQ(param.linklocal_system_flows(), 0);
-        EXPECT_EQ(param.linklocal_vm_flows(), 0);
+        EXPECT_EQ(param.linklocal_system_flows(), 0U);
+        EXPECT_EQ(param.linklocal_vm_flows(), 0U);
     }
 }
 
@@ -319,12 +319,12 @@ TEST_F(AgentParamTest, Agent_Param_1) {
     EXPECT_TRUE(param.log_flow());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_STREQ(param.log_category().c_str(), "Test");
-    EXPECT_EQ(param.collector_server_list().size(), 1);
+    EXPECT_EQ(param.collector_server_list().size(), 1U);
     vector<string> collector_list = param.collector_server_list();
     string first_collector = collector_list.at(0);
     EXPECT_STREQ(first_collector.c_str(), "1.1.1.1:1000");
 
-    EXPECT_EQ(param.derived_stats_map().size(), 1);
+    EXPECT_EQ(param.derived_stats_map().size(), 1U);
     map<string, map<string, string> > dsmap = param.derived_stats_map();
     string dsparam = dsmap.at("DSStruct").at("dsattr");
     EXPECT_STREQ(dsparam.c_str(), "dsparam");
@@ -333,7 +333,7 @@ TEST_F(AgentParamTest, Agent_Param_1) {
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
-    EXPECT_EQ(param.pkt0_tx_buffer_count(), 3000);
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 3000U);
     EXPECT_TRUE(param.sandesh_config().disable_object_logs);
 }
 
@@ -376,13 +376,13 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_2) {
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
     std::vector<string>servers;
-    EXPECT_EQ(param.controller_server_list().size(), 2);
+    EXPECT_EQ(param.controller_server_list().size(), 2U);
     boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
     EXPECT_STREQ("20.1.1.1", servers[0].c_str());
     boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":"));
     EXPECT_STREQ("21.1.1.1", servers[0].c_str());
 
-    EXPECT_EQ(param.dns_server_list().size(), 2);
+    EXPECT_EQ(param.dns_server_list().size(), 2U);
     boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":"));
     EXPECT_STREQ("22.1.1.1", servers[0].c_str());
     boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":"));
@@ -404,8 +404,8 @@ TEST_F(AgentParamTest, Default_Cmdline_arg1) {
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg-default1.ini",
                "test-param");
-    EXPECT_EQ(param.flow_cache_timeout(), 60);
-    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 60);
+    EXPECT_EQ(param.flow_cache_timeout(), 60U);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 60U);
     EXPECT_EQ(param.http_server_port(), 10001);
     EXPECT_STREQ(param.log_category().c_str(), "abc");
     EXPECT_STREQ(param.log_file().c_str(), "/var/log/contrail/vrouter2.log");
@@ -429,7 +429,7 @@ TEST_F(AgentParamTest, Default_Cmdline_arg2) {
     param.Init("controller/src/vnsw/agent/init/test/cfg-default2.ini",
                "test-param");
     EXPECT_EQ(param.flow_cache_timeout(), flow_timeout);
-    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 60);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 60U);
     EXPECT_EQ(param.http_server_port(), http_server_port);
     EXPECT_STREQ(param.log_category().c_str(), "");
     EXPECT_STREQ(param.log_file().c_str(),
@@ -462,8 +462,8 @@ TEST_F(AgentParamTest, Default_Cmdline_arg3) {
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg-default1.ini",
                "test-param");
-    EXPECT_EQ(param.flow_cache_timeout(), 100);
-    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 200);
+    EXPECT_EQ(param.flow_cache_timeout(), 100U);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 200U);
     EXPECT_EQ(param.http_server_port(), 20001);
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
@@ -521,21 +521,24 @@ TEST_F(AgentParamTest, Restart_1) {
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini",
                "test-param");
     EXPECT_TRUE(param.restart_backup_enable() == false);
-    EXPECT_EQ(param.restart_backup_idle_timeout(), CFG_BACKUP_IDLE_TIMEOUT);
+    EXPECT_EQ(param.restart_backup_idle_timeout(),
+              static_cast<size_t>(CFG_BACKUP_IDLE_TIMEOUT));
     EXPECT_STREQ(param.restart_backup_dir().c_str(), CFG_BACKUP_DIR);
-    EXPECT_EQ(param.restart_backup_count(), CFG_BACKUP_COUNT);
+    EXPECT_EQ(param.restart_backup_count(),
+              static_cast<size_t>(CFG_BACKUP_COUNT));
     EXPECT_TRUE(param.restart_restore_enable());
-    EXPECT_EQ(param.restart_restore_audit_timeout(), CFG_RESTORE_AUDIT_TIMEOUT);
+    EXPECT_EQ(param.restart_restore_audit_timeout(),
+              static_cast<size_t>(CFG_RESTORE_AUDIT_TIMEOUT));
 
     // Parameters from config-file
     param.Init("controller/src/vnsw/agent/init/test/restart.ini",
                "test-param");
     EXPECT_FALSE(param.restart_backup_enable());
-    EXPECT_EQ(param.restart_backup_idle_timeout(), 10);
+    EXPECT_EQ(param.restart_backup_idle_timeout(), 10U);
     EXPECT_STREQ(param.restart_backup_dir().c_str(), "/tmp/1");
-    EXPECT_EQ(param.restart_backup_count(), 10);
+    EXPECT_EQ(param.restart_backup_count(), 10U);
     EXPECT_FALSE(param.restart_restore_enable());
-    EXPECT_EQ(param.restart_restore_audit_timeout(), 10);
+    EXPECT_EQ(param.restart_restore_audit_timeout(), 10U);
 
     // Parameters from command line arguments
     AgentParam param1;
@@ -543,11 +546,11 @@ TEST_F(AgentParamTest, Restart_1) {
     param1.Init("controller/src/vnsw/agent/init/test/restart.ini", "test-param");
     param1.ParseArguments(argc, argv);
     EXPECT_TRUE(param1.restart_backup_enable());
-    EXPECT_EQ(param1.restart_backup_idle_timeout(), 20);
+    EXPECT_EQ(param1.restart_backup_idle_timeout(), 20U);
     EXPECT_STREQ(param1.restart_backup_dir().c_str(), "/tmp/2");
-    EXPECT_EQ(param1.restart_backup_count(), 20);
+    EXPECT_EQ(param1.restart_backup_count(), 20U);
     EXPECT_TRUE(param1.restart_restore_enable());
-    EXPECT_EQ(param1.restart_restore_audit_timeout(), 20);
+    EXPECT_EQ(param1.restart_restore_audit_timeout(), 20U);
 }
 
 TEST_F(AgentParamTest, Agent_Mac_Learning_Option_1) {
@@ -559,10 +562,10 @@ TEST_F(AgentParamTest, Agent_Mac_Learning_Option_1) {
     AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/mac_learning.ini", "test-param");
-    EXPECT_EQ(param.mac_learning_thread_count(), 10);
-    EXPECT_EQ(param.mac_learning_add_tokens(), 500);
-    EXPECT_EQ(param.mac_learning_update_tokens(), 510);
-    EXPECT_EQ(param.mac_learning_delete_tokens(), 520);
+    EXPECT_EQ(param.mac_learning_thread_count(), 10U);
+    EXPECT_EQ(param.mac_learning_add_tokens(), 500U);
+    EXPECT_EQ(param.mac_learning_update_tokens(), 510U);
+    EXPECT_EQ(param.mac_learning_delete_tokens(), 520U);
 }
 
 TEST_F(AgentParamTest, Agent_Crypt_Config) {

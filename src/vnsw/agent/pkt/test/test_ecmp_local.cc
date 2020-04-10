@@ -166,7 +166,7 @@ TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpTransition_2) {
                    GetFlowKeyNH(1));
     EXPECT_TRUE(flow != NULL);
     // Flow transitioned from Non-ECMP to ECMP. ecmp-index must be set to 0
-    EXPECT_EQ(0, flow->data().component_nh_idx);
+    EXPECT_EQ(0U, flow->data().component_nh_idx);
     rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);

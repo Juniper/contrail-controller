@@ -146,7 +146,7 @@ protected:
         RoutingInstance *rtinstance =
             server_->routing_instance_mgr()->GetRoutingInstance(
                 BgpConfigManager::kMasterInstance);
-        for (int idx = 0; idx < 3; idx++) {
+        for (size_t idx = 0; idx < 3; idx++) {
             ostringstream out;
             out << "A" << idx;
             BgpNeighborConfig *config = new BgpNeighborConfig();
@@ -163,7 +163,7 @@ protected:
     }
 
     void UpdatePeers() {
-        for (int idx = 0; idx < 3; idx++) {
+        for (size_t idx = 0; idx < 3; idx++) {
             peers_[idx]->set_affinity(idx);
         }
     }
@@ -171,7 +171,7 @@ protected:
     virtual void TearDown() {
         task_util::WaitForIdle();
         server_->Shutdown();
-        TASK_UTIL_ASSERT_EQ(0, server_->routing_instance_mgr()->count());
+        TASK_UTIL_ASSERT_EQ(0U, server_->routing_instance_mgr()->count());
         evm_->Shutdown();
         task_util::WaitForIdle();
         STLDeleteValues(&peer_configs_);
@@ -309,14 +309,14 @@ TEST_F(BgpMembershipTest, Basic) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Unregister from blue.
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 }
 
@@ -333,7 +333,7 @@ TEST_F(BgpMembershipTest, MultipleTables1) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
-    TASK_UTIL_EXPECT_EQ(2, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(2U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 1, red_tbl_->walk_complete_count());
 
@@ -342,7 +342,7 @@ TEST_F(BgpMembershipTest, MultipleTables1) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 2, red_tbl_->walk_complete_count());
 }
@@ -358,25 +358,25 @@ TEST_F(BgpMembershipTest, MultipleTables2) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     Register(peers_[0], red_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
-    TASK_UTIL_EXPECT_EQ(2, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(2U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 1, red_tbl_->walk_complete_count());
 
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 
     Unregister(peers_[0], red_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 2, red_tbl_->walk_complete_count());
 }
 
@@ -407,7 +407,7 @@ TEST_F(BgpMembershipTest, MultipleTables3) {
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], gray_tbl_));
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 1, red_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(gray_walk_count + 1, gray_tbl_->walk_complete_count());
@@ -426,7 +426,7 @@ TEST_F(BgpMembershipTest, MultipleTables3) {
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], gray_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 2, red_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(gray_walk_count + 2, gray_tbl_->walk_complete_count());
@@ -436,18 +436,18 @@ TEST_F(BgpMembershipTest, MultipleTables3) {
 // Verify register and unregister for RibIn only.
 //
 TEST_F(BgpMembershipTest, RibIn) {
-    static const int kRouteCount = 8;
+    static const size_t kRouteCount = 8;
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
     RegisterRibIn(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, peers_[0]->path_cb_count());
+    TASK_UTIL_EXPECT_EQ(0U, peers_[0]->path_cb_count());
 
     // Add paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
     }
     task_util::WaitForIdle();
@@ -457,17 +457,17 @@ TEST_F(BgpMembershipTest, RibIn) {
     UnregisterRibIn(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
 
     // Delete paths from peer.
     // The paths would normally be deleted during RibIn walk by the client.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
     }
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_tbl_->Size());
 }
 
 //
@@ -475,18 +475,18 @@ TEST_F(BgpMembershipTest, RibIn) {
 // have been added by peer.
 //
 TEST_F(BgpMembershipTest, UnregisterRibOutWithPaths) {
-    static const int kRouteCount = 8;
+    static const size_t kRouteCount = 8;
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
     // Register.
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Add paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
     }
     task_util::WaitForIdle();
@@ -496,22 +496,22 @@ TEST_F(BgpMembershipTest, UnregisterRibOutWithPaths) {
     UnregisterRibOut(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
 
     // Delete paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
     }
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_tbl_->Size());
 
     // Unregister RibIn.
     UnregisterRibIn(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
 }
 
@@ -520,18 +520,18 @@ TEST_F(BgpMembershipTest, UnregisterRibOutWithPaths) {
 // RibOut and then register again.
 //
 TEST_F(BgpMembershipTest, GracefulRestart) {
-    static const int kRouteCount = 8;
+    static const size_t kRouteCount = 8;
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
     // Register.
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Add paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
     }
     task_util::WaitForIdle();
@@ -541,7 +541,7 @@ TEST_F(BgpMembershipTest, GracefulRestart) {
     UnregisterRibOut(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
 
@@ -549,22 +549,22 @@ TEST_F(BgpMembershipTest, GracefulRestart) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
 
     // Delete paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
     }
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_tbl_->Size());
 
     // Unregister.
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 4, blue_tbl_->walk_complete_count());
 }
 
@@ -572,18 +572,18 @@ TEST_F(BgpMembershipTest, GracefulRestart) {
 // Verify WalkRibIn functionality.
 //
 TEST_F(BgpMembershipTest, WalkRibIn) {
-    static const int kRouteCount = 8;
+    static const size_t kRouteCount = 8;
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
     // Register.
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Add paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
     }
     task_util::WaitForIdle();
@@ -596,17 +596,17 @@ TEST_F(BgpMembershipTest, WalkRibIn) {
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
 
     // Delete paths from peer.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
     }
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_tbl_->Size());
 
     // Unregister.
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
 }
 
@@ -627,18 +627,18 @@ TEST_F(BgpMembershipTest, MultiplePeers1) {
     Register(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Enable walker.
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[1], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[2], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Disable walker.
@@ -650,18 +650,18 @@ TEST_F(BgpMembershipTest, MultiplePeers1) {
     Unregister(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Enable walker.
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[1], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[2], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 }
 
@@ -675,8 +675,8 @@ TEST_F(BgpMembershipTest, MultiplePeers2) {
     // Register first peer.
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -689,8 +689,8 @@ TEST_F(BgpMembershipTest, MultiplePeers2) {
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -698,8 +698,8 @@ TEST_F(BgpMembershipTest, MultiplePeers2) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(2, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(2U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 
@@ -711,8 +711,8 @@ TEST_F(BgpMembershipTest, MultiplePeers2) {
     Unregister(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(2, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(2U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 
@@ -720,8 +720,8 @@ TEST_F(BgpMembershipTest, MultiplePeers2) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
 }
@@ -740,7 +740,7 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     // Register first peer.
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
@@ -748,7 +748,7 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     Register(peers_[1], blue_tbl_);
     Register(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
@@ -756,8 +756,8 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     WalkerResumeWalk();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 
@@ -770,7 +770,7 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     Unregister(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 
@@ -778,8 +778,8 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
 }
@@ -801,15 +801,15 @@ TEST_F(BgpMembershipTest, MultiplePeers4) {
     Register(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Enable walker.
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -820,7 +820,7 @@ TEST_F(BgpMembershipTest, MultiplePeers4) {
     // Unregister first peer.
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -829,7 +829,7 @@ TEST_F(BgpMembershipTest, MultiplePeers4) {
     Unregister(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -837,8 +837,8 @@ TEST_F(BgpMembershipTest, MultiplePeers4) {
     WalkerResumeWalk();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
 }
@@ -860,7 +860,7 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
     Register(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
@@ -871,8 +871,8 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(3, GetWalkerRibOutStateListSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(3U, GetWalkerRibOutStateListSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
@@ -880,9 +880,9 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
     WalkerResumeWalk();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerRibOutStateListSize());
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerRibOutStateListSize());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -895,7 +895,7 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
     Unregister(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(1U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -906,8 +906,8 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(3, GetWalkerRibOutStateListSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(3U, GetWalkerRibOutStateListSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
@@ -915,9 +915,9 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
     WalkerResumeWalk();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerRibOutStateListSize());
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerRibOutStateListSize());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
 }
@@ -927,7 +927,7 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
 // Walk requests from multiple peers can be combined into single table walk.
 //
 TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
-    static const int kRouteCount = 8;
+    static const size_t kRouteCount = 8;
 
     // Register all peers.
     Register(peers_[0], blue_tbl_);
@@ -936,11 +936,11 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(IsWalkerQueueEmpty());
-    TASK_UTIL_EXPECT_EQ(3, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(3U, mgr_->GetMembershipCount());
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
     // Add paths from all peers.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
         AddRoute(peers_[1], blue_tbl_, BuildPrefix(idx), "192.168.1.1");
         AddRoute(peers_[2], blue_tbl_, BuildPrefix(idx), "192.168.1.2");
@@ -964,7 +964,7 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
 
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(2, GetWalkerPeerListSize());
+    TASK_UTIL_EXPECT_EQ(2U, GetWalkerPeerListSize());
 
     // Resume walk.
     WalkerResumeWalk();
@@ -973,19 +973,19 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
     TASK_UTIL_EXPECT_TRUE(IsWalkerQueueEmpty());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerPeerListSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerPeerListSize());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
-    TASK_UTIL_EXPECT_EQ(0, peers_[1]->path_cb_count());
+    TASK_UTIL_EXPECT_EQ(0U, peers_[1]->path_cb_count());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[2]->path_cb_count());
 
     // Delete paths from all peers.
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
         DeleteRoute(peers_[1], blue_tbl_, BuildPrefix(idx));
         DeleteRoute(peers_[2], blue_tbl_, BuildPrefix(idx));
     }
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_tbl_->Size());
 
     // Unregister all peers.
     Unregister(peers_[0], blue_tbl_);
@@ -994,7 +994,7 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(IsWalkerQueueEmpty());
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
 }
 
 //
@@ -1003,7 +1003,7 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
 // into single table walk.
 //
 TEST_F(BgpMembershipTest, MultiplePeersWalkRibInRegister) {
-    static const int kRouteCount = 8;
+    static const size_t kRouteCount = 8;
 
     // Register some peers.
     Register(peers_[0], blue_tbl_);
@@ -1011,10 +1011,10 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibInRegister) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(IsWalkerQueueEmpty());
-    TASK_UTIL_EXPECT_EQ(2, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(2U, mgr_->GetMembershipCount());
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
         AddRoute(peers_[2], blue_tbl_, BuildPrefix(idx), "192.168.1.2");
     }
@@ -1041,8 +1041,8 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibInRegister) {
 
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(2, GetWalkerPeerListSize());
-    TASK_UTIL_EXPECT_EQ(3, GetWalkerPeerRibListSize());
+    TASK_UTIL_EXPECT_EQ(2U, GetWalkerPeerListSize());
+    TASK_UTIL_EXPECT_EQ(3U, GetWalkerPeerRibListSize());
 
     // Resume walk.
     WalkerResumeWalk();
@@ -1051,18 +1051,18 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibInRegister) {
     TASK_UTIL_EXPECT_TRUE(IsWalkerQueueEmpty());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerPeerListSize());
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerPeerRibListSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerPeerListSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerPeerRibListSize());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
-    TASK_UTIL_EXPECT_EQ(0, peers_[1]->path_cb_count());
+    TASK_UTIL_EXPECT_EQ(0U, peers_[1]->path_cb_count());
     TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[2]->path_cb_count());
 
-    for (int idx = 0; idx < kRouteCount; idx++) {
+    for (size_t idx = 0; idx < kRouteCount; idx++) {
         DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
         DeleteRoute(peers_[2], blue_tbl_, BuildPrefix(idx));
     }
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+    TASK_UTIL_EXPECT_EQ(0U, blue_tbl_->Size());
 
     // Unregister all peers.
     Unregister(peers_[0], blue_tbl_);
@@ -1071,7 +1071,7 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibInRegister) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(IsWalkerQueueEmpty());
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
 }
 
 //
@@ -1093,7 +1093,7 @@ TEST_F(BgpMembershipTest, MultiplePeersMultipleTable) {
     Register(peers_[2], red_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(2U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count, red_tbl_->walk_complete_count());
 
@@ -1101,14 +1101,14 @@ TEST_F(BgpMembershipTest, MultiplePeersMultipleTable) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[1], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[2], blue_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[1], red_tbl_));
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[2], red_tbl_));
-    TASK_UTIL_EXPECT_EQ(6, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(6U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 1, red_tbl_->walk_complete_count());
 
@@ -1124,7 +1124,7 @@ TEST_F(BgpMembershipTest, MultiplePeersMultipleTable) {
     Unregister(peers_[2], red_tbl_);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(2U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 1, red_tbl_->walk_complete_count());
 
@@ -1132,14 +1132,14 @@ TEST_F(BgpMembershipTest, MultiplePeersMultipleTable) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
+    TASK_UTIL_EXPECT_EQ(0U, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[1], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[2], blue_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], red_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[1], red_tbl_));
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[2], red_tbl_));
-    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(0U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 2, red_tbl_->walk_complete_count());
 }
@@ -1155,7 +1155,7 @@ TEST_F(BgpMembershipTest, DuplicateRegister1DeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Register to blue again.
@@ -1181,7 +1181,7 @@ TEST_F(BgpMembershipTest, DuplicateRegister2DeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Register to blue again.
@@ -1208,7 +1208,7 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn1DeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Register for ribin to blue.
@@ -1234,7 +1234,7 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn2DeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Register for ribin to blue.
@@ -1261,7 +1261,7 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn3DeathTest) {
     // Register for ribin to blue.
     RegisterRibIn(peers_[0], blue_tbl_);
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
 
     // Register for ribin to blue again.
     RegisterRibIn(peers_[0], blue_tbl_);
@@ -1288,7 +1288,7 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn4DeathTest) {
     RegisterRibIn(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
 
     // Register for ribin to blue again.
     RegisterRibIn(peers_[0], blue_tbl_);
@@ -1326,7 +1326,7 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingRegisterDeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Unregister from blue.
@@ -1352,7 +1352,7 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingUnregisterDeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Disable membership manager.
@@ -1381,7 +1381,7 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingWalkDeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Disable membership manager.
@@ -1426,7 +1426,7 @@ TEST_F(BgpMembershipTest, WalkWithPendingRegisterDeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Walk blue.
@@ -1452,7 +1452,7 @@ TEST_F(BgpMembershipTest, WalkWithPendingUnregisterDeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Disable membership manager.
@@ -1481,7 +1481,7 @@ TEST_F(BgpMembershipTest, WalkWithPendingWalkDeathTest) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
-    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(1U, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Disable membership manager.

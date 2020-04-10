@@ -45,15 +45,15 @@ protected:
     }
 
     void TearDown() {
-        EXPECT_EQ(0, attr_db_->Size());
-        EXPECT_EQ(0, aspath_db_->Size());
-        EXPECT_EQ(0, comm_db_->Size());
-        EXPECT_EQ(0, edge_discovery_db_->Size());
-        EXPECT_EQ(0, edge_forwarding_db_->Size());
-        EXPECT_EQ(0, extcomm_db_->Size());
-        EXPECT_EQ(0, olist_db_->Size());
-        EXPECT_EQ(0, ovnpath_db_->Size());
-        EXPECT_EQ(0, pmsi_tunnel_db_->Size());
+        EXPECT_EQ(0U, attr_db_->Size());
+        EXPECT_EQ(0U, aspath_db_->Size());
+        EXPECT_EQ(0U, comm_db_->Size());
+        EXPECT_EQ(0U, edge_discovery_db_->Size());
+        EXPECT_EQ(0U, edge_forwarding_db_->Size());
+        EXPECT_EQ(0U, extcomm_db_->Size());
+        EXPECT_EQ(0U, olist_db_->Size());
+        EXPECT_EQ(0U, ovnpath_db_->Size());
+        EXPECT_EQ(0U, pmsi_tunnel_db_->Size());
         server_.Shutdown();
         task_util::WaitForIdle();
     }
@@ -94,7 +94,7 @@ TEST_F(BgpAttrTest, UnknownCode) {
 
     BgpAttrPtr attr = attr_db_->Locate(spec);
     EXPECT_EQ(BgpAttrOrigin::IGP, attr->origin());
-    EXPECT_EQ(1729, attr->local_pref());
+    EXPECT_EQ(1729U, attr->local_pref());
 }
 
 TEST_F(BgpAttrTest, Origin1) {
@@ -364,8 +364,8 @@ TEST_F(BgpAttrTest, AsPathAdd) {
 
     // Add to an empty path.
     AsPathSpec *p2 = path.Add(1000);
-    EXPECT_EQ(1, p2->path_segments.size());
-    EXPECT_EQ(1, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(1U, p2->path_segments.size());
+    EXPECT_EQ(1U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
@@ -380,16 +380,16 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     }
 
     p2 = path.Add(1000);
-    EXPECT_EQ(10, p2->path_segments.size());
-    EXPECT_EQ(11, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(10U, p2->path_segments.size());
+    EXPECT_EQ(11U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
     // Add to a path whose first segment is of type AS_SET.
     path.path_segments[0]->path_segment_type = AsPathSpec::PathSegment::AS_SET;
     p2 = path.Add(1000);
-    EXPECT_EQ(11, p2->path_segments.size());
-    EXPECT_EQ(1, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(11U, p2->path_segments.size());
+    EXPECT_EQ(1U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
@@ -402,8 +402,8 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     }
 
     p2 = path.Add(1000);
-    EXPECT_EQ(11, p2->path_segments.size());
-    EXPECT_EQ(1, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(11U, p2->path_segments.size());
+    EXPECT_EQ(1U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 }
@@ -414,8 +414,8 @@ TEST_F(BgpAttrTest, AsPathAddList) {
 
     // Add to an empty path.
     AsPathSpec *p2 = path.Add(asn_list);
-    EXPECT_EQ(1, p2->path_segments.size());
-    EXPECT_EQ(2, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(1U, p2->path_segments.size());
+    EXPECT_EQ(2U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
     delete p2;
@@ -431,8 +431,8 @@ TEST_F(BgpAttrTest, AsPathAddList) {
     }
 
     p2 = path.Add(asn_list);
-    EXPECT_EQ(10, p2->path_segments.size());
-    EXPECT_EQ(12, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(10U, p2->path_segments.size());
+    EXPECT_EQ(12U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
     delete p2;
@@ -440,8 +440,8 @@ TEST_F(BgpAttrTest, AsPathAddList) {
     // Add to a path whose first segment is of type AS_SET.
     path.path_segments[0]->path_segment_type = AsPathSpec::PathSegment::AS_SET;
     p2 = path.Add(asn_list);
-    EXPECT_EQ(11, p2->path_segments.size());
-    EXPECT_EQ(2, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(11U, p2->path_segments.size());
+    EXPECT_EQ(2U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
     delete p2;
@@ -455,8 +455,8 @@ TEST_F(BgpAttrTest, AsPathAddList) {
     }
 
     p2 = path.Add(asn_list);
-    EXPECT_EQ(11, p2->path_segments.size());
-    EXPECT_EQ(2, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(11U, p2->path_segments.size());
+    EXPECT_EQ(2U, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
     delete p2;
@@ -1030,7 +1030,7 @@ TEST_F(BgpAttrTest, ClusterList1) {
         spec.cluster_list.push_back(100 * idx);
     attr_spec.push_back(&spec);
     BgpAttrPtr attr_ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(4, attr_ptr->cluster_list_length());
+    EXPECT_EQ(4U, attr_ptr->cluster_list_length());
     BgpAttr attr(*attr_ptr);
     EXPECT_EQ(attr_ptr->cluster_list(), attr.cluster_list());
 }
@@ -1052,13 +1052,13 @@ TEST_F(BgpAttrTest, ClusterListCompare1) {
     for (int idx = 1; idx < 5; idx++)
         spec1.cluster_list.push_back(100 * idx);
     ClusterList clist1(cluster_list_db_, spec1);
-    EXPECT_EQ(4, clist1.size());
+    EXPECT_EQ(4U, clist1.size());
 
     ClusterListSpec spec2;
     for (int idx = 4; idx >= 1; idx--)
         spec2.cluster_list.push_back(100 * idx);
     ClusterList clist2(cluster_list_db_, spec2);
-    EXPECT_EQ(4, clist2.size());
+    EXPECT_EQ(4U, clist2.size());
 
     EXPECT_EQ(-1, clist1.CompareTo(clist2));
     EXPECT_EQ(1, clist2.CompareTo(clist1));
@@ -1069,13 +1069,13 @@ TEST_F(BgpAttrTest, ClusterListCompare2) {
     for (int idx = 1; idx < 3; idx++)
         spec1.cluster_list.push_back(100 * idx);
     ClusterList clist1(cluster_list_db_, spec1);
-    EXPECT_EQ(2, clist1.size());
+    EXPECT_EQ(2U, clist1.size());
 
     ClusterListSpec spec2;
     for (int idx = 1; idx < 5; idx++)
         spec2.cluster_list.push_back(100 * idx);
     ClusterList clist2(cluster_list_db_, spec2);
-    EXPECT_EQ(4, clist2.size());
+    EXPECT_EQ(4U, clist2.size());
 
     EXPECT_EQ(-1, clist1.CompareTo(clist2));
     EXPECT_EQ(1, clist2.CompareTo(clist1));
@@ -1255,7 +1255,7 @@ TEST_F(BgpAttrTest, SequenceNumber1) {
         spec.communities.push_back(100 * idx);
     attr_spec.push_back(&spec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(0, attr->sequence_number());
+    EXPECT_EQ(0U, attr->sequence_number());
 }
 
 TEST_F(BgpAttrTest, SequenceNumber2) {
@@ -1451,7 +1451,7 @@ TEST_F(BgpAttrTest, OriginVnPathLocate) {
         spec1.origin_vns.push_back(origin_vn.GetExtCommunityValue());
     }
     OriginVnPathPtr ovnpath1 = ovnpath_db_->Locate(spec1);
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     OriginVnPathSpec spec2;
     for (int idx = 4; idx >= 1; idx--) {
@@ -1459,7 +1459,7 @@ TEST_F(BgpAttrTest, OriginVnPathLocate) {
         spec2.origin_vns.push_back(origin_vn.GetExtCommunityValue());
     }
     OriginVnPathPtr ovnpath2 = ovnpath_db_->Locate(spec2);
-    EXPECT_EQ(2, ovnpath_db_->Size());
+    EXPECT_EQ(2U, ovnpath_db_->Size());
 
     EXPECT_NE(0, ovnpath1->CompareTo(*ovnpath2));
     EXPECT_NE(0, ovnpath2->CompareTo(*ovnpath1));
@@ -1472,12 +1472,12 @@ TEST_F(BgpAttrTest, OriginVnPathPrependAndLocate) {
         spec.origin_vns.push_back(origin_vn.GetExtCommunityValue());
     }
     OriginVnPathPtr ovnpath1 = ovnpath_db_->Locate(spec);
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     OriginVn origin_vn(64512, 100 * 1);
     OriginVnPathPtr ovnpath2 = ovnpath_db_->PrependAndLocate(ovnpath1.get(),
         origin_vn.GetExtCommunity());
-    EXPECT_EQ(2, ovnpath_db_->Size());
+    EXPECT_EQ(2U, ovnpath_db_->Size());
 
     EXPECT_NE(0, ovnpath1->CompareTo(*ovnpath2));
     EXPECT_NE(0, ovnpath2->CompareTo(*ovnpath1));
@@ -1495,16 +1495,16 @@ TEST_F(BgpAttrTest, OriginVnPathReplace) {
     BgpAttrSpec attr_spec;
     attr_spec.push_back(&spec);
     BgpAttrPtr ptr1 = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, ovnpath_db_->Size());
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
 
     OriginVn origin_vn(64512, 100 * 1);
     OriginVnPathPtr ovnpath = ovnpath_db_->PrependAndLocate(
         ptr1->origin_vn_path(), origin_vn.GetExtCommunity());
     BgpAttrPtr ptr2 =
         attr_db_->ReplaceOriginVnPathAndLocate(ptr1.get(), ovnpath);
-    EXPECT_EQ(2, ovnpath_db_->Size());
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, ovnpath_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, OriginatorId1) {
@@ -1514,7 +1514,7 @@ TEST_F(BgpAttrTest, OriginatorId1) {
     BgpAttrOriginatorId originator_id_spec(originator_id.to_ulong());
     attr_spec.push_back(&originator_id_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(originator_id, ptr->originator_id());
     BgpAttr attr(*(ptr.get()));
     EXPECT_EQ(attr.originator_id(), ptr->originator_id());
@@ -1537,7 +1537,7 @@ TEST_F(BgpAttrTest, OriginatorId2) {
 
     EXPECT_NE(ptr1, ptr2);
     EXPECT_NE(0, ptr1->CompareTo(*ptr2));
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, OriginatorId3) {
@@ -1547,13 +1547,13 @@ TEST_F(BgpAttrTest, OriginatorId3) {
     BgpAttrOriginatorId originator_id_spec(originator_id1.to_ulong());
     attr_spec.push_back(&originator_id_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(originator_id1, ptr->originator_id());
 
     error_code ec2;
     Ip4Address originator_id2 = Ip4Address::from_string("10.1.1.2", ec2);
     ptr = attr_db_->ReplaceOriginatorIdAndLocate(ptr.get(), originator_id2);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(originator_id2, ptr->originator_id());
 }
 
@@ -1579,7 +1579,7 @@ TEST_F(BgpAttrTest, SourceRdBasic1) {
     BgpAttrSourceRd rd_spec(rd);
     attr_spec.push_back(&rd_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_FALSE(ptr->source_rd().IsZero());
     EXPECT_EQ(rd, ptr->source_rd());
     BgpAttr attr(*(ptr.get()));
@@ -1602,7 +1602,7 @@ TEST_F(BgpAttrTest, SourceRdBasic2) {
     BgpAttrPtr ptr2 = attr_db_->Locate(attr_spec2);
 
     EXPECT_NE(ptr1, ptr2);
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, SourceRdBasic3) {
@@ -1612,12 +1612,12 @@ TEST_F(BgpAttrTest, SourceRdBasic3) {
     BgpAttrSourceRd rd_spec(rd1);
     attr_spec.push_back(&rd_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(rd1, ptr->source_rd());
 
     RouteDistinguisher rd2 = RouteDistinguisher::FromString("192.168.0.1:2");
     ptr = attr_db_->ReplaceSourceRdAndLocate(ptr.get(), rd2);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(rd2, ptr->source_rd());
 }
 
@@ -1644,7 +1644,7 @@ TEST_F(BgpAttrTest, Esi1) {
     BgpAttrEsi esi_spec(esi);
     attr_spec.push_back(&esi_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_FALSE(ptr->esi().IsZero());
     EXPECT_EQ(esi, ptr->esi());
     BgpAttr attr(*ptr);
@@ -1668,7 +1668,7 @@ TEST_F(BgpAttrTest, Esi2) {
 
     EXPECT_NE(ptr1, ptr2);
     EXPECT_NE(0, ptr1->CompareTo(*ptr2));
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, Esi3) {
@@ -1678,13 +1678,13 @@ TEST_F(BgpAttrTest, Esi3) {
     BgpAttrEsi esi_spec(esi1);
     attr_spec.push_back(&esi_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(esi1, ptr->esi());
 
     EthernetSegmentId esi2 =
         EthernetSegmentId::FromString("00:01:02:03:04:05:06:07:08:02");
     ptr = attr_db_->ReplaceEsiAndLocate(ptr.get(), esi2);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(esi2, ptr->esi());
 }
 
@@ -1714,7 +1714,7 @@ TEST_F(BgpAttrTest, Params1) {
     BgpAttrParams params_spec(params);
     attr_spec.push_back(&params_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(params, ptr->params());
     BgpAttr attr(*ptr);
     EXPECT_EQ(attr.params(), ptr->params());
@@ -1735,7 +1735,7 @@ TEST_F(BgpAttrTest, Params2) {
 
     EXPECT_NE(ptr1, ptr2);
     EXPECT_NE(0, ptr1->CompareTo(*ptr2));
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, ParamsCompareTo) {
@@ -1761,7 +1761,7 @@ TEST_F(BgpAttrTest, SubProtocol) {
     BgpAttrSubProtocol sp(sbp);
     attr_spec.push_back(&sp);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
     EXPECT_EQ(sbp, ptr->sub_protocol());
 }
 
@@ -1784,7 +1784,7 @@ TEST_F(BgpAttrTest, SubProtcolToString) {
 
 TEST_F(BgpAttrTest, PmsiTunnelSpec) {
     PmsiTunnelSpec pmsi_spec;
-    EXPECT_EQ(0, pmsi_spec.identifier.size());
+    EXPECT_EQ(0U, pmsi_spec.identifier.size());
     EXPECT_EQ(BgpAttribute::PmsiTunnel, pmsi_spec.code);
     EXPECT_EQ(BgpAttribute::Optional | BgpAttribute::Transitive,
         pmsi_spec.flags);
@@ -1940,13 +1940,13 @@ TEST_F(BgpAttrTest, PmsiTunnel2) {
     error_code ec;
     pmsi_spec.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
 
-    EXPECT_EQ(4, pmsi_spec.identifier.size());
+    EXPECT_EQ(4U, pmsi_spec.identifier.size());
     EXPECT_EQ(BgpAttribute::PmsiTunnel, pmsi_spec.code);
     EXPECT_EQ(BgpAttribute::Optional | BgpAttribute::Transitive,
         pmsi_spec.flags);
     EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported, pmsi_spec.tunnel_flags);
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication, pmsi_spec.tunnel_type);
-    EXPECT_EQ(10000, pmsi_spec.GetLabel(&ext));
+    EXPECT_EQ(10000U, pmsi_spec.GetLabel(&ext));
     EXPECT_EQ("10.1.1.1", pmsi_spec.GetIdentifier().to_string());
 }
 
@@ -1961,14 +1961,14 @@ TEST_F(BgpAttrTest, PmsiTunnel3) {
     pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
 
     PmsiTunnelSpec pmsi_spec2(pmsi_spec1);
-    EXPECT_EQ(4, pmsi_spec2.identifier.size());
+    EXPECT_EQ(4U, pmsi_spec2.identifier.size());
     EXPECT_EQ(BgpAttribute::PmsiTunnel, pmsi_spec2.code);
     EXPECT_EQ(BgpAttribute::Optional | BgpAttribute::Transitive,
         pmsi_spec2.flags);
     EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
         pmsi_spec2.tunnel_flags);
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication, pmsi_spec2.tunnel_type);
-    EXPECT_EQ(10000, pmsi_spec2.GetLabel(&ext));
+    EXPECT_EQ(10000U, pmsi_spec2.GetLabel(&ext));
     EXPECT_EQ("10.1.1.1", pmsi_spec2.GetIdentifier().to_string());
 }
 
@@ -1984,14 +1984,14 @@ TEST_F(BgpAttrTest, PmsiTunnel4a) {
     pmsi_spec.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
     attr_spec.push_back(&pmsi_spec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
 
     const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
     EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
         pmsi_tunnel->tunnel_flags());
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
         pmsi_tunnel->tunnel_type());
-    EXPECT_EQ(10000, pmsi_tunnel->GetLabel(&ext));
+    EXPECT_EQ(10000U, pmsi_tunnel->GetLabel(&ext));
     EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier().to_string());
 }
 
@@ -2009,7 +2009,7 @@ TEST_F(BgpAttrTest, PmsiTunnel4b) {
     pmsi_spec.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
     attr_spec.push_back(&pmsi_spec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
 
     const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
     EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
@@ -2059,7 +2059,7 @@ TEST_F(BgpAttrTest, PmsiTunnel6) {
 
     EXPECT_NE(attr1, attr2);
     EXPECT_NE(0, attr1->CompareTo(*attr2));
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel7) {
@@ -2083,7 +2083,7 @@ TEST_F(BgpAttrTest, PmsiTunnel7) {
 
     EXPECT_EQ(attr1, attr2);
     EXPECT_EQ(0, attr1->CompareTo(*attr2));
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel8) {
@@ -2102,7 +2102,7 @@ TEST_F(BgpAttrTest, PmsiTunnel8) {
 
     EXPECT_EQ(pmsi_tunnel1, pmsi_tunnel2);
     EXPECT_EQ(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
-    EXPECT_EQ(1, pmsi_tunnel_db_->Size());
+    EXPECT_EQ(1U, pmsi_tunnel_db_->Size());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel9a) {
@@ -2122,7 +2122,7 @@ TEST_F(BgpAttrTest, PmsiTunnel9a) {
 
     EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
     EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
-    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+    EXPECT_EQ(2U, pmsi_tunnel_db_->Size());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel9b) {
@@ -2142,7 +2142,7 @@ TEST_F(BgpAttrTest, PmsiTunnel9b) {
 
     EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
     EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
-    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+    EXPECT_EQ(2U, pmsi_tunnel_db_->Size());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel9c) {
@@ -2162,7 +2162,7 @@ TEST_F(BgpAttrTest, PmsiTunnel9c) {
 
     EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
     EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
-    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+    EXPECT_EQ(2U, pmsi_tunnel_db_->Size());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel9d) {
@@ -2182,12 +2182,12 @@ TEST_F(BgpAttrTest, PmsiTunnel9d) {
 
     EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
     EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
-    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+    EXPECT_EQ(2U, pmsi_tunnel_db_->Size());
 }
 
 TEST_F(BgpAttrTest, EdgeDiscovery1) {
     EdgeDiscoverySpec edspec;
-    EXPECT_EQ(0, edspec.edge_list.size());
+    EXPECT_EQ(0U, edspec.edge_list.size());
 }
 
 TEST_F(BgpAttrTest, EdgeDiscovery2) {
@@ -2201,7 +2201,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery2) {
         edspec.edge_list.push_back(edge);
     }
 
-    EXPECT_EQ(2, edspec.edge_list.size());
+    EXPECT_EQ(2U, edspec.edge_list.size());
     int idx = 1;
     for (EdgeDiscoverySpec::EdgeList::const_iterator it =
          edspec.edge_list.begin(); it != edspec.edge_list.end(); ++it, ++idx) {
@@ -2211,8 +2211,8 @@ TEST_F(BgpAttrTest, EdgeDiscovery2) {
         edge->GetLabels(&first_label, &last_label);
         error_code ec;
         EXPECT_EQ(addr_str, edge->GetIp4Address().to_string(ec));
-        EXPECT_EQ(1000 * idx, first_label);
-        EXPECT_EQ(1000 * idx + 999, last_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx), first_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx + 999), last_label);
     }
 }
 
@@ -2228,7 +2228,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery3) {
     }
 
     EdgeDiscoverySpec edspec2(edspec1);
-    EXPECT_EQ(2, edspec2.edge_list.size());
+    EXPECT_EQ(2U, edspec2.edge_list.size());
     int idx = 1;
     for (EdgeDiscoverySpec::EdgeList::const_iterator it =
          edspec2.edge_list.begin(); it != edspec2.edge_list.end();
@@ -2239,8 +2239,8 @@ TEST_F(BgpAttrTest, EdgeDiscovery3) {
         edge->GetLabels(&first_label, &last_label);
         error_code ec;
         EXPECT_EQ(addr_str, edge->GetIp4Address().to_string(ec));
-        EXPECT_EQ(1000 * idx, first_label);
-        EXPECT_EQ(1000 * idx + 999, last_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx), first_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx + 999), last_label);
     }
 }
 
@@ -2257,10 +2257,10 @@ TEST_F(BgpAttrTest, EdgeDiscovery4) {
     }
     attr_spec.push_back(&edspec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
 
     const EdgeDiscovery *ediscovery = attr->edge_discovery();
-    EXPECT_EQ(2, ediscovery->edge_list.size());
+    EXPECT_EQ(2U, ediscovery->edge_list.size());
     int idx = 1;
     for (EdgeDiscovery::EdgeList::const_iterator it =
          ediscovery->edge_list.begin(); it != ediscovery->edge_list.end();
@@ -2269,8 +2269,9 @@ TEST_F(BgpAttrTest, EdgeDiscovery4) {
         std::string addr_str = "10.1.1." + integerToString(idx);
         error_code ec;
         EXPECT_EQ(addr_str, edge->address.to_string(ec));
-        EXPECT_EQ(1000 * idx, edge->label_block->first());
-        EXPECT_EQ(1000 * idx + 999, edge->label_block->last());
+        EXPECT_EQ(static_cast<size_t>(1000 * idx), edge->label_block->first());
+        EXPECT_EQ(static_cast<size_t>(1000 * idx + 999),
+                  edge->label_block->last());
     }
 }
 
@@ -2320,7 +2321,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery6) {
 
     EXPECT_NE(attr1, attr2);
     EXPECT_NE(0, attr1->CompareTo(*attr2));
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, EdgeDiscovery7a) {
@@ -2335,7 +2336,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery7a) {
     }
     EdgeDiscoveryPtr ediscovery1 = edge_discovery_db_->Locate(edspec);
     EdgeDiscoveryPtr ediscovery2 = edge_discovery_db_->Locate(edspec);
-    EXPECT_EQ(1, edge_discovery_db_->Size());
+    EXPECT_EQ(1U, edge_discovery_db_->Size());
     EXPECT_EQ(ediscovery1, ediscovery2);
 }
 
@@ -2361,7 +2362,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery7b) {
 
     EdgeDiscoveryPtr ediscovery1 = edge_discovery_db_->Locate(edspec1);
     EdgeDiscoveryPtr ediscovery2 = edge_discovery_db_->Locate(edspec2);
-    EXPECT_EQ(1, edge_discovery_db_->Size());
+    EXPECT_EQ(1U, edge_discovery_db_->Size());
     EXPECT_EQ(ediscovery1, ediscovery2);
 }
 
@@ -2387,7 +2388,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery7c) {
 
     EdgeDiscoveryPtr ediscovery1 = edge_discovery_db_->Locate(edspec1);
     EdgeDiscoveryPtr ediscovery2 = edge_discovery_db_->Locate(edspec2);
-    EXPECT_EQ(1, edge_discovery_db_->Size());
+    EXPECT_EQ(1U, edge_discovery_db_->Size());
     EXPECT_EQ(ediscovery1, ediscovery2);
 }
 
@@ -2413,7 +2414,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery8a) {
 
     EdgeDiscoveryPtr ediscovery1 = edge_discovery_db_->Locate(edspec1);
     EdgeDiscoveryPtr ediscovery2 = edge_discovery_db_->Locate(edspec2);
-    EXPECT_EQ(2, edge_discovery_db_->Size());
+    EXPECT_EQ(2U, edge_discovery_db_->Size());
     EXPECT_NE(ediscovery1, ediscovery2);
 }
 
@@ -2439,7 +2440,7 @@ TEST_F(BgpAttrTest, EdgeDiscovery8b) {
 
     EdgeDiscoveryPtr ediscovery1 = edge_discovery_db_->Locate(edspec1);
     EdgeDiscoveryPtr ediscovery2 = edge_discovery_db_->Locate(edspec2);
-    EXPECT_EQ(2, edge_discovery_db_->Size());
+    EXPECT_EQ(2U, edge_discovery_db_->Size());
     EXPECT_NE(ediscovery1, ediscovery2);
 }
 
@@ -2475,13 +2476,13 @@ TEST_F(BgpAttrTest, EdgeDiscoveryToString2) {
 TEST_F(BgpAttrTest, BgpOList1a) {
     BgpOListSpec olist_spec(BgpAttribute::OList);
     EXPECT_EQ(BgpAttribute::OList, olist_spec.subcode);
-    EXPECT_EQ(0, olist_spec.elements.size());
+    EXPECT_EQ(0U, olist_spec.elements.size());
 }
 
 TEST_F(BgpAttrTest, BgpOList1b) {
     BgpOListSpec leaf_olist_spec(BgpAttribute::LeafOList);
     EXPECT_EQ(BgpAttribute::LeafOList, leaf_olist_spec.subcode);
-    EXPECT_EQ(0, leaf_olist_spec.elements.size());
+    EXPECT_EQ(0U, leaf_olist_spec.elements.size());
 }
 
 TEST_F(BgpAttrTest, BgpOList2a) {
@@ -2496,7 +2497,7 @@ TEST_F(BgpAttrTest, BgpOList2a) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec);
-    EXPECT_EQ(1, olist_db_->Size());
+    EXPECT_EQ(1U, olist_db_->Size());
     EXPECT_EQ(olist1, olist2);
 }
 
@@ -2521,7 +2522,7 @@ TEST_F(BgpAttrTest, BgpOList2b) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(1, olist_db_->Size());
+    EXPECT_EQ(1U, olist_db_->Size());
     EXPECT_EQ(olist1, olist2);
 }
 
@@ -2546,7 +2547,7 @@ TEST_F(BgpAttrTest, BgpOList2c) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(1, olist_db_->Size());
+    EXPECT_EQ(1U, olist_db_->Size());
     EXPECT_EQ(olist1, olist2);
 }
 
@@ -2571,7 +2572,7 @@ TEST_F(BgpAttrTest, BgpOList2d) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(1, olist_db_->Size());
+    EXPECT_EQ(1U, olist_db_->Size());
     EXPECT_EQ(olist1, olist2);
 }
 
@@ -2596,7 +2597,7 @@ TEST_F(BgpAttrTest, BgpOList3a) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(2, olist_db_->Size());
+    EXPECT_EQ(2U, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
 }
 
@@ -2621,7 +2622,7 @@ TEST_F(BgpAttrTest, BgpOList3b) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(2, olist_db_->Size());
+    EXPECT_EQ(2U, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
 }
 
@@ -2646,7 +2647,7 @@ TEST_F(BgpAttrTest, BgpOList3c) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(2, olist_db_->Size());
+    EXPECT_EQ(2U, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
 }
 
@@ -2671,7 +2672,7 @@ TEST_F(BgpAttrTest, BgpOList3d) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(2, olist_db_->Size());
+    EXPECT_EQ(2U, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
 }
 
@@ -2696,7 +2697,7 @@ TEST_F(BgpAttrTest, BgpOList4a) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(2, olist_db_->Size());
+    EXPECT_EQ(2U, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
 }
 
@@ -2721,7 +2722,7 @@ TEST_F(BgpAttrTest, BgpOList4b) {
     }
     BgpOListPtr olist1 = olist_db_->Locate(olist_spec1);
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
-    EXPECT_EQ(2, olist_db_->Size());
+    EXPECT_EQ(2U, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
 }
 
@@ -2751,7 +2752,7 @@ TEST_F(BgpAttrTest, BgpOList6) {
 
 TEST_F(BgpAttrTest, EdgeForwarding1) {
     EdgeForwardingSpec efspec;
-    EXPECT_EQ(0, efspec.edge_list.size());
+    EXPECT_EQ(0U, efspec.edge_list.size());
 }
 
 TEST_F(BgpAttrTest, EdgeForwarding2) {
@@ -2767,7 +2768,7 @@ TEST_F(BgpAttrTest, EdgeForwarding2) {
         efspec.edge_list.push_back(edge);
     }
 
-    EXPECT_EQ(2, efspec.edge_list.size());
+    EXPECT_EQ(2U, efspec.edge_list.size());
     int idx = 1;
     for (EdgeForwardingSpec::EdgeList::const_iterator it =
          efspec.edge_list.begin(); it != efspec.edge_list.end(); ++it, ++idx) {
@@ -2775,9 +2776,9 @@ TEST_F(BgpAttrTest, EdgeForwarding2) {
         error_code ec;
         std::string addr_str = "10.1.1." + integerToString(idx);
         EXPECT_EQ("10.1.1.100", edge->GetInboundIp4Address().to_string(ec));
-        EXPECT_EQ(100000, edge->inbound_label);
+        EXPECT_EQ(100000U, edge->inbound_label);
         EXPECT_EQ(addr_str, edge->GetOutboundIp4Address().to_string(ec));
-        EXPECT_EQ(1000 * idx, edge->outbound_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx), edge->outbound_label);
     }
 }
 
@@ -2795,7 +2796,7 @@ TEST_F(BgpAttrTest, EdgeForwarding3) {
     }
 
     EdgeForwardingSpec efspec2(efspec1);
-    EXPECT_EQ(2, efspec2.edge_list.size());
+    EXPECT_EQ(2U, efspec2.edge_list.size());
     int idx = 1;
     for (EdgeForwardingSpec::EdgeList::const_iterator it =
          efspec2.edge_list.begin(); it != efspec2.edge_list.end();
@@ -2804,9 +2805,9 @@ TEST_F(BgpAttrTest, EdgeForwarding3) {
         error_code ec;
         std::string addr_str = "10.1.1." + integerToString(idx);
         EXPECT_EQ("10.1.1.100", edge->GetInboundIp4Address().to_string(ec));
-        EXPECT_EQ(100000, edge->inbound_label);
+        EXPECT_EQ(100000U, edge->inbound_label);
         EXPECT_EQ(addr_str, edge->GetOutboundIp4Address().to_string(ec));
-        EXPECT_EQ(1000 * idx, edge->outbound_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx), edge->outbound_label);
     }
 }
 
@@ -2825,10 +2826,10 @@ TEST_F(BgpAttrTest, EdgeForwarding4) {
     }
     attr_spec.push_back(&efspec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
 
     const EdgeForwarding *eforwarding = attr->edge_forwarding();
-    EXPECT_EQ(2, eforwarding->edge_list.size());
+    EXPECT_EQ(2U, eforwarding->edge_list.size());
     int idx = 1;
     for (EdgeForwarding::EdgeList::const_iterator it =
          eforwarding->edge_list.begin(); it != eforwarding->edge_list.end();
@@ -2837,9 +2838,9 @@ TEST_F(BgpAttrTest, EdgeForwarding4) {
         error_code ec;
         std::string addr_str = "10.1.1." + integerToString(idx);
         EXPECT_EQ("10.1.1.100", edge->inbound_address.to_string(ec));
-        EXPECT_EQ(100000, edge->inbound_label);
+        EXPECT_EQ(100000U, edge->inbound_label);
         EXPECT_EQ(addr_str, edge->outbound_address.to_string(ec));
-        EXPECT_EQ(1000 * idx, edge->outbound_label);
+        EXPECT_EQ(static_cast<size_t>(1000 * idx), edge->outbound_label);
     }
 }
 
@@ -2895,7 +2896,7 @@ TEST_F(BgpAttrTest, EdgeForwarding6) {
 
     EXPECT_NE(attr1, attr2);
     EXPECT_NE(0, attr1->CompareTo(*attr2));
-    EXPECT_EQ(2, attr_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, EdgeForwarding7a) {
@@ -2913,7 +2914,7 @@ TEST_F(BgpAttrTest, EdgeForwarding7a) {
     EdgeForwardingPtr eforwarding1 = edge_forwarding_db_->Locate(efspec);
     EdgeForwardingPtr eforwarding2 = edge_forwarding_db_->Locate(efspec);
 
-    EXPECT_EQ(1, edge_forwarding_db_->Size());
+    EXPECT_EQ(1U, edge_forwarding_db_->Size());
     EXPECT_EQ(eforwarding1, eforwarding2);
 }
 
@@ -2944,7 +2945,7 @@ TEST_F(BgpAttrTest, EdgeForwarding7b) {
     }
     EdgeForwardingPtr eforwarding2 = edge_forwarding_db_->Locate(efspec2);
 
-    EXPECT_EQ(1, edge_forwarding_db_->Size());
+    EXPECT_EQ(1U, edge_forwarding_db_->Size());
     EXPECT_EQ(eforwarding1, eforwarding2);
 }
 
@@ -2975,7 +2976,7 @@ TEST_F(BgpAttrTest, EdgeForwarding7c) {
     }
     EdgeForwardingPtr eforwarding2 = edge_forwarding_db_->Locate(efspec2);
 
-    EXPECT_EQ(1, edge_forwarding_db_->Size());
+    EXPECT_EQ(1U, edge_forwarding_db_->Size());
     EXPECT_EQ(eforwarding1, eforwarding2);
 }
 
@@ -3006,7 +3007,7 @@ TEST_F(BgpAttrTest, EdgeForwarding8a) {
     }
     EdgeForwardingPtr eforwarding2 = edge_forwarding_db_->Locate(efspec2);
 
-    EXPECT_EQ(2, edge_forwarding_db_->Size());
+    EXPECT_EQ(2U, edge_forwarding_db_->Size());
     EXPECT_NE(eforwarding1, eforwarding2);
 }
 
@@ -3037,7 +3038,7 @@ TEST_F(BgpAttrTest, EdgeForwarding8b) {
     }
     EdgeForwardingPtr eforwarding2 = edge_forwarding_db_->Locate(efspec2);
 
-    EXPECT_EQ(2, edge_forwarding_db_->Size());
+    EXPECT_EQ(2U, edge_forwarding_db_->Size());
     EXPECT_NE(eforwarding1, eforwarding2);
 }
 
@@ -3112,48 +3113,48 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     BgpAttrPtr ptr1 = attr_db_->Locate(spec);
     BgpAttrPtr ptr2 = attr_db_->Locate(spec);
 
-    EXPECT_EQ(1, attr_db_->Size());
-    EXPECT_EQ(1, aspath_db_->Size());
-    EXPECT_EQ(1, comm_db_->Size());
-    EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
+    EXPECT_EQ(1U, aspath_db_->Size());
+    EXPECT_EQ(1U, comm_db_->Size());
+    EXPECT_EQ(1U, extcomm_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     agg->address = 0xcafed00d;
     BgpAttrPtr ptr3 = attr_db_->Locate(spec);
 
-    EXPECT_EQ(2, attr_db_->Size());
-    EXPECT_EQ(1, aspath_db_->Size());
-    EXPECT_EQ(1, comm_db_->Size());
-    EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
+    EXPECT_EQ(1U, aspath_db_->Size());
+    EXPECT_EQ(1U, comm_db_->Size());
+    EXPECT_EQ(1U, extcomm_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     ptr1.reset();
-    EXPECT_EQ(2, attr_db_->Size());
-    EXPECT_EQ(1, aspath_db_->Size());
-    EXPECT_EQ(1, comm_db_->Size());
-    EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(2U, attr_db_->Size());
+    EXPECT_EQ(1U, aspath_db_->Size());
+    EXPECT_EQ(1U, comm_db_->Size());
+    EXPECT_EQ(1U, extcomm_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     ptr2.reset();
-    EXPECT_EQ(1, attr_db_->Size());
-    EXPECT_EQ(1, aspath_db_->Size());
-    EXPECT_EQ(1, comm_db_->Size());
-    EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
+    EXPECT_EQ(1U, aspath_db_->Size());
+    EXPECT_EQ(1U, comm_db_->Size());
+    EXPECT_EQ(1U, extcomm_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     ptr3.reset();
-    EXPECT_EQ(0, attr_db_->Size());
-    EXPECT_EQ(0, aspath_db_->Size());
-    EXPECT_EQ(0, comm_db_->Size());
-    EXPECT_EQ(0, extcomm_db_->Size());
-    EXPECT_EQ(0, ovnpath_db_->Size());
+    EXPECT_EQ(0U, attr_db_->Size());
+    EXPECT_EQ(0U, aspath_db_->Size());
+    EXPECT_EQ(0U, comm_db_->Size());
+    EXPECT_EQ(0U, extcomm_db_->Size());
+    EXPECT_EQ(0U, ovnpath_db_->Size());
 
     ptr1 = attr_db_->Locate(spec);
-    EXPECT_EQ(1, attr_db_->Size());
-    EXPECT_EQ(1, aspath_db_->Size());
-    EXPECT_EQ(1, comm_db_->Size());
-    EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(1U, attr_db_->Size());
+    EXPECT_EQ(1U, aspath_db_->Size());
+    EXPECT_EQ(1U, comm_db_->Size());
+    EXPECT_EQ(1U, extcomm_db_->Size());
+    EXPECT_EQ(1U, ovnpath_db_->Size());
 
     STLDeleteValues(&spec);
 }
@@ -3181,7 +3182,7 @@ static void *ConcurrencyThreadRun(void *objp) {
 
     TypePtr ptr = db->Locate(new AttributeMock<Type, TypeDB, TypeSpec>(
                                   db, TypeSpec()));
-    EXPECT_EQ(1, db->Size());
+    EXPECT_EQ(1U, db->Size());
     return NULL;
 }
 
@@ -3204,7 +3205,7 @@ static void ConcurrencyTest(TypeDB *db) {
     }
 
     BOOST_FOREACH(tid, thread_ids) { pthread_join(tid, NULL); }
-    TASK_UTIL_EXPECT_EQ(0, db->Size());
+    TASK_UTIL_EXPECT_EQ(0U, db->Size());
 }
 
 TEST_F(BgpAttrTest, BgpAttrDBConcurrency) {

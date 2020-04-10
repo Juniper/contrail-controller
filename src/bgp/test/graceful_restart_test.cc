@@ -602,11 +602,11 @@ void GracefulRestartTest::TearDown() {
     VerifyReceivedXmppRoutes(0);
 
     if (n_agents_) {
-        TASK_UTIL_EXPECT_EQ(0, xmpp_server_->connection_map().size());
+        TASK_UTIL_EXPECT_EQ(0U, xmpp_server_->connection_map().size());
     }
     AgentCleanup();
     for (int i = 0; i <= n_peers_; i++) {
-        TASK_UTIL_EXPECT_EQ(0, channel_managers_[i]->channel_map().size());
+        TASK_UTIL_EXPECT_EQ(0U, channel_managers_[i]->channel_map().size());
         delete channel_managers_[i];
     }
     WaitForIdle();

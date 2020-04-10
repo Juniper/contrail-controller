@@ -326,9 +326,9 @@ TEST_F(BgpProtoTest, Open3) {
     const BgpProto::OpenMessage *result =
             static_cast<const BgpProto::OpenMessage *>(BgpProto::Decode(data, sizeof(data)));
     EXPECT_TRUE(result != NULL);
-    EXPECT_EQ(4, result->opt_params.size());
+    EXPECT_EQ(4U, result->opt_params.size());
     for (size_t i = 0; i < result->opt_params.size(); i++) {
-        EXPECT_EQ(1, result->opt_params[i]->capabilities.size());
+        EXPECT_EQ(1U, result->opt_params[i]->capabilities.size());
     }
     const BgpProto::OpenMessage::Capability *cap = result->opt_params[0]->capabilities[0];
     EXPECT_EQ(1, cap->code);
@@ -337,11 +337,11 @@ TEST_F(BgpProtoTest, Open3) {
 
     cap = result->opt_params[1]->capabilities[0];
     EXPECT_EQ(0x80, cap->code);
-    EXPECT_EQ(0, cap->capability.size());
+    EXPECT_EQ(0U, cap->capability.size());
 
     cap = result->opt_params[2]->capabilities[0];
     EXPECT_EQ(0x02, cap->code);
-    EXPECT_EQ(0, cap->capability.size());
+    EXPECT_EQ(0U, cap->capability.size());
 
     cap = result->opt_params[3]->capabilities[0];
     EXPECT_EQ(0x41, cap->code);
@@ -372,9 +372,9 @@ TEST_F(BgpProtoTest, Open4) {
             static_cast<const BgpProto::OpenMessage *>(
                     BgpProto::Decode(data, sizeof(data)));
     EXPECT_TRUE(result != NULL);
-    EXPECT_EQ(5, result->opt_params.size());
+    EXPECT_EQ(5U, result->opt_params.size());
     for (size_t i = 0; i < result->opt_params.size(); i++) {
-        EXPECT_EQ(1, result->opt_params[i]->capabilities.size());
+        EXPECT_EQ(1U, result->opt_params[i]->capabilities.size());
     }
     const BgpProto::OpenMessage::Capability *cap =
         result->opt_params[0]->capabilities[0];
@@ -384,11 +384,11 @@ TEST_F(BgpProtoTest, Open4) {
 
     cap = result->opt_params[1]->capabilities[0];
     EXPECT_EQ(0x80, cap->code);
-    EXPECT_EQ(0, cap->capability.size());
+    EXPECT_EQ(0U, cap->capability.size());
 
     cap = result->opt_params[2]->capabilities[0];
     EXPECT_EQ(0x02, cap->code);
-    EXPECT_EQ(0, cap->capability.size());
+    EXPECT_EQ(0U, cap->capability.size());
 
     cap = result->opt_params[3]->capabilities[0];
     EXPECT_EQ(0x41, cap->code);
@@ -404,7 +404,7 @@ TEST_F(BgpProtoTest, Open4) {
 
     EXPECT_EQ(gr_params.flags, 0x00);
     EXPECT_EQ(gr_params.time, 0x5a);
-    EXPECT_EQ(4, gr_params.families.size());
+    EXPECT_EQ(4U, gr_params.families.size());
 
     EXPECT_EQ(BgpAf::IPv4, gr_params.families[0].afi);
     EXPECT_EQ(BgpAf::Vpn, gr_params.families[0].safi);
@@ -457,9 +457,9 @@ TEST_F(BgpProtoTest, Open5) {
             static_cast<const BgpProto::OpenMessage *>(
                     BgpProto::Decode(data, sizeof(data)));
     EXPECT_TRUE(result != NULL);
-    EXPECT_EQ(6, result->opt_params.size());
+    EXPECT_EQ(6U, result->opt_params.size());
     for (size_t i = 0; i < result->opt_params.size(); i++) {
-        EXPECT_EQ(1, result->opt_params[i]->capabilities.size());
+        EXPECT_EQ(1U, result->opt_params[i]->capabilities.size());
     }
     const BgpProto::OpenMessage::Capability *cap =
         result->opt_params[0]->capabilities[0];
@@ -469,11 +469,11 @@ TEST_F(BgpProtoTest, Open5) {
 
     cap = result->opt_params[1]->capabilities[0];
     EXPECT_EQ(0x80, cap->code);
-    EXPECT_EQ(0, cap->capability.size());
+    EXPECT_EQ(0U, cap->capability.size());
 
     cap = result->opt_params[2]->capabilities[0];
     EXPECT_EQ(0x02, cap->code);
-    EXPECT_EQ(0, cap->capability.size());
+    EXPECT_EQ(0U, cap->capability.size());
 
     cap = result->opt_params[3]->capabilities[0];
     EXPECT_EQ(0x41, cap->code);
@@ -489,7 +489,7 @@ TEST_F(BgpProtoTest, Open5) {
 
     EXPECT_EQ(gr_params.flags, 0x00);
     EXPECT_EQ(gr_params.time, 0x5a);
-    EXPECT_EQ(4, gr_params.families.size());
+    EXPECT_EQ(4U, gr_params.families.size());
 
     EXPECT_EQ(BgpAf::IPv4, gr_params.families[0].afi);
     EXPECT_EQ(BgpAf::Vpn, gr_params.families[0].safi);
@@ -515,27 +515,27 @@ TEST_F(BgpProtoTest, Open5) {
     BgpProto::OpenMessage::Capability::LLGR::Decode(&llgr_params,
             result->opt_params[5]->capabilities);
 
-    EXPECT_EQ(4, llgr_params.families.size());
+    EXPECT_EQ(4U, llgr_params.families.size());
 
     EXPECT_EQ(BgpAf::IPv4, llgr_params.families[0].afi);
     EXPECT_EQ(BgpAf::Vpn, llgr_params.families[0].safi);
     EXPECT_EQ(0x80, llgr_params.families[0].flags);
-    EXPECT_EQ(0x0000FF, llgr_params.families[0].time);
+    EXPECT_EQ(0x0000FFu, llgr_params.families[0].time);
 
     EXPECT_EQ(BgpAf::IPv4, llgr_params.families[1].afi);
     EXPECT_EQ(BgpAf::RTarget, llgr_params.families[1].safi);
     EXPECT_EQ(0x80, llgr_params.families[1].flags);
-    EXPECT_EQ(0x00FF00, llgr_params.families[1].time);
+    EXPECT_EQ(0x00FF00U, llgr_params.families[1].time);
 
     EXPECT_EQ(BgpAf::L2Vpn, llgr_params.families[2].afi);
     EXPECT_EQ(BgpAf::EVpn, llgr_params.families[2].safi);
     EXPECT_EQ(0x80, llgr_params.families[2].flags);
-    EXPECT_EQ(0xFF0000, llgr_params.families[2].time);
+    EXPECT_EQ(0xFF0000U, llgr_params.families[2].time);
 
     EXPECT_EQ(BgpAf::IPv4, llgr_params.families[3].afi);
     EXPECT_EQ(BgpAf::ErmVpn, llgr_params.families[3].safi);
     EXPECT_EQ(0x80, llgr_params.families[3].flags);
-    EXPECT_EQ(0xFFFFFF, llgr_params.families[3].time);
+    EXPECT_EQ(0xFFFFFFu, llgr_params.families[3].time);
 
     delete result;
 }
@@ -709,11 +709,11 @@ TEST_F(BgpProtoTest, ClusterList) {
         BgpFindAttribute(update.get(), BgpAttribute::ClusterList));
     ASSERT_TRUE(clist_spec != NULL);
     EXPECT_EQ(0x0a0b0c0dul, clist_spec->cluster_list[0]);
-    EXPECT_EQ(0xcafed0d0ul, clist_spec->cluster_list[1]);
+    EXPECT_EQ(0xcafed0d0Ul, clist_spec->cluster_list[1]);
 
     uint8_t buffer[4096];
     int res = BgpProto::Encode(update.get(), buffer, sizeof(buffer), NULL, false);
-    EXPECT_EQ(sizeof(data), res);
+    EXPECT_EQ(sizeof(data), static_cast<size_t>(res));
     EXPECT_EQ(0, memcmp(buffer, data, sizeof(data)));
 }
 
@@ -828,7 +828,7 @@ TEST_F(BgpProtoTest, UpdateError) {
     EXPECT_TRUE(result != NULL);
     BgpAttrUnknown *attr = static_cast<BgpAttrUnknown *>(result->path_attributes[0]);
     EXPECT_EQ(20, attr->code);
-    EXPECT_EQ(1, attr->value.size());
+    EXPECT_EQ(1U, attr->value.size());
     delete result;
 }
 
@@ -1154,7 +1154,7 @@ TEST_F(EncodeLengthTest, AsPath) {
         }
         uint encodeLen = spec->EncodeLength();
         int attrlen = EncodeAndReadAttributeLength(spec);
-        EXPECT_EQ(attrlen, encodeLen);
+        EXPECT_EQ(static_cast<size_t>(attrlen), encodeLen);
     }
 }
 
@@ -1193,7 +1193,7 @@ TEST_F(EncodeLengthTest, BgpMpNlri) {
 
         uint encodeLen = mp_nlri->EncodeLength();
         int attrlen = EncodeAndReadAttributeLength(mp_nlri);
-        EXPECT_EQ(attrlen, encodeLen);
+        EXPECT_EQ(static_cast<size_t>(attrlen), encodeLen);
     }
 }
 
@@ -1206,7 +1206,7 @@ TEST_F(EncodeLengthTest, ExtendedCommunity) {
         }
         uint encodeLen = spec->EncodeLength();
         int attrlen = EncodeAndReadAttributeLength(spec);
-        EXPECT_EQ(attrlen, encodeLen);
+        EXPECT_EQ(static_cast<size_t>(attrlen), encodeLen);
     }
 
     const int count = 32;
@@ -1217,7 +1217,7 @@ TEST_F(EncodeLengthTest, ExtendedCommunity) {
         }
         uint encodeLen = spec->EncodeLength();
         int attrlen = EncodeAndReadAttributeLength(spec);
-        EXPECT_EQ(attrlen, encodeLen);
+        EXPECT_EQ(static_cast<size_t>(attrlen), encodeLen);
     }
 }
 
@@ -1235,7 +1235,7 @@ TEST_F(EncodeLengthTest, EdgeDiscovery) {
         }
         uint encodeLen = spec->EncodeLength();
         int attrlen = EncodeAndReadAttributeLength(spec);
-        EXPECT_EQ(attrlen, encodeLen);
+        EXPECT_EQ(static_cast<size_t>(attrlen), encodeLen);
     }
 }
 
@@ -1258,7 +1258,7 @@ TEST_F(EncodeLengthTest, EdgeForwarding) {
         }
         uint encodeLen = spec->EncodeLength();
         int attrlen = EncodeAndReadAttributeLength(spec);
-        EXPECT_EQ(attrlen, encodeLen);
+        EXPECT_EQ(static_cast<size_t>(attrlen), encodeLen);
     }
 }
 

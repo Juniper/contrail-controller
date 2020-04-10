@@ -179,7 +179,7 @@ protected:
         XmppStateMachineTest::set_notify_fn(NULL);
         xs_x_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+        TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
         cm_x_.reset();
         task_util::WaitForIdle();
 
@@ -910,9 +910,9 @@ TEST_P(BgpXmppBasicParamTest, ClientConnectionBackoff) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->get_sm_keepalive_count() >= 3);
     TASK_UTIL_EXPECT_TRUE(agent_c_->get_sm_keepalive_count() >= 3);
 
-    TASK_UTIL_EXPECT_EQ(0, agent_a_->get_sm_connect_attempts());
-    TASK_UTIL_EXPECT_EQ(0, agent_b_->get_sm_connect_attempts());
-    TASK_UTIL_EXPECT_EQ(0, agent_c_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0U, agent_a_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0U, agent_b_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0U, agent_c_->get_sm_connect_attempts());
 
     DestroyAgents();
     XmppStateMachineTest::set_hold_time_msecs(0);
@@ -935,11 +935,11 @@ TEST_P(BgpXmppBasicParamTest, ShutdownServer1) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->get_connect_error() >= 3);
 
     // Check that the queue does not build up and agents don't come up.
-    TASK_UTIL_EXPECT_EQ(0, GetConnectionQueueSize(xs_x_));
+    TASK_UTIL_EXPECT_EQ(0U, GetConnectionQueueSize(xs_x_));
     TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
     TASK_UTIL_EXPECT_FALSE(xs_x_->deleter()->HasDependents());
 
     DestroyAgents();
@@ -957,11 +957,11 @@ TEST_P(BgpXmppBasicParamTest, ShutdownServer2) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->get_connect_error() >= 3);
 
     // Check that the queue does not build up and agents don't come up.
-    TASK_UTIL_EXPECT_EQ(0, GetConnectionQueueSize(xs_x_));
+    TASK_UTIL_EXPECT_EQ(0U, GetConnectionQueueSize(xs_x_));
     TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
     TASK_UTIL_EXPECT_FALSE(xs_x_->deleter()->HasDependents());
 
     DestroyAgents();
@@ -982,11 +982,11 @@ TEST_P(BgpXmppBasicParamTest, ShutdownServer3) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->get_connect_error() >= 3);
 
     // Check that the queue does not build up and agents don't come up.
-    TASK_UTIL_EXPECT_EQ(0, GetConnectionQueueSize(xs_x_));
+    TASK_UTIL_EXPECT_EQ(0U, GetConnectionQueueSize(xs_x_));
     TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
     TASK_UTIL_EXPECT_FALSE(xs_x_->deleter()->HasDependents());
 
     DestroyAgents();
@@ -1008,11 +1008,11 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionQueue1) {
     SetConnectionQueueDisable(xs_x_, false);
 
     // Wait for queue to get drained and all agents to come up.
-    TASK_UTIL_EXPECT_EQ(0, GetConnectionQueueSize(xs_x_));
+    TASK_UTIL_EXPECT_EQ(0U, GetConnectionQueueSize(xs_x_));
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     DestroyAgents();
 }
@@ -1045,11 +1045,11 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionQueue2) {
     SetConnectionQueueDisable(xs_x_, false);
 
     // Wait for queue to get drained and all agents to come up.
-    TASK_UTIL_EXPECT_EQ(0, GetConnectionQueueSize(xs_x_));
+    TASK_UTIL_EXPECT_EQ(0U, GetConnectionQueueSize(xs_x_));
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     DestroyAgents();
 }
@@ -1079,8 +1079,8 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionQueue3) {
     SetConnectionQueueDisable(xs_x_, false);
 
     // Verify that the queue gets drained and all connections are gone.
-    TASK_UTIL_EXPECT_EQ(0, GetConnectionQueueSize(xs_x_));
-    TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetConnectionQueueSize(xs_x_));
+    TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
     TASK_UTIL_EXPECT_FALSE(xs_x_->deleter()->HasDependents());
 
     DestroyAgents();
@@ -1093,7 +1093,7 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionDestroy) {
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     // Disable destroy of xmpp managed objects.
     SetLifetimeManagerDestroyDisable(true);
@@ -1114,7 +1114,7 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionDestroy) {
     SetLifetimeManagerDestroyDisable(false);
 
     // Verify that there are no connections waiting to be destroyed.
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
@@ -1129,7 +1129,7 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionShutdown) {
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     // Disable xmpp lifetime manager queue processing.
     SetLifetimeManagerQueueDisable(true);
@@ -1151,7 +1151,7 @@ TEST_P(BgpXmppBasicParamTest, DisableConnectionShutdown) {
     SetLifetimeManagerQueueDisable(false);
 
     // Verify that there are no connections waiting to be shutdown.
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
@@ -1178,7 +1178,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections1) {
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
     uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
@@ -1195,7 +1195,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections1) {
         GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b);
     TASK_UTIL_EXPECT_TRUE(
         GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c);
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     vector<string> result = {"agent-a", "agent-b", "agent-c"};
     VerifyShowXmppConnectionSandesh(result, true);
@@ -1204,7 +1204,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections1) {
     SetLifetimeManagerDestroyDisable(false);
 
     // Verify that server doesn't have connections.
-    TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
     VerifyShowXmppConnectionSandesh(vector<string>(), false);
 
     DestroyAgents();
@@ -1216,7 +1216,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections2) {
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
     uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
@@ -1233,7 +1233,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections2) {
         GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b);
     TASK_UTIL_EXPECT_TRUE(
         GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c);
-    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(3U, xs_x_->ConnectionCount());
 
     vector<string> result = {"agent-a", "agent-b", "agent-c"};
     VerifyShowXmppConnectionSandesh(result, true);
@@ -1242,7 +1242,7 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections2) {
     SetLifetimeManagerQueueDisable(false);
 
     // Verify that server doesn't have connections.
-    TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_EQ(0U, xs_x_->ConnectionCount());
     VerifyShowXmppConnectionSandesh(vector<string>(), false);
 
     DestroyAgents();
@@ -1402,23 +1402,23 @@ TEST_P(BgpXmppBasicParamTest, BackToBackOpen) {
     agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
             agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
-    TASK_UTIL_EXPECT_EQ(1, xmpp_state_machines_.size());
+    TASK_UTIL_EXPECT_EQ(1U, xmpp_state_machines_.size());
     agent_a_->Delete();
 
     agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
             agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
-    TASK_UTIL_EXPECT_EQ(2, xmpp_state_machines_.size());
+    TASK_UTIL_EXPECT_EQ(2U, xmpp_state_machines_.size());
     agent_a_->Delete();
 
     BOOST_FOREACH(XmppStateMachineTest *sm, xmpp_state_machines_) {
-        TASK_UTIL_EXPECT_EQ(2, sm->get_queue_length());
+        TASK_UTIL_EXPECT_EQ(2U, sm->get_queue_length());
     }
 
     agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
             agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
-    TASK_UTIL_EXPECT_EQ(3, xmpp_state_machines_.size());
+    TASK_UTIL_EXPECT_EQ(3U, xmpp_state_machines_.size());
 
     // Enable the state machine queue now.
     BOOST_FOREACH(XmppStateMachineTest *sm, xmpp_state_machines_) {

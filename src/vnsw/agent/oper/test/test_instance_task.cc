@@ -84,7 +84,7 @@ TEST_F(InstanceTaskFdTest, TestCloseTaskFds) {
     int task_open_fds = GetTaskFds();
     StopTask();
     /* The task should have only 1 opened fd (i.e fd 2) */
-    EXPECT_EQ(1U, task_open_fds);
+    EXPECT_EQ(1, task_open_fds);
 };
 
 int main(int argc, char **argv) {

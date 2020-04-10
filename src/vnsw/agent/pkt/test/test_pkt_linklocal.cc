@@ -122,7 +122,7 @@ protected:
         EXPECT_EQ(5U, agent()->interface_table()->Size());
         EXPECT_EQ(2U, PortSubscribeSize(agent_));
         EXPECT_EQ(2U, agent()->vm_table()->Size());
-        EXPECT_EQ(1, agent()->vn_table()->Size());
+        EXPECT_EQ(1U, agent()->vn_table()->Size());
         client->WaitForIdle();
 
         std::vector<std::string> fabric_ip_list;
@@ -157,10 +157,10 @@ protected:
         EXPECT_EQ(0U, agent()->acl_table()->Size());
         EXPECT_EQ(2U, agent()->vrf_table()->Size());
 
-        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
-        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
+        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0U);
+        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0U);
         FlowTable *table = flow_proto_->GetTable(0);
-        EXPECT_EQ(table->linklocal_flow_info_map().size(), 0);
+        EXPECT_EQ(table->linklocal_flow_info_map().size(), 0U);
 
         DeleteGlobalVrouterConfig();
         client->WaitForIdle();

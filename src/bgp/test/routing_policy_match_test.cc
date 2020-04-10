@@ -826,9 +826,9 @@ TEST_P(MatchCommunityParamTest, Constructor1a) {
     vector<string> communities = list_of("23:11")("43:11");
     MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(0, match.regex_strings().size());
-    EXPECT_EQ(0, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(0U, match.regex_strings().size());
+    EXPECT_EQ(0U, match.regexs().size());
 
     uint32_t value0 = CommunityType::CommunityFromString(communities[0]);
     EXPECT_TRUE(match.communities().find(value0) != match.communities().end());
@@ -843,9 +843,9 @@ TEST_P(MatchCommunityParamTest, Constructor1b) {
     vector<string> communities = list_of("23:11")("43:11")("23:11")("43:11");
     MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(0, match.regex_strings().size());
-    EXPECT_EQ(0, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(0U, match.regex_strings().size());
+    EXPECT_EQ(0U, match.regexs().size());
 
     uint32_t value0 = CommunityType::CommunityFromString(communities[0]);
     EXPECT_TRUE(match.communities().find(value0) != match.communities().end());
@@ -860,9 +860,9 @@ TEST_P(MatchCommunityParamTest, Constructor2a) {
     vector<string> communities = list_of("33:.*")("53:.*");
     MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(0, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(0U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
         communities[0]) != match.regex_strings().end());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
@@ -876,9 +876,9 @@ TEST_P(MatchCommunityParamTest, Constructor2b) {
     vector<string> communities = list_of("33:.*")("53:.*")("33:.*")("53:.*");
     MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(0, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(0U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
         communities[0]) != match.regex_strings().end());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
@@ -893,9 +893,9 @@ TEST_P(MatchCommunityParamTest, Constructor3a) {
         list_of("23:11")("33:.*")("43:11")("53:.*");
     MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
 
     uint32_t value0 = CommunityType::CommunityFromString(communities[0]);
     EXPECT_TRUE(match.communities().find(value0) != match.communities().end());
@@ -915,9 +915,9 @@ TEST_P(MatchCommunityParamTest, Constructor3b) {
         list_of("23:11")("33:.*")("43:11")("53:.*")("23:11")("33:.*");
     MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
 
     uint32_t value0 = CommunityType::CommunityFromString(communities[0]);
     EXPECT_TRUE(match.communities().find(value0) != match.communities().end());
@@ -935,7 +935,7 @@ TEST_P(MatchCommunityParamTest, Constructor3b) {
 TEST_P(MatchCommunityParamTest, ToString1) {
     vector<string> communities = list_of("23:11")("43:11");
     MatchCommunity match(communities, GetParam());
-    EXPECT_EQ(2, match.communities().size());
+    EXPECT_EQ(2U, match.communities().size());
     if (GetParam()) {
         EXPECT_EQ("community (all) [ 23:11,43:11 ]", match.ToString());
     } else {
@@ -949,8 +949,8 @@ TEST_P(MatchCommunityParamTest, ToString1) {
 TEST_P(MatchCommunityParamTest, ToString2) {
     vector<string> communities = list_of("33:.*")("53:.*");
     MatchCommunity match(communities, GetParam());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     if (GetParam()) {
         EXPECT_EQ("community (all) [ 33:.*,53:.* ]", match.ToString());
     } else {
@@ -964,9 +964,9 @@ TEST_P(MatchCommunityParamTest, ToString2) {
 TEST_P(MatchCommunityParamTest, ToString3) {
     vector<string> communities = list_of("33:.*")("43:11")("53:.*");
     MatchCommunity match(communities, GetParam());
-    EXPECT_EQ(1, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(1U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     if (GetParam()) {
         EXPECT_EQ("community (all) [ 43:11,33:.*,53:.* ]", match.ToString());
     } else {
@@ -980,8 +980,8 @@ TEST_P(MatchCommunityParamTest, ToString3) {
 TEST_P(MatchCommunityParamTest, InvalidRegex) {
     vector<string> communities = list_of("33:[.*")("53:.*]");
     MatchCommunity match(communities, GetParam());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     if (GetParam()) {
         EXPECT_NE("community (all) [ 33:.*,53:.* ]", match.ToString());
     } else {
@@ -1132,9 +1132,9 @@ TEST_P(MatchExtCommunityParamTest, Constructor1a) {
     vector<string> communities = list_of("target:23:11")("target:43:11");
     MatchExtCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(0, match.regex_strings().size());
-    EXPECT_EQ(0, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(0U, match.regex_strings().size());
+    EXPECT_EQ(0U, match.regexs().size());
 
     RouteTarget val0 = RouteTarget::FromString(communities[0]);
     EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
@@ -1150,9 +1150,9 @@ TEST_P(MatchExtCommunityParamTest, Constructor1b) {
         list_of("target:23:11")("target:43:11")("target:23:11")("target:43:11");
     MatchExtCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(0, match.regex_strings().size());
-    EXPECT_EQ(0, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(0U, match.regex_strings().size());
+    EXPECT_EQ(0U, match.regexs().size());
 
     RouteTarget val0 = RouteTarget::FromString(communities[0]);
     EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
@@ -1167,9 +1167,9 @@ TEST_P(MatchExtCommunityParamTest, Constructor2a) {
     vector<string> communities = list_of("target:33:.*")("target:53:.*");
     MatchExtCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(0, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(0U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
         communities[0]) != match.regex_strings().end());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
@@ -1184,9 +1184,9 @@ TEST_P(MatchExtCommunityParamTest, Constructor2b) {
         list_of("target:33:.*")("target:53:.*")("target:33:.*")("target:53:.*");
     MatchExtCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(0, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(0U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
         communities[0]) != match.regex_strings().end());
     EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
@@ -1201,9 +1201,9 @@ TEST_P(MatchExtCommunityParamTest, Constructor3a) {
         list_of("target:23:11")("target:33:.*")("target:43:11")("target:53:.*");
     MatchExtCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
 
     RouteTarget val0 = RouteTarget::FromString(communities[0]);
     EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
@@ -1224,9 +1224,9 @@ TEST_P(MatchExtCommunityParamTest, Constructor3b) {
                                         ("target:33:.*");
     MatchExtCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
-    EXPECT_EQ(2, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
 
     RouteTarget val0 = RouteTarget::FromString(communities[0]);
     EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
@@ -1244,7 +1244,7 @@ TEST_P(MatchExtCommunityParamTest, Constructor3b) {
 TEST_P(MatchExtCommunityParamTest, ToString1) {
     vector<string> communities = list_of("target:23:11")("target:43:11");
     MatchExtCommunity match(communities, GetParam());
-    EXPECT_EQ(2, match.communities().size());
+    EXPECT_EQ(2U, match.communities().size());
     if (GetParam()) {
         EXPECT_EQ("Extcommunity (all) [ target:23:11,target:43:11 ]",
                   match.ToString());
@@ -1260,8 +1260,8 @@ TEST_P(MatchExtCommunityParamTest, ToString1) {
 TEST_P(MatchExtCommunityParamTest, ToString2) {
     vector<string> communities = list_of("target:33:.*")("target:53:.*");
     MatchExtCommunity match(communities, GetParam());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     if (GetParam()) {
         EXPECT_EQ("Extcommunity (all) [ target:33:.*,target:53:.* ]",
                   match.ToString());
@@ -1278,9 +1278,9 @@ TEST_P(MatchExtCommunityParamTest, ToString3) {
     vector<string> communities = list_of("target:33:.*")("target:43:11")
                                         ("target:53:.*");
     MatchExtCommunity match(communities, GetParam());
-    EXPECT_EQ(1, match.communities().size());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(1U, match.communities().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     if (GetParam()) {
         EXPECT_EQ("Extcommunity (all) [ target:43:11,"
                   "target:33:.*,target:53:.* ]", match.ToString());
@@ -1296,8 +1296,8 @@ TEST_P(MatchExtCommunityParamTest, ToString3) {
 TEST_P(MatchExtCommunityParamTest, InvalidRegex) {
     vector<string> communities = list_of("target:33:[.*")("target:53:.*]");
     MatchExtCommunity match(communities, GetParam());
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_EQ(2U, match.regex_strings().size());
+    EXPECT_EQ(2U, match.regexs().size());
     if (GetParam()) {
         EXPECT_NE("Extcommunity (all) [ target:33:.*,"
                   "target:53:.* ]", match.ToString());
@@ -1458,7 +1458,7 @@ protected:
 TEST_F(MatchProtocolTest, Constructor1) {
     vector<string> protocols = list_of("bgp")("xmpp")("static");
     MatchProtocol match(protocols);
-    EXPECT_EQ(3, match.protocols().size());
+    EXPECT_EQ(3U, match.protocols().size());
 
     EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
         MatchProtocol::BGP) != match.protocols().end());
@@ -1475,7 +1475,7 @@ TEST_F(MatchProtocolTest, Constructor1) {
 TEST_F(MatchProtocolTest, Constructor2) {
     vector<string> protocols = list_of("service-chain")("aggregate")("static");
     MatchProtocol match(protocols);
-    EXPECT_EQ(3, match.protocols().size());
+    EXPECT_EQ(3U, match.protocols().size());
 
     EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
         MatchProtocol::BGP) == match.protocols().end());
@@ -1492,7 +1492,7 @@ TEST_F(MatchProtocolTest, Constructor2) {
 TEST_F(MatchProtocolTest, Constructor3) {
     vector<string> protocols = list_of("bgp")("xmpp")("static")("xyz");
     MatchProtocol match(protocols);
-    EXPECT_EQ(3, match.protocols().size());
+    EXPECT_EQ(3U, match.protocols().size());
 
     EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
         MatchProtocol::BGP) != match.protocols().end());
@@ -1510,7 +1510,7 @@ TEST_F(MatchProtocolTest, Constructor4) {
     vector<string> protocols = list_of("interface")("interface-static")
                                        ("service-interface")("bgpaas");
     MatchProtocol match(protocols);
-    EXPECT_EQ(4, match.protocols().size());
+    EXPECT_EQ(4U, match.protocols().size());
 
     EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
         MatchProtocol::Interface) != match.protocols().end());

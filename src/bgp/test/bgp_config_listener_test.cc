@@ -133,8 +133,8 @@ protected:
         ChangeList change_list;
         listener_->BgpConfigListener::GetChangeList(&change_list);
         change_list.swap(*change_list_);
-        TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-        TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+        TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+        TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
     }
 
     void ResumeChangeListPropagation() {
@@ -208,17 +208,17 @@ TEST_F(BgpConfigListenerTest, Basic) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_NE(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_NE(0, GetEdgeListCount());
-    TASK_UTIL_EXPECT_NE(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_NE(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_NE(0U, GetEdgeListCount());
+    TASK_UTIL_EXPECT_NE(0U, GetChangeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
-    TASK_UTIL_EXPECT_NE(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
+    TASK_UTIL_EXPECT_NE(0U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -229,21 +229,21 @@ TEST_F(BgpConfigListenerTest, Basic) {
 TEST_F(BgpConfigListenerTest, IrrelevantNodeEvent) {
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "route-target", "target:1:1");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     ifmap_test_util::IFMapNodeNotify(&db_, "route-target", "target:1:1");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -253,7 +253,7 @@ TEST_F(BgpConfigListenerTest, IrrelevantNodeEvent) {
 TEST_F(BgpConfigListenerTest, DuplicateNodeEvent) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string id_name = string(BgpConfigManager::kMasterInstance) + ":local";
@@ -262,17 +262,17 @@ TEST_F(BgpConfigListenerTest, DuplicateNodeEvent) {
     ifmap_test_util::IFMapNodeNotify(&db_, "bgp-router", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(5, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("bgp-router"));
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(5U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("bgp-router"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -283,7 +283,7 @@ TEST_F(BgpConfigListenerTest, DuplicateNodeEvent) {
 TEST_F(BgpConfigListenerTest, DeletedNodeEvent1) {
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-network", "red");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-network", "red");
@@ -292,15 +292,15 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent1) {
         ifmap_test_util::IFMapNodeLookup(&db_, "virtual-network", "red");
     TASK_UTIL_EXPECT_TRUE(node == NULL);
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -311,7 +311,7 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent2) {
     string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_6a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_6b.xml");
@@ -321,15 +321,15 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent2) {
         ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "red");
     TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -340,7 +340,7 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent2) {
 TEST_F(BgpConfigListenerTest, DeletedNodeEvent3) {
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-network", "red");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     ifmap_test_util::IFMapNodeNotify(&db_, "virtual-network", "red");
@@ -351,15 +351,15 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent3) {
         ifmap_test_util::IFMapNodeLookup(&db_, "virtual-network", "red");
     TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
 
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -370,22 +370,22 @@ TEST_F(BgpConfigListenerTest, UninterestingLinkEvent) {
     ifmap_test_util::IFMapMsgLink(&db_, "domain", "default-domain",
         "project", "default-project", "domain-project");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "domain-project",
         "domain", "default-domain", "project", "default-project");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -396,7 +396,7 @@ TEST_F(BgpConfigListenerTest, DuplicateLinkEvent) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_12.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network-routing-instance link 3 times.
     PauseChangeListPropagation();
@@ -408,16 +408,16 @@ TEST_F(BgpConfigListenerTest, DuplicateLinkEvent) {
 
     // Edge list should have 3 entries. Note that virtual-network doesn't have
     // a RectionMap entry for virtual-network-routing-instance.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(3, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(3U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -434,7 +434,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
     ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", "red-vn",
         "routing-instance", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_13b.xml");
@@ -447,17 +447,17 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
         ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "red");
     TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -477,16 +477,16 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
     ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", "red-vn",
         "routing-instance", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "virtual-network-routing-instance",
         "virtual-network", "red-vn", "routing-instance", "red");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_13b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
@@ -498,17 +498,17 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
         ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "red");
     TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -520,7 +520,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringChange1) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify bgp-peering node between local and remote1.
     PauseChangeListPropagation();
@@ -532,18 +532,18 @@ TEST_F(BgpConfigListenerTest, BgpPeeringChange1) {
 
     // The bgp-peering should be on the change list but not on the node list
     // since there's no entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Nothing else should get added since the node and edge lists are empty.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -555,7 +555,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringChange2) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify bgp-peering node between remote2 and remote3.
     PauseChangeListPropagation();
@@ -567,18 +567,18 @@ TEST_F(BgpConfigListenerTest, BgpPeeringChange2) {
 
     // The bgp-peering should be on the change list but not on the node list
     // since there's no entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Nothing else should get added since the node and edge lists are empty.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -591,7 +591,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange1) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify bgp-peering link between local and remote1.
     PauseChangeListPropagation();
@@ -606,19 +606,19 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange1) {
     // This will be the bgp-peering edge from the bgp-peering object.
     // The bgp-peering edge from the bgp-router is not interesting since the
     // reaction map for bgp-router doesn't have an entry for bgp-peering.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The bgp-peering should be on the change list because the propagate
     // list contains self.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -631,7 +631,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange2) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify bgp-peering link between remote1 and remote2.
     PauseChangeListPropagation();
@@ -646,19 +646,19 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange2) {
     // This will be the bgp-peering edge from the bgp-peering object.
     // The bgp-peering edge from the bgp-router is not interesting since the
     // reaction map for bgp-router doesn't have an entry for bgp-peering.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The bgp-peering should be on the change list because the propagate
     // list contains self.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -678,7 +678,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterChange1) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify bgp-router local.
     PauseChangeListPropagation();
@@ -687,20 +687,20 @@ TEST_F(BgpConfigListenerTest, BgpRouterChange1) {
 
     // The bgp-router should be on the change list and on the node list
     // since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The 3 bgp-peerings should be on the change list because the propagate
     // list for bgp-router contains bgp-peering.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-router"));
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("bgp-router"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -712,7 +712,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterChange2) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify bgp-router remote1.
     PauseChangeListPropagation();
@@ -721,20 +721,20 @@ TEST_F(BgpConfigListenerTest, BgpRouterChange2) {
 
     // The bgp-router should be on the change list and on the node list
     // since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The 3 bgp-peerings should be on the change list because the propagate
     // list for bgp-router contains bgp-peering.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-router"));
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("bgp-router"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -750,7 +750,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterInstanceLinkChange) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", instance,
         "bgp-router", router, "instance-bgp-router");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify instance-bgp-router link between bgp-router
     // and routing-instance.
@@ -764,19 +764,19 @@ TEST_F(BgpConfigListenerTest, BgpRouterInstanceLinkChange) {
     // The instance-bgp-router edge from the routing-instance is not
     // interesting since the reaction map for routing-instance doesn't
     // have an entry for instance-bgp-router.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The bgp-peerings are on the change list since the propagate list for
     // instance-bgp-router in bgp-router contains bgp-peering.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -789,7 +789,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange1) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify routing-instance master.
     PauseChangeListPropagation();
@@ -798,21 +798,21 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange1) {
 
     // The routing-instance should be on the change list and on the node list
     // since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The bgp-peerings are on the change list since the propagate list for
     // self in routing-instance contains instance-bgp-router and propagate
     // list for instance-bgp-router in bgp-router contains bgp-peering.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(7, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(6, GetChangeListCount("bgp-peering"));
+    TASK_UTIL_EXPECT_EQ(7U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(6U, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -824,13 +824,13 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange2) {
     // Add connections between (red, blue) and (red, green).
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "green", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify routing-instance red.
     PauseChangeListPropagation();
@@ -839,19 +839,19 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange2) {
 
     // The routing-instance should be on the change list and on the node list
     // since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Nothing else should get added since the routing-instance doesn't have
     // any bgp-routers and bgp-peerings.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -871,7 +871,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange1) {
         "routing-instance", "green", "connection");
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "route-target", "target:1:100");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, add link between routing-instance red and the
     // route-target target:1:100.
@@ -894,9 +894,9 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange1) {
     // as the event policy doesn't have an entry for instance-target.
     // The instance-target edge from the route-target is not interesting as
     // the event policy doesn't have an entry for route-target.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // All three routing-instances will be on the change list because the
@@ -904,11 +904,11 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange1) {
     // connection. The red instance gets added because of self and the other
     // instances get added because of further propagation via the connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -926,7 +926,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange2) {
         "routing-instance", "blue", "connection");
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "route-target", "target:1:100");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, add link between routing-instance red and the
     // route-target target:1:100.
@@ -949,9 +949,9 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange2) {
     // as the event policy doesn't have an entry for instance-target.
     // The instance-target edge from the route-target is not interesting as
     // the event policy doesn't have an entry for route-target.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The red and blue routing-instances will be on the change list since the
@@ -960,11 +960,11 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange2) {
     // instance gets added because of further propagation via the connection.
     // The green instance doesn't get added to the change list.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -988,7 +988,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange3) {
         "routing-instance", "green", "connection");
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "route-target", "target:1:100");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, add link between routing-instance red and the
     // route-target target:1:100.
@@ -1011,9 +1011,9 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange3) {
     // as the event policy doesn't have an entry for instance-target.
     // The instance-target edge from the route-target is not interesting as
     // the event policy doesn't have an entry for route-target.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Only the red and blue routing-instances will be on the change list as
@@ -1025,11 +1025,11 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange3) {
     // routing-instance propagate list for connection only contains self, but
     // not connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1053,7 +1053,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange1) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify routing-instance connection (red, blue).
     PauseChangeListPropagation();
@@ -1061,9 +1061,9 @@ TEST_F(BgpConfigListenerTest, ConnectionChange1) {
     task_util::WaitForIdle();
 
     // Connection node should be on the change list and node list.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Connection node should be on the change list.
@@ -1071,12 +1071,12 @@ TEST_F(BgpConfigListenerTest, ConnectionChange1) {
     // the propagate list for connection in the routing-instance contains self.
     // The red routing-instance gets added to the change list twice.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("connection"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1094,7 +1094,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange2) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "green", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify routing-instance connection (red, blue).
     PauseChangeListPropagation();
@@ -1102,9 +1102,9 @@ TEST_F(BgpConfigListenerTest, ConnectionChange2) {
     task_util::WaitForIdle();
 
     // Connection node should be on the change list and node list.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Connection node should be on the change list.
@@ -1115,12 +1115,12 @@ TEST_F(BgpConfigListenerTest, ConnectionChange2) {
     // The green instance shouldn't be on the change list since the propagate
     // list for connection in the routing-instance doesn't contain connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("connection"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1143,7 +1143,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange3) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "blue",
         "routing-instance", "green", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify routing-instance connection (red, blue).
     PauseChangeListPropagation();
@@ -1151,9 +1151,9 @@ TEST_F(BgpConfigListenerTest, ConnectionChange3) {
     task_util::WaitForIdle();
 
     // Connection node should be on the change list and node list.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Connection node should be on the change list.
@@ -1165,12 +1165,12 @@ TEST_F(BgpConfigListenerTest, ConnectionChange3) {
     // routing-instance propagate list for connection only contains self, but
     // not connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("connection"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1186,7 +1186,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange4) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify connection between red and attr(blue, red).
     PauseChangeListPropagation();
@@ -1195,19 +1195,19 @@ TEST_F(BgpConfigListenerTest, ConnectionChange4) {
     task_util::WaitForIdle();
 
     // Both edges between midnode and routing-instance should be on edge list.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The red and blue routing-instances should be on the change list since
     // the propagate list for connection in the routing-instance contains self.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1225,7 +1225,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange5) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "green", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify connection between red and attr(blue, red).
     PauseChangeListPropagation();
@@ -1234,9 +1234,9 @@ TEST_F(BgpConfigListenerTest, ConnectionChange5) {
     task_util::WaitForIdle();
 
     // Both edges between midnode and routing-instance should be on edge list.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The red and blue routing-instances should be on the change list since
@@ -1245,11 +1245,11 @@ TEST_F(BgpConfigListenerTest, ConnectionChange5) {
     // The green instance shouldn't be on the change list since the propagate
     // list for connection in the routing-instance doesn't contain connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1272,7 +1272,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange6) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "blue",
         "routing-instance", "green", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Both edges between midnode and routing-instance should be on edge list.
     PauseChangeListPropagation();
@@ -1281,9 +1281,9 @@ TEST_F(BgpConfigListenerTest, ConnectionChange6) {
     task_util::WaitForIdle();
 
     // Both edges between midnode and routing-instance should be on edge list.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The red and blue routing-instances should be on the change list since
@@ -1293,11 +1293,11 @@ TEST_F(BgpConfigListenerTest, ConnectionChange6) {
     // routing-instance propagate list for connection only contains self, but
     // not connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1314,7 +1314,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange1) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network-routing-instance link.
     PauseChangeListPropagation();
@@ -1327,19 +1327,19 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange1) {
     // The virtual-network-routing-instance edge from the virtual-network is
     // not interesting since the reaction map for virtual-network doesn't have
     // an entry for virtual-network-routing-instance.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The routing-instance is on the change list since the propagate list for
     // virtual-network-routing-instance in routing-instance contains self.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1361,7 +1361,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange2) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red3",
         "virtual-network", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network-routing-instance link between
     // red and red1.
@@ -1375,20 +1375,20 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange2) {
     // The virtual-network-routing-instance edge from the virtual-network is
     // not interesting since the reaction map for virtual-network doesn't have
     // an entry for virtual-network-routing-instance.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The routing-instance red is on the change list since the propagate list
     // for virtual-network-routing-instance in routing-instance contains self.
     // The other instances are not on the change list.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1415,7 +1415,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange3) {
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "routing-instance", "blue1", "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network-routing-instance link between
     // red and red1.
@@ -1429,9 +1429,9 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange3) {
     // The virtual-network-routing-instance edge from the virtual-network is
     // not interesting since the reaction map for virtual-network doesn't have
     // an entry for virtual-network-routing-instance.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The routing-instance red1 is on the change list since the propagate list
@@ -1441,11 +1441,11 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange3) {
     // routing-instance the propagate list for virtual-network-routing-instance
     // only contains self, but not connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1459,14 +1459,14 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange1) {
     // and routing-instances red1, red2, red3.
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red2",
         "virtual-network", "red", "virtual-network-routing-instance");
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red3",
         "virtual-network", "red", "virtual-network-routing-instance");
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network red.
     PauseChangeListPropagation();
@@ -1476,21 +1476,21 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange1) {
 
     // The virtual-network should be on the change list and on the node list
     // since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The 3 routing-instances get added to the change list because propagate
     // list for self in virtual-network has virtual-network-routing-instance
     // and propagate list for virtual-network-routing-instance contains self.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("virtual-network"));
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("virtual-network"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1506,7 +1506,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
     // and routing-instances blue1, blue2.
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_3.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red2",
@@ -1515,7 +1515,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
         "virtual-network", "blue", "virtual-network-routing-instance");
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "blue2",
         "virtual-network", "blue", "virtual-network-routing-instance");
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network red.
     PauseChangeListPropagation();
@@ -1524,9 +1524,9 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
 
     // The virtual-network red should be on the change list and on the node
     // list since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The routing-instances red1, red2 get added to change list as propagate
@@ -1534,12 +1534,12 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
     // and propagate list for virtual-network-routing-instance contains self.
     // The routing-instances blue1 and blue2 are not added to change list.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("virtual-network"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("virtual-network"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify virtual-network blue.
     PauseChangeListPropagation();
@@ -1548,9 +1548,9 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
 
     // The virtual-network blue should be on the change list and on the node
     // list since there's an entry for self in the reaction map.
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // The routing-instances blue1, blue2 get added to change list as propagate
@@ -1558,12 +1558,12 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
     // and propagate list for virtual-network-routing-instance contains self.
     // The routing-instances red1 and red2 are not added to change list.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("virtual-network"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("virtual-network"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1578,7 +1578,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
     // virtual-network red.
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red2",
@@ -1588,7 +1588,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
     ifmap_test_util::IFMapMsgLink(&db_, "project", "admin",
         "virtual-network", "red", "project-virtual-network");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // Pause propagation, notify project-virtual-network link.
     PauseChangeListPropagation();
@@ -1602,17 +1602,17 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
     // as reaction map for virtual-network has no entry project-virtual-network.
     // The project-virtual-network edge from the project is not interesting as
     // the event policy doesn't have an entry for project.
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     // Perform propagation and verify change list.
     // Nothing should get added since the node and edge lists are empty.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 }
 
 //
@@ -1622,7 +1622,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_0) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_11.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string id_name = "basic_0";
@@ -1630,19 +1630,20 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_0) {
     task_util::WaitForIdle();
 
     // Routing policy is added to change list
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-policy"));
     // routing-instance is added to change list
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1656,25 +1657,26 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_0) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_1) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_11.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string id_name = "test";
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1689,25 +1691,26 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_1) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_2) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     content = ReadFile("controller/src/bgp/testdata/config_listener_test_9a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     boost::replace_all(content, "<config>", "<delete>");
@@ -1723,7 +1726,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_2) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_10.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on routing-policy which is linked to routing instance
@@ -1731,18 +1734,19 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1759,7 +1763,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
@@ -1767,18 +1771,20 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
         "routing-policy-routing-instance", id_name, "routing-policy", "basic_0");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2U,
+                        GetEdgeListCount("routing-policy-routing-instance"));
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1795,7 +1801,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
@@ -1803,18 +1809,20 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
         "routing-policy-routing-instance", id_name, "routing-instance", "test");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2U,
+                        GetEdgeListCount("routing-policy-routing-instance"));
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1830,7 +1838,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
@@ -1838,18 +1846,19 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
                                      id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1865,7 +1874,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_7) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on routing-policy which is linked to routing instance
@@ -1873,18 +1882,19 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_7) {
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1900,7 +1910,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_7) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on routing-policy which is linked to routing instance
@@ -1908,18 +1918,19 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1939,7 +1950,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_14.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on routing-policy which is linked to two routing instances
@@ -1947,18 +1958,19 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on other routing-policy which is linked to
@@ -1967,18 +1979,19 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
+    TASK_UTIL_EXPECT_EQ(4U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0U,
+                        GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1993,7 +2006,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
 TEST_F(BgpConfigListenerTest, RouteAggregate_0) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on route-aggregate which is linked routing instance
@@ -2001,17 +2014,17 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_0) {
     ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -2026,7 +2039,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_0) {
 TEST_F(BgpConfigListenerTest, RouteAggregate_1) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // unlink routing instance and route aggregate
@@ -2034,17 +2047,17 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_1) {
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -2060,31 +2073,31 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_2) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // link routing instance and route aggregate
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -2100,31 +2113,31 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_3) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on route-aggregate which is linked routing instance
     string id_name = "vn_subnet";
     ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -2141,7 +2154,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_4) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on one of the route-aggregate linked to routing instance
@@ -2149,17 +2162,17 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_4) {
     ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -2176,7 +2189,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_5) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // Trigger change on one of the route-aggregate linked to routing instance
@@ -2184,17 +2197,17 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_5) {
     ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(2U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -2211,7 +2224,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_6) {
     string content = ReadFile("controller/src/bgp/testdata/route_aggregate_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     PauseChangeListPropagation();
     // unlink routing instance and route aggregate
@@ -2219,17 +2232,17 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_6) {
         "route-aggregate", "vn_subnet_0", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1U, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("route-aggregate"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1U, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0U, GetChangeListCount());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");

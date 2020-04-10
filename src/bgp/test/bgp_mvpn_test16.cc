@@ -29,7 +29,7 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_6) {
         for (size_t i = 1; i <= instances_set_count_; i++) {
             // 1 local + 1 remote(red1)
             TASK_UTIL_EXPECT_EQ(groups_count_ + 1, red_[i-1]->Size());
-            TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size()); // 1 local
+            TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());  // 1 local
         }
     }
     for (size_t i = 1; i <= instances_set_count_; i++) {
@@ -44,9 +44,9 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_6) {
     // 4 local-ad
     TASK_UTIL_EXPECT_EQ(4*instances_set_count_ + 1, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++) {
-        TASK_UTIL_EXPECT_EQ(1, red_[i-1]->Size()); // 1 local+ 1 join
-        TASK_UTIL_EXPECT_EQ(1, blue_[i-1]->Size()); // 1 local
+        TASK_UTIL_EXPECT_EQ(1U, red_[i - 1]->Size());   // 1 local+ 1 join
+        TASK_UTIL_EXPECT_EQ(1U, blue_[i - 1]->Size());  // 1 local
         // 1 local + 1 remote(red1) + 1 remote(blue1)
-        TASK_UTIL_EXPECT_EQ(3, green_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(3U, green_[i - 1]->Size());
     }
 }

@@ -647,34 +647,30 @@ static const char
 //
 class BgpXmppInetvpn2ControlNodeTest : public ::testing::Test {
 protected:
-    static const int kRouteCount = 512;
+ static const size_t kRouteCount = 512;
 
-    BgpXmppInetvpn2ControlNodeTest()
-        : thread_(&evm_), xs_x_(NULL), xs_y_(NULL) {
-    }
+ BgpXmppInetvpn2ControlNodeTest() : thread_(&evm_), xs_x_(NULL), xs_y_(NULL) {}
 
-    virtual void SetUp() {
-        bs_x_.reset(new BgpServerTest(&evm_, "X"));
-        bs_x_->session_manager()->Initialize(0);
-        LOG(DEBUG, "Created BGP server at port: " <<
-            bs_x_->session_manager()->GetPort());
-        xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
-        xs_x_->Initialize(0, false);
-        LOG(DEBUG, "Created XMPP server at port: " <<
-            xs_x_->GetPort());
-        cm_x_.reset(new BgpXmppChannelManager(xs_x_, bs_x_.get()));
+ virtual void SetUp() {
+     bs_x_.reset(new BgpServerTest(&evm_, "X"));
+     bs_x_->session_manager()->Initialize(0);
+     LOG(DEBUG,
+         "Created BGP server at port: " << bs_x_->session_manager()->GetPort());
+     xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
+     xs_x_->Initialize(0, false);
+     LOG(DEBUG, "Created XMPP server at port: " << xs_x_->GetPort());
+     cm_x_.reset(new BgpXmppChannelManager(xs_x_, bs_x_.get()));
 
-        bs_y_.reset(new BgpServerTest(&evm_, "Y"));
-        bs_y_->session_manager()->Initialize(0);
-        LOG(DEBUG, "Created BGP server at port: " <<
-            bs_y_->session_manager()->GetPort());
-        xs_y_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
-        xs_y_->Initialize(0, false);
-        LOG(DEBUG, "Created XMPP server at port: " <<
-            xs_y_->GetPort());
-        cm_y_.reset(new BgpXmppChannelManager(xs_y_, bs_y_.get()));
+     bs_y_.reset(new BgpServerTest(&evm_, "Y"));
+     bs_y_->session_manager()->Initialize(0);
+     LOG(DEBUG,
+         "Created BGP server at port: " << bs_y_->session_manager()->GetPort());
+     xs_y_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
+     xs_y_->Initialize(0, false);
+     LOG(DEBUG, "Created XMPP server at port: " << xs_y_->GetPort());
+     cm_y_.reset(new BgpXmppChannelManager(xs_y_, bs_y_.get()));
 
-        thread_.Start();
+     thread_.Start();
     }
 
     virtual void TearDown() {
@@ -1843,7 +1839,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap1) {
     // Add route from agent A and change it repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 128; ++idx) {
+    for (size_t idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.2");
     }
@@ -1888,7 +1884,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap2) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 128; ++idx) {
+    for (size_t idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         usleep(5000);
         agent_a_->DeleteRoute("blue", route_a.str());
@@ -1930,7 +1926,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap3) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 128; ++idx) {
+    for (size_t idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         usleep(5000);
         agent_a_->DeleteRoute("blue", route_a.str());
@@ -1974,7 +1970,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap4) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 128; ++idx) {
+    for (size_t idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         usleep(5000);
         agent_a_->DeleteRoute("blue", route_a.str());
@@ -2028,7 +2024,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap_ConnectedVRF) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 64; ++idx) {
+    for (size_t idx = 0; idx < 64; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         agent_a_->AddRoute("pink", route_a.str(), "192.168.1.1");
         usleep(500);
@@ -2084,23 +2080,23 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete1) {
     agent_b_->Subscribe("blue", 1);
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
     }
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
         VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -2132,11 +2128,11 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete1) {
     // Verify reach/unreach, end-of-rib and total counts.
     // 2 route-targets and kRouteCount inet-vpn routes.
     // 3 end-of-ribs - one for route-target, one for inet-vpn and one for inet.
-    TASK_UTIL_EXPECT_EQ(4 + kRouteCount, peer_xy->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
-    TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 6, peer_xy->get_tx_route_total());
+    TASK_UTIL_EXPECT_EQ(4U + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(3U + kRouteCount, peer_xy->get_tx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(3U, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(2 * (2 + kRouteCount) + 6),
+                        peer_xy->get_tx_route_total());
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -2167,12 +2163,12 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     agent_a_->Subscribe("blue", 1);
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1", 100 + idx);
     }
 
     // Verify that routes showed up on agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(
             agent_a_, "blue", BuildPrefix(idx), "192.168.1.1", 100 + idx);
     }
@@ -2181,7 +2177,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     agent_b_->Subscribe("blue", 1);
 
     // Verify that routes showed up on agent B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(
             agent_b_, "blue", BuildPrefix(idx), "192.168.1.1", 100 + idx);
     }
@@ -2193,7 +2189,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     agent_b_->Unsubscribe("blue");
 
     // Verify that routes got removed on agent B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
 
@@ -2206,12 +2202,12 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     task_util::WaitForIdle();
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
     }
 
@@ -2260,8 +2256,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     // Verify table walk count for blue.inet.0.
     BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
     BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
-    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Register to blue instance
@@ -2270,15 +2266,15 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Verify that subscribe completed.
-    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Pause update generation on X.
     bs_x_->update_sender()->DisableProcessing();
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
     }
     task_util::WaitForIdle();
@@ -2311,7 +2307,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
         VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
     }
@@ -2320,7 +2316,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     bs_x_->update_sender()->DisableProcessing();
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
     task_util::WaitForIdle();
@@ -2351,7 +2347,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     VerifyOutputQueueDepth(bs_y_, 0);
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -2385,9 +2381,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     // 2 end-of-ribs - one for route-target, one for inet-vpn and one for inet
     TASK_UTIL_EXPECT_EQ(4 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
-    TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 6, peer_xy->get_tx_route_total());
+    TASK_UTIL_EXPECT_EQ(3U, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(2 * (2 + kRouteCount) + 6),
+                        peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -2409,9 +2405,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0U, xc_b->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0U, xc_b->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_unreach());
 
     // Verify xmpp update message counters.
@@ -2453,8 +2449,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     // Verify table walk count for blue.inet.0.
     BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
     BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
-    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Register to blue instance
@@ -2463,15 +2459,15 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Verify that subscribe completed.
-    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Pause update generation on X.
     bs_x_->update_sender()->DisableProcessing();
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         int lpref = idx + 1;
         int med = idx + 1;
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1", lpref, med);
@@ -2506,7 +2502,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
         VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
     }
@@ -2515,7 +2511,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     bs_x_->update_sender()->DisableProcessing();
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
     task_util::WaitForIdle();
@@ -2546,7 +2542,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     VerifyOutputQueueDepth(bs_y_, 0);
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -2580,9 +2576,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     // 2 end-of-ribs - one for route-target, one for inet-vpn and one for inet.
     TASK_UTIL_EXPECT_EQ(4 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
-    TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 6, peer_xy->get_tx_route_total());
+    TASK_UTIL_EXPECT_EQ(3U, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(2 * (2 + kRouteCount) + 6),
+                        peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -2603,9 +2599,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0U, xc_b->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0U, xc_b->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_unreach());
 
     // Verify xmpp update message counters.
@@ -2646,8 +2642,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     // Verify table walk count for blue.inet.0.
     BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
     BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
-    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Register to blue instance
@@ -2656,15 +2652,15 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     task_util::WaitForIdle();
 
     // Verify that subscribe completed.
-    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
     bs_y_->update_sender()->DisableProcessing();
 
     // Add even routes from agent A.
-    for (int idx = 0; idx < kRouteCount; idx += 2) {
+    for (size_t idx = 0; idx < kRouteCount; idx += 2) {
         int lpref = idx + 1;
         int med = idx + 1;
         agent_a_->AddRoute("blue", BuildPrefix(idx), nh_str, lpref, med);
@@ -2683,7 +2679,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     VerifyOutputQueueDepth(bs_y_, 0);
 
     // Verify that even routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; idx += 2) {
+    for (size_t idx = 0; idx < kRouteCount; idx += 2) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), nh_str);
         VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), nh_str);
     }
@@ -2692,7 +2688,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     bs_y_->update_sender()->DisableProcessing();
 
     // Add odd route and delete even routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         if (idx % 2 == 1) {
             int lpref = idx + 1;
             int med = idx + 1;
@@ -2715,7 +2711,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     VerifyOutputQueueDepth(bs_y_, 0);
 
     // Verify odd routes exist and even routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         if (idx % 2 == 1) {
             VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), nh_str);
             VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), nh_str);
@@ -2729,7 +2725,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     bs_y_->update_sender()->DisableProcessing();
 
     // Delete odd routes from agent A.
-    for (int idx = 1; idx < kRouteCount; idx += 2) {
+    for (size_t idx = 1; idx < kRouteCount; idx += 2) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
     task_util::WaitForIdle();
@@ -2746,7 +2742,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     VerifyOutputQueueDepth(bs_y_, 0);
 
     // Verify all routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -2800,8 +2796,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     // Verify table walk count for blue.inet.0.
     BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
     BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
-    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Register to blue instance
@@ -2810,8 +2806,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Verify that subscribe completed.
-    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Pause update generation on X.
@@ -2821,7 +2817,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     test::NextHop next_hop("192.168.1.1");
     vector<int> sgids1 = list_of(8000001)(8000003);
     vector<int> sgids2 = list_of(8000002)(8000004);
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         int lpref = idx + 1;
         int seq = idx + 1;
         if (idx % 2 == 0) {
@@ -2862,7 +2858,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         int lpref = idx + 1;
         int seq = idx + 1;
         if (idx % 2 == 0) {
@@ -2882,7 +2878,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     bs_x_->update_sender()->DisableProcessing();
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
     task_util::WaitForIdle();
@@ -2913,7 +2909,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     VerifyOutputQueueDepth(bs_y_, 0);
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -2947,9 +2943,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     // 2 end-of-ribs - one for route-target, one for inet-vpn and one for inet.
     TASK_UTIL_EXPECT_EQ(4 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
-    TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 6, peer_xy->get_tx_route_total());
+    TASK_UTIL_EXPECT_EQ(3U, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(static_cast<size_t>(2 * (2 + kRouteCount) + 6),
+                        peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -2971,9 +2967,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0U, xc_b->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0U, xc_b->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_unreach());
 
     // Verify xmpp update message counters.
@@ -2999,8 +2995,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
     task_util::WaitForIdle();
 
     // Add a bunch of route targets to blue instance.
-    static const int kRouteTargetCount = 496;
-    for (int idx = 0; idx < kRouteTargetCount; ++idx) {
+    static const size_t kRouteTargetCount = 496;
+    for (size_t idx = 0; idx < kRouteTargetCount; ++idx) {
         string target = string("target:1:") + integerToString(10000 + idx);
         AddRouteTarget(bs_x_, "blue", target);
         task_util::WaitForIdle();
@@ -3028,23 +3024,23 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
     agent_b_->Subscribe("blue", 1);
 
     // Add routes from agent A.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
     }
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
         VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -3057,7 +3053,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
     agent_a_->SessionDown();
     agent_b_->SessionDown();
 
-    TASK_UTIL_EXPECT_EQ(0, bs_x_->message_build_error());
+    TASK_UTIL_EXPECT_EQ(0U, bs_x_->message_build_error());
 }
 
 //
@@ -3070,8 +3066,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage2) {
     task_util::WaitForIdle();
 
     // Add extra route targets to blue instance.
-    static const int kRouteTargetCount = 512;
-    for (int idx = 0; idx < kRouteTargetCount; ++idx) {
+    static const size_t kRouteTargetCount = 512;
+    for (size_t idx = 0; idx < kRouteTargetCount; ++idx) {
         string target = string("target:1:") + integerToString(10000 + idx);
         AddRouteTarget(bs_x_, "blue", target);
         task_util::WaitForIdle();
@@ -3100,42 +3096,42 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage2) {
     task_util::WaitForIdle();
 
     // Add routes from agent A.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
     }
 
     // Verify that we're unable to build the messages.
-    TASK_UTIL_EXPECT_EQ(4, bs_x_->message_build_error());
+    TASK_UTIL_EXPECT_EQ(4U, bs_x_->message_build_error());
 
     // Verify that routes showed up on agent A, but not on B.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
 
     // Remove extra route targets from blue instance.
-    for (int idx = 0; idx < kRouteTargetCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteTargetCount; ++idx) {
         string target = string("target:1:") + integerToString(10000 + idx);
         RemoveRouteTarget(bs_x_, "blue", target);
         task_util::WaitForIdle();
     }
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(bs_x_, "blue"));
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(3U, GetImportRouteTargetListSize(bs_x_, "blue"));
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
         VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -3174,10 +3170,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, UpdateSenderRibOutInvalidate) {
     BgpTable *pink_x = VerifyTableExists(bs_x_, "pink.inet.0");
     BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
     BgpTable *pink_y = VerifyTableExists(bs_y_, "pink.inet.0");
-    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, pink_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(0, pink_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, pink_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0U, pink_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Register to blue and pink instances.
@@ -3188,17 +3184,17 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, UpdateSenderRibOutInvalidate) {
     task_util::WaitForIdle();
 
     // Verify that subscribe completed.
-    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, pink_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, pink_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, pink_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1U, pink_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
     bs_y_->update_sender()->DisableProcessing();
 
     // Add blue routes from agent A.
-    for (int idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 4; ++idx) {
         agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
     }
     task_util::WaitForIdle();
@@ -4870,13 +4866,13 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave1) {
     agent_a_->Subscribe("blue", 1);
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute(
             "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
     }
 
     // Verify that routes showed up on agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue",
             BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
     }
@@ -4886,7 +4882,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave1) {
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agent B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_b_, "blue",
             BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
     }
@@ -4896,17 +4892,17 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave1) {
     task_util::WaitForIdle();
 
     // Verify that routes are deleted at agent B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
     }
 
@@ -4925,13 +4921,13 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave2) {
     task_util::WaitForIdle();
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute(
             "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
     }
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue",
             BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
         VerifyRouteExists(agent_b_, "blue",
@@ -4940,7 +4936,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave2) {
 
     // Create a bunch of test agents.
     vector<test::NetworkAgentMockPtr> agent_list;
-    for (int idx = 0; idx <= 8; ++idx) {
+    for (size_t idx = 0; idx <= 8; ++idx) {
         string name = string("agent") + integerToString(idx);
         test::NetworkAgentMockPtr agent;
         agent.reset(new test::NetworkAgentMock(
@@ -4955,7 +4951,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave2) {
     }
 
     // Verify that routes showed up on all test agents.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
             VerifyRouteExists(agent, "blue",
                 BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
@@ -4974,12 +4970,12 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave2) {
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -4998,7 +4994,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
 
     // Create a bunch of test agents.
     vector<test::NetworkAgentMockPtr> agent_list;
-    for (int idx = 0; idx <= 8; ++idx) {
+    for (size_t idx = 0; idx <= 8; ++idx) {
         string name = string("agent") + integerToString(idx);
         test::NetworkAgentMockPtr agent;
         agent.reset(new test::NetworkAgentMock(
@@ -5008,7 +5004,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
     }
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute(
             "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
     }
@@ -5019,7 +5015,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
     }
 
     // Verify that routes showed up on all test agents.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
             VerifyRouteExists(agent, "blue",
                 BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
@@ -5027,7 +5023,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
     }
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue",
             BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
         VerifyRouteExists(agent_b_, "blue",
@@ -5040,7 +5036,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
@@ -5050,7 +5046,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
     }
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
@@ -5068,14 +5064,14 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave4) {
     task_util::WaitForIdle();
 
     // Add routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->AddRoute(
             "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
     }
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteExists(agent_a_, "blue",
             BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
         VerifyRouteExists(agent_b_, "blue",
@@ -5084,7 +5080,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave4) {
 
     // Create a bunch of test agents.
     vector<test::NetworkAgentMockPtr> agent_list;
-    for (int idx = 0; idx <= 8; ++idx) {
+    for (size_t idx = 0; idx <= 8; ++idx) {
         string name = string("agent") + integerToString(idx);
         test::NetworkAgentMockPtr agent;
         agent.reset(new test::NetworkAgentMock(
@@ -5103,7 +5099,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave4) {
     task_util::WaitForIdle();
 
     // Verify that routes showed up on odd test agents.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_idx = 0;
         BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
             if (agent_idx++ % 2 == 0) {
@@ -5127,7 +5123,7 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave4) {
     task_util::WaitForIdle();
 
     // Verify that routes showed up on even test agents.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_idx = 0;
         BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
             if (agent_idx++ % 2 == 0) {
@@ -5154,12 +5150,12 @@ TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave4) {
     }
 
     // Delete routes from agent A.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         agent_a_->DeleteRoute("blue", BuildPrefix(idx));
     }
 
     // Verify that routes are deleted at agents A and B.
-    for (int idx = 0; idx < kRouteCount; ++idx) {
+    for (size_t idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }

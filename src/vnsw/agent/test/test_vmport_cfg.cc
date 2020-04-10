@@ -1446,7 +1446,7 @@ TEST_F(CfgTest, SecurityGroup_1) {
     }
 
     const AgentPath *path = rt->GetActivePath();
-    EXPECT_EQ(path->sg_list().size(), 1);
+    EXPECT_EQ(path->sg_list().size(), 1U);
     EXPECT_TRUE(path->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(path->tunnel_bmap() == TunnelType::MplsType());
     DoInterfaceSandesh("vnet1");

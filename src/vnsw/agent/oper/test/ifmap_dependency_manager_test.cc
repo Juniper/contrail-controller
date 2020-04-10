@@ -82,7 +82,7 @@ TEST_F(IFMapDependencyManagerTest, EdgeEventPropogate) {
 
     task_util::WaitForIdle();
 
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
 
     std::vector<IFMapNode *>::iterator it;
     int seen = 0;
@@ -145,7 +145,7 @@ TEST_F(IFMapDependencyManagerTest, NodeEventPropogate) {
     ifmap_test_util::IFMapMsgNodeAdd(database_, "virtual-machine", "vm-1");
     task_util::WaitForIdle();
 
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
 
     std::vector<IFMapNode *>::iterator it;
     int seen = 0;
@@ -232,7 +232,7 @@ TEST_F(IFMapDependencyManagerTest, NodeEventAddDeleteAddPropogate) {
 
     //Add the VM Object again and ensure that SI is invoked, config node
     //is no more delete marked and oper entry exists
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
     ifmap_test_util::IFMapMsgNodeAdd(database_, "virtual-machine", "vm-1");
     task_util::WaitForIdle();
 
@@ -298,7 +298,7 @@ TEST_F(IFMapDependencyManagerTest, DisableNotify) {
 
     task_util::WaitForIdle();
 
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
 
     std::vector<IFMapNode *>::iterator it;
     int seen = 0;
@@ -325,7 +325,7 @@ TEST_F(IFMapDependencyManagerTest, DisableNotify) {
 
     task_util::WaitForIdle();
 
-    ASSERT_EQ(0, change_list_.size());
+    ASSERT_EQ(0U, change_list_.size());
 
     IFMapTable *vm_cfg_table = IFMapTable::FindTable(database_,
             "virtual-machine");
@@ -352,7 +352,7 @@ TEST_F(IFMapDependencyManagerTest, DisableNotify) {
     ifmap_test_util::IFMapMsgNodeAdd(database_, "virtual-machine", "vm-1");
     task_util::WaitForIdle();
 
-    ASSERT_EQ(0, change_list_.size());
+    ASSERT_EQ(0U, change_list_.size());
 
     //Turn the notification on
     dependency_manager_->SetNotify(si, true);
@@ -360,7 +360,7 @@ TEST_F(IFMapDependencyManagerTest, DisableNotify) {
     change_list_.clear();
     dependency_manager_->PropogateNodeAndLinkChange(vm);
     task_util::WaitForIdle();
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
 
     seen = 0;
     for (DBGraphVertex::adjacency_iterator iter =
@@ -419,7 +419,7 @@ TEST_F(IFMapDependencyManagerTest, OperDBNotifyDisable) {
 
     task_util::WaitForIdle();
 
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
 
     std::vector<IFMapNode *>::iterator it;
     int seen = 0;
@@ -446,7 +446,7 @@ TEST_F(IFMapDependencyManagerTest, OperDBNotifyDisable) {
 
     task_util::WaitForIdle();
 
-    ASSERT_EQ(0, change_list_.size());
+    ASSERT_EQ(0U, change_list_.size());
 
     IFMapTable *vm_cfg_table = IFMapTable::FindTable(database_,
             "virtual-machine");
@@ -473,7 +473,7 @@ TEST_F(IFMapDependencyManagerTest, OperDBNotifyDisable) {
     change_list_.clear();
     dependency_manager_->PropogateNodeAndLinkChange(vm);
     task_util::WaitForIdle();
-    ASSERT_NE(0, change_list_.size());
+    ASSERT_NE(0U, change_list_.size());
 
     seen = 0;
     for (DBGraphVertex::adjacency_iterator iter =

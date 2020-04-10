@@ -71,12 +71,12 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
                                     source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(3, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(3U, cnh->ActiveComponentNHCount());
 
     TunnelOlist olist;
     olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 100,
@@ -98,12 +98,12 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
                                     source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(2U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
@@ -118,7 +118,7 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
     cnh1 = cnh->Get(1);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(3, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(3U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
@@ -162,7 +162,7 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
                                     agent->fabric_policy_vrf_name(), group,
                                     source);
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     TunnelOlist olist1;
     agent->oper_db()->multicast()->ModifyFabricMembers(
@@ -251,12 +251,12 @@ TEST_F(IgmpTest, SendV3ReportsAndNoFabricOlist) {
                                     source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(3, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(3U, cnh->ActiveComponentNHCount());
 
     TunnelOlist olist;
     olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 100,
@@ -279,12 +279,12 @@ TEST_F(IgmpTest, SendV3ReportsAndNoFabricOlist) {
                                     source);
 
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(2U, cnh->ActiveComponentNHCount());
 
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     idx = 0;
     igmp_gs[0].record_type = 6;
@@ -323,7 +323,7 @@ TEST_F(IgmpTest, SendV3ReportsAndNoFabricOlist) {
                                     agent->fabric_policy_vrf_name(), group,
                                     source);
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(1U, cnh->ActiveComponentNHCount());
 
     TunnelOlist olist1;
     agent->oper_db()->multicast()->ModifyFabricMembers(

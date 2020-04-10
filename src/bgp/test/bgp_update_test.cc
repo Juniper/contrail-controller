@@ -281,7 +281,7 @@ TEST_F(BgpUpdateTest, Basic) {
     ASSERT_TRUE(state != NULL);
     RouteState *rs = static_cast<RouteState *>(state);
     const AdvertiseSList &adv_slist = rs->Advertised();
-    TASK_UTIL_EXPECT_EQ(1, adv_slist->size());
+    TASK_UTIL_EXPECT_EQ(1U, adv_slist->size());
     const AdvertiseInfo &ainfo = *adv_slist->begin();
     TASK_UTIL_EXPECT_TRUE(ribout1_->PeerSet() == ainfo.bitset);
 

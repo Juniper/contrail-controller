@@ -166,7 +166,7 @@ protected:
         EXPECT_EQ(8U, agent()->interface_table()->Size());
         EXPECT_EQ(4U, PortSubscribeSize(agent()));
         EXPECT_EQ(4U, agent()->vm_table()->Size());
-        EXPECT_EQ(2, agent()->vn_table()->Size());
+        EXPECT_EQ(2U, agent()->vn_table()->Size());
         client->WaitForIdle();
     }
 
@@ -191,10 +191,10 @@ protected:
         EXPECT_EQ(0U, agent()->acl_table()->Size());
         EXPECT_EQ(2U, agent()->vrf_table()->Size());
 
-        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
-        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
+        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0U);
+        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0U);
         FlowTable *table = flow_proto_->GetTable(0);
-        EXPECT_EQ(table->linklocal_flow_info_map().size(), 0);
+        EXPECT_EQ(table->linklocal_flow_info_map().size(), 0U);
     }
 
     Agent *agent() {return agent_;}
@@ -391,7 +391,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
     FlowStatsTimerStartStop(agent_, true);
     CreateFlow(nat_flow, 3);
     client->WaitForIdle();
-    EXPECT_EQ(6, get_flow_proto()->FlowCount());
+    EXPECT_EQ(6U, get_flow_proto()->FlowCount());
     uint16_t linklocal_src_port[3];
     for (uint32_t i = 0; i < 3; i++) {
         const FlowEntry *fe = nat_flow[i].pkt_.FlowFetch();
@@ -498,7 +498,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     FlowStatsTimerStartStop(agent_, true);
     CreateFlow(nat_flow, 4);
     client->WaitForIdle();
-    EXPECT_EQ(8, get_flow_proto()->FlowCount());
+    EXPECT_EQ(8U, get_flow_proto()->FlowCount());
     uint16_t linklocal_src_port[4];
     for (uint32_t i = 0; i < 4; i++) {
         const FlowEntry *fe = nat_flow[i].pkt_.FlowFetch();

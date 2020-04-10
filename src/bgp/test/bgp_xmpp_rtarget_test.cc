@@ -348,8 +348,8 @@ protected:
         TASK_UTIL_EXPECT_TRUE(agent_b_1_->IsEstablished());
         TASK_UTIL_EXPECT_TRUE(agent_a_2_->IsEstablished());
         TASK_UTIL_EXPECT_TRUE(agent_b_2_->IsEstablished());
-        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn1_->NumUpPeer());
-        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn2_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_channel_manager_cn1_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2U, bgp_channel_manager_cn2_->NumUpPeer());
         task_util::WaitForIdle();
     }
 
@@ -363,8 +363,8 @@ protected:
         TASK_UTIL_EXPECT_FALSE(agent_b_1_->IsEstablished());
         TASK_UTIL_EXPECT_FALSE(agent_a_2_->IsEstablished());
         TASK_UTIL_EXPECT_FALSE(agent_b_2_->IsEstablished());
-        TASK_UTIL_EXPECT_EQ(0, bgp_channel_manager_cn1_->NumUpPeer());
-        TASK_UTIL_EXPECT_EQ(0, bgp_channel_manager_cn2_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(0U, bgp_channel_manager_cn1_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(0U, bgp_channel_manager_cn2_->NumUpPeer());
         task_util::WaitForIdle();
     }
 
@@ -467,8 +467,10 @@ protected:
         VerifyNetworkConfig(cn2_.get(), instance_names);
 
         mx_->Configure(config_mx_vrf);
-        TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(mx_.get(), "blue"));
-        TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(mx_.get(), "pink"));
+        TASK_UTIL_EXPECT_EQ(1U,
+                            GetExportRouteTargetListSize(mx_.get(), "blue"));
+        TASK_UTIL_EXPECT_EQ(1U,
+                            GetExportRouteTargetListSize(mx_.get(), "pink"));
     }
 
     void NetworkConfig(const vector<string> &instance_names,
@@ -1257,20 +1259,20 @@ TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRtGroup3) {
 //
 TEST_F(BgpXmppRTargetTest, ResurrectRtGroup1) {
     AddRouteTarget(mx_.get(), "blue", "target:1:99");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
     RtGroup *rtgroup1 = VerifyRtGroupExists(mx_.get(), "target:1:99");
     TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(mx_.get(), rtgroup1));
 
     DisableRtGroupProcessing(mx_.get());
 
     RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(mx_.get(), "blue"));
     RtGroup *rtgroup2 = VerifyRtGroupExists(mx_.get(), "target:1:99");
     TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup2);
     TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(mx_.get(), rtgroup2));
 
     AddRouteTarget(mx_.get(), "blue", "target:1:99");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
     RtGroup *rtgroup3 = VerifyRtGroupExists(mx_.get(), "target:1:99");
     TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup3);
     TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(mx_.get(), rtgroup3));
@@ -1356,7 +1358,7 @@ TEST_F(BgpXmppRTargetTest, ResurrectRtGroup3) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteRoute) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -1382,7 +1384,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRoute) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRoute) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
@@ -1423,12 +1425,12 @@ TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRoute) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets1) {
     AddRouteTarget(mx_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     AddRouteTarget(cn2_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
 
     SubscribeAgents("blue", 1);
 
@@ -1455,7 +1457,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets1) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets2) {
     AddRouteTarget(mx_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     SubscribeAgents("blue", 1);
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
@@ -1465,18 +1467,18 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets2) {
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     AddRouteTarget(cn2_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
 
     RemoveRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     RemoveRouteTarget(cn2_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
@@ -1495,11 +1497,11 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets2) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets3) {
     AddRouteTarget(mx_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     AddRouteTarget(cn2_.get(), "blue", "target:1:2001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -1523,7 +1525,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets3) {
 //
 TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe1) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -1571,7 +1573,7 @@ TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe1) {
 //
 TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe2) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -1611,7 +1613,7 @@ TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe2) {
 //
 TEST_F(BgpXmppRTargetTest, SubscribeThenSessionDown1) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -1647,7 +1649,7 @@ TEST_F(BgpXmppRTargetTest, SubscribeThenSessionDown1) {
 //
 TEST_F(BgpXmppRTargetTest, SubscribeThenSessionDown2) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -1694,7 +1696,7 @@ TEST_F(BgpXmppRTargetTest, DuplicateUnsubscribe) {
 //
 TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribeMultipleRoute) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
@@ -1762,7 +1764,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute1) {
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
@@ -1787,9 +1789,9 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute2) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     AddRouteTarget(cn2_.get(), "blue", "target:2:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
 
     SubscribeAgents("blue", 1);
 
@@ -1798,14 +1800,14 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute2) {
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
     AddRouteTarget(mx_.get(), "blue", "target:1:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
     AddRouteTarget(mx_.get(), "blue", "target:2:101");
-    TASK_UTIL_EXPECT_EQ(3, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(3U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
@@ -1838,9 +1840,9 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute3) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     AddRouteTarget(cn2_.get(), "blue", "target:2:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
 
     SubscribeAgents("blue", 1);
 
@@ -1849,7 +1851,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute3) {
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
     AddRouteTarget(mx_.get(), "blue", "target:1:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
@@ -1859,7 +1861,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute3) {
     RemoveRouteTarget(mx_.get(), "blue", "target:1:101");
     AddRouteTarget(mx_.get(), "blue", "target:2:101");
     TaskScheduler::GetInstance()->Start();
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
@@ -1917,13 +1919,13 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToInstance1) {
     SubscribeAgents("blue", 1);
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "blue"));
     VerifyRTargetRouteExists(mx_.get(), "64496:target:1:101");
 
     RemoveRouteTarget(cn1_.get(), "blue", "target:1:101");
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(3U, GetImportRouteTargetListSize(cn1_.get(), "blue"));
     VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:101");
 }
 
@@ -2609,7 +2611,7 @@ TEST_F(BgpXmppRTargetTest, DeletedPeer) {
     UnconfigureBgpPeering(cn1_.get(), cn2_.get());
 
     // Wait for the peer to go down in CN2
-    TASK_UTIL_EXPECT_EQ_MSG(1, cn2_->NumUpPeer(),
+    TASK_UTIL_EXPECT_EQ_MSG(1U, cn2_->NumUpPeer(),
                             "Wait for control-node peer to go down");
 
     // Route on CN2 will not be deleted due to DBState from RTargetGroupMgr
@@ -2617,7 +2619,7 @@ TEST_F(BgpXmppRTargetTest, DeletedPeer) {
 
     // Ensure that the path from CN1 is deleted
     BgpRoute *rt_route = RTargetRouteLookup(cn2_.get(), "64496:target:64496:1");
-    TASK_UTIL_EXPECT_EQ(rt_route->count(), 0);
+    TASK_UTIL_EXPECT_EQ(rt_route->count(), 0U);
 
     // Make sure that lifetime manager does not delete this peer as there is
     // a reference to the peer from RTargetGroupMgr's work queue.
@@ -2647,20 +2649,20 @@ TEST_F(BgpXmppRTargetTest, SameTargetInMultipleInstances1) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 2);
 
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:99");
     AddRouteTarget(cn2_.get(), "blue", "target:1:99");
     AddRouteTarget(cn1_.get(), "pink", "target:1:99");
     AddRouteTarget(cn2_.get(), "pink", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
@@ -2668,10 +2670,10 @@ TEST_F(BgpXmppRTargetTest, SameTargetInMultipleInstances1) {
     RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
     RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
     task_util::WaitForIdle();
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
@@ -2694,20 +2696,20 @@ TEST_F(BgpXmppRTargetTest, SameTargetInMultipleInstances2) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 2);
 
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:99");
     AddRouteTarget(cn2_.get(), "blue", "target:1:99");
     AddRouteTarget(cn1_.get(), "pink", "target:1:99");
     AddRouteTarget(cn2_.get(), "pink", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
@@ -2715,10 +2717,10 @@ TEST_F(BgpXmppRTargetTest, SameTargetInMultipleInstances2) {
     RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
     RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
     task_util::WaitForIdle();
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
@@ -2743,38 +2745,38 @@ TEST_F(BgpXmppRTargetTest, ConnectedInstances1) {
     AddConnection(cn2_.get(), "red", "purple");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "purple"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "purple"));
 
     AddRouteTarget(cn1_.get(), "red", "target:1:99");
     AddRouteTarget(cn2_.get(), "red", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn1_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn2_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn1_.get(), "purple"));
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn2_.get(), "purple"));
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
 
     RemoveConnection(cn1_.get(), "red", "purple");
     RemoveConnection(cn2_.get(), "red", "purple");
 
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "purple"));
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(3U, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(3U, GetImportRouteTargetListSize(cn2_.get(), "purple"));
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
 
     AddConnection(cn1_.get(), "red", "purple");
     AddConnection(cn2_.get(), "red", "purple");
 
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn1_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn2_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn1_.get(), "purple"));
-    TASK_UTIL_EXPECT_EQ(5, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(5U, GetImportRouteTargetListSize(cn2_.get(), "purple"));
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
 }
@@ -2791,10 +2793,10 @@ TEST_F(BgpXmppRTargetTest, ConnectedInstances2) {
     AddConnection(cn2_.get(), "red", "purple");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "purple"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "purple"));
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:3");
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:4");
@@ -2822,10 +2824,10 @@ TEST_F(BgpXmppRTargetTest, ConnectedInstances3) {
     AddConnection(cn2_.get(), "red", "purple");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "red"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn1_.get(), "purple"));
-    TASK_UTIL_EXPECT_EQ(4, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(4U, GetImportRouteTargetListSize(cn2_.get(), "purple"));
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:3");
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:4");
@@ -3124,7 +3126,7 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing1) {
     DisableRouteTargetProcessing(mx_.get());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -3163,11 +3165,11 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing2) {
     DisableRouteTargetProcessing(mx_.get());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -3211,7 +3213,7 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing3) {
     DisableRouteTargetProcessing(mx_.get());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     EnableRouteTargetProcessing(mx_.get());
@@ -3225,7 +3227,7 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing3) {
     DisableRouteTargetProcessing(mx_.get());
 
     AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -3269,11 +3271,11 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing4) {
     DisableRouteTargetProcessing(mx_.get());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     AddRouteTarget(cn1_.get(), "pink", "target:1:1002");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1002"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -3319,11 +3321,11 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing5) {
     DisableRouteTargetProcessing(mx_.get());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
 
     AddRouteTarget(cn2_.get(), "pink", "target:1:1002");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
     TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1002"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -3407,7 +3409,7 @@ TEST_F(BgpXmppRTargetTest, DISABLED_PathSelection1a) {
 
     RTargetRoute *rtgt_rt =
         VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+    TASK_UTIL_EXPECT_EQ(2U, rtgt_rt->count());
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -3441,7 +3443,7 @@ TEST_F(BgpXmppRTargetTest, PathSelection1b) {
 
     RTargetRoute *rtgt_rt =
         VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+    TASK_UTIL_EXPECT_EQ(2U, rtgt_rt->count());
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -3497,7 +3499,7 @@ TEST_F(BgpXmppRTargetTest, PathSelection3) {
 
     RTargetRoute *rtgt_rt =
         VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+    TASK_UTIL_EXPECT_EQ(2U, rtgt_rt->count());
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -3575,7 +3577,7 @@ TEST_F(BgpXmppRTargetTest, PathSelection6) {
 
     RTargetRoute *rtgt_rt =
         VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
-    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+    TASK_UTIL_EXPECT_EQ(2U, rtgt_rt->count());
     VerifyRTargetRouteNoExists(mx_.get(), "64497:target:1:1001");
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
@@ -3583,7 +3585,7 @@ TEST_F(BgpXmppRTargetTest, PathSelection6) {
     BgpRoute *inet_rt =
         VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
     usleep(50000);
-    TASK_UTIL_EXPECT_EQ(1, inet_rt->count());
+    TASK_UTIL_EXPECT_EQ(1U, inet_rt->count());
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
@@ -3688,7 +3690,7 @@ TEST_F(BgpXmppRTargetTest, DifferentLocalAs2) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute1) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
     AddInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
@@ -3728,8 +3730,8 @@ TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute1) {
 TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute2) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     AddRouteTarget(mx_.get(), "pink", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "pink"));
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         AddInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(idx));
@@ -3775,7 +3777,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute2) {
 //
 TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute3) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
     AddRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
     AddRTargetRoute(mx_.get(), "64496:target:64496:1");
@@ -3818,8 +3820,8 @@ TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute3) {
 TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute4) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     AddRouteTarget(mx_.get(), "pink", "target:64496:2");
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(mx_.get(), "pink"));
 
     AddRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
     AddRTargetRoute(mx_.get(), "64496:target:64496:1");
@@ -4130,20 +4132,20 @@ TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithSameTargetInMultipleInstances1) {
     SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
     SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "pink");
 
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:99");
     AddRouteTarget(cn2_.get(), "blue", "target:1:99");
     AddRouteTarget(cn1_.get(), "pink", "target:1:99");
     AddRouteTarget(cn2_.get(), "pink", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
@@ -4151,10 +4153,10 @@ TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithSameTargetInMultipleInstances1) {
     RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
     RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
 
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1U, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2U, GetExportRouteTargetListSize(cn2_.get(), "pink"));
     task_util::WaitForIdle();
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
