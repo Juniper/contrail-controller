@@ -16,10 +16,10 @@ class ResourceBaseST(DBBase):
     ref_fields = []
     prop_fields = []
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         return self.update_vnc_obj(obj)
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         for ref_field in self.ref_fields:
             self.update_refs(ref_field, {})
 
