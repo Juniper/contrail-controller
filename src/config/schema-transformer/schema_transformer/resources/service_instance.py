@@ -23,7 +23,7 @@ class ServiceInstanceST(ResourceBaseST):
     prop_fields = ['service_instance_properties']
     vn_dict = {}
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_machines = set()
         self.service_template = None
@@ -33,7 +33,7 @@ class ServiceInstanceST(ResourceBaseST):
         self.routing_policys = {}
         self.port_tuples = set()
         self.route_aggregates = {}
-        self.update(obj)
+        self.update(obj, request_id)
         self.network_policys = ResourceBaseST.get_obj_type_map().get(
             'network_policy').get_by_service_instance(self.name)
         self.route_tables = ResourceBaseST.get_obj_type_map().get(
@@ -46,7 +46,7 @@ class ServiceInstanceST(ResourceBaseST):
         self.set_children('port_tuple', self.obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         self.unset_vn_si_mapping()
         changed = self.update_vnc_obj(obj)
         if 'service_template' in changed:
@@ -192,7 +192,7 @@ class ServiceInstanceST(ResourceBaseST):
             'network_policy').delete(policy_name)
     # end delete_properties
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.unset_vn_si_mapping()
         self.update_multiple_refs('virtual_machine', {})
         self.delete_properties()

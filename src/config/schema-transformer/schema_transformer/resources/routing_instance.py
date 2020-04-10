@@ -26,7 +26,7 @@ class RoutingInstanceST(ResourceBaseST):
     _dict = {}
     obj_type = 'routing_instance'
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.stale_route_targets = []
@@ -87,7 +87,7 @@ class RoutingInstanceST(ResourceBaseST):
             self.update_static_routes()
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         # Nothing to do
         return False
 
@@ -545,7 +545,7 @@ class RoutingInstanceST(ResourceBaseST):
                 pass
     # end update_static_routes
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         for ri2_name in self.connections:
             ri2 = RoutingInstanceST.get(ri2_name)
             if ri2:
@@ -638,7 +638,7 @@ class RoutingInstanceST(ResourceBaseST):
     # end delete_obj
 
     @classmethod
-    def delete(cls, key, delete_vnc_obj=False):
+    def delete(cls, key, delete_vnc_obj=False, request_id=None):
         obj = cls.get(key)
         if obj is None:
             return

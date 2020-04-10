@@ -18,7 +18,7 @@ class LogicalRouterST(ResourceBaseST):
     ref_fields = ['virtual_machine_interface', 'route_table', 'bgpvpn']
     prop_fields = ['configured_route_target_list']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_machine_interfaces = set()
         self.virtual_networks = set()
@@ -63,7 +63,7 @@ class LogicalRouterST(ResourceBaseST):
         self.set_route_target_list()
     # end evaluate
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('route_table', {})
         self.update_multiple_refs('bgpvpn', {})

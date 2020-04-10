@@ -11,11 +11,11 @@ class VirtualMachineST(ResourceBaseST):
     obj_type = 'virtual_machine'
     ref_fields = ['service_instance']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_machine_interfaces = set()
         self.service_instance = None
-        self.update(obj)
+        self.update(obj, request_id)
         self.uuid = self.obj.uuid
         self.update_multiple_refs('virtual_machine_interface', self.obj)
     # end __init__

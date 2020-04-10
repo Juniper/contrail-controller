@@ -28,7 +28,7 @@ class SecurityGroupST(ResourceBaseST):
     prop_fields = ['security_group_entries', 'configured_security_group_id']
     _sg_dict = {}
 
-    def __init__(self, name, obj=None, acl_dict=None):
+    def __init__(self, name, obj=None, acl_dict=None, request_id=None):
         def _get_acl(uuid):
             if acl_dict:
                 return acl_dict[uuid]
@@ -52,12 +52,12 @@ class SecurityGroupST(ResourceBaseST):
                 self.ingress_acl = _get_acl(acl['uuid'])
             else:
                 self._vnc_lib.access_control_list_delete(id=acl['uuid'])
-        self.update(self.obj)
+        self.update(self.obj, request_id)
         self.security_groups = SecurityGroupST._sg_dict.get(name, set())
         self.update_multiple_refs('security_logging_object', self.obj)
     # end __init__
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if changed:
             self.process_referred_sgs()
@@ -98,7 +98,7 @@ class SecurityGroupST(ResourceBaseST):
         self.referred_sgs = sg_refer_set
     # end process_referred_sgs
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         if self.ingress_acl:
             self._vnc_lib.access_control_list_delete(id=self.ingress_acl.uuid)
         if self.egress_acl:

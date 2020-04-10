@@ -11,24 +11,24 @@ class BgpvpnST(ResourceBaseST):
     prop_fields = ['route_target_list', 'import_route_target_list',
                    'export_route_target_list']
 
-    def __init__(self, name, obj=None):
+    def __init__(self, name, obj=None, request_id=None):
         self.name = name
         self.virtual_networks = set()
         self.logical_routers = set()
         self.rt_list = set()
         self.import_rt_list = set()
         self.export_rt_list = set()
-        self.update(obj)
+        self.update(obj, request_id)
         self.update_multiple_refs('virtual_network', self.obj)
         self.update_multiple_refs('logical_router', self.obj)
 
-    def update(self, obj=None):
+    def update(self, obj=None, request_id=None):
         changed = self.update_vnc_obj(obj)
         if set(self.prop_fields) & set(changed):
             self.get_route_target_lists()
         return changed
 
-    def delete_obj(self):
+    def delete_obj(self, request_id=None):
         self.update_multiple_refs('virtual_network', {})
         self.update_multiple_refs('logical_router', {})
 
