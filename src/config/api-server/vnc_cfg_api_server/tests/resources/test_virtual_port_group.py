@@ -852,3 +852,81 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj_1.uuid)
         self.api.physical_router_delete(id=pr_obj_2.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
+
+    def test_two_virtual_port_groups_for_single_pi(self):
+        # Similar to e.g. test_same_vn_with_same_vlan_across_vpg_in_enterprise,
+        # but one of VPG's has no name and we try to bind one PI to both VPGs
+        # Such scenario should fail. PI can be attached to only one VPG
+        proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
+
+        # Create Physical Interface
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        pi_name = self.id() + '_physical_interface1'
+        pi = PhysicalInterface(name=pi_name,
+                               parent_obj=pr_obj,
+                               ethernet_segment_identifier=esi_id)
+        pi_uuid = self._vnc_lib.physical_interface_create(pi)
+        pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi_fq_name = pi_obj.get_fq_name()
+
+        # Create VPG-1
+        vpg_name = "vpg-1"
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj_1 = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name_1 = vpg_obj_1.get_fq_name()
+
+        # Create VPG-2 with no name
+        vpg = VirtualPortGroup(parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj_2 = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name_2 = vpg_obj_2.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj = VirtualMachineInterface(self.id() + "1",
+                                          parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn1)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name_1)
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=42))
+        vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj)
+        vpg_obj_1.add_virtual_machine_interface(vmi_obj)
+        self.api.virtual_port_group_update(vpg_obj_1)
+
+        # Create a VMI that's attached to vpg-2 and having reference
+        # to vn1
+        vmi_obj_2 = VirtualMachineInterface(self.id() + "2",
+                                            parent_obj=proj_obj)
+        vmi_obj_2.set_virtual_network(vn1)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name_2)
+        vmi_obj_2.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj_2.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=43))
+
+        with ExpectedException(BadRequest):
+            self.api.virtual_machine_interface_create(vmi_obj_2)
+
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
+        self.api.virtual_port_group_delete(id=vpg_obj_1.uuid)
+        self.api.virtual_port_group_delete(id=vpg_obj_2.uuid)
+        self.api.physical_interface_delete(id=pi_uuid)
+        self.api.physical_router_delete(id=pr_obj.uuid)
+        self.api.fabric_delete(id=fabric_obj.uuid)

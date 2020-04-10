@@ -1179,7 +1179,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 return (ok, 400, phy_interface_dict)
 
             vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
-            if vpg_refs and vpg_name and vpg_refs[0]['to'][-1] != vpg_name:
+            if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
                 msg = 'Physical interface %s already belong to the vpg %s' %\
                       (phy_interface_dict.get('name'), vpg_refs[0]['to'][-1])
                 return (False, (400, msg))
