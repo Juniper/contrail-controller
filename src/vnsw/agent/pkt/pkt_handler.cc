@@ -40,6 +40,8 @@ do {                                                                     \
 } while (false)                                                          \
 
 const std::size_t PktTrace::kPktMaxTraceSize;
+const std::size_t PktTrace::kPktNumBuffers;
+const std::size_t PktTrace::kPktMaxNumBuffers;
 
 ////////////////////////////////////////////////////////////////////////////////
 
