@@ -79,8 +79,8 @@ def initialize_db_connection(logger, args):
     while True:
         try:
             return VncObjectDBClient(
-                args.cassandra_server_list, args.cluster_id, None, None,
-                logger.log, credential=credential,
+                args.cassandra_server_list, db_prefix=args.cluster_id,
+                logger=logger.log, credential=credential,
                 ssl_enabled=args.cassandra_use_ssl,
                 ca_certs=args.cassandra_ca_certs)
         except Exception as e:

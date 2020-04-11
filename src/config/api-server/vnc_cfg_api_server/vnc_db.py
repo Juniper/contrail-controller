@@ -97,7 +97,7 @@ class VncServerCassandraClient(VncCassandraClient):
         keyspaces[cassa_api.USERAGENT_KEYSPACE_NAME] = {
             cassa_api.USERAGENT_KV_CF_NAME: {}}
         super(VncServerCassandraClient, self).__init__(
-            cass_srv_list, db_prefix, keyspaces, None, self.config_log,
+            cass_srv_list, db_prefix=db_prefix, rw_keyspaces=keyspaces, logger=self.config_log,
             generate_url=db_client_mgr.generate_url, reset_config=reset_config,
             credential=cassandra_credential, walk=walk,
             obj_cache_entries=obj_cache_entries,

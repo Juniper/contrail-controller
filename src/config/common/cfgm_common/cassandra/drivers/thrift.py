@@ -56,39 +56,35 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
 
     _MAX_COL = 10000000
 
-    def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
-                 logger, generate_url=None, reset_config=False,
-                 credential=None, walk=True, obj_cache_entries=0,
-                 obj_cache_exclude_types=None, debug_obj_cache_types=None,
-                 log_response_time=None, ssl_enabled=False, ca_certs=None,
-                 pool_size=0):
+    def __init__(self, server_list, **options):
+        super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._reset_config = reset_config
-        if db_prefix:
-            self._db_prefix = '%s_' % (db_prefix)
+        self._reset_config = self.options.reset_config
+        if self.options.db_prefix:
+            self._db_prefix = '%s_' % (self.options.db_prefix)
         else:
             self._db_prefix = ''
 
         self._server_list = server_list
-        if (pool_size == 0):
+        if (self.options.pool_size == 0):
             self._pool_size = 2*(len(self._server_list))
         else:
-            self._pool_size = pool_size
+            self._pool_size = self.options.pool_size
 
         self._num_dbnodes = len(self._server_list)
         self._conn_state = ConnectionStatus.INIT
-        self._logger = logger
-        self._credential = credential
-        self.log_response_time = log_response_time
-        self._ssl_enabled = ssl_enabled
-        self._ca_certs = ca_certs
+        self._logger = self.options.logger
+        self._credential = self.options.credential
+        self.log_response_time = self.options.log_response_time
+        self._ssl_enabled = self.options.ssl_enabled
+        self._ca_certs = self.options.ca_certs
 
         # if no generate_url is specified, use a dummy function that always
         # returns an empty string
-        self._generate_url = generate_url or (lambda x, y: '')
+        self._generate_url = self.options.generate_url or (lambda x, y: '')
         self._cf_dict = {}
-        self._ro_keyspaces = ro_keyspaces or {}
-        self._rw_keyspaces = rw_keyspaces or {}
+        self._ro_keyspaces = self.options.ro_keyspaces or {}
+        self._rw_keyspaces = self.options.rw_keyspaces or {}
         if ((cassa_api.UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
             (cassa_api.UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
             self._ro_keyspaces.update(cassa_api.UUID_KEYSPACE)
