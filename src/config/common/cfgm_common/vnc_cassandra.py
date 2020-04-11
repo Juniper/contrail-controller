@@ -90,24 +90,13 @@ class VncCassandraClient(object):
         return db_info
     # end get_db_info
 
-    def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
-                 logger, generate_url=None, reset_config=False,
-                 credential=None, walk=True, obj_cache_entries=0,
-                 obj_cache_exclude_types=None, debug_obj_cache_types=None,
-                 log_response_time=None, ssl_enabled=False, ca_certs=None,
-                 pool_size=0):
+    def __init__(self, server_list, **options):
 
         # TODO: Instantiate this driver based on if it's python2.7 (Thrift)
         #       python 3 (CQL)
-        self._cassandra_driver = CassandraDriverThrift(
-                 server_list, db_prefix, rw_keyspaces, ro_keyspaces,
-                 logger, generate_url, reset_config,
-                 credential, walk, obj_cache_entries,
-                 obj_cache_exclude_types, debug_obj_cache_types,
-                 log_response_time, ssl_enabled, ca_certs,
-                 pool_size)
+        self._cassandra_driver = CassandraDriverThrift(server_list, **options)
 
-        self._logger = self._cassandra_driver._logger
+        self._logger = self._cassandra_driver.options.logger
         self._cache_uuid_to_fq_name = {}
         self._obj_uuid_cf = (self._cassandra_driver.
                                 _cf_dict[cassa_api.OBJ_UUID_CF_NAME])
@@ -117,13 +106,13 @@ class VncCassandraClient(object):
                                 _cf_dict[cassa_api.OBJ_SHARED_CF_NAME])
 
         self._obj_cache_mgr = ObjectCacheManager(
-            logger,
+            self._cassandra_driver.options.logger,
             self,
-            max_entries=obj_cache_entries,
-            obj_cache_exclude_types=obj_cache_exclude_types,
-            debug_obj_cache_types=debug_obj_cache_types,
+            max_entries=self._cassandra_driver.options.obj_cache_entries,
+            obj_cache_exclude_types=self._cassandra_driver.options.obj_cache_exclude_types,
+            debug_obj_cache_types=self._cassandra_driver.options.debug_obj_cache_types,
         )
-        self._obj_cache_exclude_types = obj_cache_exclude_types or []
+        self._obj_cache_exclude_types = self._cassandra_driver.options.obj_cache_exclude_types or []
 
         # these functions make calls to pycassa xget() and get_range()
         # generator functions which can't be wrapped around handle_exceptions()
@@ -151,7 +140,7 @@ class VncCassandraClient(object):
             self.get_shared)
         self.walk = self._cassandra_driver._handle_exceptions(self.walk)
 
-        if walk:
+        if self._cassandra_driver.options.walk:
             self.walk()
 
     # end __init__
