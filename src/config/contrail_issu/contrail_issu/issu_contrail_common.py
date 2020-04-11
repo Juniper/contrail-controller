@@ -85,17 +85,16 @@ class ICCassandraClient():
             self._okeyspaces.update(oks)
             self._ks_issu_func_info.update(ks_issu_func_info)
 
-
         self._oldversion_handle = VncCassandraClient(
-            self._oldversion_server_list, self._odb_prefix,
-            None, self._okeyspaces, self._logger,
+            self._oldversion_server_list, db_prefix=self._odb_prefix,
+            ro_keyspaces=self._okeyspaces, logger=self._logger,
             credential=self._old_creds,
             ssl_enabled=self._odb_use_ssl,
             ca_certs=self._odb_ca_certs)
 
         self._newversion_handle = VncCassandraClient(
-            self._newversion_server_list, self._ndb_prefix,
-            self._nkeyspaces, None, self._logger,
+            self._newversion_server_list, db_prefix=self._ndb_prefix,
+            rw_keyspaces=self._nkeyspaces, logger=self._logger,
             credential=self._new_creds,
             ssl_enabled=self._ndb_use_ssl,
             ca_certs=self._ndb_ca_certs)
