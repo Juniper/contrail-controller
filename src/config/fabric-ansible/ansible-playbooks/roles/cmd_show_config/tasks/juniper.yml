@@ -1,4 +1,15 @@
 ---
+
+- name: Set vaiable for rollback compare
+  set_fact:
+    device_mgmt_ip: "{{device_management_ip}}"
+
+- name: Check commits
+  include_role:
+    name: rollback_compare
+  ignore_errors: True
+  static: no
+
 - name: "Read configuration type and filter"
   set_fact:
     config_filter: "{{input_params.get('config_filter', '') | trim}}"
