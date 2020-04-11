@@ -1,5 +1,7 @@
-import six
 import abc
+import collections
+import copy
+import six
 
 from sandesh_common.vns import constants as vns_constants
 
@@ -37,11 +39,43 @@ UUID_KEYSPACE = {
 }
 
 
+# Defines API option type and defaults that will be passed to the
+# drivers. The usage is to initialize a driver by listing only the
+# necessary options.
+
+OptionsDefault = {
+    'db_prefix': '',
+    'rw_keyspaces': {},
+    'ro_keyspaces': {},
+    'logger': None,
+    'generate_url': None,
+    'reset_config': False,
+    'credential': None,
+    'walk': True,
+    'obj_cache_entries': 0,
+    'obj_cache_exclude_types': None,
+    'debug_obj_cache_types': None,
+    'log_response_time': None,
+    'ssl_enabled': False,
+    'ca_certs': None,
+    'pool_size': 0,
+}
+OptionsType = collections.namedtuple(
+    'Options', OptionsDefault.keys())
+
+
+# Defines API that drivers should implement.
+
 @six.add_metaclass(abc.ABCMeta)
 class CassandraDriver(object):
 
-    def __init__(self, server_list, credentials=None, pool_size=None):
-        pass
+    def __init__(self, server_list, **options):
+        self.options = copy.deepcopy(OptionsDefault)
+        self.options.update(
+            # This to filter inputs that are None, in that case we
+            # prefer to use OptionDefault values.
+            dict([(k, v) for k, v in options.items() if v is not None]))
+        self.options = OptionsType(**self.options)
 
     @abc.abstractmethod
     def get_cf_batch(keyspace_name, cf_name):
