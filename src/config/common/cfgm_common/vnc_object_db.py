@@ -21,21 +21,19 @@ class VncObjectDBClient(object):
             if db_engine == 'cassandra':
                 self._object_db = vnc_cassandra.VncCassandraClient(
                     server_list,
-                    db_prefix,
-                    rw_keyspaces,
-                    ro_keyspaces,
-                    logger,
-                    generate_url,
-                    reset_config,
-                    credential,
-                    walk,
-                    obj_cache_entries,
-                    obj_cache_exclude_types,
-                    debug_obj_cache_types,
-                    None,
-                    ssl_enabled,
-                    ca_certs,
-                )
+                    db_prefix=db_prefix,
+                    rw_keyspaces=rw_keyspaces,
+                    ro_keyspaces=ro_keyspaces,
+                    logger=logger,
+                    generate_url=generate_url,
+                    reset_config=reset_config,
+                    credential=credential,
+                    walk=walk,
+                    obj_cache_entries=obj_cache_entries,
+                    obj_cache_exclude_types=obj_cache_exclude_types,
+                    debug_obj_cache_types=debug_obj_cache_types,
+                    ssl_enabled=ssl_enabled,
+                    ca_certs=ca_certs)
             else:
                 msg = ("Contrail API server does not support database backend "
                        "'%s'" % db_engine)
