@@ -2,7 +2,7 @@ contrail-config-common
 contrail-api-client
 sandesh==0.1dev
 sandesh-common
-gevent
+gevent>=1.4.0,<1.5.0
 netaddr
 python-keystoneclient
 netifaces
