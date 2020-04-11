@@ -11,7 +11,7 @@ from abstract_device_api.abstract_device_xsd import *
 import gevent
 from netaddr import IPAddress, IPNetwork
 
-from .db import LogicalRouterDM, VirtualNetworkDM
+from .db import LogicalRouterDM, VirtualNetworkDM, DataCenterInterconnectDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
 
@@ -129,7 +129,8 @@ class VnInterconnectFeature(FeatureBase):
         self.pi_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
         vn_map, dhcp_servers = self._get_interconnect_vn_map()
-
+        internal_vn_ris = []
+        routing_policies = {}
         for internal_vn, vn_list in list(vn_map.items()):
             vn_obj = VirtualNetworkDM.get(internal_vn)
             ri_obj = self._get_primary_ri(vn_obj)
@@ -164,13 +165,30 @@ class VnInterconnectFeature(FeatureBase):
                 rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
 
-            routing_policies = []
+            tmp_routing_policies = []
             self._physical_router.set_routing_vn_proto_in_ri(
-                ri, routing_policies, vn_list)
-            if len(routing_policies) > 0:
-                feature_config.set_routing_policies(routing_policies)
+                ri, tmp_routing_policies, vn_list)
+            for rp in tmp_routing_policies or []:
+                routing_policies[rp.name] = rp
+            if DMUtils.get_lr_internal_vn_prefix() in ri.name:
+                internal_vn_ris.append(ri)
 
-            feature_config.add_routing_instances(ri)
+        rib_map, rp_list = \
+            DataCenterInterconnectDM.set_intrafabric_dci_config(
+                self._physical_router.uuid, internal_vn_ris)
+        for k, v in rp_list.items():
+            if k in routing_policies:
+                self._logger.debug(
+                    "PARAG: VN-interconnect %s DCI RP : %s already exists "
+                    "in existing RPList from Routed VN !! Overwriting" % (
+                        self._physical_router.name, k))
+            routing_policies[k] = v
+
+        feature_config.set_routing_instances(internal_vn_ris)
+        for k, v in routing_policies:
+            feature_config.add_routing_policies(v)
+        for k, v in rib_map.items():
+            feature_config.add_rib_groups(v)
 
         for pi, li_map in list(self.pi_map.values()):
             pi.set_logical_interfaces(list(li_map.values()))

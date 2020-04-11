@@ -614,6 +614,38 @@ class DMUtils(object):
     # end extract_lr_uuid_from_internal_vn_name
 
     @classmethod
+    def get_dci_rib_group_name(cls, dci):
+        return DMUtils.contrail_prefix() + 'rib_' + dci.name + '_' + dci.uuid
+    # end get_dci_rib_group_name
+
+    @classmethod
+    def get_dci_rib_group_comment(cls, dci):
+        return "/* DataCenter InterConnect: %s, UUID: %s */" % (
+            dci.name, dci.uuid)
+    # end get_dci_rib_group_comment
+
+    @classmethod
+    def get_dci_rib_rp_name(cls, dci):
+        return DMUtils.contrail_prefix() + 'rp_rib_' + dci.name
+
+    @classmethod
+    def get_dci_rib_rp_comment(cls, dci):
+        return "/* DataCenter InterConnect: %s, UUID: %s RP from VNs */" % (
+            dci.name, dci.uuid)
+
+    @classmethod
+    def get_dci_vrf_rp_name(cls, dci):
+        return DMUtils.contrail_prefix() + 'rp_vrf_' + dci.name
+
+    @classmethod
+    def get_dci_vrf_rp_comment(cls, dci):
+        return DMUtils.contrail_prefix() + 'rp_vrf_' + dci.name
+
+    @classmethod
+    def get_dci_vrf_community_name(cls, dci):
+        return DMUtils.contrail_prefix() + 'rp_inter_' + dci.name
+
+    @classmethod
     def get_pr_dci_bgp_group(cls, pr_name, dci_uuid):
         return DMUtils.contrail_prefix() + 'dci_' + pr_name + '_' + dci_uuid
     # end get_pr_dci_bgp_group
