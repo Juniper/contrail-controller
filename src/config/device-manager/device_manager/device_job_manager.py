@@ -14,10 +14,12 @@ import subprocess
 import time
 import traceback
 
+from cfgm_common import vnc_greenlets
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
+from cfgm_common.zkclient import ZookeeperClient
 import gevent
 from job_manager.job_exception import JobException
 from job_manager.job_log_utils import JobLogUtils
@@ -39,12 +41,16 @@ class DeviceJobManager(object):
 
     _instance = None
 
-    def __init__(self, amqp_client, zookeeper_client, db_conn, args,
-                 dm_logger):
+    def __init__(self, amqp_client, db_conn, args, dm_logger):
         """Initialize ZooKeeper, RabbitMQ, Sandesh, DB conn etc."""
         DeviceJobManager._instance = self
         self._amqp_client = amqp_client
-        self._zookeeper_client = zookeeper_client
+        # create zk client for devicejobmanager with call_back
+        self.client_reconnect_gl = None
+        self._zookeeper_client = ZookeeperClient("device-job-manager",
+                                                 args.zk_server_ip,
+                                                 args.host_ip)
+        self._zookeeper_client.set_lost_cb(self.client_reconnect)
         self._db_conn = db_conn
         self._args = args
         self._job_mgr_statistics = {
@@ -111,6 +117,17 @@ class DeviceJobManager(object):
             return
         cls._instance = None
     # end destroy_instance
+
+    def client_reconnect(self):
+        if self.client_reconnect_gl is None:
+            self.client_reconnect_gl =\
+                vnc_greenlets.VncGreenlet("djm reconnect",
+                                          self.zk_reconnect)
+    # end client_reconnect
+
+    def zk_reconnect(self):
+        self._zookeeper_client.connect()
+        self.client_reconnect_gl = None
 
     def db_read(self, obj_type, obj_id, obj_fields=None,
                 ret_readonly=False):
