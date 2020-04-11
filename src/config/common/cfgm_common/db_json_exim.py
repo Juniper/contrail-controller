@@ -99,7 +99,7 @@ class DatabaseExim(object):
         try:
             self._cassandra = VncCassandraClient(
                 self._api_args.cassandra_server_list,
-                self._api_args.cluster_id,
+                db_prefix=self._api_args.cluster_id,
                 rw_keyspaces=ks_cf_info,
                 ro_keyspaces=None,
                 logger=self.log,
@@ -112,7 +112,7 @@ class DatabaseExim(object):
             gevent.sleep(20)
             self._cassandra = VncCassandraClient(
                 self._api_args.cassandra_server_list,
-                self._api_args.cluster_id,
+                db_prefix=self._api_args.cluster_id,
                 rw_keyspaces=ks_cf_info,
                 ro_keyspaces=None,
                 logger=self.log,
