@@ -1,5 +1,6 @@
-import six
 import abc
+import collections
+import six
 
 from sandesh_common.vns import constants as vns_constants
 
@@ -39,11 +40,35 @@ USERAGENT_KEYSPACE_NAME = vns_constants.USERAGENT_KEYSPACE_NAME
 USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
 
+OptionsDefault = {
+    'db_prefix': '',
+    'rw_keyspaces': {},
+    'ro_keyspaces': {},
+    'logger': None,
+    'generate_url': None,
+    'reset_config': False,
+    'credential': None,
+    'walk': True,
+    'obj_cache_entries': 0,
+    'obj_cache_exclude_types': None,
+    'debug_obj_cache_types': None,
+    'log_response_time': None,
+    'ssl_enabled': False,
+    'ca_certs': None,
+    'pool_size': 0,
+}
+OptionsType = collections.namedtuple(
+    'Options', OptionsDefault.keys())
+
+
 @six.add_metaclass(abc.ABCMeta)
 class CassandraDriver(object):
 
-    def __init__(self, server_list, credentials=None, pool_size=None):
-        pass
+    options = dict(OptionsDefault)
+
+    def __init__(self, server_list, **options):
+        self.options.update(options)
+        self.options = OptionsType(**self.options)
 
     @abc.abstractmethod
     def get_cf_batch(keyspace_name, cf_name):
