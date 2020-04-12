@@ -89,7 +89,7 @@ def stop_zoo(cport):
     
 def replace_string_(filePath, findreplace):
     "replaces all findStr by repStr in file filePath"
-    print filePath
+    print(filePath)
     tempName=filePath+'~~~'
     input = open(filePath)
     output = open(tempName,'w')
