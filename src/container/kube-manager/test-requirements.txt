@@ -1,4 +1,4 @@
-gevent
+gevent<1.5.0
 netaddr>=0.7.5
 bitarray>=0.8.0
 psutil>=0.4.1
