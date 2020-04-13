@@ -1293,6 +1293,7 @@ class OpServer(object):
             qid = str(uuid.uuid1(redis_query_ip))
             self._logger.info('Received Query: %s' % (str(request.json)))
             self._logger.info("Starting Query %s" % qid)
+            self._logger.info("Dummy log")
 
             tabl = ""
             for key, value in request.json.iteritems():
