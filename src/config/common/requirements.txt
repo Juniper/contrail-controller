@@ -1,4 +1,14 @@
+<<<<<<< HEAD   (7816e0 Use logfile from config in applynamed config script)
 pycassa>=1.7.2
+=======
+attrdict
+bitarray
+bottle
+contrail-api-client
+future
+gevent<1.5.0
+greenlet
+>>>>>>> CHANGE (20e967 Pin gevent to version 1.4.0)
 kazoo
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
 bitarray
