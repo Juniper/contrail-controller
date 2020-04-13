@@ -1251,6 +1251,12 @@ bool AgentRoute::ReComputeMulticastPaths(AgentPath *path, bool del) {
         return false;
     }
 
+    // Since we holding a ref to composite NHs from FMG labels now,
+    // it is possible for nh's ref to drop to zerp becuase of freelabel
+    // call below. Hold a ref until the nh is updated in labels i.e.,
+    // till the end of this function
+    NextHopRef nh_ref = nh;
+
     if (nh->GetType() == NextHop::COMPOSITE) {
         CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
         comp_nh->set_validate_mcast_src(ValidateMcastSrc());
