@@ -3,7 +3,7 @@ bitarray
 bottle
 contrail-api-client
 future
-gevent
+gevent==1.4.0
 greenlet
 kazoo
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660

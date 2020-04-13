@@ -1,6 +1,6 @@
 sandesh
 sandesh-common
-gevent
+gevent==1.4.0
 geventhttpclient
 python-keystoneclient
 python-ironicclient
