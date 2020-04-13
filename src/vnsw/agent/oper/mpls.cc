@@ -91,10 +91,6 @@ bool MplsLabel::ChangeInternal(const DBRequest *req) {
         nh = static_cast<NextHop *>(nh_table->FindActiveEntry(&key));
     }
 
-    if (IsFabricMulticastReservedLabel()) {
-        fmg_nh_list_[data->vrf_name()] = nh;
-    }
-
     return ChangeNH(nh);
 }
 
@@ -104,6 +100,14 @@ bool MplsLabel::ChangeNH(NextHop *nh) {
 
     assert(nh);
     nh_ = nh;
+
+    if (IsFabricMulticastReservedLabel()) {
+        CompositeNH *cnh = dynamic_cast<CompositeNH*>(nh);
+        if (cnh && cnh->vrf()) {
+            fmg_nh_list_[cnh->vrf()->GetName()] = nh;
+        }
+    }
+
     SyncDependentPath();
     return true;
 }
@@ -297,7 +301,7 @@ bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
         assert(data);
         mpls->fmg_nh_list().erase(data->vrf_name());
         if (mpls->fmg_nh_list().empty() == false) {
-            if (mpls->ChangeNH(mpls->fmg_nh_list().begin()->second)) {
+            if (mpls->ChangeNH(mpls->fmg_nh_list().begin()->second.get())) {
                 DBTablePartBase *tpart =
                     static_cast<DBTablePartition *>(GetTablePartition(mpls));
                 tpart->Notify(mpls);

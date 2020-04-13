@@ -78,7 +78,7 @@ public:
 
     uint32_t label() const {return label_;}
     const NextHop *nexthop() const {return nh_;}
-    std::map<std::string, NextHop *> &fmg_nh_list() {
+    std::map<std::string, NextHopRef> &fmg_nh_list() {
         return fmg_nh_list_;
     }
 
@@ -88,7 +88,7 @@ private:
     uint32_t label_;
     bool free_label_;
     NextHop *nh_;
-    std::map<std::string, NextHop *> fmg_nh_list_;
+    std::map<std::string, NextHopRef> fmg_nh_list_;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);
 };
