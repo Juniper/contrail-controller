@@ -287,6 +287,7 @@ class FilterModule(object):
             mgmt_ip = device_info['basic']['device_management_ip']
             username = device_info['basic']['device_username']
             password = device_info['basic']['device_password']
+            vendor = device_info['basic']['device_vendor']
             multihomed_interface_list = \
                 device_info['target_multihomed_interface']
         else:
@@ -295,6 +296,7 @@ class FilterModule(object):
             mgmt_ip = device_obj.physical_router_management_ip
             username = device_obj.physical_router_user_credentials.username
             password = self._get_password(device_obj)
+            vendor = device_obj.physical_router_vendor_name
             multihomed_interface_list = \
                 self._get_multihomed_interface_list(pi_list)
 
@@ -305,6 +307,7 @@ class FilterModule(object):
             "mgmt_ip": mgmt_ip,
             "username": username,
             "password": password,
+            "vendor": vendor,
             "multihomed_interface_list": multihomed_interface_list
         }
     # end _get_buddy_entry

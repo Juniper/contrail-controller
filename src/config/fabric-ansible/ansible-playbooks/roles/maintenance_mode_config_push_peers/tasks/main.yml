@@ -1,0 +1,42 @@
+- name: Get device info via the upgrade plan
+  set_fact:
+    devinfo: "{{job_ctx | hitless_device_info(pr_uuid)}}"
+
+- name: Grab device information for multi-homed leaf
+  set_fact:
+    device_info: "{{devinfo['device_table'].get(pr_uuid)}}"
+
+- name: Set the device list from the VPG buddies list
+  set_fact:
+    device_list: "{{device_info.vpg_info.buddies}}"
+
+- name: Print the device list
+  debug: var=device_list verbosity=1
+
+- set_fact:
+    peer_conf_dir: "./config/{{pr_host}}/final_config/final_hitless_peer_config"
+
+- name: Remove final_config/final_hitless_peer_config folder if it already exists
+  file:
+    path: "{{peer_conf_dir}}"
+    state: absent
+
+- name: Create final_config/final_hitless_peer_config folder
+  file:
+    path: "{{peer_conf_dir}}"
+    state: directory
+
+- name: Change the configuration on all multi-homed peers
+  block:
+    - name: Generate and push maintenance mode config onto peer devices
+      block:
+        - name: Create the peer config
+          include: "peer_config.yml"
+          with_items: "{{device_list}}"
+      rescue:
+        - name: Perform necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Failed to generate script to {{device_maintenance_mode}} maintenance mode on device {{pr_name}} when configuring peers"
+            jl_err_message: "Failed to generate script to {{device_maintenance_mode}} maintenance mode on device {{pr_name}} when configuring peers"
+  when: device_list is defined and device_list |length>0

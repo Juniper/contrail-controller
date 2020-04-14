@@ -1,0 +1,37 @@
+- name: Get the bgp group names with config groups
+  block:
+    - juniper_junos_config:
+        provider:
+          host: "{{item.mgmt_ip}}"
+          username: "{{item.username}}"
+          password: "{{item.password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        retrieve: 'committed'
+        filter: 'groups'
+        diff: true
+        check: false
+        commit: false
+        config_mode: 'private'
+        format: xml
+      register: group_info_cfg
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "group_info_cfg.failed == true"
+      vars:
+        op_err_message: "{{group_info_cfg.msg}}"
+        jl_err_message: "Error while obtaining group information from Juniper device: {{group_info_cfg.msg}}"
+
+- name: Get the group information
+  set_fact:
+    results_json_cfg: "{{group_info_cfg|json_query('config_parsed.configuration')}}"
+
+- name: Get the required groups from results
+  set_fact:
+    valid_groups_cfg: "{{results_json_cfg.groups| selectattr('protocols','defined')| selectattr('protocols.bgp','defined')| list}}"
+  when: results_json_cfg.groups is defined
+
+- name: Print valid groups
+  debug: msg="{{valid_groups_cfg}}" verbosity=1
+  when: valid_groups_cfg is defined

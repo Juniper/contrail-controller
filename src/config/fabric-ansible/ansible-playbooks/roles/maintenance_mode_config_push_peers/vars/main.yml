@@ -1,0 +1,14 @@
+---
+# vars file for maintenance mode validation role
+pr_uuid: "{{playbook_input.device_id}}"
+pr_user: "{{playbook_input.device_username}}"
+pr_host: "{{playbook_input.device_management_ip}}"
+pr_fqname: "{{playbook_input.device_fqname}}"
+pr_name: "{{playbook_input.device_fqname[-1]}}"
+prouter_name: "{{pr_name}}"
+pr_family: "{{playbook_input.device_family}}"
+pr_password: "{{playbook_input.device_password}}"
+pr_vendor: "{{playbook_input.vendor|lower}}"
+upgrade_plan: "{{playbook_input.input.upgrade_plan}}"
+additional_error_handler: "hitless_upgrade_errors.yml"
+is_hitless_upgrade: "{{playbook_input.device_hitless_upgrade}}"
