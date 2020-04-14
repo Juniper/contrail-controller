@@ -17,6 +17,34 @@ from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 
 
+class RPTerm:
+    def __init__(self, name, protocols=[], prefixs=[], prefixtypes=[],
+                 extcommunity_list=[], extcommunity_match_all=None,
+                 community_match_all=None, action="",
+                 local_pref=None, med=None, asn_list=[],
+                 termtype='', routes=[], route_types=[], route_values=[],
+                 fcommunity_list=[], fcommunity=None,
+                 tcommunity_list=[], tcommunity_add=[]):
+        self.name = name
+        self.protocols = protocols
+        self.prefixs = prefixs
+        self.prefixtypes = prefixtypes
+        self.extcommunity_list = extcommunity_list
+        self.extcommunity_match_all = extcommunity_match_all
+        self.community_match_all = community_match_all
+        self.action = action
+        self.local_pref = local_pref
+        self.med = med
+        self.asn_list = asn_list
+        self.type = termtype
+        self.routes = routes; self.route_types = route_types
+        self.route_values = route_values
+        self.fcommunity_list = fcommunity_list
+        self.fcommunity = fcommunity
+        self.tcommunity_list = tcommunity_list
+        self.tcommunity_add = tcommunity_add
+# end RPTerm
+
 class TestAnsibleCommonDM(DMTestCase):
     @classmethod
     def setUpClass(cls):
@@ -187,16 +215,26 @@ class TestAnsibleCommonDM(DMTestCase):
                                    prefixtypes=[], extcommunity_list=[],
                                    extcommunity_match_all = False,
                                    community_match_all = False, action="",
-                                   local_pref=None, med=None, asn_list=[]):
+                                   local_pref=None, med=None, asn_list=[],
+                                   routes=[], route_types=[], route_values=[]):
         prefix_list = []
         for i in range(len(prefixs)):
             prefix_list.append(PrefixMatchType(prefix=prefixs[i],
                                                prefix_type=prefixtypes[i]))
+        route_filter = None
+        for i in range(len(routes)):
+            if route_filter is None:
+                route_filter = RouteFilterType()
+            route_filter.add_route_filter_properties(
+                RouteFilterProperties(route=routes[i],
+                                      route_type=route_types[i],
+                                      route_type_value=route_values[i]))
         tcond = TermMatchConditionType(
             protocol=protocols, prefix=prefix_list,
             community_match_all=community_match_all,
             extcommunity_list=extcommunity_list,
-            extcommunity_match_all=extcommunity_match_all)
+            extcommunity_match_all=extcommunity_match_all,
+            route_filter=route_filter)
         aspath = ActionAsPathType(expand=AsListType(asn_list=asn_list))
         updateo = ActionUpdateType(as_path=aspath, local_pref=local_pref,
                                    med=med)
@@ -206,12 +244,110 @@ class TestAnsibleCommonDM(DMTestCase):
         return term
     # end create_routing_policy_term
 
-    def create_routing_policy(self, rp_name, term_list):
-        rp = RoutingPolicy(name=rp_name)
+    def create_routing_policy(self, rp_name, term_list, termtype=None):
+        rp = RoutingPolicy(name=rp_name, term_type=termtype)
         rp.set_routing_policy_entries(PolicyStatementType(term=term_list))
         rp_uuid = self._vnc_lib.routing_policy_create(rp)
         return self._vnc_lib.routing_policy_read(id=rp_uuid)
     # end create_routing_policy
+
+    def verify_rpterms_in_abstract_cfg(self, rpname, termlist, rp_inputdict):
+        if rpname not in rp_inputdict or len(rp_inputdict[rpname]) == 0:
+            return
+        i = 0
+        for t in termlist:
+            tm = t.get('term_match_condition', None)
+            ta = t.get('term_action_list', None)
+            if i >= len(rp_inputdict[rpname]):
+                continue
+            tpassed = rp_inputdict[rpname][i]
+            if tm:
+                tme = tm.get('extcommunity_list', None)
+                for j in range(len(tpassed.extcommunity_list)):
+                    self.assertEqual(tme[j], tpassed.extcommunity_list[j])
+                tprefix = tm.get('prefix', None)
+                for j in range(len(tpassed.prefixs)):
+                    self.assertEqual(tprefix[j].get('prefix'),
+                                     tpassed.prefixs[j])
+                    self.assertEqual(tprefix[j].get('prefix_type'),
+                                     tpassed.prefixtypes[j])
+                troute_filter = tm.get('route_filter', None)
+                if troute_filter:
+                    rf_props = troute_filter.get('route_filter_properties',[])
+                    for j in range(len(tpassed.routes)):
+                        self.assertEqual(rf_props[j].get('route'),
+                                         tpassed.routes[j])
+                        self.assertEqual(rf_props[j].get('route_type'),
+                                         tpassed.route_types[j])
+                        if tpassed.route_values[j] is not None:
+                            self.assertEqual(
+                                rf_props[j].get('route_type_value'),
+                                tpassed.route_values[j])
+                if len(tpassed.fcommunity_list) > 0:
+                    # for user RP modified to cover community, vrf-import
+                    fcommunity_list = tm.get('community_list', [])
+                    if len(fcommunity_list) == len(tpassed.fcommunity_list):
+                        for j in range(len(tpassed.fcommunity_list)):
+                            if fcommunity_list[j] not in tpassed.fcommunity_list:
+                                continue
+                            self.assertIn(fcommunity_list[j],
+                                          tpassed.fcommunity_list)
+                    self.assertEqual(tm.get('community'),
+                                     tpassed.fcommunity)
+                tproto = tm.get('protocol', None)
+                for j in range(len(tpassed.protocols)):
+                    self.assertEqual(tproto[j], tpassed.protocols[j])
+            if ta:
+                if len(tpassed.action) > 0:
+                    self.assertEqual(ta.get('action'), tpassed.action)
+                tupdate = ta.get('update', None)
+                if tupdate:
+                    if tpassed.local_pref is not None:
+                        self.assertEqual(tupdate.get('local_pref'),
+                                         tpassed.local_pref)
+                    if tpassed.med is not None:
+                        self.assertEqual(tupdate.get('med'),
+                                         tpassed.med)
+                    if len(tpassed.asn_list) > 0:
+                        tas = tupdate.get('as_path').get('expand').\
+                            get('asn_list')
+                        for j in range(len(tpassed.asn_list)):
+                            self.assertEqual(tas[j], tpassed.asn_list[j])
+                    if len(tpassed.tcommunity_add) > 0:
+                        if tupdate.get('community') and tupdate.\
+                                get('community').get('add') and \
+                            tupdate.get('community').get('add').\
+                                    get('community'):
+                            tac = tupdate.get('community').get('add').\
+                                get('community')
+                            for j in range(len(tpassed.tcommunity_add)):
+                                self.assertEqual(tac[j],
+                                                 tpassed.tcommunity_add[j])
+                if len(tpassed.tcommunity_list) > 0:
+                    tacl = ta.get('community_list', [])
+                    if len(tacl) == len(tpassed.tcommunity_list):
+                        for j in range(len(tpassed.tcommunity_list)):
+                            if tacl[j] not in tpassed.tcommunity_list:
+                                continue
+                            self.assertIn(tacl[j],
+                                          tpassed.tcommunity_list[j])
+            i += 1
+    # verify_rpterms_in_abstract_cfg
+
+    def verify_routing_policy_in_abstract_cfg(self, abstract_cfg,
+                                              rp_inputdict):
+        rp_abstract = abstract_cfg.get('routing_policies', None)
+        self.assertIsNotNone(rp_abstract)
+        for rp_abs in rp_abstract:
+            rpname = rp_abs.get('name')
+            self.assertIsNotNone(rpname)
+            self.assertIn(rpname, rp_inputdict)
+            rpterms = rp_abs.get('routing_policy_entries', None)
+            self.assertIsNotNone(rpterms)
+            termlist = rpterms.get('terms', None)
+            self.assertIsNotNone(termlist)
+            self.verify_rpterms_in_abstract_cfg(rpname, termlist, rp_inputdict)
+    # end
 
     def get_routing_instance_from_description(self, config, description):
         for ri in config.get('routing_instances', []):
@@ -561,8 +697,6 @@ class TestAnsibleCommonDM(DMTestCase):
             )
         )
         namespace.set_tag_list([{'to': [tag]}])
-        # import pdb
-        # pdb.set_trace()
         try:
             self._vnc_lib.fabric_namespace_create(namespace)
         except RefsExistError:
