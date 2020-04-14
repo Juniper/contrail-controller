@@ -59,8 +59,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def __init__(self, server_list, **options):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._reset_config = self.options.reset_config
-
         self._server_list = server_list
         if (self.options.pool_size == 0):
             self._pool_size = 2*(len(self._server_list))
@@ -150,14 +148,14 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     # end _cassandra_wait_for_keyspace
 
     def _cassandra_ensure_keyspace(self, keyspace_name, cf_dict):
-        if self._reset_config and keyspace_name in self.existing_keyspaces:
+        if self.options.reset_config and keyspace_name in self.existing_keyspaces:
             try:
                 self.sys_mgr.drop_keyspace(keyspace_name)
             except InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger(str(e), level=SandeshLevel.SYS_NOTICE)
 
-        if (self._reset_config or keyspace_name not in self.existing_keyspaces):
+        if (self.options.reset_config or keyspace_name not in self.existing_keyspaces):
             try:
                 self.sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
                         {'replication_factor': str(self._num_dbnodes)})
