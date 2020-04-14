@@ -57,3 +57,14 @@ class TestOptions(unittest.TestCase):
     def test_server_list(self):
         drv = FakeDriver(['a', 'b', 'c'])
         self.assertEqual(['a', 'b', 'c'], drv._server_list)
+
+    def test_pool_size(self):
+        drv = FakeDriver(['a', 'b', 'c'])
+        self.assertEqual(6, drv.pool_size())
+
+        drv = FakeDriver(['a', 'b', 'c'], pool_size=8)
+        self.assertEqual(8, drv.pool_size())
+
+    def test_nodes(self):
+        drv = FakeDriver(['a', 'b', 'c'])
+        self.assertEqual(3, drv.nodes())

@@ -128,3 +128,17 @@ class CassandraDriver(API):
         if self.options.db_prefix:
             return "{}_{}".format(self.options.db_prefix, name)
         return name
+
+    def pool_size(self):
+        """Returns size of pool based on options or deducts it from `_server_list`."""
+        if self.options.pool_size == 0:
+            return 2 * len(self._server_list)
+        return self.options.pool_size
+
+    def nodes(self):
+        """Returns numbers of nodes in cluster."""
+        # TODO(sahid): I copied that part from legacy. That part may
+        # be wrong, cassandra has a principle of auto-discovery. We
+        # could pass only one server's address to server_list,
+        # cassandra will still automatically discovers its peers.
+        return len(self._server_list)
