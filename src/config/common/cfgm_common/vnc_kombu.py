@@ -266,10 +266,10 @@ class VncKombuClientBase(object):
             keyfile = kwargs.get('kombu_ssl_keyfile', '')
             certfile = kwargs.get('kombu_ssl_certfile', '')
             ca_certs = kwargs.get('kombu_ssl_ca_certs', '')
-            if config.ssl_version:
+            if ssl_version:
                 # legacy parameter - checking if user doesn't try to use
                 # unsupported protocol (he doesn't have choice anyway)
-                cls._validate_ssl_version(config.ssl_version)
+                self.validate_ssl_version(ssl_version)
             ssl_params['ssl_version'] = ssl.PROTOCOL_TLSv1_2
             if keyfile:
                 ssl_params.update({'keyfile': keyfile})
