@@ -75,9 +75,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         self._ssl_enabled = self.options.ssl_enabled
         self._ca_certs = self.options.ca_certs
 
-        # if no generate_url is specified, use a dummy function that always
-        # returns an empty string
-        self._generate_url = self.options.generate_url or (lambda x, y: '')
         self._cf_dict = {}
         self._ro_keyspaces = self.options.ro_keyspaces or {}
         self._rw_keyspaces = self.options.rw_keyspaces or {}

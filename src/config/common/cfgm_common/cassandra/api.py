@@ -45,7 +45,6 @@ OptionsDefault = {
     'rw_keyspaces': {},
     'ro_keyspaces': {},
     'logger': None,
-    'generate_url': None,
     'reset_config': False,
     'credential': None,
     'walk': True,
