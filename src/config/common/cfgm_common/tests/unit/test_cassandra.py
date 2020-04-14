@@ -48,3 +48,8 @@ class TestOptions(unittest.TestCase):
 
         drv = FakeDriver([], reset_config=True)
         self.assertTrue(drv.options.reset_config)
+
+    def test_server_list(self):
+        drv = FakeDriver(['a', 'b', 'c'])
+        self.assertEqual(['a', 'b', 'c'], drv._server_list)
+
