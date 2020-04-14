@@ -118,3 +118,12 @@ class CassandraDriver(object):
         if self.options.db_prefix:
             return "{}_{}".format(self.options.db_prefix, name)
         return name
+
+    def pool_size(self):
+        if self.options.pool_size == 0:
+            return 2 * len(self._server_list)
+        return self.options.pool_size
+
+    def nodes(self):
+        return len(self._server_list)
+
