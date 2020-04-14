@@ -17,6 +17,7 @@
        <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
        <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
        <xsd:element name="routing-policies" type="dac:RoutingPolicy" maxOccurs="unbounded"/>
+        <xsd:element name="rib-groups" type="dac:RibGroup" maxOccurs="unbounded"/>
        <!-- Deprecated: These sections are encapsulated inside feature groups -->
     </xsd:all>
 </xsd:complexType>
@@ -38,6 +39,7 @@
         <xsd:element name="storm-control" type="dac:StormControl" maxOccurs="unbounded"/>
         <xsd:element name="telemetry" type="dac:Telemetry" maxOccurs="unbounded"/>
         <xsd:element name="routing-policies" type="dac:RoutingPolicy" maxOccurs="unbounded"/>
+        <xsd:element name="rib-groups" type="dac:RibGroup" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -230,6 +232,18 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="RibGroup">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="interface-routes" type="xsd:boolean"/>
+        <xsd:element name="static" type="xsd:boolean"/>
+        <xsd:element name="bgp" type="xsd:boolean"/>
+        <xsd:element name="import-rib" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="import-policy" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="RoutingInstance">
     <xsd:all>
        <xsd:element name="name" type="xsd:string"/>
@@ -259,6 +273,8 @@
        <xsd:element name="protocols" type="dac:RoutingInstanceProtocols" maxOccurs="unbounded"/>
        <xsd:element name="forwarding-options" type="dac:ForwardingOptions"/>
        <xsd:element name="rib-group" type="xsd:string"/>
+       <xsd:element name="vrf-export" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="vrf-import" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -469,8 +485,7 @@
   </xsd:all>
 </xsd:complexType>
 
-<!-- Routing Policies -->
-
+<!-- Routing Policies definitions -->
 <xsd:simpleType name='ActionType'>
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="reject"/>
@@ -486,9 +501,9 @@
 <xsd:complexType name="ActionAsPathType">
     <xsd:element name='expand'   type='dac:AsListType'/>
 </xsd:complexType>
-<!--
+
 <xsd:complexType name='CommunityListType'>
-    <xsd:element name='community' type='dac:CommunityAttribute' maxOccurs='unbounded'/>
+    <xsd:element name='community' type='xsd:string' maxOccurs='unbounded'/>
 </xsd:complexType>
 
 <xsd:complexType name='ExtCommunityListType'>
@@ -501,18 +516,16 @@
     <xsd:element name='set'    type='dac:CommunityListType'/>
 </xsd:complexType>
 
-
 <xsd:complexType name="ActionExtCommunityType">
     <xsd:element name='add'    type='dac:ExtCommunityListType'/>
     <xsd:element name='remove' type='dac:ExtCommunityListType'/>
     <xsd:element name='set'    type='dac:ExtCommunityListType'/>
 </xsd:complexType>
--->
 
 <xsd:complexType name="ActionUpdateType">
     <xsd:element name="as-path"         type="dac:ActionAsPathType"/>
-    <!-- <xsd:element name="community"  type="dac:ActionCommunityType"/>
-    <xsd:element name="extcommunity"    type="dac:ActionExtCommunityType"/> -->
+    <xsd:element name="community"       type="dac:ActionCommunityType"/>
+    <xsd:element name="extcommunity"    type="dac:ActionExtCommunityType"/>
     <xsd:element name="local-pref"      type="xsd:integer"/>
     <xsd:element name="med"             type="xsd:integer"/>
 </xsd:complexType>
@@ -520,6 +533,13 @@
 <xsd:complexType name='TermActionListType'>
     <xsd:element name='update'  type='dac:ActionUpdateType'/>
     <xsd:element name='action'  type='dac:ActionType'/>
+    <xsd:element name="external" type='dac:ExternalRouteType' required='optional'/>
+    <xsd:element name="as-path-expand" type='xsd:string' required='optional'
+            description="Valid only for network-device TermType. string should be in format of AS number(s) seperated by spaces"/>
+    <xsd:element name="as-path-prepend" type='xsd:string' required='optional'
+             description="Valid only for network-device TermType. string should be in format of AS number(s) seperated by spaces"/>
+    <xsd:element name="community" type="xsd:string"/> <!-- used for contrail dci intra fabric -->
+    <xsd:element name="community-list" type="xsd:string" maxOccurs="unbounded"/>
 </xsd:complexType>
 
 <xsd:simpleType name='PrefixType'>
@@ -533,14 +553,16 @@
 <xsd:simpleType name='PathSourceType'>
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="bgp"/>
-        <!-- <xsd:enumeration value="xmpp"/> -->
         <xsd:enumeration value="static"/>
-        <!-- <xsd:enumeration value="service-chain"/>
-        <xsd:enumeration value="aggregate"/> -->
         <xsd:enumeration value="interface"/>
         <xsd:enumeration value="interface-static"/>
-        <!-- <xsd:enumeration value="service-interface"/>
-        <xsd:enumeration value="bgpaas"/> -->
+        <xsd:enumeration value="aggregate" description='valid for both termtype'/>
+        <xsd:enumeration value="direct"/>
+        <xsd:enumeration value="pim"/>
+        <xsd:enumeration value="evpn"/>
+        <xsd:enumeration value="ospf"/>
+        <xsd:enumeration value="ospf3"/>
+
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -553,16 +575,26 @@
     <xsd:all>
         <xsd:element name="protocol" type="dac:PathSourceType" maxOccurs="unbounded"/>
         <xsd:element name="prefix" type="dac:PrefixMatchType" maxOccurs="unbounded"/>
-        <xsd:element name="community" type="xsd:string"/> <!-- DEPRECATED -->
+        <xsd:element name="community" type="xsd:string"/> <!-- used for contrail dci intra fabric -->
         <xsd:element name="community-list" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="community-match-all" type="xsd:boolean"/>
         <xsd:element name="extcommunity-list" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="extcommunity-match-all" type="xsd:boolean"/>
+        <xsd:element name="family" type="dac:FamilyType" required='optional'/>
+        <xsd:element name="as-path" type='xsd:integer' required='optional' maxOccurs='unbounded'/>
+        <xsd:element name="external" type='dac:ExternalRouteType' required='optional'/>
+        <xsd:element name="local-pref" type="xsd:integer" required='optional'/>
+        <xsd:element name="nlri-route-type" type='xsd:integer' required='optional' maxOccurs='unbounded'
+             description='list of integer values in range of 1 to 10 inclusive.'/>
+        <xsd:element name="prefix-list" type='dac:PrefixListMatchType' required='optional' maxOccurs="unbounded"
+             description='list of prefixes from interface route table uuids with prefix types.'/>
+        <xsd:element name="route-filter" type='dac:RouteFilterType' required='optional'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="RoutingPolicyTerm">
     <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="term-match-condition" type="dac:TermMatchConditionType"/>
         <xsd:element name="term-action-list" type="dac:TermActionListType"/>
     </xsd:all>
@@ -579,8 +611,66 @@
     <xsd:all>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name='term-type' type='dac:TermType'/>
         <xsd:element name="routing-policy-entries" type="dac:RoutingPolicyEntry" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
+
+<!-- RoutingPolicy new types and definiton to support network-device terms -->
+<xsd:simpleType name='TermType'>
+    <xsd:restriction base="xsd:string" default="vrouter">
+        <xsd:enumeration value="vrouter"/>
+        <xsd:enumeration value="network-device"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='FamilyType'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="inet"/>
+        <xsd:enumeration value="inet-vpn"/>
+        <xsd:enumeration value="evpn"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='ExternalRouteType'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="ospf-type-1"/>
+        <xsd:enumeration value="ospf-type-2"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="PrefixListMatchType">
+    <xsd:element name="prefixes" type='xsd:string' required='true' maxOccurs="unbounded"
+             description='list of interface route table uuids used to build list of prefixes.'/>
+    <xsd:element name="prefix-type" type="dac:PrefixType"/>
+</xsd:complexType>
+
+<xsd:complexType name="RouteFilterType">
+    <xsd:all>
+        <xsd:element name="route-filter-properties" type="dac:RouteFilterProperties" maxOccurs="unbounded"
+             description='List of route filter properties.'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RouteFilterProperties">
+    <xsd:all>
+        <xsd:element name="route"    type="xsd:string"  required='true'
+             description='route filter IP address or host name.'/>
+        <xsd:element name="route-type" type="dac:RouteFType"/>
+        <xsd:element name="route-type-value" type="xsd:string" required='optional'
+             description="Valid only for through, upto or prefix-length-range RouteFType. Format: for prefix-length-range it stores '/min-length-/max-length'. through should be string, upto stores '/number'"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name='RouteFType'>
+    <xsd:restriction base="xsd:string" default="exact">
+        <xsd:enumeration value="exact"/>
+        <xsd:enumeration value="longer"/>
+        <xsd:enumeration value="orlonger"/>
+        <xsd:enumeration value="prefix-length-range"/>
+        <xsd:enumeration value="through"/>
+        <xsd:enumeration value="upto"/>
+    </xsd:restriction>
+</xsd:simpleType>
 
 </xsd:schema>
