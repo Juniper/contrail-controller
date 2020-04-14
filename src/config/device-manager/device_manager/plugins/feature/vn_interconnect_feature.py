@@ -143,7 +143,8 @@ class VnInterconnectFeature(FeatureBase):
         self.pi_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
         vn_map, dhcp_servers = self._get_interconnect_vn_map()
-
+        internal_vn_ris = []
+        routing_policies = {}
         for internal_vn, vn_list in list(vn_map.items()):
             vn_obj = VirtualNetworkDM.get(internal_vn)
             ri_obj = self._get_primary_ri(vn_obj)
@@ -178,13 +179,25 @@ class VnInterconnectFeature(FeatureBase):
                 rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
 
-            routing_policies = []
+            tmp_routing_policies = []
             self._physical_router.set_routing_vn_proto_in_ri(
-                ri, routing_policies, vn_list)
-            if len(routing_policies) > 0:
-                feature_config.set_routing_policies(routing_policies)
-
+                ri, tmp_routing_policies, vn_list)
+            for rp in tmp_routing_policies or []:
+                routing_policies[rp.name] = rp
             feature_config.add_routing_instances(ri)
+
+            if ri.get_virtual_network_is_internal() == True:
+                internal_vn_ris.append(ri)
+
+        rib_map, rp_list = \
+            DataCenterInterconnectDM.set_intrafabric_dci_config(
+                self._physical_router.uuid, internal_vn_ris)
+        for k, v in rp_list.items():
+            routing_policies[k] = v
+        for k, v in routing_policies.items():
+            feature_config.add_routing_policies(v)
+        for k, v in rib_map.items():
+            feature_config.add_rib_groups(v)
 
         for pi, li_map in list(self.pi_map.values()):
             pi.set_logical_interfaces(list(li_map.values()))
