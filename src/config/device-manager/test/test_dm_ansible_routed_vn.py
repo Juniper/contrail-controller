@@ -8,29 +8,10 @@ import mock
 from attrdict import AttrDict
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
-from .test_dm_ansible_common import TestAnsibleCommonDM
+from .test_dm_ansible_common import TestAnsibleCommonDM, RPTerm
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_client import *
 
-
-class RPTerm:
-    def __init__(self, name, protocols=[], prefixs=[], prefixtypes=[],
-                 extcommunity_list=[], extcommunity_match_all=None,
-                 community_match_all=None, action="",
-                 local_pref=None, med=None, asn_list=[]):
-        self.name = name
-        self.protocols = protocols
-        self.prefixs = prefixs
-        self.prefixtypes = prefixtypes
-        self.extcommunity_list = extcommunity_list
-        self.extcommunity_match_all = extcommunity_match_all
-        self.community_match_all = community_match_all
-        self.action = action
-        self.local_pref = local_pref
-        self.med = med
-        self.asn_list = asn_list
-
-# end RPTerm
 
 class BgpRoutedParam:
     def __init__(self, peer_ip, peer_asn, local_asn, hold_time,
@@ -175,49 +156,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 self.assertEqual(bgp.get('authentication_key'), auth_key)
                 self.assertEqual(bgp.get('autonomous_system'),
                                  bgp_param.local_asn)
-        rp_abstract = dac.get('routing_policies', None)
-        self.assertIsNotNone(rp_abstract)
-        for rp_abs in rp_abstract:
-            rpname = rp_abs.get('name')
-            self.assertIsNotNone(rpname)
-            self.assertIn(rpname, rp_inputdict)
-            rpterms = rp_abs.get('routing_policy_entries', None)
-            self.assertIsNotNone(rpterms)
-            termlist = rpterms.get('terms', None)
-            self.assertIsNotNone(termlist)
-            i = 0
-            for t in termlist:
-                tm = t.get('term_match_condition', None)
-                ta = t.get('term_action_list', None)
-                self.assertIsNotNone(tm);
-                self.assertIsNotNone(ta)
-                tme = tm.get('extcommunity_list', None)
-                tpassed = rp_inputdict[rpname][i]
-                for j in range(len(tpassed.extcommunity_list)):
-                    self.assertEqual(tme[j], tpassed.extcommunity_list[j])
-                tprefix = tm.get('prefix', None)
-                for j in range(len(tpassed.prefixs)):
-                    self.assertEqual(tprefix[j].get('prefix'),
-                                     tpassed.prefixs[j])
-                    self.assertEqual(tprefix[j].get('prefix_type'),
-                                     tpassed.prefixtypes[j])
-                tproto = tm.get('protocol', None)
-                for j in range(len(tpassed.protocols)):
-                    self.assertEqual(tproto[j], tpassed.protocols[j])
-                if len(tpassed.action) > 0:
-                    self.assertEqual(ta.get('action'), tpassed.action)
-                tupdate = ta.get('update', None)
-                if tpassed.local_pref is not None:
-                    self.assertEqual(tupdate.get('local_pref'),
-                                     tpassed.local_pref)
-                if tpassed.med is not None:
-                    self.assertEqual(tupdate.get('med'),
-                                     tpassed.med)
-                if len(tpassed.asn_list) > 0:
-                    tas = tupdate.get('as_path').get('expand').get('asn_list')
-                    for j in range(len(tpassed.asn_list)):
-                        self.assertEqual(tas[j], tpassed.asn_list[j])
-                i += 1
+        self.verify_routing_policy_in_abstract_cfg(dac, rp_inputdict)
     # end _verify_abstract_config_rp_and_bgp
 
     def _create_route_props_static_route(self, irt_uuids, irt_next_hopes, pr,
