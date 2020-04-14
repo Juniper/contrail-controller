@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "81421c44_a6dbc4d0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-14T20:11:47Z",
+      "side": 1,
+      "message": "Same script will be used across multiple releases. So If AE_MAX_ID is not defined, we shouldnt be doing this check/clean/heal",
+      "revId": "a0c540d247174203ceeb61e61e2253f02094404e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9a7aa86c_1d4c0e36",
+        "filename": "src/config/common/cfgm_common/__init__.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-14T20:11:47Z",
+      "side": 1,
+      "message": "Its already defined at https://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/vnc_db.py#L447\nI\u0027d suggest to remove #L447 and it refer here.",
+      "revId": "a0c540d247174203ceeb61e61e2253f02094404e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
