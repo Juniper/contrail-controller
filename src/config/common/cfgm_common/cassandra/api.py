@@ -73,6 +73,8 @@ class CassandraDriver(object):
             dict([(k, v) for k, v in options.items() if v is not None]))
         self.options = OptionsType(**self.options)
 
+        self._server_list = server_list
+
     @abc.abstractmethod
     def get_cf_batch(keyspace_name, cf_name):
         """Get batch object bind to a column family used in insert/remove"""
