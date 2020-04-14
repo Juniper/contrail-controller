@@ -59,7 +59,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def __init__(self, server_list, **options):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._server_list = server_list
         if (self.options.pool_size == 0):
             self._pool_size = 2*(len(self._server_list))
         else:
