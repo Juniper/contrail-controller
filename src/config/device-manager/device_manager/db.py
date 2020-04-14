@@ -969,6 +969,10 @@ class PhysicalRouterDM(DBBaseDM):
             if use_gateway_ip:
                 if vn.virtual_network_category == 'routed':
                     ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
+                elif DMUtils.is_ipv6_ll_subnet(
+                        sub) is True and vn.ipv6_ll_vn_id is not None:
+                    vn_uuid = vn.ipv6_ll_vn_id
+                    ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
                 else:
                     ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
             else:
