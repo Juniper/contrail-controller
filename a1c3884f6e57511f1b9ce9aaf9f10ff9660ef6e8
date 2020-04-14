@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ff26332_adcf0b35",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 19
+      },
+      "lineNbr": 202,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-04-14T15:41:58Z",
+      "side": 1,
+      "message": "Traceback (most recent call last):\n  File \"/usr/lib/python2.7/site-packages/vnc_openstack/__init__.py\", line 1300, in handler_trap_exception\n    response \u003d handler(*args, **kwargs)\n  File \"/usr/lib/python2.7/site-packages/vnc_openstack/neutron_plugin_interface.py\", line 296, in plugin_http_post_network\n    self._filter_resources_by_tags(\u0027network\u0027, context, network)\n  File \"/usr/lib/python2.7/site-packages/vnc_openstack/neutron_plugin_interface.py\", line 202, in _filter_resources_by_tags\n    tags \u003d tags.split(\u0027,\u0027)\nAttributeError: \u0027list\u0027 object has no attribute \u0027split\u0027",
+      "range": {
+        "startLine": 202,
+        "startChar": 0,
+        "endLine": 202,
+        "endChar": 30
+      },
+      "revId": "a1c3884f6e57511f1b9ce9aaf9f10ff9660ef6e8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
