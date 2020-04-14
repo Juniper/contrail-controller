@@ -9,7 +9,8 @@ from __future__ import absolute_import
 from cfgm_common.vnc_logger import ConfigServiceLogger
 from sandesh_common.vns.ttypes import Module
 
-from .db import BgpRouterDM, FloatingIpDM, InstanceIpDM, LogicalInterfaceDM, \
+from .db import BgpRouterDM, FeatureFlagDM, FloatingIpDM, InstanceIpDM, \
+    LogicalInterfaceDM, \
     LogicalRouterDM, PhysicalInterfaceDM, PhysicalRouterDM, PortTupleDM, \
     RoutingInstanceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
 from .sandesh.dm_introspect import ttypes as sandesh
@@ -54,6 +55,8 @@ class DeviceManagerLogger(ConfigServiceLogger):
             self.sandesh_instance_ip_handle_request
         sandesh.PortTupleList.handle_request = \
             self.sandesh_port_tuple_handle_request
+        sandesh.FeatureFlagList.handle_request = \
+            self.sandesh_feature_flag_handle_request
 
     def sandesh_bgp_build(self, bgp_router):
         return sandesh.BgpRouter(name=bgp_router.name, uuid=bgp_router.uuid,
@@ -297,5 +300,32 @@ class DeviceManagerLogger(ConfigServiceLogger):
                 resp.port_tuples.append(sandesh_port_tuple)
         resp.response(req.context())
     # end sandesh_port_tuple_handle_request
+
+    def sandesh_feature_flag_build(self, feature_flag):
+        fflag = feature_flag.fflag
+        return sandesh.FeatureFlag(
+            name=fflag.get('feature_name'),
+            feature_id=fflag.get('feature_id'),
+            feature_flag_version=fflag.get('feature_flag_version'),
+            enable_feature=fflag.get('enable_feature'),
+            feature_release=fflag.get('feature_release'),
+            display_name=fflag.get('display_name'))
+    # end sandesh_feature_flag_build
+
+    def sandesh_feature_flag_handle_request(self, req):
+        # Return the feature flags
+        resp = sandesh.FeatureFlagListResp(feature_flags=[])
+        resp.response(req.context())
+        if req.name_or_uuid is None:
+            for feature_flag in list(FeatureFlagDM.values()):
+                sandesh_fflag = self.sandesh_feature_flag_build(feature_flag)
+                resp.feature_flags.append(sandesh_fflag)
+        else:
+            feature_flag = FeatureFlagDM.find_by_name_or_uuid(req.name_or_uuid)
+            if feature_flag:
+                sandesh_fflag = self.sadesh_feature_flag_build(feature_flag)
+                resp.feature_flags.append(sandesh_fflag)
+        resp.response(req.context())
+    # end sandesh_feature_flag_handle_request
 
 # end DeviceManagerLogger

@@ -1,0 +1,34 @@
+//
+// feature_flags.sandesh
+//
+// UVE feature flags
+//
+// Copyright (c) 2020 Juniper Networks, Inc. All rights reserved.
+//
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Config state of the UVE on this app instance.
+//
+
+struct UveFeatureFlagConfig {
+    1: string             name (key="FeatureFlag")
+    2: string             feature_id
+    3: string             feature_flag_version
+    4: bool               enable_feature
+    5: string             feature_description
+    6: string             feature_release
+    7: optional string    display_name
+}
+
+uve sandesh UveFeatureFlagConfigTrace {
+    1: UveFeatureFlagConfig    data
+}
+
+struct UveSystemVersionConfig {
+    1: string            service_name (key="SystemVersion")
+    2: string            version
+}
+
+uve sandesh UveSystemVersionConfigTrace {
+    1: UveSystemVersionConfig   data
+}
