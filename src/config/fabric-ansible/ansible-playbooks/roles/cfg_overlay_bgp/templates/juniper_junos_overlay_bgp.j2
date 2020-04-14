@@ -1,5 +1,6 @@
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
 {%     set bf_global_asn = device_abstract_config.get('system', {}).get('brownfield_global_asn', '') %}
+{%     set tunnel_destinations = device_abstract_config.get('system', {}).get('tunnel_destination_networks', []) %}
 {%     if loopback_ip_list|length > 0 %}
 {%         set loopback_ip = loopback_ip_list[0] %}
 {%         if loopback_ip %}
@@ -32,7 +33,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.a
 {%                 endif %}
 {%             endfor %}
 {%             set dynamic_tunnels = false %}
-{%             if mode|length > 0 and mode[0] == 'MPLSoUDP' %}
+{%             if mode|length > 0 and mode[0] == 'MPLSoUDP' and tunnel_destinations|length > 0 %}
 {%             set tunnel_type = '_contrail_udp_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export mpls_over_udp
@@ -41,7 +42,7 @@ set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 th
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then accept
 set groups {{cfg_group}} policy-options community encap-udp members 0x030c:64512:13
 {%             set dynamic_tunnels = true %}
-{%             elif mode[0] == 'MPLSoGRE' %}
+{%             elif mode[0] == 'MPLSoGRE' and tunnel_destinations|length > 0 %}
 {%             set tunnel_type = '_contrail_gre_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} gre
 {%             set dynamic_tunnels = true %}
