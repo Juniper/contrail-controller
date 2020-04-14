@@ -59,12 +59,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def __init__(self, server_list, **options):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        if (self.options.pool_size == 0):
-            self._pool_size = 2*(len(self._server_list))
-        else:
-            self._pool_size = self.options.pool_size
-
-        self._num_dbnodes = len(self._server_list)
         self._conn_state = ConnectionStatus.INIT
         self._logger = self.options.logger
         self._credential = self.options.credential
@@ -132,7 +126,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             except Exception:
                 # TODO do only for
                 # thrift.transport.TTransport.TTransportException
-                server_idx = (server_idx + 1) % self._num_dbnodes
+                server_idx = (server_idx + 1) % self.nodes()
                 time.sleep(3)
         return sys_mgr
     # end _cassandra_system_manager
@@ -157,7 +151,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         if (self.options.reset_config or keyspace_name not in self.existing_keyspaces):
             try:
                 self.sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                        {'replication_factor': str(self._num_dbnodes)})
+                        {'replication_factor': str(self.nodes())})
             except InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
@@ -203,7 +197,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             keyspace = self.keyspace(ks)
             pool = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
-                prefill=True, pool_size=self._pool_size, pool_timeout=120,
+                prefill=True, pool_size=self.pool_size(), pool_timeout=120,
                 max_retries=15, timeout=5, credentials=self._credential,
                 socket_factory=socket_factory)
 
