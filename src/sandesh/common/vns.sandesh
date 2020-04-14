@@ -763,3 +763,10 @@ const list<u16> RESERVED_QFX_L2_VLAN_TAGS = [
     2,
     4094,
 ]
+
+// Overlay loopback network ipam fq name
+const list<string> OVERLAY_LOOPBACK_IPAM_FQ_NAME = [
+    'default-domain',
+    'default-project',
+    'overlay_loopback_ipam',
+]
