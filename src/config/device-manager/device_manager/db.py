@@ -592,11 +592,11 @@ class PhysicalRouterDM(DBBaseDM):
         dcis = []
         for lr_uuid in lrs or []:
             lr = LogicalRouterDM.get(lr_uuid)
-            if lr and lr.data_center_interconnect:
-                dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
+            if lr:
+                dci = lr.get_interfabric_dci()
                 if dci:
                     dcis.append({"from": lr_uuid,
-                                 "dci": lr.data_center_interconnect})
+                                 "dci": dci.uuid})
         return dcis
     # end get_lr_dci_map
 
@@ -605,10 +605,10 @@ class PhysicalRouterDM(DBBaseDM):
         dcis = []
         for lr_uuid in lrs or []:
             lr = LogicalRouterDM.get(lr_uuid)
-            if lr and lr.data_center_interconnect:
-                dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
+            if lr:
+                dci = lr.get_interfabric_dci()
                 if dci:
-                    dcis.append(lr.data_center_interconnect)
+                    dcis.append(dci.uuid)
         return dcis
     # end get_dci_list
 
@@ -1259,90 +1259,6 @@ class PhysicalRouterDM(DBBaseDM):
         pr_msg.send(sandesh=DBBaseDM._sandesh)
     # end uve_send
 
-    def _set_routing_policies(self, rp_list, rp_obj_list):
-        for name, obj in list(rp_obj_list.items()):
-            rp = AbstractDevXsd.RoutingPolicy(
-                name=name, comment=DMUtils.routing_policy_comment(obj))
-            rp_entries = AbstractDevXsd.RoutingPolicyEntry()
-
-            for o_term in obj.routing_policy_entries:
-                o_term_match_cond = o_term.get('term_match_condition', None)
-                o_term_action_list = o_term.get('term_action_list', None)
-                o_action = None
-                o_update = None
-                if o_term_action_list is not None:
-                    o_action = o_term_action_list.get('action', None)
-                    o_update = o_term_action_list.get('update', None)
-
-                tcond = None
-                taction = None
-                if o_term_match_cond is not None:
-                    # prepare and create term_match_condition
-                    protocol_list = []
-                    prefix_list = []
-                    community_list = []
-                    extcommunity_list = []
-                    for protocol in o_term_match_cond.get('protocol', []):
-                        if self._is_rp_protocol_supported(protocol) == True:
-                            protocol_list.append(protocol)
-                    for o_prefix in o_term_match_cond.get('prefix', []):
-                        prefix = AbstractDevXsd.PrefixMatchType(
-                            prefix=o_prefix.get('prefix', None),
-                            prefix_type=o_prefix.get('prefix_type', None))
-                        prefix_list.append(prefix)
-                    for community in o_term_match_cond.get(
-                            'community_list', []):
-                        community_list.append(community)
-                    for ex_com in o_term_match_cond.get(
-                            'extcommunity_list', []):
-                        extcommunity_list.append(ex_com)
-
-                    tcond = AbstractDevXsd.TermMatchConditionType(
-                        protocol=protocol_list, prefix=prefix_list,
-                        community=o_term_match_cond.get(
-                            'community', None) or '',
-                        community_list=community_list,
-                        community_match_all=o_term_match_cond.get(
-                            'community_match_all', None),
-                        extcommunity_list=extcommunity_list,
-                        extcommunity_match_all=o_term_match_cond.get(
-                            'extcommunity_match_all', None))
-
-                update_action = None
-                if o_update is not None:
-                    # prepare and create term_action_list
-                    asn_list = []
-                    o_as_path = o_update.get('as_path', None)
-                    if o_as_path:
-                        o_expand = o_as_path.get('expand', None)
-                        if o_expand:
-                            for asn in o_expand.get('asn_list', []):
-                                asn_list.append(asn)
-                    expand = AbstractDevXsd.AsListType(asn_list=asn_list)
-                    as_path = AbstractDevXsd.ActionAsPathType(expand=expand)
-                    update_action = AbstractDevXsd.ActionUpdateType(
-                        as_path=as_path,
-                        local_pref=o_update.get('local_pref', None),
-                        med=o_update.get('med', None))
-
-                taction = AbstractDevXsd.TermActionListType(
-                    update=update_action, action=o_action)
-                # create Routing Policy Term
-                term = AbstractDevXsd.RoutingPolicyTerm(
-                    term_match_condition=tcond,
-                    term_action_list=taction)
-                rp_entries.add_terms(term)
-
-            rp.set_routing_policy_entries(rp_entries)
-            rp_list.append(rp)
-    # end _set_routing_policies
-
-    def _is_rp_protocol_supported(self, protocol):
-        return (protocol == 'bgp' or protocol == 'static' or
-                protocol == 'interface' or
-                protocol == 'interface-static')
-    # end _is_routing_policy_protocol_supported
-
     def _is_routing_poilcy_supported(self, rp_obj):
         if not rp_obj:
             return False
@@ -1356,7 +1272,6 @@ class PhysicalRouterDM(DBBaseDM):
         keyname = 'import_routing_policy_uuid'
         if imported == False:
             keyname = 'export_routing_policy_uuid'
-
         for rp_uuid in rp_params.get(keyname) or []:
             rp_obj = RoutingPolicyDM.get(rp_uuid)
             # only include routing policy who has abstract config
@@ -1456,11 +1371,11 @@ class PhysicalRouterDM(DBBaseDM):
                         self._set_internal_vn_routed_bgp_info(ri, rp_obj_list,
                                                               vn_obj,
                                                               route_param)
-                    elif route_param.get('routing_protocol') \
+                    elif route_param.get('routing_protocol')\
                             == 'static-routes':
                         self._set_routed_vn_static_route_info(ri, vn_obj,
                                                               route_param)
-        self._set_routing_policies(rp, rp_obj_list)
+        RoutingPolicyDM.create_abstract_routing_policies(rp, rp_obj_list)
 
     # end set_routing_vn_proto_in_ri
 # end PhysicalRouterDM
@@ -1878,7 +1793,7 @@ class SecurityGroupDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
-        self.update_multiple_refs('virtual_port_group', {})
+        obj.update_multiple_refs('virtual_port_group', {})
         del cls._dict[uuid]
     # end delete
 # end SecurityGroupDM
@@ -2000,7 +1915,8 @@ class LogicalRouterDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
-        self.data_center_interconnect = None
+        self.data_center_interconnects = set()
+        self.lr_route_target_for_dci = None
         self.virtual_machine_interfaces = set()
         self.dhcp_relay_servers = set()
         # internal virtual-network
@@ -2025,12 +1941,19 @@ class LogicalRouterDM(DBBaseDM):
             self.dhcp_relay_servers = obj.get(
                 'logical_router_dhcp_relay_server').get('ip_address')
         self.update_multiple_refs('physical_router', obj)
-        self.update_single_ref('data_center_interconnect', obj)
+        self.update_multiple_refs('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('port_tuple', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         self.is_master = True if 'master-LR' == self.name else False
+        for rt_ref in obj.get('route_target_refs', []):
+            for rt in rt_ref.get('to', []):
+                if rt.lower().startswith('target:'):
+                    self.lr_route_target_for_dci = rt
+                    break
+            if self.lr_route_target_for_dci is not None:
+                break
     # end update
 
     def get_internal_vn_name(self):
@@ -2061,13 +1984,35 @@ class LogicalRouterDM(DBBaseDM):
         return vn_list
     # end get_connected_networks
 
-    def get_dci_network(self):
-        if self.data_center_interconnect:
-            dci = DataCenterInterconnectDM.get(self.data_center_interconnect)
-            if dci:
-                return dci.virtual_network
+    def get_protocols_connected_routedvn(self, pr_uuid, vn_list):
+        static_routes, bgp = False, False
+        for vmi_uuid in self.virtual_machine_interfaces or []:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi and vmi.virtual_network:
+                if len(vn_list) > 0 and vmi.virtual_network not in vn_list:
+                    continue
+                vm_obj = VirtualNetworkDM.get(vmi.virtual_network)
+                if vm_obj and vm_obj.virtual_network_category == 'routed':
+                    for route_param in vm_obj.routed_properties or []:
+                        if pr_uuid != route_param.get('physical_router_uuid'):
+                            continue
+                        if route_param.get('routing_protocol') == 'bgp':
+                            bgp = True
+                        elif route_param.get('routing_protocol')\
+                                == 'static-routes':
+                            static_routes = True
+                    if bgp == True and static_routes == True:
+                        return static_routes, bgp
+        return static_routes, bgp
+    # end get_connected_networks
+
+    def get_interfabric_dci(self):
+        for dci_uuid in self.data_center_interconnects:
+            dci = DataCenterInterconnectDM.get(dci_uuid)
+            if dci and dci.is_this_inter_fabric():
+                return dci
         return None
-    # end get_dci_network
+    # end get_interfabric_dci
 
     @classmethod
     def delete(cls, uuid):
@@ -2077,8 +2022,8 @@ class LogicalRouterDM(DBBaseDM):
         obj.update_multiple_refs('physical_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('port_tuple', {})
+        obj.update_multiple_refs('data_center_interconnect', {})
         obj.update_single_ref('virtual_network', None)
-        obj.update_single_ref('data_center_interconnect', None)
         del cls._dict[uuid]
     # end delete
 # end LogicalRouterDM
@@ -2972,15 +2917,28 @@ class DataCenterInterconnectDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.logical_routers = set()
+        self.dci_type = 'inter_fabric'
+        self.routing_policys = set()
+        self.virtual_networks = set()
+        self.dst_lr_pr = {}
+        self.src_lr_uuid = None
+        self.rp_rib_list = {}
+        self.rp_vrf_export_list = {}
+        self.rp_vrf_import_list = {}
+        self.vn_subnets = set()
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
+
+    def is_this_inter_fabric(self):
+        return True if self.dci_type == 'inter_fabric' else False
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.update_multiple_refs('logical_router', obj)
+        self.get_intrafabric_properties(obj)
         return obj
     # end update
 
@@ -2989,6 +2947,8 @@ class DataCenterInterconnectDM(DBBaseDM):
         dci_list = list(cls._dict.values())
         pr_list = []
         for dci in dci_list or []:
+            if dci.is_this_inter_fabric() == False:
+                continue
             prs = dci.get_connected_physical_routers()
             for pr in prs or []:
                 if pr.uuid == pr_uuid:
@@ -2999,6 +2959,8 @@ class DataCenterInterconnectDM(DBBaseDM):
 
     def get_connected_lr_internal_vns(self, exclude_lr=None, pr_uuid=None):
         vn_list = []
+        if self.is_this_inter_fabric() == False:
+            return vn_list
         for lr_uuid in self.logical_routers or []:
             if exclude_lr == lr_uuid:
                 continue
@@ -3011,7 +2973,7 @@ class DataCenterInterconnectDM(DBBaseDM):
     # end get_connected_lr_internal_vns
 
     def get_connected_physical_routers(self):
-        if not self.logical_routers:
+        if not self.logical_routers or self.is_this_inter_fabric() == False:
             return []
         pr_list = []
         for lr_uuid in self.logical_routers:
@@ -3026,7 +2988,7 @@ class DataCenterInterconnectDM(DBBaseDM):
     # end get_connected_physical_routers
 
     def get_lr(self, pr):
-        if not self.logical_routers:
+        if not self.logical_routers or self.is_this_inter_fabric() == False:
             return None
         for lr_uuid in self.logical_routers:
             lr = LogicalRouterDM.get(lr_uuid)
@@ -3039,7 +3001,7 @@ class DataCenterInterconnectDM(DBBaseDM):
     # end get_lr
 
     def get_lr_vn(self, pr):
-        if not self.logical_routers:
+        if not self.logical_routers or self.is_this_inter_fabric() == False:
             return None
         for lr_uuid in self.logical_routers:
             lr = LogicalRouterDM.get(lr_uuid)
@@ -3051,6 +3013,371 @@ class DataCenterInterconnectDM(DBBaseDM):
         return None
     # end get_lr_vn
 
+    # following DCI API is used for intra-fabric type dci
+    def get_intrafabric_properties(self, obj):
+        self.dci_type = obj.get('data_center_interconnect_type',
+                                'inter_fabric')
+        if self.dci_type != "intra_fabric":
+            return
+        self.update_multiple_refs('routing_policy', obj)
+        self.update_multiple_refs('virtual_network', obj)
+        dpr_list = obj.get('destination_physical_router_list')
+        if not dpr_list:
+            return
+        for lr_ref in obj.get('logical_router_refs') or []:
+            if self._is_this_src_lr(lr_ref):
+                self.src_lr_uuid = lr_ref.get('uuid') or None
+                break
+        if not self.src_lr_uuid:
+            return
+        for dstlr in dpr_list.get('logical_router_list') or []:
+            uuid = dstlr.get('logical_router_uuid') or None
+            if not uuid:
+                continue
+            dci_prlist = dstlr.get('physical_router_uuid_list') or []
+            self.dst_lr_pr[uuid] = dci_prlist
+        return
+    # end get_intrafabric_properties
+
+    def _is_this_src_lr(self, lr_ref):
+        return True if lr_ref.get('attr') is not None else False
+
+    def get_src_lr_prlist(self):
+        prs = set()
+        if self.src_lr_uuid is None:
+            return prs
+        lr = LogicalRouterDM.get(self.src_lr_uuid)
+        if lr and lr.physical_routers:
+            return lr.physical_routers
+        return prs
+
+    def get_src_lr_vns_protocols(self, pr_uuid):
+        static_routes, bgp = False, False
+        if self.src_lr_uuid is None:
+            return static_routes, bgp
+        srclr = LogicalRouterDM.get(self.src_lr_uuid)
+        if not srclr:
+            return static_routes, bgp
+        vnlist = set()
+        if len(self.routing_policys) == 0:
+            # user supplied vn from src lr to use
+            vnlist = self.virtual_networks
+        return srclr.get_protocols_connected_routedvn(pr_uuid, vnlist)
+
+    def _build_rp_from_vn_intrafabric(self, for_ribgrp=True,
+                                      vrf_srcexport=True):
+        if len(self.vn_subnets) < 1:
+            for vn_uuid in self.virtual_networks:
+                vn = VirtualNetworkDM.get(vn_uuid)
+                if not vn or vn.gateways is None or len(vn.gateways) < 1:
+                    continue
+                self.vn_subnets.update(vn.gateways.keys())
+        rplist = {}
+        if for_ribgrp == True:
+            rp = AbstractDevXsd.RoutingPolicy(
+                name=DMUtils.get_dci_rib_rp_name(self),
+                comment=DMUtils.get_dci_rib_rp_comment(self),
+                term_type='network-device')
+            rp_entries = AbstractDevXsd.RoutingPolicyEntry()
+            rp_props = []
+            for subnet in self.vn_subnets:
+                rp_props.append(AbstractDevXsd.RouteFilterProperties(
+                    route=subnet, route_type='exact'))
+            route_filter = AbstractDevXsd.RouteFilterType(
+                route_filter_properties=rp_props)
+            term = AbstractDevXsd.RoutingPolicyTerm(
+                term_match_condition=AbstractDevXsd.TermMatchConditionType(
+                    route_filter=route_filter),
+                term_action_list=AbstractDevXsd.TermActionListType(
+                    action="accept"))
+            rp_entries.add_terms(term)
+
+            reject_term = AbstractDevXsd.RoutingPolicyTerm(
+                name='reject_else', term_match_condition=None,
+                term_action_list=AbstractDevXsd.TermActionListType(
+                    action="reject"))
+            rp_entries.add_terms(reject_term)
+            rp.set_routing_policy_entries(rp_entries)
+            rplist[rp.get_name()] = rp
+            return rplist
+        # Add new RP for vrf export or import case
+        rp = self.allocate_new_rp_for_vrf(vrf_srcexport)
+        if rp:
+            rplist[rp.get_name()] = rp
+        return rplist
+    # end _build_rp_from_vn_intrafabric
+
+    def get_community_properties(self):
+        community_member = None
+        community_name = None
+        if self.src_lr_uuid:
+            slr = LogicalRouterDM.get(self.src_lr_uuid)
+            if slr and slr.lr_route_target_for_dci is not None:
+                community_name = DMUtils.get_dci_vrf_community_name(self)
+                community_member = slr.lr_route_target_for_dci
+        return community_name, community_member
+    # end get_community_properties
+
+    def allocate_new_rp_for_vrf(self, vrf_srcexport):
+        community_name, src_lr_community_member = \
+            self.get_community_properties()
+        if not community_name:
+            self._logger.error(
+                "DCI %s communty member not found from SRC LR %s" %
+                (self.name, self.src_lr_uuid))
+            return None
+
+        rp = AbstractDevXsd.RoutingPolicy(
+            name=DMUtils.get_dci_vrf_rp_name(self),
+            comment=DMUtils.get_dci_vrf_rp_comment(self),
+            term_type='network-device')
+        rp_entries = AbstractDevXsd.RoutingPolicyEntry()
+        if vrf_srcexport == False:
+            rp_props = []
+            for subnet in self.vn_subnets:
+                rp_props.append(AbstractDevXsd.RouteFilterProperties(
+                    route=subnet, route_type='orlonger'))
+            route_filter = AbstractDevXsd.RouteFilterType(
+                route_filter_properties=rp_props)
+            term = AbstractDevXsd.RoutingPolicyTerm(
+                term_match_condition=AbstractDevXsd.TermMatchConditionType(
+                    community=community_name,
+                    community_list=[src_lr_community_member],
+                    route_filter=route_filter),
+                term_action_list=AbstractDevXsd.TermActionListType(
+                    action="accept"))
+        else:
+            # for SRC LR's PR device of dci
+            term = AbstractDevXsd.RoutingPolicyTerm(
+                term_match_condition=None,
+                term_action_list=AbstractDevXsd.TermActionListType(
+                    action="accept", community=community_name,
+                    community_list=[src_lr_community_member]))
+        rp_entries.add_terms(term)
+        rp.set_routing_policy_entries(rp_entries)
+        return rp
+    # end allocate_new_rp_for_vrf
+
+    def get_rp_for_intrafabric(self, for_ribgrp=True, vrf_srcexport=True):
+        if self.is_this_inter_fabric():
+            return {}
+        if for_ribgrp == True and len(self.rp_rib_list) > 0:
+            return self.rp_rib_list
+        if for_ribgrp == False:
+            if vrf_srcexport == True and len(self.rp_vrf_export_list) > 0:
+                return self.rp_vrf_export_list
+            if vrf_srcexport == False and len(self.rp_vrf_import_list) > 0:
+                return self.rp_vrf_import_list
+        # use User provided RP for this dci
+        rp_obj_list = {}
+        if len(self.routing_policys) > 0:
+            for rp_uuid in self.routing_policys:
+                rpobj = RoutingPolicyDM.get(rp_uuid)
+                if rpobj:
+                    rp_obj_list[rpobj.name] = rpobj
+        if len(rp_obj_list) > 0:
+            # user provided rp
+            rplist = []
+            RoutingPolicyDM.create_abstract_routing_policies(
+                rp_list=rplist, rp_obj_list=rp_obj_list)
+            if for_ribgrp == True:
+                # add terms named reject_else { then reject } for each RP
+                # with terms having 'from route_filter'
+                for rp in rplist:
+                    self.rp_rib_list[rp.get_name()] = rp
+                for rpname, rpobj in self.rp_rib_list.items():
+                    rp_entries = rpobj.get_routing_policy_entries() or None
+                    if not rp_entries:
+                        continue
+                    add_reject_term = False
+                    for term in rp_entries.get_terms():
+                        cond = term.get_term_match_condition() or None
+                        if cond and cond.get_route_filter():
+                            add_reject_term = True
+                            break
+                    if add_reject_term == True:
+                        tactionlist = AbstractDevXsd.TermActionListType(
+                            action="reject")
+                        reject_term = AbstractDevXsd.RoutingPolicyTerm(
+                            name='reject_else', term_match_condition=None,
+                            term_action_list=tactionlist)
+                        rp_entries.add_terms(reject_term)
+                return self.rp_rib_list
+
+            # route leaks RP using VRF (LR exists on different PR device):
+            if vrf_srcexport == True:
+                # RP for Src LR (used as vrf-export):
+                for rp in rplist:
+                    self.rp_vrf_export_list[rp.get_name()] = rp
+                # Add new contrail RP at end of all user supplied RP
+                # this new contrail new RP will have term as
+                # "then community add <community_name>" and community-member
+                rp = self.allocate_new_rp_for_vrf(vrf_srcexport=True)
+                if rp:
+                    self.rp_vrf_export_list[rp.get_name()] = rp
+                return self.rp_vrf_export_list
+
+            # RP for Dst LR (used as vrf-import)
+            for rp in rplist:
+                self.rp_vrf_import_list[rp.get_name()] = rp
+            community_name, src_lr_community_member = \
+                self.get_community_properties()
+            if not community_name:
+                self._logger.error(
+                    "DCI %s for vrf import communty member not found from "
+                    "SRC LR %s" % (self.name, self.src_lr_uuid))
+                return self.rp_vrf_import_list
+            # locate each and every RP having route-filter terms in from
+            #   - Add from community <community-name> with community-member
+            for rpname, rpobj in self.rp_vrf_import_list.items():
+                rp_entries = rpobj.get_routing_policy_entries() or None
+                if not rp_entries:
+                    continue
+                for term in rp_entries.get_terms():
+                    cond = term.get_term_match_condition()
+                    if not cond or not cond.get_route_filter():
+                        continue
+                    actionl = term.get_term_action_list()
+                    if actionl:
+                        action = actionl.get_action()
+                        if not action:
+                            continue
+                        if action and action != 'accept':
+                            continue
+                    if cond.get_community():
+                        self._logger.debug(
+                            "DCI %s for vrf import RP %s with routeFilter"
+                            " already have community %s, overwriting it" %
+                            (self.name, rpname, cond.get_community()))
+                    cond.set_community(community_name)
+                    if len(cond.get_community_list()) > 0:
+                        self._logger.debug(
+                            "DCI %s for vrf import RP %s with routeFilter"
+                            " already have communityList %s, adding new" %
+                            (self.name, rpname,
+                             len(cond.get_community_list())))
+                    cond.add_community_list(src_lr_community_member)
+            return self.rp_vrf_import_list
+        # build RP from user provided src LR's vn list
+        rplist = self._build_rp_from_vn_intrafabric(for_ribgrp, vrf_srcexport)
+        if for_ribgrp == True:
+            self.rp_rib_list = rplist
+        elif vrf_srcexport == True:
+            self.rp_vrf_export_list = rplist
+        else:
+            self.rp_vrf_import_list = rplist
+        return rplist
+    # end get_rp_for_intrafabric
+
+    @classmethod
+    def set_intrafabric_dci_config(cls, curpr, internal_vn_ris):
+        """Prepare config for intrafabric dci.
+
+        option 1: both LR (src and DST) on same PR, use rib-groups aproach
+        option 2: use vrf export on SRC LR PR and vrf import to DST LR PR
+        """
+        rib_map = {}
+        rp_list = {}
+        vrf_dst_dci_list = set()
+        src_ri_dci_map = {}
+        for int_ri in internal_vn_ris or []:
+            if int_ri.get_virtual_network_is_internal() != True:
+                continue
+            lr_uuid = None
+            if DMUtils.get_lr_internal_vn_prefix() in int_ri.name:
+                lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
+                    int_ri.name)
+            else:
+                lr_uuid = DMUtils.extract_lr_uuid_from_ri_name(int_ri.name)
+            if not lr_uuid:
+                continue
+            lr = LogicalRouterDM.get(lr_uuid)
+            if not lr:
+                continue
+            ri_name = int_ri.get_description()[:127]
+            for dci_uuid in lr.data_center_interconnects:
+                dci = DataCenterInterconnectDM.get(dci_uuid)
+                if not dci or dci.is_this_inter_fabric() == True or \
+                        dci.src_lr_uuid is None:
+                    continue
+                src_lrobj = LogicalRouterDM.get(dci.src_lr_uuid)
+                if not src_lrobj:
+                    continue
+                src_irb_name = "__contrail_%s_%s" % (
+                    src_lrobj.name, src_lrobj.uuid)
+                src_irb_name = src_irb_name[:127]
+                curlr_in_dstlr = True if (lr_uuid in dci.dst_lr_pr and
+                                          curpr in dci.dst_lr_pr[lr_uuid]) \
+                    else False
+                if curlr_in_dstlr:
+                    curpr_in_srclr = True if (curpr in
+                                              dci.get_src_lr_prlist())\
+                        else False
+                    if curpr_in_srclr:
+                        ribname = DMUtils.get_dci_rib_group_name(dci)
+                        if ribname not in rib_map:
+                            trplist = dci.get_rp_for_intrafabric()
+                            static_p, bgp_p = dci.get_src_lr_vns_protocols(
+                                curpr)
+                            rib_map[ribname] = AbstractDevXsd.RibGroup(
+                                name=ribname,
+                                comment=DMUtils.get_dci_rib_group_comment(
+                                    dci),
+                                import_rib=[src_irb_name],
+                                import_policy=list(trplist.keys()),
+                                interface_routes=True, static=static_p,
+                                bgp=bgp_p)
+                            for k, v in trplist.items():
+                                rp_list[k] = v
+                        rib_map[ribname].add_import_rib(ri_name)
+                    else:
+                        # curPr not in srcLR pr list, use option 2 vrf import
+                        vrf_dst_dci_list.add(dci.name)
+                        tvrflist = dci.get_rp_for_intrafabric(
+                            for_ribgrp=False, vrf_srcexport=False)
+                        if len(tvrflist) > 0:
+                            for k, v in tvrflist.items():
+                                rp_list[k] = v
+                                if k not in int_ri.get_vrf_import():
+                                    int_ri.add_vrf_import(k)
+                    continue
+                curlr_in_srclr = \
+                    True if (lr_uuid == dci.src_lr_uuid and curpr in
+                             dci.get_src_lr_prlist()) else False
+                if curlr_in_srclr:
+                    # build map for second parse
+                    if int_ri not in src_ri_dci_map:
+                        src_ri_dci_map[int_ri] = [dci]
+                    elif dci not in src_ri_dci_map[int_ri]:
+                        src_ri_dci_map[int_ri].append(dci)
+
+        # now check left over src lr update for import-rib or vrf-export
+        for int_ri, dcis in src_ri_dci_map.items():
+            for dci in dcis:
+                ribname = DMUtils.get_dci_rib_group_name(dci)
+                if ribname in rib_map:
+                    int_ri.set_rib_group(ribname)
+                    # check if current dci has any dst LR's PR exist which is
+                    # not the part of Src LR PR list then do vrf-export of
+                    # current src LR
+                    srclrprs = dci.get_src_lr_prlist()
+                    dstlrprs = set()
+                    for dprlist in dci.dst_lr_pr.values():
+                        dstlrprs.update(dprlist)
+                    if bool(dstlrprs.difference(srclrprs)) == False:
+                        continue
+                if dci.name not in vrf_dst_dci_list:
+                    # do vrf-export settings for current src lr
+                    tvrflist = dci.get_rp_for_intrafabric(
+                        for_ribgrp=False, vrf_srcexport=True)
+                    if len(tvrflist) > 0:
+                        for k, v in tvrflist.items():
+                            rp_list[k] = v
+                            if k not in int_ri.get_vrf_export():
+                                int_ri.add_vrf_export(k)
+        return rib_map, rp_list
+    # end set_intrafabric_dci_config
+
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
@@ -3058,6 +3385,8 @@ class DataCenterInterconnectDM(DBBaseDM):
         obj = cls._dict[uuid]
         obj._object_db.delete_dci(obj.uuid)
         obj.update_multiple_refs('logical_router', {})
+        obj.update_multiple_refs('routing_policy', {})
+        obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
     # end delete
 # end class DataCenterInterconnectDM
@@ -3675,7 +4004,9 @@ class RoutingPolicyDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.routing_policy_entries = []
+        self.term_type = 'vrouter'
         self.virtual_networks = set()
+        self.data_center_interconnects = set()
         self.update(obj_dict)
     # end __init__
 
@@ -3683,15 +4014,178 @@ class RoutingPolicyDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         rp_entries = obj.get('routing_policy_entries', None)
+        self.term_type = obj.get('term_type', 'vrouter')
         if rp_entries:
-            self.routing_policy_entries = rp_entries['term']
+            self.routing_policy_entries = rp_entries.get('term', [])
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('data_center_interconnect', obj)
     # end update
+
+    @classmethod
+    def create_abstract_rpterm(cls, o_term):
+        o_term_match_cond = o_term.get('term_match_condition', None)
+        o_term_action_list = o_term.get('term_action_list', None)
+        o_action = None
+        o_update = None
+        as_path_expand = None
+        as_path_prepend = None
+
+        if o_term_action_list is not None:
+            o_action = o_term_action_list.get('action', None)
+            o_update = o_term_action_list.get('update', None)
+            o_external = o_term_action_list.get('external', None)
+            as_path_expand = o_term_action_list.get('as_path_expand', None)
+            as_path_prepend = o_term_action_list.get('as_path_prepend', None)
+        tcond = None
+        taction = None
+        if o_term_match_cond is not None:
+            # prepare and create term_match_condition
+            protocol_list = []
+            prefixs = []
+            community_list = []
+            extcommunity_list = []
+            prefix_list = []
+            for protocol in o_term_match_cond.get('protocol', []):
+                if protocol not in {'xmpp', 'service-chain',
+                                    'service-interface', 'bgpaas'}:
+                    protocol_list.append(protocol)
+            for o_prefix in o_term_match_cond.get('prefix', []):
+                prefix = AbstractDevXsd.PrefixMatchType(
+                    prefix=o_prefix.get('prefix', None),
+                    prefix_type=o_prefix.get('prefix_type', None))
+                prefixs.append(prefix)
+            for community in o_term_match_cond.get(
+                    'community_list', []):
+                community_list.append(community)
+            for ex_com in o_term_match_cond.get(
+                    'extcommunity_list', []):
+                extcommunity_list.append(ex_com)
+            for irt in o_term_match_cond.get('prefix_list', []):
+                ip_prefix = set()
+                for irt_uuid in irt.get(
+                        'interface_route_table_uuid') or []:
+                    irt_obj = InterfaceRouteTableDM.get(irt_uuid)
+                    if irt_obj:
+                        for prefix in irt_obj.prefix.keys():
+                            ip_prefix.add(prefix)
+                if len(ip_prefix) > 0:
+                    prefix_list.append(
+                        AbstractDevXsd.PrefixListMatchType(
+                            prefixs=list(ip_prefix),
+                            prefix_type=irt.get('prefix_type',
+                                                None)))
+            o_routefilter = o_term_match_cond.get('route_filter',
+                                                  None)
+            rf_prop = []
+            if o_routefilter:
+                rf_prop = o_routefilter.get('route_filter_properties',
+                                            [])
+            routefilter_list = []
+            for rf in rf_prop:
+                routefilter_list.append(
+                    AbstractDevXsd.RouteFilterProperties(
+                        route=rf.get('route', ''),
+                        route_type=rf.get('route_type', 'exact'),
+                        route_type_value=rf.get('route_type_value',
+                                                None)
+                    )
+                )
+            route_filter = None
+            if len(routefilter_list) > 0:
+                route_filter = AbstractDevXsd.RouteFilterType(
+                    route_filter_properties=routefilter_list
+                )
+            tcond = AbstractDevXsd.TermMatchConditionType(
+                protocol=protocol_list, prefix=prefixs,
+                community=o_term_match_cond.get(
+                    'community', None) or '',
+                community_list=community_list,
+                community_match_all=o_term_match_cond.get(
+                    'community_match_all', None),
+                extcommunity_list=extcommunity_list,
+                extcommunity_match_all=o_term_match_cond.get(
+                    'extcommunity_match_all', None),
+                family=o_term_match_cond.get('family', None),
+                as_path=o_term_match_cond.get('as_path', []),
+                external=o_term_match_cond.get('external', None),
+                local_pref=o_term_match_cond.get('local_pref', None),
+                nlri_route_type=o_term_match_cond.get(
+                    'nlri_route_type', []),
+                prefix_list=prefix_list, route_filter=route_filter)
+
+        update_action = None
+        if o_update is not None:
+            # prepare and create term_action_list
+            asn_list = []
+            o_as_path = o_update.get('as_path', None)
+            if o_as_path:
+                o_expand = o_as_path.get('expand', None)
+                if o_expand:
+                    for asn in o_expand.get('asn_list', []):
+                        asn_list.append(asn)
+            expand = AbstractDevXsd.AsListType(asn_list=asn_list)
+            as_path = AbstractDevXsd.ActionAsPathType(expand=expand)
+            u_community = None
+            u_extcommunity = None
+            o_community = o_update.get('community', None)
+            o_ecommunity = o_update.get('extcommunity', None)
+            if o_community:
+                o_add = o_community.get('add', None)
+                o_remove = o_community.get('remove', None)
+                o_set = o_community.get('set', None)
+                o_adds = o_add.get('community', []) if o_add else []
+                o_rms = o_remove.get('community', []) if o_remove else []
+                o_sets = o_set.get('community', []) if o_add else []
+                u_community = AbstractDevXsd.ActionCommunityType(
+                    add=AbstractDevXsd.CommunityListType(community=o_adds),
+                    remove=AbstractDevXsd.CommunityListType(community=o_rms),
+                    set=AbstractDevXsd.CommunityListType(community=o_sets))
+            if o_ecommunity:
+                o_add = o_ecommunity.get('add', None)
+                o_remove = o_ecommunity.get('remove', None)
+                o_set = o_ecommunity.get('set', None)
+                o_adds = o_add.get('community', []) if o_add else []
+                o_rms = o_remove.get('community', []) if o_remove else []
+                o_sets = o_set.get('community', []) if o_add else []
+                u_extcommunity = AbstractDevXsd.ActionExtCommunityType(
+                    add=AbstractDevXsd.ExtCommunityListType(community=o_adds),
+                    remove=AbstractDevXsd.ExtCommunityListType(
+                        community=o_rms),
+                    set=AbstractDevXsd.ExtCommunityListType(community=o_sets))
+            update_action = AbstractDevXsd.ActionUpdateType(
+                as_path=as_path, local_pref=o_update.get('local_pref', None),
+                med=o_update.get('med', None), community=u_community,
+                extcommunity=u_extcommunity)
+
+        taction = AbstractDevXsd.TermActionListType(
+            update=update_action, action=o_action, external=o_external,
+            as_path_expand=as_path_expand, as_path_prepend=as_path_prepend)
+        # create Routing Policy Term
+        term = AbstractDevXsd.RoutingPolicyTerm(
+            term_match_condition=tcond,
+            term_action_list=taction)
+        return term
+    # end create_abstract_rpterm
+
+    @classmethod
+    def create_abstract_routing_policies(cls, rp_list, rp_obj_list):
+        for name, obj in list(rp_obj_list.items()):
+            rp = AbstractDevXsd.RoutingPolicy(
+                name=name, comment=DMUtils.routing_policy_comment(obj),
+                term_type=obj.term_type)
+            rp_entries = AbstractDevXsd.RoutingPolicyEntry()
+            for o_term in obj.routing_policy_entries:
+                term = RoutingPolicyDM.create_abstract_rpterm(o_term)
+                rp_entries.add_terms(term)
+            rp.set_routing_policy_entries(rp_entries)
+            rp_list.append(rp)
+    # end create_abstract_routing_policies
 
     def delete_obj(self):
         self.update_multiple_refs('virtual_network', {})
+        self.update_multiple_refs('data_center_interconnect', {})
     # end delete_obj
 # end RoutingPolicyDM
 
