@@ -16,6 +16,41 @@
       "revId": "073d4ee1d2390e9c0c42a82053db441692102aa7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "618af01e_d42cfb4a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/physical_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-14T03:53:48Z",
+      "side": 1,
+      "message": "Ankur, Do you mean to create this pre_dbe_create? I\u0027m fine with allocating in pre_dbe_create @Sebastian ensure that they\u0027re released when db_create fails or even post_dbe_create fails. I dont see any undoing part in this patchset.",
+      "parentUuid": "63dfbbb6_e069e72c",
+      "revId": "073d4ee1d2390e9c0c42a82053db441692102aa7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8a79aaf8_ab7a6018",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/physical_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-14T03:53:48Z",
+      "side": 1,
+      "message": "Am not quite how reserve is being implemented?",
+      "revId": "073d4ee1d2390e9c0c42a82053db441692102aa7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
