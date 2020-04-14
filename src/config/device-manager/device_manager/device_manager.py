@@ -97,6 +97,7 @@ class DeviceManager(object):
         'data_center_interconnect': {
             'self': ['logical_router', 'virtual_network'],
             'logical_router': [],
+            'routing_policy': ['logical_router'],
             'virtual_network': ['logical_router'],
             'global_system_config': ['logical_router'],
         },
@@ -309,7 +310,7 @@ class DeviceManager(object):
             'self': ['virtual_machine_interface'],
         },
         'routing_policy': {
-            'self': ['virtual_network'],
+            'self': ['virtual_network', 'data_center_interconnect'],
         },
         'intent_map': {
             'self': ['physical_router'],
