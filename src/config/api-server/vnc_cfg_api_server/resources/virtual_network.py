@@ -5,7 +5,9 @@ from builtins import range
 from builtins import str
 import copy
 import uuid
+import json
 
+from cfgm_common import _obj_serializer_all
 from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import LINK_LOCAL_VN_FQ_NAME
@@ -14,6 +16,7 @@ from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from vnc_api.gen.resource_common import InstanceIp
 from vnc_api.gen.resource_common import RoutingInstance
 from vnc_api.gen.resource_common import VirtualNetwork
 
@@ -361,6 +364,90 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         return False
 
     @classmethod
+    def _allocate_instance_ip(cls, iip_name, ip_addr, db_conn, vn_obj):
+        iip_name = iip_name
+        try:
+            iip_uuid = db_conn.fq_name_to_uuid('instance_ip', [iip_name])
+            ok, read_result = cls.dbe_read(db_conn, 'instance-ip', iip_uuid,
+                                           obj_fields=['instance_ip_address'])
+        except NoIdError:
+            iip_obj = InstanceIp(name=iip_name,
+                                 instance_ip_address=ip_addr,
+                                 instance_ip_family='v4')
+            vn = VirtualNetwork(name=vn_obj.get('display_name'))
+            iip_obj.set_virtual_network(vn)
+            iip_int_dict = json.dumps(iip_obj, default=_obj_serializer_all)
+            try:
+                db_conn.get_api_server().internal_request_create(
+                    'instance-ip',
+                    json.loads(iip_int_dict))
+            except HttpError as e:
+                return None, (e.status_code, e.content)
+            iip_uuid = db_conn.fq_name_to_uuid('instance_ip', [iip_name])
+            ok, read_result = cls.dbe_read(db_conn, 'instance-ip', iip_uuid,
+                                           obj_fields=['instance_ip_address'])
+            if not ok:
+                return None, "Could not read instance IP Address"
+
+        return read_result['instance_ip_address'], "Success"
+
+    @classmethod
+    def _get_vn_instance_ip_uuid_map(cls, vn_obj, db_conn):
+        iip_map = {}
+        ok, iip_refs = cls.dbe_read(db_conn,
+                                    'virtual_network',
+                                    vn_obj['uuid'],
+                                    obj_fields=['instance_ip_back_refs'])
+
+        iip_refs = iip_refs.get('instance_ip_back_refs')
+        if not iip_refs:
+            return {}
+        iip_uuid_list = [(iip_ref['uuid']) for iip_ref in iip_refs]
+        ok, iip_list, _ = db_conn.dbe_list('instance_ip',
+                                           obj_uuids=iip_uuid_list,
+                                           field_names=['instance_ip_address',
+                                                        'uuid'])
+        if not ok:
+            return {}
+        for iip in iip_list or []:
+            iip_map[iip.get('instance_ip_address')] = iip.get('uuid')
+        return iip_map
+
+    @classmethod
+    def _check_and_alloc_loopback_instance_ip(cls, obj_dict, db_conn, vn_obj):
+        iip_map = cls._get_vn_instance_ip_uuid_map(vn_obj, db_conn)
+        new_ip_map = []
+        status = "Instance IP already exist"
+        if obj_dict.get('virtual_network_routed_properties', None) is not None:
+            for routed_prop in obj_dict.get(
+                    'virtual_network_routed_properties')['routed_properties']:
+                ip_addr = routed_prop.get('loopback_ip_address', None)
+                if ip_addr is None:
+                    pr_uuid = routed_prop.get('physical_router_uuid', None)
+                    lr_uuid = routed_prop.get('logical_router_uuid', None)
+                    iip_name = pr_uuid.split('-')[-1] + lr_uuid.split('-')[-1]
+                    ip_addr, status = cls._allocate_instance_ip(iip_name,
+                                                                None,
+                                                                db_conn,
+                                                                vn_obj)
+                    routed_prop['loopback_ip_address'] = ip_addr
+                else:
+                    if len(iip_map) == 0 or iip_map.get(ip_addr, None) is None:
+                        ip_addr, status = cls._allocate_instance_ip(ip_addr,
+                                                                    ip_addr,
+                                                                    db_conn,
+                                                                    vn_obj)
+                if ip_addr is None:
+                    return False, status
+                new_ip_map.append(ip_addr)
+        # Delete case
+        old_instance_ip = iip_map.keys()
+        for iip in set(set(old_instance_ip) - set(new_ip_map)):
+            db_conn.get_api_server().internal_request_delete('instance-ip',
+                                                             iip_map[iip])
+        return True, "Success"
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
         if not ok:
@@ -679,6 +766,16 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         if not ok:
             return ok, result
 
+        # Check if VN is routed and has overlay-loopback in name alloc
+        # and de-alloc instance IPs
+        vn_category = read_result.get('virtual_network_category', None)
+        if vn_category == 'routed' and 'overlay-loopback' in fq_name[-1]:
+            (ok, error) = cls._check_and_alloc_loopback_instance_ip(
+                obj_dict,
+                db_conn,
+                read_result)
+            if not ok:
+                return (False, (409, error))
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
             # update link with a subnet_uuid if ipam in read_result or obj_dict
