@@ -60,10 +60,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
         self._reset_config = self.options.reset_config
-        if self.options.db_prefix:
-            self._db_prefix = '%s_' % (self.options.db_prefix)
-        else:
-            self._db_prefix = ''
 
         self._server_list = server_list
         if (self.options.pool_size == 0):
@@ -114,11 +110,11 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
         for ks, cf_dict in list(self._rw_keyspaces.items()):
-            keyspace = '%s%s' % (self._db_prefix, ks)
+            keyspace = self.keyspace(ks)
             self._cassandra_ensure_keyspace(keyspace, cf_dict)
 
         for ks, _ in list(self._ro_keyspaces.items()):
-            keyspace = '%s%s' % (self._db_prefix, ks)
+            keyspace = self.keyspace(ks)
             self._cassandra_wait_for_keyspace(keyspace)
 
         self._cassandra_init_conn_pools()
@@ -207,7 +203,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         socket_factory = self._make_socket_factory()
         for ks, cf_dict in itertools.chain(list(self._rw_keyspaces.items()),
                                            list(self._ro_keyspaces.items())):
-            keyspace = '%s%s' % (self._db_prefix, ks)
+            keyspace = self.keyspace(ks)
             pool = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
                 prefill=True, pool_size=self._pool_size, pool_timeout=120,
