@@ -67,6 +67,8 @@ class CassandraDriver(object):
     options = dict(OptionsDefault)
 
     def __init__(self, server_list, **options):
+        self._server_list = server_list
+
         self.options.update(options)
         self.options = OptionsType(**self.options)
 
