@@ -88,15 +88,15 @@ class AnsibleRoleCommon(AnsibleConf):
             for int_ri in self.dci_vn_ris:
                 dci_uuid = DMUtils.extract_dci_uuid_from_internal_vn_name(int_ri.name)
                 dci = DataCenterInterconnectDM.get(dci_uuid)
-                if not dci or not dci.virtual_network:
+                if not dci or dci.is_this_inter_fabric() == False:
                     continue
-                vn = dci.virtual_network
-                vn_obj = VirtualNetworkDM.get(vn)
-                if vn_obj is None or vn_obj.vn_network_id is None:
-                    continue
-                irb_name = "irb." + str(vn_obj.vn_network_id)
-                if irb_name in self.irb_interfaces:
-                    self.add_ref_to_list(int_ri.get_routing_interfaces(), irb_name)
+                for vn in dci.virtual_networks:
+                    vn_obj = VirtualNetworkDM.get(vn)
+                    if vn_obj is None or vn_obj.vn_network_id is None:
+                        continue
+                    irb_name = "irb." + str(vn_obj.vn_network_id)
+                    if irb_name in self.irb_interfaces:
+                        self.add_ref_to_list(int_ri.get_routing_interfaces(), irb_name)
     # end set_dci_vn_irb_config
 
     def set_internal_vn_irb_config(self):
@@ -1031,11 +1031,10 @@ class AnsibleRoleCommon(AnsibleConf):
                             if lr and not lr.is_master:
                                 ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                                 ri_conf['router_external'] = lr.logical_router_gateway_external
-                                if lr.data_center_interconnect:
-                                    ri_conf['connected_dci_network'] = lr.data_center_interconnect
-                                    dci_uuid = lr.data_center_interconnect
-                                    dci = DataCenterInterconnectDM.get(dci_uuid)
-                                    lr_vn_list = dci.get_connected_lr_internal_vns(exclude_lr=lr.uuid, pr_uuid=self.physical_router.uuid) if dci else []
+                                dci = lr.get_interfabric_dci()
+                                if dci:
+                                    ri_conf['connected_dci_network'] = dci.uuid
+                                    lr_vn_list = dci.get_connected_lr_internal_vns(exclude_lr=lr.uuid, pr_uuid=self.physical_router.uuid)
                                     for lr_vn in lr_vn_list:
                                         exports, imports = lr_vn.get_route_targets()
                                         if imports:
@@ -1520,6 +1519,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_ri_config()
         self.set_internal_vn_irb_config()
         self.set_internal_vn_routed_vn_config()
+        self.set_internal_vn_lr_interconnect_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
         self.build_vpg_config()
@@ -1557,4 +1557,15 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.physical_router.set_routing_vn_proto_in_ri(
                     int_ri, self.routing_policies, vn_list)
     # end set_internal_vn_routed_vn_config
+
+    def set_internal_vn_lr_interconnect_config(self):
+        rib_map, rp_list = \
+            DataCenterInterconnectDM.set_intrafabric_dci_config(
+                self.physical_router.uuid, self.internal_vn_ris or [])
+        for k,v in rp_list.items():
+            self.routing_policies.append(v)
+        for k, v in rib_map.items():
+            self.rib_groups.append(v)
+    # end set_internal_vn_lr_interconnect_config
+
 # end AnsibleRoleCommon
