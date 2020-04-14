@@ -41,3 +41,10 @@ class TestOptions(unittest.TestCase):
         drv = FakeDriver([], db_prefix='a_prefix')
         self.assertEqual(
             "a_prefix_my_keyspace", drv.keyspace("my_keyspace"))
+
+    def test_reset_config_wipe(self):
+        drv = FakeDriver([])
+        self.assertFalse(drv.options.reset_config)
+
+        drv = FakeDriver([], reset_config=True)
+        self.assertTrue(drv.options.reset_config)
