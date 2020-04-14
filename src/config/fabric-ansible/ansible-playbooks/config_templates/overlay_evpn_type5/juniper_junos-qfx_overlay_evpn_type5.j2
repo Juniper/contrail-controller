@@ -6,11 +6,11 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 2 the
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from protocol evpn
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
-{% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
+{%     set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
+{%         set name = ri.get('name', '')[:127] %}
 {%         set is_master = ri.get('is_master', '') %}
 {%         if ri.get('is_master') == true %}{# /* BGP for master_LR */ #}
-{%             set name = ri.get('name', '')[:127] %}
 {%             for route in ri.get('static_routes', []) %}
 {%                 set cidr = route.get('prefix') %}
 {%                 set next_hop = route.get('next_hop') %}
@@ -60,7 +60,6 @@ set groups {{cfg_group}} protocols bgp group {{bgp_name}} export {{export_rp}}
 {%                 endfor %}{# /* end of bgp for loop */ #}
 {%             endfor %}{# /* end of protocols for loop */ #}
 {%         else %}
-{%             set name = ri.get('name', '')[:127] %}
 {%             set vxlan_id = ri.get('vxlan_id') %}
 {%             set router_external = ri.get('is_public_network', '') %}
 {%             for lo_int in ri.get('loopback_interfaces', []) %}
@@ -155,8 +154,16 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%         endif %}
-{%     endfor %}
-
+{%         for verbs in ["vrf_export", "vrf_import"] %}
+{%             for vrf_rp in ri.get(verbs, []) %}
+{%                 if verbs == "vrf_export" %}
+set groups {{cfg_group}} routing-instances {{name}} vrf-export {{vrf_rp}}
+{%                 else %}
+set groups {{cfg_group}} routing-instances {{name}} vrf-import {{vrf_rp}}
+{%                 endif %}
+{%             endfor %}
+{%         endfor %}
+{%     endfor %}{# /* routing instances */ #}
 {%     for rp in device_abstract_config.features.get('vn-interconnect').get('routing_policies', []) %}
 {%         set rp_entery = rp.get('routing_policy_entries', {}) %}
 {%         if rp_entery|length > 0 %}
@@ -166,47 +173,126 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%                 set tcond = term.get('term_match_condition', {}) %}
 {%                 set taction = term.get('term_action_list', {}) %}
 {%                 if ((tcond|length > 0) or (taction|length > 0)) %}
-{%                     set protocol_list = [] %}
-{%                     set extcommunity_list = [] %}
-{%                     set prefix_list = [] %}
 {%                     if (tcond|length > 0) %}
 {%                         for protocol in tcond.get('protocol', []) %}
-{%                             set z = protocol_list.append(protocol) %}
-{%                         endfor %}
-{%                         for extcom in tcond.get('extcommunity_list', []) %}
-{%                             set z = extcommunity_list.append(extcom) %}
-{%                         endfor %}
-{%                         for prefix in tcond.get('prefix', []) %}
-{%                             set z = prefix_list.append(prefix) %}
-{%                         endfor %}
-{%                     endif %}
-{%                     for protocol in protocol_list %}
-{%                         if ((protocol == 'interface') or (protocol == 'interface-static')) %}
+{%                             if ((protocol == 'interface') or (protocol == 'interface-static')) %}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol direct
-{%                         endif %}
-{%                         if (protocol == 'bgp') %}
-set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol bgp
-{%                         endif %}
-{%                         if (protocol == 'static') %}
-set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol static
-{%                         endif %}
-{%                     endfor %}{# /* protocol */ #}
-{%                     for extcom in extcommunity_list %}
-{%                         set cname = rp_name + '-' + tname + '-C' + loop.index|string %}
+{%                             else %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol {{protocol}}
+{%                             endif %}
+{%                         endfor %}{# /* protocol */ #}
+{%                         for extcom in tcond.get('extcommunity_list', []) %}
+{%                             set cname = rp_name + '-' + tname + '-C' + loop.index|string %}
 set groups {{cfg_group}} policy-options community {{cname}} members {{extcom}}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from community {{cname}}
-{%                     endfor %}{# /* extcommunity_list */ #}
-{%                     for prefix in prefix_list %}
-{%                         set ptype = prefix.get('prefix_type', '') %}
-{%                         set pvalue = prefix.get('prefix', '') %}
-{%                         if pvalue != '' %}
-set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from route-filter {{pvalue}} {{ptype}}
+{%                         endfor %}{# /* extcommunity_list */ #}
+{%                         set fprefixs = [] %}
+{%                         for prefix in tcond.get('prefix', []) %}
+{%                             set z = fprefixs.append(prefix) %}
+{%                         endfor %}
+{%                         set fcommunity = tcond.get('community', '') %}
+{%                         set fcommunity_list = tcond.get('community_list', []) %}
+{%                         set ffamily = tcond.get('family', '') %}
+{%                         set fas_path_list = tcond.get('as_path', []) %}
+{%                         set fexternal = tcond.get('external', '') %}
+{%                         set flocal_pref = tcond.get('local_pref', '') %}
+{%                         set fnlri_route_types = tcond.get('nlri_route_type', []) %}
+{%                         set fprefix_lists = tcond.get('prefix_list', []) %}
+{%                         set froute_filter = tcond.get('route_filter', None) %}
+{%                         if fcommunity != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from community {{fcommunity}}
+{%                             for fcom_member in fcommunity_list %}
+set groups {{cfg_group}} policy-options community {{fcommunity}} members {{fcom_member}}
+{%                             endfor %}
 {%                         endif %}
-{%                     endfor %}{# /* prefix */ #}
+{%                         if (fnlri_route_types|length > 0) and (ffamily != 'evpn') %}
+{%                             set ffamily = 'evpn' %}
+{%                         endif %}
+{%                         if ffamily != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from family {{ffamily}}
+{%                         endif %}
+{%                         for fas_pathv in fas_path_list %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from as-path {{fas_pathv}}
+{%                         endfor %}
+{%                         if fexternal == 'ospf-type-1' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from external type 1
+{%                         elif fexternal == 'ospf-type-2' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from external type 2
+{%                         endif %}
+{%                         if flocal_pref != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from local-preference {{flocal_pref}}
+{%                         endif %}
+{%                         for fnlri_route_type in fnlri_route_types %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from nlri-route-type {{fnlri_route_type}}
+{%                         endfor %}
+{%                         for fprefix_list in fprefix_lists %}
+{%                             set prefixtype = fprefix_list.get('prefix_type', '') %}
+{%                             set pvalue_prefixes = fprefix_list.get('prefixes', []) %}
+{%                             for pvalue_prefixe in pvalue_prefixes %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from route-filter {{pvalue_prefixe}} {{prefixtype}}
+{%                             endfor %}
+{%                         endfor %}
+{%                         if froute_filter != None %}
+{%                             for frf_prop in froute_filter.get('route_filter_properties', []) %}
+{%                                 set route = frf_prop.get('route', '') %}
+{%                                 set route_type = frf_prop.get('route_type', '') %}
+{%                                 set rtv = frf_prop.get('route_type_value', '') %}
+{%                                 if rtv != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from route-filter {{route}} {{route_type}} {{rtv}}
+{%                                 else %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from route-filter {{route}} {{route_type}}
+{%                                 endif %}
+{%                             endfor %}
+{%                         endif %}
+{%                         for fprefix in fprefixs %}
+{%                             set ptype = fprefix.get('prefix_type', '') %}
+{%                             set pvalue = fprefix.get('prefix', '') %}
+{%                             if pvalue != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from route-filter {{pvalue}} {{ptype}}
+{%                             endif %}
+{%                         endfor %}{# /* fprefixs */ #}
+{%                     endif %}{# /* from clause - tcond */ #}
 {%                     if (taction|length > 0) %}
+{%                         set tcommunity = taction.get('community', '') %}
+{%                         set tcommunity_list = taction.get('community_list', []) %}
+{%                         set texternal = taction.get('external', '') %}
 {%                         set term_action = taction.get('action', '') %}
 {%                         set tupdate = taction.get('update', '') %}
+{%                         set tas_path_expand = taction.get('as_path_expand', '') %}
+{%                         set tas_path_prepend = taction.get('as_path_prepend', '') %}
+{%                         if tcommunity != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then community add {{tcommunity}}
+{%                             for tcom_member in tcommunity_list %}
+set groups {{cfg_group}} policy-options community {{tcommunity}} members {{tcom_member}}
+{%                             endfor %}
+{%                         endif %}
 {%                         if tupdate != '' %}
+{%                             set tupdate_comm = tupdate.get('community', None) %}
+{%                             if tupdate_comm != None %}
+{%                                 for verb in ["add", "remove", "set"] %}
+{%                                     set tverb = tupdate_comm.get(verb, None) %}
+{%                                     if tverb != None %}
+{%                                         for tcom_value in tverb.get('community', []) %}
+{%                                             set cname = rp_name + '-' + tname + '-C' + verb + loop.index|string %}
+set groups {{cfg_group}} policy-options community {{cname}} members {{tcom_value}}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then community {{verb}} {{cname}}
+{%                                         endfor %}
+{%                                     endif %}
+{%                                 endfor %}
+{%                             endif %}{# /* then community add-remove-set clause */ #}
+{%                             set tupdate_extcomm = tupdate.get('extcommunity', None) %}
+{%                             if tupdate_extcomm != None %}
+{%                                 for verb in ["add", "remove", "set"] %}
+{%                                     set tverb = tupdate_extcomm.get(verb, None) %}
+{%                                     if tverb != None %}
+{%                                         for tcom_value in tverb.get('community', []) %}
+{%                                             set cname = rp_name + '-' + tname + '-EXTC' + verb + loop.index|string %}
+set groups {{cfg_group}} policy-options community {{cname}} members {{tcom_value}}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then community {{verb}} {{cname}}
+{%                                         endfor %}
+{%                                     endif %}
+{%                                 endfor %}
+{%                             endif %}{# /* then extcommunity add-remove-set clause */ #}
 {%                             set localpref = tupdate.get('local_pref', '') %}
 {%                             set as_path = tupdate.get('as_path', '') %}
 {%                             if localpref != '' %}
@@ -221,11 +307,44 @@ set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tnam
 {%                                 endif %}
 {%                             endif %}{# /* as_path in update of term_action_list */ #}
 {%                         endif %}{# /* update in term_action_list */ #}
+{%                         if texternal == 'ospf-type-1' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then external type 1
+{%                         elif texternal == 'ospf-type-2' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then external type 2
+{%                         endif %}
+{%                         if tas_path_expand != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then as-path-expand "{{tas_path_expand}}"
+{%                         endif %}
+{%                         if tas_path_prepend != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then as-path-expand "{{tas_path_prepend}}"
+{%                         endif %}
 {%                         if term_action != '' %}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then {{term_action}}
-{%                         endif %}{# /* if term_action valid */ #}
-{%                     endif %}{# /* if term_action_list valid */ #}
+{%                         endif %}{# /* action valid */ #}
+{%                     endif %}{# /* Then clause taction */ #}
 {%                 endif %}{# /* if term_match_condition and term_action_list valid */ #}
 {%             endfor %}{# /* for each terms */ #}
 {%         endif %}{# /* valid routing_policy_entries */ #}
 {%     endfor %}{# /* routing_policies */ #}
+{%     for ribg in device_abstract_config.features.get('vn-interconnect').get('rib_groups', []) %}
+{%         set rname = ribg.get('name', '') %}
+{%         set ns_first = namespace(found=true) %}
+{%         for rimport_rib in ribg.get('import_rib', []) %}
+set groups {{cfg_group}} routing-options rib-groups {{rname}} import-rib {{rimport_rib}}.inet.0
+{%             if ns_first.found == true %}
+{%                 set ns_first.found = false %}
+{%                 if ribg.get('interface_routes', false) == true %}
+set groups {{cfg_group}} routing-instances {{rimport_rib}} routing-options interface-routes rib-group inet {{rname}}
+{%                 endif %}
+{%                 if ribg.get('static', false) == true %}
+set groups {{cfg_group}} routing-instances {{rimport_rib}} routing-options static rib-group {{rname}}
+{%                 endif %}
+{%                 if ribg.get('bgp', false) == true %}
+set groups {{cfg_group}} routing-instances {{rimport_rib}} protocols bgp family inet unicast rib-group {{rname}}
+{%                 endif %}
+{%             endif %}{# /* set rib group to only src LR routing instance (first entry) */ #}
+{%         endfor %}
+{%         for rimport_policy in ribg.get('import_policy', []) %}
+set groups {{cfg_group}} routing-options rib-groups {{rname}} import-policy {{rimport_policy}}
+{%         endfor %}
+{%     endfor %}{# /* rib-groups */ #}
