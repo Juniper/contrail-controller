@@ -109,3 +109,7 @@ class CassandraDriver(object):
         """Remove a specified row or a set of columns within the row"""
         pass
 
+    def keyspace(self, name):
+        if self.options.db_prefix:
+            return "{}_{}".format(self.options.db_prefix, name)
+        return name
