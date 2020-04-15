@@ -72,7 +72,7 @@ class VrouterPortControl(object):
                    Agent will write to file if file is not already present
                 '''
                 r = requests.post(url, data=json_dump, headers=headers)
-                print "Request : %s" % r.text
+                print "Request : %s" % json_dump
                 '''Overwrite the ret_code based on agent response '''
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
