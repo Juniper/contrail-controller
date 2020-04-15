@@ -3799,9 +3799,7 @@ class DMCassandraDB(VncObjectDBClient):
         self.init_ipv6_ll_map()
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
-        self.pnf_network_allocator = IndexAllocator(
-            zkclient, self._zk_path_pfx + self._PNF_NETWORK_ALLOC_PATH,
-            self._PNF_MAX_NETWORK_ID)
+        self.pnf_network_allocator = None
 
         self.pnf_cf = self._cassandra_driver.get_cf(self._PNF_RESOURCE_CF)
         self.pnf_resources_map = dict(
@@ -3820,6 +3818,7 @@ class DMCassandraDB(VncObjectDBClient):
         return pr_set
 
     def get_pnf_vlan_allocator(self, pr_id):
+        pass
         return self.pnf_vlan_allocator_map.setdefault(
             pr_id,
             IndexAllocator(
@@ -3829,6 +3828,7 @@ class DMCassandraDB(VncObjectDBClient):
         )
 
     def get_pnf_unit_allocator(self, pi_id):
+        pass
         return self.pnf_unit_allocator_map.setdefault(
             pi_id,
             IndexAllocator(

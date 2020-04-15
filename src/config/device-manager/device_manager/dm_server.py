@@ -96,12 +96,11 @@ def initialize_db_connection(logger, args):
 
 def run_device_manager(dm_logger, args):
     global _amqp_client
-    global _zookeeper_client
 
     dm_logger.notice("Elected master Device Manager node. Initializing... ")
     dm_logger.introspect_init()
     DeviceZtpManager.get_instance().set_active()
-    DeviceManager(dm_logger, args, _zookeeper_client, _amqp_client)
+    DeviceManager(dm_logger, args, None, _amqp_client)
     if _amqp_client._consumer_gl is not None:
         gevent.joinall([_amqp_client._consumer_gl])
 # end run_device_manager
@@ -182,7 +181,7 @@ def sigterm_handler():
 # end sigterm_handler
 
 
-def run_job_ztp_manager(dm_logger, _zookeeper_client, args):
+def run_job_ztp_manager(dm_logger, args):
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
     vnc_amqp = DMAmqpHandle(dm_logger, {}, args)
@@ -196,7 +195,7 @@ def run_job_ztp_manager(dm_logger, _zookeeper_client, args):
 
     try:
         # Initialize the device job manager
-        DeviceJobManager(_amqp_client, _zookeeper_client, _db_conn, args,
+        DeviceJobManager(_amqp_client, _db_conn, args,
                          dm_logger)
         # Allow kombu client to connect consumers
         gevent.sleep(0.5)
@@ -225,7 +224,6 @@ def run_job_ztp_manager(dm_logger, _zookeeper_client, args):
 
 def main(args_str=None):
     global _amqp_client
-    global _zookeeper_client
 
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
@@ -248,23 +246,24 @@ def main(args_str=None):
     if 'host_ip' not in args:
         args.host_ip = socket.gethostbyname(socket.getfqdn())
 
-    _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
-                                        args.zk_server_ip, args.host_ip)
-
     gevent.signal(signal.SIGHUP, sighup_handler)
     gevent.signal(signal.SIGTERM, sigterm_handler)
     gevent.signal(signal.SIGINT, sigterm_handler)
 
     if args.dm_run_mode == 'Full':
         dm_logger = DeviceManagerLogger(args, http_server_port=-1)
-        run_job_ztp_manager(dm_logger, _zookeeper_client, args)
+        run_job_ztp_manager(dm_logger, args)
+        dm_logger.notice("Process %s prepared to run in Full mode..."
+                         % os.getpid())
         run_device_manager(dm_logger, args)
     elif args.dm_run_mode == 'Partial':
         dm_logger = DeviceManagerLogger(args, http_server_port=-1)
         dm_logger.notice("Process %s prepared to run in Partial mode..."
                          % os.getpid())
-        run_job_ztp_manager(dm_logger, _zookeeper_client, args)
+        run_job_ztp_manager(dm_logger, args)
     else:
+        _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
+                                            args.zk_server_ip, args.host_ip)
         run_partial_dm()
         _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
                                           os.getpid(), run_full_dm)
