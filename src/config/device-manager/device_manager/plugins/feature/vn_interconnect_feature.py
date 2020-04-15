@@ -11,7 +11,7 @@ from abstract_device_api.abstract_device_xsd import *
 import gevent
 from netaddr import IPAddress, IPNetwork
 
-from .db import LogicalRouterDM, VirtualNetworkDM
+from .db import DataCenterInterconnectDM, LogicalRouterDM, VirtualNetworkDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
 
@@ -89,6 +89,20 @@ class VnInterconnectFeature(FeatureBase):
 
         export_targets, import_targets = self._get_export_import_targets(
             vn, ri_obj)
+
+        # get lr_object
+        if lr_obj.data_center_interconnect:
+            dci_uuid = lr_obj.data_center_interconnect
+            dci = DataCenterInterconnectDM.get(dci_uuid)
+            lr_vn_list = dci.get_connected_lr_internal_vns(
+                exclude_lr=lr_obj.uuid, pr_uuid=self._physical_router.uuid) \
+                if dci else []
+            for lr_vn in lr_vn_list:
+                exports, imports = lr_vn.get_route_targets()
+                if imports:
+                    import_targets |= imports
+                if exports:
+                    export_targets |= exports
 
         if not is_master_int_vn:
             # create routing instance of type vrf
