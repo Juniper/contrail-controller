@@ -770,6 +770,34 @@ class TestCrud(test_case.ApiServerTestCase):
                    vmi.del_virtual_machine_interface(vmi)
     # end test_allowed_address_pair_prefix_len
 
+    def test_allowed_address_pair_with_leading_spaces(self):
+       """ This test case checks for leading white spaces in the IP address
+           and throws an exception if present
+           JIRA TICKET:CEM-14035
+       """
+       ip_addresses = {'10.10.10.1': 24,
+                       '  10.10.10.2': 24,
+                       '0:0:0:0:0:ffff:1414:1400': 120,
+                       '  fe80:0:0:0:0:0:a0a:a0c': 120,
+                      }
+       proj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+       vn = VirtualNetwork()
+       for ip_address, prefix in list(ip_addresses.items()):
+           vmi = VirtualMachineInterface('vmi-%s-' % prefix +self.id(), parent_obj=proj)
+           print('Validating with ip (%s) and prefix (%s)' % (ip_address, prefix))
+           aap = AllowedAddressPair(ip=SubnetType(ip_address, prefix), address_mode='active-standby')
+           aaps = AllowedAddressPairs()
+           aaps.allowed_address_pair.append(aap)
+           vmi.set_virtual_machine_interface_allowed_address_pairs(aaps)
+           vmi.add_virtual_network(vn)
+           if ip_address == ip_address.strip():
+               self._vnc_lib.virtual_machine_interface_create(vmi)
+               vmi.del_virtual_machine_interface(vmi)
+           else:
+               with ExpectedException(BadRequest) as e:
+                   self._vnc_lib.virtual_machine_interface_create(vmi)
+    # end test_allowed_address_pair_with_leading_spaces
+
     def test_bgpaas_ports_shrunk(self):
         gsc = self._vnc_lib.global_system_config_read(
                                       fq_name=['default-global-system-config'])
