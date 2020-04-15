@@ -1,22 +1,24 @@
-lxml>=2.3.3
+lxml==4.5.0
 gevent==1.1.2; python_version=='2.7'
 gevent==1.3; python_version > '2.7'
 geventhttpclient==1.3.1
-netaddr>=0.7.5
-bitarray>=0.8.0
-psutil>=0.6.0
-python-novaclient
+netaddr==0.7.19
+bitarray==1.2.1
+psutil==5.7.0
+python-novaclient==16.0.0
 kombu==4.0.2
-netifaces
-bottle
-stevedore
-timeout-decorator
-docker
-inflection>=0.3.1
-jsonschema
+netifaces==0.10.9
+bottle==0.12.18
+stevedore==1.32.0
+timeout-decorator==0.4.1
+docker==4.2.0
+inflection==0.3.1; python_version=='2.7'
+inflection==0.4.0; python_version > '2.7'
+jsonschema==3.2.0
 pyhash==0.6.2; python_version=='2.7'
 pyhash==0.9.3; python_version > '2.7'
-contrail-config-common
+contrail-config-common==0.1.dev0
 vine==1.1.3
-configparser
+configparser==4.0.2; python_version=='2.7'
+configparser==5.0.0; python_version > '2.7'
 sandesh==0.1dev
