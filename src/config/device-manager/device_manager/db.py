@@ -1321,11 +1321,6 @@ class PhysicalRouterDM(DBBaseDM):
         if not bgp_info:
             return
         bgp_name = vn_obj.name + '_bgp'
-        peer_bgp = AbstractDevXsd.Bgp(name=bgp_info.get('peer_ip_address'),
-                                      autonomous_system=bgp_info.get(
-                                          'peer_autonomous_system'),
-                                      ip_address=bgp_info.get(
-                                          'peer_ip_address'))
         key = ''
         auth_key_data = bgp_info.get('auth_data', None)
         if auth_key_data:
@@ -1339,7 +1334,13 @@ class PhysicalRouterDM(DBBaseDM):
                                  type_="external",
                                  autonomous_system=local_asnv,
                                  authentication_key=key)
-        bgp.add_peers(peer_bgp)
+
+        for peer_ip in bgp_info.get('peer_ip_address') or []:
+            peer_bgp = AbstractDevXsd.Bgp(name=peer_ip,
+                                          autonomous_system=bgp_info.get(
+                                              'peer_autonomous_system'),
+                                          ip_address=peer_ip)
+            bgp.add_peers(peer_bgp)
         bgp.set_comment('Routed VN BGP info')
         if bfd_info:
             bfd = AbstractDevXsd.Bfd(

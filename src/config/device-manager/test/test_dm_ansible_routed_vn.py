@@ -164,7 +164,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 self.assertIsNotNone(peers)
                 for peer in peers:
                     self.assertEqual(peer.get('ip_address'),
-                                     bgp_param.peer_ip)
+                                     bgp_param.peer_ip[-1])
                     self.assertEqual(peer.get('autonomous_system'),
                                      bgp_param.peer_asn)
                 # NOTE: auth key special character gets wrapped in quotes in
@@ -387,7 +387,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 import_routing_policy_uuid=import_rp,
                 export_routing_policy_uuid=export_rp)
             bgp_param = BgpRoutedParam(
-                peer_ip="30.30.30.30", peer_asn=7000, local_asn=7001,
+                peer_ip=["30.30.30.30"], peer_asn=7000, local_asn=7001,
                 hold_time=90, auth_type="md5", auth_key="99493939393",
                 auth_key_id=0, routed_ip='41.1.1.11', bfd_time=30,
                 bfd_multiplier=100, rp_params=rp_parameters)
@@ -488,7 +488,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
             # change routed bgp values and verify abstract updated
             bgp_param_change = BgpRoutedParam(
-                peer_ip="23.30.30.30", peer_asn=8000, local_asn=8001,
+                peer_ip=["23.30.30.30"], peer_asn=8000, local_asn=8001,
                 hold_time=80, auth_type="md5", auth_key="$9$1234555555",
                 auth_key_id=0, routed_ip='42.1.1.12', bfd_time=40,
                 bfd_multiplier=50, rp_params=rp_parameters)
