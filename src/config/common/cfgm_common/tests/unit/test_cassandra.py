@@ -63,3 +63,11 @@ class TestOptions(unittest.TestCase):
     def test_nodes(self):
         drv = FakeDriver(['a', 'b', 'c'])
         self.assertEqual(3, drv.nodes())
+
+    def test_logger_wipe(self):
+        drv = FakeDriver([])
+        self.assertIsNone(drv.options.logger)
+
+        drv = FakeDriver([], logger='<something>')
+        self.assertEqual('<something>', drv.options.logger)
+
