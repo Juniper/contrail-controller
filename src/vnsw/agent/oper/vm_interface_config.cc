@@ -487,9 +487,10 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
 
     // Ignore node if direction is not yet set. An update will come later
     const PolicyBasedForwardingRuleType &rule = entry->data();
-    if (rule.direction == "") {
+    if (rule.direction == "" && !agent->isMockMode()) {
         return;
     }
+
 
     // Find VRF by looking for link
     // virtual-machine-interface-routing-instance <-> routing-instance
