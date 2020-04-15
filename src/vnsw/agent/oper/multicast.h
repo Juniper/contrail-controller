@@ -421,7 +421,6 @@ public:
     void DeleteMulticastObject(const std::string &vrf_name,
                                const Ip4Address &src_addr,
                                const Ip4Address &grp_addr);
-    void DeleteMulticastObject(MulticastGroupObject *obj);
 
     const Agent *agent() const {return agent_;}
     void Terminate();

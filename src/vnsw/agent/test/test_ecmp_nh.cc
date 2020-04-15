@@ -1596,9 +1596,22 @@ TEST_F(EcmpNhTest, EcmpNH_18) {
     ecmp_load_balance.set_source_ip();
     ecmp_load_balance.set_destination_ip();
     ecmp_load_balance.set_source_port();
+
+    autogen::EcmpHashingIncludeFields ecmp;
+    ecmp.Clear();
+    ecmp.hashing_configured= true;
+    ecmp.source_ip = true;
+    ecmp.destination_ip = true;
+    ecmp.source_port = true;
+    ecmp.destination_port = false;
+    ecmp.ip_protocol = false;
+
+    EcmpLoadBalance ecmp_load_balance2;
+    ecmp_load_balance2.ResetAll();
+    ecmp_load_balance2.UpdateFields(ecmp);
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
             comp_nh_list, false, "vn1", sg_id_list,
-            TagList(), PathPreference(), ecmp_load_balance);
+            TagList(), PathPreference(), ecmp_load_balance2);
     client->WaitForIdle();
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
@@ -1606,6 +1619,87 @@ TEST_F(EcmpNhTest, EcmpNH_18) {
     ecmp_load_balance.set_source_ip();
     ecmp_load_balance.set_destination_ip();
     ecmp_load_balance.set_ip_protocol();
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
+    client->WaitForIdle();
+
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->PolicyEnabled() == false);
+    EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
+    const CompositeNH *cnh = static_cast<const CompositeNH *>(rt1->GetActiveNextHop());
+
+    EXPECT_TRUE(cnh->EcmpHashFieldInUse() ==
+            (1<<EcmpLoadBalance::SOURCE_IP | 1<<EcmpLoadBalance::DESTINATION_IP));
+    //Delete all the routes and make sure nexthop is also deleted
+    DeleteRoute("vrf1", "100.1.1.1", 32, bgp_peer);
+    client->WaitForIdle();
+    DeleteRoute("vrf1", "100.1.1.2", 32, bgp_peer);
+    client->WaitForIdle();
+
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    EXPECT_FALSE(FindNH(&composite_nh_key));
+    WAIT_FOR(100, 1000, (FindNH(&composite_nh_key) ==false));
+    DelVrf("vrf1");
+}
+
+// Same as EcmpNH_18 with UpdateFields call
+TEST_F(EcmpNhTest, EcmpNH_UpdateFields) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    SecurityGroupList sg_id_list;
+
+    autogen::EcmpHashingIncludeFields ecmp;
+    ecmp.Clear();
+    ecmp.hashing_configured= true;
+    ecmp.source_ip = true;
+    ecmp.destination_ip = true;
+    ecmp.source_port = true;
+    ecmp.destination_port = false;
+    ecmp.ip_protocol = false;
+
+    EcmpLoadBalance ecmp_load_balance;
+    ecmp_load_balance.ResetAll();
+    ecmp_load_balance.UpdateFields(ecmp);
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
+    client->WaitForIdle();
+
+    Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
+
+    ecmp_load_balance.ResetAll();
+    ecmp.Clear();
+    ecmp.hashing_configured= true;
+    ecmp.source_ip = true;
+    ecmp.destination_ip = true;
+    ecmp.source_port = false;
+    ecmp.destination_port = false;
+    ecmp.ip_protocol = true;
+    ecmp_load_balance.UpdateFields(ecmp);
+
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
             comp_nh_list, false, "vn1", sg_id_list,
             TagList(), PathPreference(), ecmp_load_balance);
