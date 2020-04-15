@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8b5a5cd8_a90885d1",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-04-15T09:36:36Z",
+      "side": 1,
+      "message": "please use\nisinstance(tags, six.string_types)\n\nthis will not work for python3",
+      "revId": "10fd354bb8976a1f4e5f2bc8095a9bcc5d8a7e06",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ca2772c4_ca0556c2",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-04-15T09:36:36Z",
+      "side": 1,
+      "message": "same commment here about python3",
+      "revId": "10fd354bb8976a1f4e5f2bc8095a9bcc5d8a7e06",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
