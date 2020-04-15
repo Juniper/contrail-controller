@@ -25,6 +25,7 @@ _BGP_RTGT_MAX_ID_TYPE0 = 1 << 24
 # We don't left shift by 16 below to reserve certain target
 # for user created RTs
 _BGP_RTGT_MAX_ID_TYPE1_2 = 1 << 15
+AE_MAX_ID = (1 << 7) - 1
 
 # Route Target location in Zookeeper for a Type0 Route Targets
 # Type0 route targets will have 2 Byte ASN and 4 Byte target values

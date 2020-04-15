@@ -8,7 +8,7 @@ from builtins import str
 import copy
 from functools import wraps
 import inspect
-from io import StringIO
+from six import StringIO
 import itertools
 import logging
 import os
@@ -75,12 +75,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.26"
+__version__ = "1.27"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.27:
+  - Added aggregated ethernet ID check and clean for ZK. 
+  - Fixed importing StringIO for python 2/3. Now basing on package 'six'
 * 1.26:
   - Fix import statement compatibility for python 2 and reorganise them
 * 1.25:
@@ -163,6 +166,10 @@ try:
     VN_ID_MIN_ALLOC = cfgm_common.VNID_MIN_ALLOC
 except AttributeError:
     VN_ID_MIN_ALLOC = 1
+try:
+    AE_MAX_ID = cfgm_common.AE_MAX_ID
+except AttributeError:
+    AE_MAX_ID = (1 << 7) - 1
 SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
 
 
@@ -237,6 +244,7 @@ exceptions = [
     'OrphanResourceError',
     'ZkSubnetPathInvalid',
     'FqNameDuplicateError',
+    'AEIDZookeeperError',
 ]
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
@@ -415,6 +423,7 @@ class DatabaseManager(object):
     BASE_VN_ID_ZK_PATH = '/id/virtual-networks'
     BASE_SG_ID_ZK_PATH = '/id/security-groups/id'
     BASE_SUBNET_ZK_PATH = '/api-server/subnets'
+    BASE_AE_ID_ZK_PATH = "/id/aggregated-ethernet"
 
     KV_SUBNET_KEY_TO_UUID_MATCH = re.compile('(.* .*/.*)')
 
@@ -481,6 +490,7 @@ class DatabaseManager(object):
         self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
         self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
         self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
+        self.base_ae_id_zk_path = cluster_id + self.BASE_AE_ID_ZK_PATH
         self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
 
         self._zk_client.start()
@@ -1406,6 +1416,64 @@ class DatabaseManager(object):
 
         return errors, back_refs_to_remove
 
+    def audit_aggregated_ethernet_id(self):
+        logger = self._logger
+        ret_errors = []
+
+        # read in aggregated-ethernet ids from zookeeper
+        base_path = self.base_ae_id_zk_path
+        logger.debug("Doing recursive zookeeper read from %s", base_path)
+        zk_all_ae_id = {}
+        for prouter_name in self._zk_client.get_children(base_path) or []:
+            prouter_path = base_path + '/' + prouter_name
+            for ae_id in self._zk_client.get_children(prouter_path) or []:
+                vpg_name = self._zk_client.get(prouter_path + '/' + ae_id)[0]
+                if zk_all_ae_id.get(prouter_name) is None:
+                        zk_all_ae_id[prouter_name] = {}
+                zk_all_ae_id[prouter_name][vpg_name] = ae_id
+
+        # read in aggregated-ethernets from cassandra to get id+fq_name
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
+        cassandra_all_ae_id = {}
+        logger.debug("Reading physical routers objects from cassandra")
+
+        for fq_name_uuid_str, _ in fq_name_table.xget('physical_interface'):
+            fq_name, _, pi_uuid = fq_name_uuid_str.rpartition(':')
+            _, prouter_name, pi_name = fq_name.split(':')
+            ae_id = None
+            try:
+                cols = uuid_table.xget(pi_uuid,
+                                       column_start='backref:virtual_port_group:',
+                                       column_finish='backref:virtual_port_group;')
+                # Not more then one VPG for PI
+                _, params = next(cols, (None, None))
+                if params:
+                        ae_id = json.loads(params)['attr']['ae_num']
+            except (pycassa.NotFoundException, KeyError, TypeError):
+                continue
+            if pi_name[:2] == 'ae' and pi_name[2:].isdigit() and \
+                    int(pi_name[2:]) < AE_MAX_ID:
+                ae_id = int(pi_name[2:])
+            if ae_id:
+                if cassandra_all_ae_id.get(prouter_name) is None:
+                        cassandra_all_ae_id[prouter_name] = {}
+                cassandra_all_ae_id[prouter_name][pi_name] = ae_id
+
+        ae_id_to_remove_from_zk = copy.deepcopy(zk_all_ae_id)
+        logger.debug("Getting AE ID which need to be removed from zookeeper")
+        for prouter, pi_to_ae_dict in zk_all_ae_id.items():
+            for vpg_name, ae_id_str in pi_to_ae_dict.items():
+                ae_id = int(ae_id_str)
+                if prouter in cassandra_all_ae_id and \
+                        ae_id in cassandra_all_ae_id[prouter].values():
+                    del ae_id_to_remove_from_zk[prouter][vpg_name]
+                    if not ae_id_to_remove_from_zk[prouter]:
+                        del ae_id_to_remove_from_zk[prouter]
+
+        return zk_all_ae_id, cassandra_all_ae_id, ae_id_to_remove_from_zk, \
+               ret_errors
+
 
 class DatabaseChecker(DatabaseManager):
     def checker(func):
@@ -1959,6 +2027,20 @@ class DatabaseChecker(DatabaseManager):
                    (', '.join(ri_uuids), rt_fq_name_str, rt_uuid))
             errors.append(RTbackrefError(msg))
         return errors
+
+    @checker
+    def check_aggregated_ethernet_id(self):
+        _, _, ae_id_to_remove_from_zk, ret_errors = \
+            self.audit_aggregated_ethernet_id()
+        for prouter, pi_to_ae_dict in ae_id_to_remove_from_zk.items():
+            for pi_name, ae_id_str in pi_to_ae_dict.items():
+                ae_id = int(ae_id_str)
+                errmsg = 'Additional AE ID %d in zookeeper (vs.cassandra) ' \
+                         'for virtual port group: %s connected to ' \
+                         'physical router: %s' \
+                         % (ae_id, pi_name, prouter)
+                ret_errors.append(AEIDZookeeperError(errmsg))
+        return ret_errors
 
 
 class DatabaseCleaner(DatabaseManager):
@@ -2709,6 +2791,24 @@ class DatabaseCleaner(DatabaseManager):
                 bch.send()
         return errors
 
+    @cleaner
+    def clean_aggregated_ethernet_id(self):
+        """Removes extra AE IDs from zk."""
+        logger = self._logger
+        _, _, ae_id_to_remove_from_zk, ret_errors = \
+            self.audit_aggregated_ethernet_id()
+        base_path = self.base_ae_id_zk_path
+        for prouter, pi_to_ae_dict in ae_id_to_remove_from_zk.items():
+            prouter_path = base_path + '/' + prouter
+            for ae_id in pi_to_ae_dict.values():
+                path = prouter_path + '/' + ae_id
+                if not self._args.execute:
+                    logger.info("Would delete zk: %s", path)
+                else:
+                    logger.info("Deleting zk path: %s", path)
+                    self.zk_delete(path)
+        return ret_errors
+
 
 class DatabaseHealer(DatabaseManager):
     def healer(func):
@@ -3110,6 +3210,7 @@ def db_check(args, api_args):
     db_checker.check_virtual_networks_id()
     db_checker.check_security_groups_id()
 
+    db_checker.check_aggregated_ethernet_id()
     # db_checker.check_schema_db_mismatch()
 # end db_check
 
@@ -3140,6 +3241,7 @@ def db_clean(args, api_args):
     db_cleaner.clean_stale_virtual_network_id()
     db_cleaner.clean_stale_security_group_id()
     db_cleaner.clean_subnet_addr_alloc()
+    db_cleaner.clean_aggregated_ethernet_id()
 
 
 # end db_clean
