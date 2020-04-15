@@ -338,7 +338,7 @@ class VncApiServer(object):
            LP #1720118
         '''
         if value['address_mode'] == 'active-standby':
-           ip_net_family = netaddr.IPNetwork(value['ip']['ip_prefix']).version
+           ip_net_family = netaddr.IPAddress(value['ip']['ip_prefix']).version
            if ip_net_family == 6 and value['ip']['ip_prefix_len'] < 120:
                raise ValueError('IPv6 Prefix length lesser than 120 is'
                                 ' is not acceptable')
