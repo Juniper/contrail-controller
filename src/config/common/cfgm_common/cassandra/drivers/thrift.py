@@ -60,7 +60,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
         self._conn_state = ConnectionStatus.INIT
-        self._logger = self.options.logger
         self._credential = self.options.credential
         self.log_response_time = self.options.log_response_time
         self._ssl_enabled = self.options.ssl_enabled
@@ -135,7 +134,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         # Wait for it to be created by another process
         while keyspace not in self.existing_keyspaces:
             gevent.sleep(1)
-            self._logger("Waiting for keyspace %s to be created" % keyspace,
+            self.options.logger("Waiting for keyspace %s to be created" % keyspace,
                          level=SandeshLevel.SYS_NOTICE)
             self.existing_keyspaces = self.sys_mgr.list_keyspaces()
     # end _cassandra_wait_for_keyspace
@@ -146,7 +145,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                 self.sys_mgr.drop_keyspace(keyspace_name)
             except InvalidRequestException as e:
                 # TODO verify only EEXISTS
-                self._logger(str(e), level=SandeshLevel.SYS_NOTICE)
+                self.options.logger(str(e), level=SandeshLevel.SYS_NOTICE)
 
         if (self.options.reset_config or keyspace_name not in self.existing_keyspaces):
             try:
@@ -154,7 +153,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                         {'replication_factor': str(self.nodes())})
             except InvalidRequestException as e:
                 # TODO verify only EEXISTS
-                self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
+                self.options.logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
         gc_grace_sec = vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
@@ -168,7 +167,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                     **create_cf_kwargs)
             except InvalidRequestException as e:
                 # TODO verify only EEXISTS
-                self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
+                self.options.logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
                     gc_grace_seconds=gc_grace_sec,
                     default_validation_class='UTF8Type',
@@ -216,7 +215,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             server_addrs = self._server_list)
         self._conn_state = ConnectionStatus.UP
         msg = 'Cassandra connection ESTABLISHED'
-        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+        self.options.logger(msg, level=SandeshLevel.SYS_NOTICE)
     # end _cassandra_init_conn_pools
 
     def _update_sandesh_status(self, status, msg=''):
@@ -231,7 +230,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                 msg = ("It is not recommended to use 'get' or 'multiget' "
                        "pycassa methods. It's better to use 'xget' or "
                        "'get_range' methods due to thrift limitations")
-                self._logger(msg, level=SandeshLevel.SYS_WARN)
+                self.options.logger(msg, level=SandeshLevel.SYS_WARN)
             try:
                 if self._conn_state != ConnectionStatus.UP:
                     # will set conn_state to UP if successful
@@ -244,7 +243,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                     self._update_sandesh_status(ConnectionStatus.DOWN)
                     msg = 'Cassandra connection down. Exception in %s' % (
                         str(func))
-                    self._logger(msg, level=SandeshLevel.SYS_ERR)
+                    self.options.logger(msg, level=SandeshLevel.SYS_ERR)
 
                 self._conn_state = ConnectionStatus.DOWN
                 raise DatabaseUnavailableError(
@@ -313,7 +312,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                        "CF (%s): Empty Keys (%s), columns (%s), start (%s), "
                        "finish (%s). Retrying with xget" % (len(keys), cf_name,
                            empty_keys, columns, start, finish))
-                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
+                self.options.logger(msg, level=SandeshLevel.SYS_DEBUG)
                 # CEM-8595; some rows are None. fall back to xget
                 for key in empty_keys:
                     rows = dict(cf.xget(key,
@@ -362,7 +361,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                        "value. %s: number of keys (%d), columns (%s), start (%s), "
                        "finish (%s)" % (key, cf_name, len(keys), columns, start,
                                         finish))
-                self._logger(msg, level=SandeshLevel.SYS_WARN)
+                self.options.logger(msg, level=SandeshLevel.SYS_WARN)
                 empty_row_keys.append(key)
                 continue
 
@@ -381,7 +380,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                            "(error: %s). Use it as is: %s" %
                            (cf_name, key, str(e),
                             val if not timestamp else val[0]))
-                    self._logger(msg, level=SandeshLevel.SYS_INFO)
+                    self.options.logger(msg, level=SandeshLevel.SYS_INFO)
                     results[key][col] = val
 
         for row_key in empty_row_keys:
