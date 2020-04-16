@@ -3194,7 +3194,7 @@ class PortProfileDM(DBBaseDM):
         self.uuid = uuid
         self.storm_control_profile = None
         self.virtual_machine_interface = None
-        self.virtual_port_group = None
+        self.virtual_port_groups = set()
         self.update(obj_dict)
     # end __init__
 
@@ -3204,14 +3204,14 @@ class PortProfileDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_single_ref('virtual_machine_interface', obj)
-        self.update_single_ref('virtual_port_group', obj)
+        self.update_multiple_refs('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
     # end update
 
     def delete_obj(self):
         self.update_single_ref('storm_control_profile', {})
         self.update_single_ref('virtual_machine_interface', {})
-        self.update_single_ref('virtual_port_group', {})
+        self.update_multiple_refs('virtual_port_group', {})
     # end delete_obj
 # end class PortProfileDM
 
