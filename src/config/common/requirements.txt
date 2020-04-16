@@ -1,16 +1,16 @@
-attrdict
-bitarray
-bottle
+attrdict==2.0.0
+bitarray==0.8.1
+bottle==0.12.13
 contrail-api-client
-future
-gevent<1.5.0
-greenlet
-kazoo
+future==0.16.0
+gevent==1.1.2
+greenlet==0.4.12
+kazoo==2.5.0
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
 # pycassa>=1.7.2  # Don't install pycassa to run UT in python 3 env
-requests>=2.20.0
+requests>=2.20.0, <=2.21.0
 sandesh==0.1dev
 sandesh-common
-simplejson
-six
-stevedore
+simplejson==3.5.3
+six==1.12.0
+stevedore==1.28.0
