@@ -1,13 +1,9 @@
-python-subunit
-testrepository
-flexmock
-coverage
-pyaml
-python-keystoneclient
-keystonemiddleware!=4.19.0
-webtest
+coverage==3.7.1
+PyYAML==3.10
+python-keystoneclient==1.2.0
+keystonemiddleware==1.5.0
 kazoo
-jsonpickle
+jsonpickle==0.6.1
 cfgm_common
 vnc_api
 discoveryclient
@@ -15,5 +11,4 @@ sandesh
 sandesh-common
 vnc_cfg_api_server
 ../../../noarch/config/svc-monitor
-junitxml
-pyOpenSSL
+pyOpenSSL==0.13
