@@ -1,6 +1,6 @@
-bottle
-future
+bottle==0.12.18
+future==0.18.2
 six
-requests >= 2.20.0
-python-keystoneclient>=0.11.0
+python-keystoneclient>=0.11.0, <=3.22.0
 contrail-config-common
+requests>=2.20.0, <=2.23.0
