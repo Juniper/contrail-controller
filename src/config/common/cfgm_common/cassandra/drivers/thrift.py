@@ -24,9 +24,7 @@ import gevent
 
 from vnc_api import vnc_api
 from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, VncError
-from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants as vns_constants
 import time
@@ -59,7 +57,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def __init__(self, server_list, **options):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._conn_state = ConnectionStatus.INIT
         self._credential = self.options.credential
         self.log_response_time = self.options.log_response_time
         self._ssl_enabled = self.options.ssl_enabled
@@ -87,7 +84,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def _cassandra_init(self, server_list):
         # Ensure keyspace and schema/CFs exist
 
-        self._update_sandesh_status(ConnectionStatus.INIT)
+        self.report_status_init()
 
         ColumnFamily.get = self._handle_exceptions(ColumnFamily.get, "GET")
         ColumnFamily.multiget = self._handle_exceptions(ColumnFamily.multiget, "MULTIGET")
@@ -210,18 +207,10 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                     dict_class=dict,
                     **cf_kwargs)
 
-        ConnectionState.update(conn_type = ConnType.DATABASE,
-            name = 'Cassandra', status = ConnectionStatus.UP, message = '',
-            server_addrs = self._server_list)
-        self._conn_state = ConnectionStatus.UP
+        self.report_status_up()
         msg = 'Cassandra connection ESTABLISHED'
         self.options.logger(msg, level=SandeshLevel.SYS_NOTICE)
     # end _cassandra_init_conn_pools
-
-    def _update_sandesh_status(self, status, msg=''):
-        ConnectionState.update(conn_type=ConnType.DATABASE,
-                               name='Cassandra', status=status, message=msg,
-                               server_addrs=self._server_list)
 
     def _handle_exceptions(self, func, oper=None):
         def wrapper(*args, **kwargs):
@@ -232,20 +221,18 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                        "'get_range' methods due to thrift limitations")
                 self.options.logger(msg, level=SandeshLevel.SYS_WARN)
             try:
-                if self._conn_state != ConnectionStatus.UP:
+                if self.get_status() != ConnectionStatus.UP:
                     # will set conn_state to UP if successful
                     self._cassandra_init_conn_pools()
 
                 self.start_time = datetime.datetime.now()
                 return func(*args, **kwargs)
             except (AllServersUnavailable, MaximumRetryException) as e:
-                if self._conn_state != ConnectionStatus.DOWN:
-                    self._update_sandesh_status(ConnectionStatus.DOWN)
+                if self.get_status() != ConnectionStatus.DOWN:
+                    self.report_status_down()
                     msg = 'Cassandra connection down. Exception in %s' % (
                         str(func))
                     self.options.logger(msg, level=SandeshLevel.SYS_ERR)
-
-                self._conn_state = ConnectionStatus.DOWN
                 raise DatabaseUnavailableError(
                     'Error, %s: %s' % (str(e), utils.detailed_traceback()))
 
