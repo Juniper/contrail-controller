@@ -1,7 +1,7 @@
 gevent==1.1.2
 geventhttpclient==1.0a
-netaddr>=0.7.5
+netaddr>=0.7.5,<=0.7.19 
 contrail-config-common
-jsonpickle
-future
+jsonpickle 
+future 
 six
