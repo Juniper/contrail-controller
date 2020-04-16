@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "344c463a_d0244292",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_physical_interface.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 143,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-16T15:54:37Z",
+      "side": 1,
+      "message": "But how do we know that the AE ID is allocated to this PI object?",
+      "revId": "1a2329d1714b5f5133fdc23a5b1d3e6133fc50c6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
