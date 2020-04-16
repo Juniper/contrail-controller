@@ -257,6 +257,26 @@ class FilterModule(object):
         lldp_neighbors_success_names = []
         lldp_neighbors_failed_info = []
 
+        # remove any stale PI refs if any, resultant of a failed
+        # fabric onboarding or any other related workflow
+
+        for topology_disc_info in topology_disc_payload or []:
+            try:
+                object_fqname = topology_disc_info[0]
+                pi_obj = vnc_lib.physical_interface_read(
+                    fq_name=object_fqname)
+                pi_obj.set_physical_interface_list([])
+                vnc_lib.physical_interface_update(pi_obj)
+            except Exception as ex:
+                _task_error_log(str(ex))
+                _task_error_log(traceback.format_exc())
+                lldp_neighbor_failed_obj = {
+                    "lldp_neighbor": object_fqname[-2] + " : " +
+                    object_fqname[-1],
+                    "warning_message": str(ex)
+                }
+                lldp_neighbors_failed_info.append(lldp_neighbor_failed_obj)
+
         for topology_disc_info in topology_disc_payload or []:
             try:
                 object_fqname = topology_disc_info[0]
