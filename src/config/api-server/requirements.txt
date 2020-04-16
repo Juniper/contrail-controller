@@ -8,7 +8,7 @@ python-keystoneclient
 netifaces
 bottle
 stevedore
-kazoo>=2.5.0
-pycrypto
+kazoo>=2.5.0,<=2.7.0
+pycrypto==2.6.1
 future
 six
