@@ -33,6 +33,24 @@
       "revId": "a0c540d247174203ceeb61e61e2253f02094404e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "51da56ca_2f38611d",
+        "filename": "src/config/common/cfgm_common/__init__.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-04-16T17:53:19Z",
+      "side": 1,
+      "message": "Yes, I know. I wanted to make this variable global and remove it from vnc_db in another PR (to not make merge conflicts right now with my other PRs). But of course, we can base on vnc_db\u0027s variable.",
+      "parentUuid": "9a7aa86c_1d4c0e36",
+      "revId": "a0c540d247174203ceeb61e61e2253f02094404e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
