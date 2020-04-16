@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e64aeb98_c99918a3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/physical_interface.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 227,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-16T15:08:05Z",
+      "side": 1,
+      "message": "better to use tolower()",
+      "revId": "7f4f2629e5ea1c2b76e8d7e8a60e43afd34b5bcf",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
