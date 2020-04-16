@@ -62,7 +62,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -177,7 +177,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -292,7 +292,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -400,7 +400,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -481,7 +481,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -521,7 +521,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -604,7 +604,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -642,7 +642,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
@@ -712,7 +712,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.assertEqual(sflow_profile.get('sample_rate'), 2000)
         self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
-        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('polling_interval'), 0)
         self.assertEqual(sflow_profile.get('agent_id'), agent_id)
         self.assertEqual(sflow_profile.get('enabled_interface_type'),
                          enbld_intf_type)
