@@ -1,0 +1,72 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "source_ip": {
+        "$id": "/properties/source_ip",
+        "title": "Source (device loopback IP)",
+        "type": "string",
+        "default": ""
+       },
+      "destination_ip": {
+         "$id": "/properties/destination_ip",
+         "title": "Destination (device loopback IP)",
+         "type": "string",
+         "default": ""
+      },
+      "vni": {
+        "$id": "/properties/vni",
+        "title": "VNI",
+        "type": "integer",
+        "default": 100
+     },
+      "count": {
+        "$id": "/properties/count",
+        "title": "Packet count",
+        "type": "integer",
+        "default": 5
+     }
+    },
+    "required": ["source_ip", "destination_ip", "count", "vni"]
+  },
+  "input_ui_schema": {
+    "destination_ip": {
+      "ui:help": ""
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Show connectivity test report",
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Array holding the specific output details in case of success. Each object of the array would be command_output and device name pair.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "device_name": {
+              "type": "string",
+              "title": "Device Name",
+              "description": "name of the device for which results are displayed"
+            },
+            "command_output": {
+              "type": "object",
+              "title": "Each playbook's command_output for this specific command.",
+              "description": "Each playbook's command_output for this specific command.",
+              "properties": {
+                "config_output": {
+                  "type": "string",
+                  "title": "Connectivity test report",
+                  "description": "Display connectivity test report"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

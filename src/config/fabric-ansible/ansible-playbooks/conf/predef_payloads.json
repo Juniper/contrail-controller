@@ -553,6 +553,32 @@
           "job_template_output_ui_schema": ""
         },
         {
+            "fq_name": [
+              "default-global-system-config",
+              "test_overlay_connectivity_template"
+            ],
+            "name": "test_overlay_connectivity_template",
+            "display_name": "Test overlay connectivity",
+            "job_template_description": "",
+            "parent_type": "global-system-config",
+            "job_template_type": "device_operation",
+            "job_template_concurrency_level": "device",
+            "job_template_playbooks": {
+              "playbook_info": [
+                {
+                  "device_family": "",
+                  "multi_device_playbook": true,
+                  "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
+                  "vendor": "Juniper"
+                }
+              ]
+            },
+            "job_template_output_schema": "",
+            "job_template_input_schema": "",
+            "job_template_input_ui_schema": "",
+            "job_template_output_ui_schema": ""
+        },
+        {
          "fq_name": [
             "default-global-system-config",
             "show_ops_info_template"
