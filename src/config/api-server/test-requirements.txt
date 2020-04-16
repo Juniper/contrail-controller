@@ -1,3 +1,4 @@
+<<<<<<< HEAD   (53a772 Backporting of tcp keepalive for ports 8087 and 9091 from ma)
 ipdb
 python-subunit
 testrepository
@@ -9,5 +10,18 @@ keystonemiddleware!=4.19.0
 junitxml
 pyOpenSSL
 mock
+=======
+lxml>=2.3.3,<=4.5.0
+flexmock==0.10.4
+WebTest==2.0.34
+keystonemiddleware==8.0.0
+mock<=4.0.2
+>>>>>>> CHANGE (793e0c [config] Pinned requirements for API Server Python packages.)
 kombu==4.0.2
+<<<<<<< HEAD   (53a772 Backporting of tcp keepalive for ports 8087 and 9091 from ma)
 vine==1.1.3
+=======
+python-novaclient==16.0.0
+vine==1.1.3
+junitxml==0.7
+>>>>>>> CHANGE (793e0c [config] Pinned requirements for API Server Python packages.)

@@ -1,3 +1,8 @@
 bottle
 requests
 python-keystoneclient>=0.11.0
+<<<<<<< HEAD   (53a772 Backporting of tcp keepalive for ports 8087 and 9091 from ma)
+=======
+contrail-config-common
+pycrypto==2.6.1
+>>>>>>> CHANGE (793e0c [config] Pinned requirements for API Server Python packages.)

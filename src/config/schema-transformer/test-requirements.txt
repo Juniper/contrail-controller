@@ -1,3 +1,4 @@
+<<<<<<< HEAD   (53a772 Backporting of tcp keepalive for ports 8087 and 9091 from ma)
 python-subunit
 testrepository
 flexmock
@@ -17,3 +18,13 @@ vnc_cfg_api_server
 ../../../noarch/config/svc-monitor
 junitxml
 pyOpenSSL
+=======
+flexmock==0.10.4
+mock<=4.0.2
+WebTest==2.0.34
+contrail-api-server
+svc-monitor
+python-novaclient==16.0.0
+kombu==4.0.2
+junitxml==0.7
+>>>>>>> CHANGE (793e0c [config] Pinned requirements for API Server Python packages.)

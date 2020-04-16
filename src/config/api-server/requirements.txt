@@ -15,4 +15,11 @@ python-keystoneclient
 netifaces
 bottle
 stevedore
+<<<<<<< HEAD   (53a772 Backporting of tcp keepalive for ports 8087 and 9091 from ma)
 kazoo
+=======
+kazoo>=2.5.0
+pycrypto==2.6.1
+future
+six
+>>>>>>> CHANGE (793e0c [config] Pinned requirements for API Server Python packages.)
