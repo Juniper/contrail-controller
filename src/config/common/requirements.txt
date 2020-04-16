@@ -2,8 +2,8 @@ attrdict
 bitarray
 bottle
 contrail-api-client
-future
-gevent<1.5.0
+future 
+gevent
 greenlet
 kazoo
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
@@ -12,5 +12,6 @@ requests>=2.20.0
 sandesh==0.1dev
 sandesh-common
 simplejson
+requests
 six
 stevedore

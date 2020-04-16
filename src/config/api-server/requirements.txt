@@ -2,13 +2,13 @@ contrail-config-common
 contrail-api-client
 sandesh==0.1dev
 sandesh-common
-gevent<1.5.0
+gevent
 netaddr
 python-keystoneclient
 netifaces
 bottle
 stevedore
 kazoo>=2.5.0
-pycrypto
+# pycrypto already in test-requirements.txt no need to specify again
 future
 six
