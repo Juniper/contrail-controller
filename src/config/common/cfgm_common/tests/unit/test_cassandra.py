@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import unittest
+import mock
+
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 
 from cfgm_common.cassandra import api as cassa_api
 
@@ -70,4 +75,51 @@ class TestOptions(unittest.TestCase):
 
         drv = FakeDriver([], logger='<something>')
         self.assertEqual('<something>', drv.options.logger)
+
+
+class TestStatus(unittest.TestCase):
+
+    def test_status(self):
+        drv = FakeDriver(['a', 'b', 'c'])
+        self.assertEqual(ConnectionStatus.INIT, drv.get_status())
+
+    @mock.patch.object(ConnectionState, 'update')
+    def test_status_up(self, mock_state):
+        drv = FakeDriver(['a', 'b', 'c'])
+
+        drv.report_status_up()
+        mock_state.assert_called_once_with(
+            conn_type=ConnType.DATABASE,
+            name='Cassandra',
+            status=ConnectionStatus.UP,
+            message='',
+            server_addrs=['a', 'b', 'c'])
+        self.assertEqual(ConnectionStatus.UP, drv.get_status())
+
+    @mock.patch.object(ConnectionState, 'update')
+    def test_status_down(self, mock_state):
+        drv = FakeDriver(['a', 'b', 'c'])
+
+        drv.report_status_down('i want chocolate!')
+        mock_state.assert_called_once_with(
+            conn_type=ConnType.DATABASE,
+            name='Cassandra',
+            status=ConnectionStatus.DOWN,
+            message='i want chocolate!',
+            server_addrs=['a', 'b', 'c'])
+        self.assertEqual(ConnectionStatus.DOWN, drv.get_status())
+
+    @mock.patch.object(ConnectionState, 'update')
+    def test_status_init(self, mock_state):
+        drv = FakeDriver(['a', 'b', 'c'])
+
+        drv.report_status_init()
+        mock_state.assert_called_once_with(
+            conn_type=ConnType.DATABASE,
+            name='Cassandra',
+            status=ConnectionStatus.INIT,
+            message='',
+            server_addrs=['a', 'b', 'c'])
+        self.assertEqual(ConnectionStatus.INIT, drv.get_status())
+
 
