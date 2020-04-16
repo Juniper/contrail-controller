@@ -4,6 +4,9 @@ import copy
 import six
 
 from sandesh_common.vns import constants as vns_constants
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 
 
 # Defines the global keyspaces and columns familly names/options.
@@ -78,6 +81,7 @@ class API(object):
         self.options = OptionsType(**self.options)
 
         self._server_list = server_list
+        self._conn_state = ConnectionStatus.INIT
 
     @abc.abstractmethod
     def get_cf_batch(keyspace_name, cf_name):
@@ -142,3 +146,26 @@ class CassandraDriver(API):
         # could pass only one server's address to server_list,
         # cassandra will still automatically discovers its peers.
         return len(self._server_list)
+
+    def report_status_init(self):
+        """Informs to sandesh the `INIT` status of the cluster."""
+        self._update_sandesh_status(ConnectionStatus.INIT)
+
+    def report_status_up(self):
+        """Informs to sandesh the `UP` status of the cluster."""
+        self._update_sandesh_status(ConnectionStatus.UP)
+
+    def report_status_down(self, reason=''):
+        """Informs to sandesh the `DOWN` status of the cluster."""
+        self._update_sandesh_status(ConnectionStatus.DOWN, msg=reason)
+
+    def get_status(self):
+        """Returns current sendesh status of the cluster."""
+        return self._conn_state
+
+    def _update_sandesh_status(self, status, msg=''):
+        ConnectionState.update(conn_type=ConnType.DATABASE,
+                               name='Cassandra', status=status, message=msg,
+                               server_addrs=self._server_list)
+        # Keeps trace of the current status.
+        self._conn_state = status
