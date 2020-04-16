@@ -9,6 +9,6 @@ netifaces
 bottle
 stevedore
 kazoo>=2.5.0
-pycrypto
+pycrypto <= 2.6.1
 future
 six
