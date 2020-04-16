@@ -3,6 +3,9 @@ import collections
 import six
 
 from sandesh_common.vns import constants as vns_constants
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 
 
 # Name to ID mapping keyspace + tables
@@ -74,6 +77,7 @@ class CassandraDriver(object):
         self.options = OptionsType(**self.options)
 
         self._server_list = server_list
+        self._conn_state = ConnectionStatus.INIT
 
     @abc.abstractmethod
     def get_cf_batch(keyspace_name, cf_name):
@@ -127,3 +131,21 @@ class CassandraDriver(object):
     def nodes(self):
         return len(self._server_list)
 
+    def report_status_init(self):
+        self._update_sandesh_status(ConnectionStatus.INIT)
+
+    def report_status_up(self):
+        self._update_sandesh_status(ConnectionStatus.UP)
+
+    def report_status_down(self, reason=''):
+        self._update_sandesh_status(ConnectionStatus.DOWN, msg=reason)
+
+    def get_status(self):
+        return self._conn_state
+
+    def _update_sandesh_status(self, status, msg=''):
+        ConnectionState.update(conn_type=ConnType.DATABASE,
+                               name='Cassandra', status=status, message=msg,
+                               server_addrs=self._server_list)
+        # Keeps trace of the current status.
+        self._conn_state = status
