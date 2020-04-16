@@ -57,7 +57,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def __init__(self, server_list, **options):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._credential = self.options.credential
         self.log_response_time = self.options.log_response_time
         self._ssl_enabled = self.options.ssl_enabled
         self._ca_certs = self.options.ca_certs
@@ -116,7 +115,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             try:
                 cass_server = self._server_list[server_idx]
                 sys_mgr = SystemManager(cass_server,
-                                        credentials=self._credential,
+                                        credentials=self.options.credential,
                                         socket_factory=socket_factory)
                 connected = True
             except Exception:
@@ -194,7 +193,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             pool = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
                 prefill=True, pool_size=self.pool_size(), pool_timeout=120,
-                max_retries=15, timeout=5, credentials=self._credential,
+                max_retries=15, timeout=5, credentials=self.options.credential,
                 socket_factory=socket_factory)
 
             for cf_name in cf_dict:
