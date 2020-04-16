@@ -58,8 +58,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
         self.log_response_time = self.options.log_response_time
-        self._ssl_enabled = self.options.ssl_enabled
-        self._ca_certs = self.options.ca_certs
 
         # if no generate_url is specified, use a dummy function that always
         # returns an empty string
@@ -180,9 +178,9 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
 
     def _make_socket_factory(self):
         socket_factory = pycassa.connection.default_socket_factory
-        if self._ssl_enabled:
+        if self.options.ssl_enabled:
             socket_factory = self._make_ssl_socket_factory(
-                self._ca_certs, validate=False)
+                self.options.ca_certs, validate=False)
         return socket_factory
 
     def _cassandra_init_conn_pools(self):

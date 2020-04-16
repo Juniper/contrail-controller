@@ -83,6 +83,20 @@ class TestOptions(unittest.TestCase):
         drv = FakeDriver([], credential='<creds>')
         self.assertEqual('<creds>', drv.options.credential)
 
+    def test_ssl_enabled(self):
+        drv = FakeDriver([])
+        self.assertFalse(drv.options.ssl_enabled)
+
+        drv = FakeDriver([], ssl_enabled=True)
+        self.assertTrue(drv.options.ssl_enabled)
+
+    def test_ca_certs(self):
+        drv = FakeDriver([])
+        self.assertIsNone(drv.options.ca_certs)
+
+        drv = FakeDriver([], ca_certs='<certificats>')
+        self.assertEqual('<certificats>', drv.options.ca_certs)
+
 
 class TestStatus(unittest.TestCase):
 
