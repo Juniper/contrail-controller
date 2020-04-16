@@ -1,6 +1,7 @@
-flexmock
-kombu # as we have to remove the dep in requirement, add it in the test-req for UT
-mock
-python-novaclient
-testtools
-webtest
+flexmock==0.10.4 
+kombu==4.0.2
+mock==3.0.5; python_version < '3.0' 
+mock==4.0.2; python_version >= '3.0'
+python-novaclient==16.0.0 
+testtools==2.4.0 
+WebTest==2.0.34 

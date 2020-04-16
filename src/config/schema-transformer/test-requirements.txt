@@ -1,8 +1,8 @@
-flexmock
-mock
-webtest
+flexmock==0.10.4
+mock==4.0.2
+WebTest==2.0.34
 contrail-api-server
 svc-monitor
-junitxml
-python-novaclient
+python-novaclient==16.0.0
 kombu==4.0.2
+junitxml
