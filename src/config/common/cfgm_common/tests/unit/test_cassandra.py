@@ -97,6 +97,20 @@ class TestOptions(unittest.TestCase):
         drv = FakeDriver([], ca_certs='<certificats>')
         self.assertEqual('<certificats>', drv.options.ca_certs)
 
+    def test_ro_keyspaces(self):
+        drv = FakeDriver([])
+        self.assertEqual({}, drv.options.ro_keyspaces)
+
+        drv = FakeDriver([], ro_keyspaces={'a': 'b'})
+        self.assertEqual({'a': 'b'}, drv.options.ro_keyspaces)
+
+    def test_rw_keyspaces(self):
+        drv = FakeDriver([])
+        self.assertEqual({}, drv.options.rw_keyspaces)
+
+        drv = FakeDriver([], rw_keyspaces={'c': 'd'})
+        self.assertEqual({'c': 'd'}, drv.options.rw_keyspaces)
+
 
 class TestStatus(unittest.TestCase):
 
