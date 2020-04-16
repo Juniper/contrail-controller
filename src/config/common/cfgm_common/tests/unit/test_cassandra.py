@@ -76,6 +76,13 @@ class TestOptions(unittest.TestCase):
         drv = FakeDriver([], logger='<something>')
         self.assertEqual('<something>', drv.options.logger)
 
+    def test_credential_wipe(self):
+        drv = FakeDriver([])
+        self.assertIsNone(drv.options.credential)
+
+        drv = FakeDriver([], credential='<creds>')
+        self.assertEqual('<creds>', drv.options.credential)
+
 
 class TestStatus(unittest.TestCase):
 
