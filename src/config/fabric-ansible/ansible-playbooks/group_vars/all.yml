@@ -102,7 +102,6 @@ device_family_info:
 role_to_feature_mapping:
   CRB-Access@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
@@ -112,14 +111,12 @@ role_to_feature_mapping:
     - overlay_multi_homing
   ERB-UCAST-Gateway@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
   CRB-Gateway@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
@@ -131,12 +128,10 @@ role_to_feature_mapping:
     - overlay_multi_homing
   lean@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
   CRB-Access@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
@@ -146,7 +141,6 @@ role_to_feature_mapping:
     - overlay_multi_homing
   CRB-Gateway@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
@@ -158,7 +152,6 @@ role_to_feature_mapping:
     - overlay_multi_homing
   CRB-MCAST-Gateway@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
@@ -171,7 +164,6 @@ role_to_feature_mapping:
     - overlay_multi_homing
   DC-Gateway@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
@@ -181,7 +173,6 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   DC-Gateway@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
@@ -191,7 +182,6 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   DCI-Gateway@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
@@ -201,7 +191,6 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   DCI-Gateway@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
@@ -211,17 +200,14 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   Route-Reflector@spine:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
   Route-Reflector@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
   CRB-MCAST-Gateway@leaf:
     - basic
-    - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
@@ -244,12 +230,15 @@ role_to_feature_mapping:
 
 feature_based_plugin_roles:
   CRB-Access@leaf:
+    - underlay_ip_clos
     - overlay_storm_control
     - overlay_telemetry
   CRB-Access@spine:
+    - underlay_ip_clos
     - overlay_storm_control
     - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_erb_access
@@ -259,27 +248,35 @@ feature_based_plugin_roles:
     - overlay_storm_control
     - overlay_telemetry
   CRB-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   AR-Client@leaf:
@@ -295,9 +292,13 @@ feature_based_plugin_roles:
     - overlay_assisted_replicator
     - overlay_telemetry
   Route-Reflector@spine:
+    - underlay_ip_clos
     - overlay_telemetry
   Route-Reflector@leaf:
+    - underlay_ip_clos
     - overlay_telemetry
+  lean@spine:
+    - underlay_ip_clos
 
 feature_apply_order:
   - basic
