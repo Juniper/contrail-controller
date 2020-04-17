@@ -1509,10 +1509,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                 self.add_ref_to_list(dhcp_relay.get_interfaces(), 'irb.' + str(vlan_tag))
                                 self.forwarding_options_config.add_dhcp_relay(dhcp_relay)
 
-
     def set_common_config(self):
-        if self.physical_router.underlay_managed:
-            self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
         self.build_server_config()

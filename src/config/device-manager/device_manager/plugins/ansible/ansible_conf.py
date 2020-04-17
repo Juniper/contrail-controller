@@ -164,67 +164,6 @@ class AnsibleConf(AnsibleBase):
                             yield pi_obj, li_obj, iip_obj
     # end fetch_pi_li_iip
 
-    def build_underlay_bgp(self):
-        if self.physical_router.allocated_asn is None:
-            self._logger.error("physical router %s(%s) does not have asn"
-                               " allocated" % (self.physical_router.name,
-                                               self.physical_router.uuid))
-            return
-
-        for pi_obj, li_obj, iip_obj in self.\
-                fetch_pi_li_iip(self.physical_router.physical_interfaces):
-            if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
-                pi, li_map = self.set_default_pi(pi_obj.name, 'regular')
-                pi.set_comment(DMUtils.ip_clos_comment())
-
-                li = self.set_default_li(li_map, li_obj.name,
-                                         int(li_obj.name.split('.')[-1]))
-                li.set_comment(DMUtils.ip_clos_comment())
-
-                self.add_ip_address(li, iip_obj.instance_ip_address)
-
-                self._logger.debug("looking for peers for physical"
-                                   " interface %s(%s)" % (pi_obj.name,
-                                                          pi_obj.uuid))
-                # Add this bgp object only if it has a peer
-                underlay_asn = self.physical_router.allocated_asn
-                bgp_name = DMUtils.make_underlay_bgp_group_name(
-                    underlay_asn, li_obj.name, is_external=True)
-                bgp = Bgp(name=bgp_name,
-                          ip_address=iip_obj.instance_ip_address,
-                          autonomous_system=underlay_asn,
-                          type_='external',
-                          comment=DMUtils.ip_clos_comment())
-                peers = {}
-                # Assumption: PIs are connected for IP-CLOS peering only
-                for peer_pi_obj, peer_li_obj, peer_iip_obj in\
-                        self.fetch_pi_li_iip(pi_obj.physical_interfaces):
-                    if peer_pi_obj and peer_li_obj and peer_iip_obj and\
-                            peer_iip_obj.instance_ip_address:
-
-                        peer_pr = PhysicalRouterDM.get(
-                            peer_pi_obj.physical_router)
-                        if peer_pr is None:
-                            self._logger.error(
-                                "unable to read peer physical router %s"
-                                % peer_pi_obj.physical_router)
-                        elif peer_pr.allocated_asn is None:
-                            self._logger.error(
-                                "peer physical router %s does not have"
-                                " asn allocated" % peer_pi_obj.physical_router)
-                        elif peer_pr != self.physical_router:
-                            peer = Bgp(
-                                name=peer_pr.name,
-                                ip_address=peer_iip_obj.instance_ip_address,
-                                autonomous_system=peer_pr.allocated_asn,
-                                comment=peer_pr.name)
-                            peers[peer_pr.name] = peer
-
-                if peers:
-                    bgp.set_peers(self.get_values_sorted_by_key(peers))
-                    self.bgp_map[bgp_name] = bgp
-    # end build_underlay_bgp
-
     def device_send(self, job_template, job_input, is_delete, retry):
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
