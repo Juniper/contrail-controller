@@ -3007,11 +3007,6 @@ class DataCenterInterconnectDM(DBBaseDM):
                 vn = VirtualNetworkDM.get(lr.virtual_network)
                 if vn:
                     vn_list.append(vn)
-            client_vns = lr.get_connected_networks(False, pr_uuid)
-            for vn_id in client_vns or []:
-                vn = VirtualNetworkDM.get(vn_id)
-                if vn:
-                    vn_list.append(vn)
         return vn_list
     # end get_connected_lr_internal_vns
 

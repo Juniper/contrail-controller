@@ -9,6 +9,8 @@ set groups {{cfg_group}} routing-options route-distinguisher-id {{loopback_ip}}
 {%         endif %}
 {%     endif %}
 
+{%     set sys_config = device_abstract_config.get('system', None) %}
+{%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%     for bgp in device_abstract_config.get('bgp', []) %}
 {%         if feature in bgp.get('comment') %}
 set groups {{cfg_group}} routing-options resolution rib bgp.rtarget.0 resolution-ribs inet.0
@@ -16,8 +18,6 @@ set groups {{cfg_group}} routing-options autonomous-system {{bf_global_asn}} loo
 {%             set bgp_group_name = bgp.get('name') %}
 {%             set bgp_group_type = bgp.get('type_') %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.autonomous_system}} loops 2
-{%             set sys_config = device_abstract_config.get('system', None) %}
-{%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {# Seeing issues with the ping from VM is not working for CRB-GW and CRB-MCAST-GW when GRE tunnels enabled. So disabling #}
 {%             set crb_enabled = false %}
 {%             if ('CRB-Gateway' in sys_roles or 'CRB-MCAST-Gateway' in sys_roles) %}
@@ -83,6 +83,9 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{family}
 {%             endfor %}
 {%             if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
+{%                 if 'DCI-Gateway' in sys_roles %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop no-nexthop-change
+{%                 endif %}
 {%             endif %}
 {%             if bgp_group_type == 'internal' %}
 {%                 for family in bgp.get('families', []) %}
