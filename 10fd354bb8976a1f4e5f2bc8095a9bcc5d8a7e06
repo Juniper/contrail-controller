@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "cceefae4_f0bf5f8b",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-04-17T09:16:34Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8b5a5cd8_a90885d1",
+      "revId": "10fd354bb8976a1f4e5f2bc8095a9bcc5d8a7e06",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ca2772c4_ca0556c2",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
         "patchSetId": 20
@@ -33,6 +51,24 @@
       "revId": "10fd354bb8976a1f4e5f2bc8095a9bcc5d8a7e06",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1d52a596_2a2bbc18",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-04-17T09:16:34Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ca2772c4_ca0556c2",
+      "revId": "10fd354bb8976a1f4e5f2bc8095a9bcc5d8a7e06",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
