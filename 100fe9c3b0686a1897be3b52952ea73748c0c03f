@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "4329bd29_67bc16f8",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/infra_bms_access_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 128,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-17T21:33:20Z",
+      "side": 1,
+      "message": "Can we move this and vlan loop below to the build_server_config()? We should not be adding multiple iterative loops it impacts scale/performance. I think all the information should be available in the loop for physical_interfaces in build_server_config()",
+      "revId": "100fe9c3b0686a1897be3b52952ea73748c0c03f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "99db34bd_e8cb714e",
         "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
         "patchSetId": 1
