@@ -103,7 +103,6 @@ role_to_feature_mapping:
   CRB-Access@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -113,14 +112,12 @@ role_to_feature_mapping:
   ERB-UCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
   CRB-Gateway@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -132,12 +129,10 @@ role_to_feature_mapping:
   lean@spine:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
   CRB-Access@spine:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -147,7 +142,6 @@ role_to_feature_mapping:
   CRB-Gateway@spine:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -159,7 +153,6 @@ role_to_feature_mapping:
   CRB-MCAST-Gateway@spine:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -172,7 +165,6 @@ role_to_feature_mapping:
   DC-Gateway@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -192,7 +184,6 @@ role_to_feature_mapping:
   DCI-Gateway@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -202,7 +193,6 @@ role_to_feature_mapping:
   DCI-Gateway@spine:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -212,17 +202,14 @@ role_to_feature_mapping:
   Route-Reflector@spine:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
   Route-Reflector@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
   CRB-MCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
-    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -244,12 +231,15 @@ role_to_feature_mapping:
 
 feature_based_plugin_roles:
   CRB-Access@leaf:
+    - underlay_infra_bms_access
     - overlay_storm_control
     - overlay_telemetry
   CRB-Access@spine:
+    - underlay_infra_bms_access
     - overlay_storm_control
     - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_erb_access
@@ -259,27 +249,35 @@ feature_based_plugin_roles:
     - overlay_storm_control
     - overlay_telemetry
   CRB-Gateway@spine:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@spine:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@spine:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@spine:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-Gateway@leaf:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@leaf:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@leaf:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@leaf:
+    - underlay_infra_bms_access
     - overlay_dhcp_relay
     - overlay_telemetry
   AR-Client@leaf:
@@ -295,9 +293,13 @@ feature_based_plugin_roles:
     - overlay_assisted_replicator
     - overlay_telemetry
   Route-Reflector@spine:
+    - underlay_infra_bms_access
     - overlay_telemetry
   Route-Reflector@leaf:
+    - underlay_infra_bms_access
     - overlay_telemetry
+  lean@spine:
+    - underlay_infra_bms_access
 
 feature_apply_order:
   - basic

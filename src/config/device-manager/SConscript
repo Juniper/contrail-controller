@@ -102,6 +102,7 @@ local_sources = [
     'device_manager/plugins/feature/assisted_replicator_feature.py',
     'device_manager/plugins/feature/storm_control_feature.py',
     'device_manager/plugins/feature/telemetry_feature.py',
+    'device_manager/plugins/feature/infra_bms_access_feature.py',
 ]
 
 local_sources_rules = []
