@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 
-from .db import LogicalRouterDM, VirtualNetworkDM
+from .db import LogicalRouterDM, PhysicalInterfaceDM, VirtualNetworkDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
 
@@ -111,6 +111,22 @@ class L2GatewayFeature(FeatureBase):
             lag = LinkAggrGroup(description="Virtual Port Group : %s" %
                                             vpg_map[pi_name])
             pi.set_link_aggregation_group(lag)
+            if pi_name.startswith('ae'):
+                ifc_uuids = interface.vpg_obj.physical_interfaces
+                if ifc_uuids:
+                    for ifc_uuid in ifc_uuids:
+                        pi.interface_type = 'lag'
+                        if ifc_uuid not in \
+                                self._physical_router.physical_interfaces:
+                            # Multi Home Scenario.
+                            pi.ethernet_segment_identifier = \
+                                interface.vpg_obj.esi
+                            continue
+                        pi_member_obj = PhysicalInterfaceDM.get(ifc_uuid)
+                        if pi_member_obj:
+                            ae_mem_name = pi_member_obj.name
+                            lag.link_members.append(ae_mem_name)
+                            lag.lacp_enabled = True
 
             for interface in interface_list:
                 if int(interface.vlan_tag) == 0:
