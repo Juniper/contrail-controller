@@ -125,7 +125,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
 
         if create_second_pr:
-            pr_name_2 = self.id() + '_physical_router_2'
+            pr_name_2 = self.id() + '2_physical_router'
             pr = PhysicalRouter(pr_name_2)
             pr_uuid_2 = self._vnc_lib.physical_router_create(pr)
             pr_obj_2 = self._vnc_lib.physical_router_read(id=pr_uuid_2)
@@ -852,3 +852,98 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj_1.uuid)
         self.api.physical_router_delete(id=pr_obj_2.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
+
+    def test_ae_id_deallocated_for_vpg_multihoming_interfaces(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        proj_obj, fabric_obj, pr_objs = self._create_prerequisites(
+            enterprise_style_flag=False, create_second_pr=True)
+
+        pr_obj_1 = pr_objs[0]
+        pr_obj_2 = pr_objs[1]
+
+        # Create first PI
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        pi_name = self.id() + '_physical_interface1'
+        pi_1 = PhysicalInterface(name=pi_name,
+                                 parent_obj=pr_obj_1,
+                                 ethernet_segment_identifier=esi_id)
+        pi_uuid_1 = self._vnc_lib.physical_interface_create(pi_1)
+        pi_obj_1 = self._vnc_lib.physical_interface_read(id=pi_uuid_1)
+        pi_fq_name_1 = pi_obj_1.get_fq_name()
+
+        # Create second PI
+        pi_name = self.id() + '_physical_interface2'
+        pi_2 = PhysicalInterface(name=pi_name,
+                                 parent_obj=pr_obj_2,
+                                 ethernet_segment_identifier=esi_id)
+        pi_uuid_2 = self._vnc_lib.physical_interface_create(pi_2)
+        pi_obj_2 = self._vnc_lib.physical_interface_read(id=pi_uuid_2)
+        pi_fq_name_2 = pi_obj_2.get_fq_name()
+
+        # Create VPG
+        vpg_name = "vpg-1"
+        fabric_name = fabric_obj.get_fq_name()
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_fq_name = vpg_obj.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+        vn1_obj = self.api.virtual_network_read(id=vn1.uuid)
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj = VirtualMachineInterface(self.id() + "1",
+                                          parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn1)
+
+        # Populate binding profile to be used in VMI create
+        binding_profile = {'local_link_information': [
+            {'port_id': pi_fq_name_1[2],
+             'switch_id': pi_fq_name_1[2],
+             'fabric': fabric_name[-1],
+             'switch_info': pi_fq_name_1[1]},
+            {'port_id': pi_fq_name_2[2],
+             'switch_id': pi_fq_name_2[2],
+             'fabric': fabric_name[-1],
+             'switch_info': pi_fq_name_2[1]}]}
+
+        kv_pairs = KeyValuePairs(
+            [KeyValuePair(key='vpg', value=vpg_fq_name[-1]),
+             KeyValuePair(key='vif_type', value='vrouter'),
+             KeyValuePair(key='vnic_type', value='baremetal'),
+             KeyValuePair(key='profile',
+                          value=json.dumps(binding_profile))])
+
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=42))
+        self.api.virtual_machine_interface_create(vmi_obj)
+
+        vpg_obj.add_virtual_machine_interface(vmi_obj)
+        self.api.virtual_port_group_update(vpg_obj)
+        vpg_boj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+
+        # get phy_rtr_name and ae_id pairs
+        pi_refs = vpg_boj.physical_interface_refs
+        pr_ae_id_pairs = []
+        for pi_ref in pi_refs:
+            ae_id = pi_ref['attr'].__dict__.get('ae_num')
+            pi_fq_name = pi_ref['to']
+            pi = self.api.physical_interface_read(fq_name=pi_fq_name)
+            pr = self.api.physical_router_read(id=pi.parent_uuid)
+            pr_ae_id_pairs.append((pr.name, ae_id))
+
+        # test ae-id is allocated
+        for phy_rtr_name, ae_id in pr_ae_id_pairs:
+            self.assertTrue(mock_zk.ae_id_is_occupied(phy_rtr_name, ae_id))
+
+        # delete VPG
+        self.api.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+
+        # test ae-id is deallocated
+        for phy_rtr_name, ae_id in pr_ae_id_pairs:
+            self.assertFalse(mock_zk.ae_id_is_occupied(phy_rtr_name, ae_id))
