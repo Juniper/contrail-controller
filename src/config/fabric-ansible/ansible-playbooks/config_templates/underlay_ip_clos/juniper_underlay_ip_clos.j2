@@ -1,4 +1,4 @@
-{%     for ifd in device_abstract_config.get('physical_interfaces', []) %}
+{%     for ifd in device_abstract_config.get('features', {}).get('underlay-ip-clos',{}).get('physical_interfaces', []) %}
 {%         if feature in ifd.get('comment', '') %}
 {%             if ifd.name != 'lo0' %}
 set groups {{cfg_group}} interfaces {{ifd.name}} mtu 9192
@@ -49,7 +49,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.a
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 {%             for peer in bgp.get('peers', []) %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}}
-set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} description {{peer.comment}}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} peer-as {{peer.autonomous_system}}
 {%             endfor %}
 set groups {{cfg_group}} policy-options policy-statement PFE-LB then load-balance per-packet

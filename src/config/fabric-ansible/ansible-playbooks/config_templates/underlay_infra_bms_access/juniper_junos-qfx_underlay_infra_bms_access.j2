@@ -1,5 +1,4 @@
-{% for pi_item in device_abstract_config.get('physical_interfaces',[]) %}
-{%     if pi_item.get('comment') == 'Underlay Infra BMS Access' %}
+{% for pi_item in device_abstract_config.get('features', {}).get('infra-bms-access',{}).get('physical_interfaces',[]) %}
 {%         set pi_interface_name = pi_item.name %}
 {%         for li_item in pi_item.get('logical_interfaces', []) %}
 {%             if li_item.get('ip_addresses') is defined %}
@@ -10,29 +9,24 @@ set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} 
 {%             endif %}
 {%             if li_item.get('family') == 'ethernet-switching' %}
 {%                 if li_item.get('vlans')|length > 1 %}
-set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family bridge interface-mode trunk
+set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching interface-mode trunk
 {%                 endif %}
 {%                 if not li_item.get('is_tagged', false) %}
-set groups {{cfg_group}} interfaces {{pi_interface_name}} native-vlan-id 4094 flexible-vlan-tagging
+set groups {{cfg_group}} interfaces {{pi_interface_name}} native-vlan-id 4094
 {%                 endif %}
 {%                 for vlan in li_item.get('vlans') or [] %}
-set groups {{cfg_group}} interfaces {{pi_interface_name}} vlan-tagging
-set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family bridge interface-mode trunk
-set groups {{cfg_group}} bridge-domains {{vlan.name}} interface {{li_item.name}}
+set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching vlan members {{vlan.name}}
 {%                 endfor %}
 {%             endif %}
 {%         endfor %}
-{%     endif %}
 {% endfor %}
-{% for vlan_item in device_abstract_config.get('vlans',[]) %}
-{%     if vlan_item.get('comment') == 'Underlay Infra BMS Access' %}
-set groups {{cfg_group}} bridge-domains {{vlan_item.name}} vlan-id {{vlan_item.vlan_id}}
-set groups {{cfg_group}} bridge-domains {{vlan_item.name}} routing-interface {{vlan_item.l3_interface}}
-{%     endif %}
+{% for vlan_item in device_abstract_config.get('features', {}).get('infra-bms-access',{}).get('vlans',[]) %}
+{%         set l3_intf = vlan_item.get('l3_interface') %}
+set groups {{cfg_group}} vlans {{vlan_item.name}} vlan-id {{vlan_item.vlan_id}}
+set groups {{cfg_group}} vlans {{vlan_item.name}} l3-interface {{l3_intf}}
 {% endfor %}
-{% set forwarding_options_item = device_abstract_config.get('forwarding_options',{}) %}
+{% set forwarding_options_item = device_abstract_config.get('features', {}).get('infra-bms-access',{}).get('forwarding_options',{}) %}
 {% for relay_item in forwarding_options_item.get('dhcp_relay',[]) %}
-{%     if relay_item.get('comment') == "Underlay Infra BMS Access" %}
 {%     set dhcp_relay_grp = relay_item.get('dhcp_relay_group') %}
 set groups {{cfg_group}} forwarding-options dhcp-relay overrides bootp-support
 set groups {{cfg_group}} forwarding-options dhcp-relay group {{dhcp_relay_grp}} active-server-group SVR-MGR
@@ -42,5 +36,4 @@ set groups {{cfg_group}} forwarding-options dhcp-relay server-group SVR-MGR {{dh
 {%         for intrf_item in relay_item.get('interfaces',[]) %}
 set groups {{cfg_group}} forwarding-options dhcp-relay group {{dhcp_relay_grp}} interface {{intrf_item.name}}
 {%         endfor %}
-{%     endif %}
 {% endfor %}

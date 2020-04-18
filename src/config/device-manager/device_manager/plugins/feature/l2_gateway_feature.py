@@ -9,7 +9,8 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 
-from .db import LogicalRouterDM, VirtualNetworkDM
+from .db import LogicalRouterDM, PhysicalInterfaceDM, VirtualNetworkDM, \
+    VirtualPortGroupDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
 
@@ -107,6 +108,9 @@ class L2GatewayFeature(FeatureBase):
                     "interfaces with same Vlan-id on same PI %s" %
                     pi_name)
                 continue
+            if pi_name.startswith('ae'):
+                continue
+            # Handle only the regular interfaces here.
             pi, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
             lag = LinkAggrGroup(description="Virtual Port Group : %s" %
                                             vpg_map[pi_name])
@@ -145,6 +149,7 @@ class L2GatewayFeature(FeatureBase):
         if not self._is_evpn(self._physical_router):
             return feature_config
 
+        self.build_vpg_config()
         vn_dict = self._get_connected_vn_li_map()
         for vn_uuid, interfaces in list(vn_dict.items()):
             vn_obj = VirtualNetworkDM.get(vn_uuid)
@@ -166,5 +171,53 @@ class L2GatewayFeature(FeatureBase):
 
         return feature_config
     # end push_conf
+
+    def build_vpg_config(self):
+        multi_homed = False
+        pr = self._physical_router
+        if not pr:
+            return
+        for vpg_uuid in pr.virtual_port_groups or []:
+            ae_link_members = {}
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
+                continue
+            if not vpg_obj.virtual_machine_interfaces:
+                continue
+            esi = vpg_obj.esi
+            for pi_uuid in vpg_obj.physical_interfaces or []:
+                if pi_uuid not in pr.physical_interfaces:
+                    multi_homed = True
+                    continue
+                ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
+                if ae_id is not None:
+                    ae_intf_name = 'ae' + str(ae_id)
+                    pi = PhysicalInterfaceDM.get(pi_uuid)
+                    if not pi:
+                        continue
+                    if ae_intf_name in ae_link_members:
+                        ae_link_members[ae_intf_name].append(pi.name)
+                    else:
+                        ae_link_members[ae_intf_name] = []
+                        ae_link_members[ae_intf_name].append(pi.name)
+
+            for ae_intf_name, link_members in list(ae_link_members.items()):
+                self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
+                                  (vpg_uuid, link_members, ae_intf_name))
+                lag = LinkAggrGroup(lacp_enabled=True,
+                                    link_members=link_members,
+                                    description="Virtual Port Group : %s" %
+                                                vpg_obj.name)
+                intf, _ = self._add_or_lookup_pi(self.pi_map, ae_intf_name,
+                                                 'lag')
+                intf.set_link_aggregation_group(lag)
+                intf.set_comment("ae interface")
+
+                # check if esi needs to be set
+                if multi_homed:
+                    intf.set_ethernet_segment_identifier(esi)
+                    multi_homed = False
+
+    # end build_vpg_config
 
 # end L2GatewayFeature
