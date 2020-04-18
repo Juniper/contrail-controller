@@ -1,4 +1,4 @@
-{%     set firewall = device_abstract_config.get('firewall') %}
+{%     set firewall = device_abstract_config.get('features', {}).get('firewall', {}).get('firewall') %}
 {%     set ns_deny_filterlist = [] %}
 {%     if firewall != None %}
 {%         set firewall_filters = firewall.get('firewall_filters', []) %}
@@ -62,7 +62,7 @@ set groups {{cfg_group}} firewall family ethernet-switching filter arp term t1 t
 set groups {{cfg_group}} firewall family ethernet-switching filter denyall term tdenyall then discard
 {%         endif %}
 {%     endif %}{# /* firewall valid */ #}
-{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('firewall', {}).get('physical_interfaces', []) %}
 {%         set nsadd_once = namespace(found=false) %}
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             set firewall_filters = li.get('firewall_filters', []) %}

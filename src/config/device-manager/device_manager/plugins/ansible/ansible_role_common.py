@@ -11,7 +11,6 @@ from builtins import str
 from abstract_device_api.abstract_device_xsd import *
 import copy
 import gevent
-import netaddr
 
 from .db import AccessControlListDM, DataCenterInterconnectDM, \
     GlobalVRouterConfigDM, InstanceIpDM, LogicalInterfaceDM, \
@@ -396,7 +395,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 for interface in interfaces:
                     self.add_ref_to_list(self.evpn.get_interfaces(), interface.name)
 
-            self.build_l2_evpn_interface_config(interfaces, vn, vlan)
+            # self.build_l2_evpn_interface_config(interfaces, vn, vlan)
 
         if (not is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
@@ -466,99 +465,9 @@ class AnsibleRoleCommon(AnsibleConf):
             self.add_to_list(ri.get_export_targets(), target)
     # end add_routing_instance
 
-    def attach_acls(self, interface, unit):
-        pr = self.physical_router
-        if not pr:
-            return
-
-        sg_list = []
-        # now the vpg obj is available in interface object as vpg_obj
-        vpg_obj = interface.vpg_obj
-
-        # For an enterprise style fabric, VPG has SG refs
-        # For SP style fabric, VMI has SG refs
-        if self._is_enterprise_style():
-            sg_uuids = vpg_obj.security_groups
-            for sg in sg_uuids or []:
-                sg_obj = SecurityGroupDM.get(sg)
-                if sg_obj:
-                    sg_list.append(sg_obj)
-        else:
-            sg_list = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
-                                                    interface)
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
-
-        if interface.li_uuid:
-            interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
-            if interface:
-                sg_list += interface.get_attached_sgs()
-
-        filter_list = []
-        for sg in sg_list:
-            flist = self.get_configured_filters(sg)
-            filter_list += flist
-        if filter_list:
-            for fname in filter_list:
-                unit.add_firewall_filters(fname)
-    # end attach_acls
-
     def _is_enterprise_style(self):
         return self.physical_router.fabric_obj.enterprise_style
     # end _is_enterprise_style
-
-    def build_l2_evpn_interface_config(self, interfaces, vn, vlan_conf):
-        ifd_map = {}
-        for interface in interfaces:
-            ifd_map.setdefault(interface.ifd_name, []).append(interface)
-
-        for ifd_name, interface_list in list(ifd_map.items()):
-            untagged = [int(i.port_vlan_tag) for i in interface_list
-                        if i.is_untagged()]
-            if len(untagged) > 1:
-                self._logger.error(
-                    "Only one untagged interface is allowed on a ifd %s" %
-                    ifd_name)
-                continue
-            tagged = [int(i.vlan_tag) for i in interface_list
-                      if not i.is_untagged()]
-            if self._is_enterprise_style():
-                if len(untagged) > 0 and len(tagged) > 0:
-                    self._logger.error(
-                        "Enterprise style config: Can't have tagged and "
-                        "untagged interfaces for same VN on same PI %s" %
-                        ifd_name)
-                    continue
-            elif len(set(untagged) & set(tagged)) > 0:
-                self._logger.error(
-                    "SP style config: Can't have tagged and untagged "
-                    "interfaces with same Vlan-id on same PI %s" %
-                    ifd_name)
-                continue
-            _, li_map = self.set_default_pi(ifd_name)
-            for interface in interface_list:
-                if interface.is_untagged():
-                    is_tagged = False
-                    vlan_tag = str(interface.port_vlan_tag)
-                else:
-                    is_tagged = True
-                    vlan_tag = str(interface.vlan_tag)
-                unit_name = ifd_name + "." + str(interface.unit)
-                unit = self.set_default_li(li_map, unit_name, interface.unit)
-                unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn,
-                    is_tagged, vlan_tag))
-                unit.set_is_tagged(is_tagged)
-                unit.set_vlan_tag(vlan_tag)
-                # attach acls
-                self.attach_acls(interface, unit)
-                if vlan_conf:
-                    self.add_ref_to_list(vlan_conf.get_interfaces(),
-                        unit_name)
-    # end build_l2_evpn_interface_config
 
     def init_evpn_config(self, encapsulation='vxlan'):
         if not self.ri_map:
@@ -574,7 +483,8 @@ class AnsibleRoleCommon(AnsibleConf):
         vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
         if is_l2_l3 and self.is_gateway():
             if not irb_intf:
-                self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
+                self._logger.error("Missing irb interface config l3 vlan: "
+                                   "%s" % vrf_name)
             else:
                 vlan.set_vlan_id(vni)
                 self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
@@ -588,58 +498,29 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_ri_vlan_config
 
     def build_vpg_config(self):
-        multi_homed = False
-        ae_link_members = {}
-
         pr = self.physical_router
         if not pr:
             return
         for vpg_uuid in pr.virtual_port_groups or []:
-            ae_link_members = {}
             vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
             if not vpg_obj:
                 continue
             if not vpg_obj.virtual_machine_interfaces:
                 continue
-            esi = vpg_obj.esi
             for pi_uuid in vpg_obj.physical_interfaces or []:
                 if pi_uuid not in pr.physical_interfaces:
-                    multi_homed = True
+                    # Multihome scenario - we can continue, as it will be
+                    # processed for other PR.
                     continue
                 ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
-                if ae_id is not None:
-                    ae_intf_name = 'ae' + str(ae_id)
-                    pi = PhysicalInterfaceDM.get(pi_uuid)
-                    if not pi:
-                        continue
-                    if ae_intf_name in ae_link_members:
-                        ae_link_members[ae_intf_name].append(pi.name)
-                    else:
-                        ae_link_members[ae_intf_name] = []
-                        ae_link_members[ae_intf_name].append(pi.name)
-                else:
+                if ae_id is None:
                     pi_obj = PhysicalInterfaceDM.get(pi_uuid)
                     if pi_obj:
-                        lag = LinkAggrGroup(description="Virtual Port Group : %s" %
-                                                        vpg_obj.name)
+                        lag = LinkAggrGroup(description="Virtual Port Group "
+                                                        ": %s" % vpg_obj.name)
                         intf, _ = self.set_default_pi(pi_obj.name, 'regular')
                         intf.set_link_aggregation_group(lag)
 
-            for ae_intf_name, link_members in list(ae_link_members.items()):
-                self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
-                                  (vpg_uuid, link_members, ae_intf_name))
-                lag = LinkAggrGroup(lacp_enabled=True,
-                                    link_members=link_members,
-                                    description="Virtual Port Group : %s" %
-                                                vpg_obj.name)
-                intf, _ = self.set_default_pi(ae_intf_name, 'lag')
-                intf.set_link_aggregation_group(lag)
-                intf.set_comment("ae interface")
-
-                #check if esi needs to be set
-                if multi_homed:
-                    intf.set_ethernet_segment_identifier(esi)
-                    multi_homed = False
     # end build_vpg_config
 
     def get_vn_li_map(self):
@@ -721,228 +602,6 @@ class AnsibleRoleCommon(AnsibleConf):
             return True
         return False
     # end has_vmi
-
-    def add_addr_term(self, term, addr_match, is_src, ether_type_match):
-        if not addr_match:
-            return None
-        subnet = addr_match.get_subnet()
-        if not subnet:
-            return None
-        subnet_ip = subnet.get_ip_prefix()
-        subnet_len = subnet.get_ip_prefix_len()
-        if not subnet_ip or not subnet_len:
-            return None
-        from_ = term.get_from() or From()
-        term.set_from(from_)
-        if ether_type_match:
-            from_.set_ether_type(ether_type_match)
-        subnet_comment = ''
-        if netaddr.valid_ipv6(subnet_ip):
-            subnet_comment = 'ipv6'
-        if is_src:
-            from_.add_source_address(Subnet(prefix=subnet_ip,
-                                            prefix_len=subnet_len,
-                                            comment=subnet_comment))
-        else:
-            from_.add_destination_address(Subnet(prefix=subnet_ip,
-                                                 prefix_len=subnet_len,
-                                                 comment=subnet_comment))
-    # end add_addr_term
-
-    def add_port_term(self, term, port_match, is_src):
-        if not port_match:
-            return None
-        start_port = port_match.get_start_port()
-        end_port = port_match.get_end_port()
-        if not start_port or not end_port:
-            return None
-        port_str = str(start_port) + "-" + str(end_port)
-        from_ = term.get_from() or From()
-        term.set_from(from_)
-        if is_src:
-            from_.add_source_ports(port_str)
-        else:
-            from_.add_destination_ports(port_str)
-    # end add_port_term
-
-    def add_protocol_term(self, term, protocol_match):
-        if not protocol_match or protocol_match == 'any':
-            return None
-        from_ = term.get_from() or From()
-        term.set_from(from_)
-        from_.set_ip_protocol(protocol_match)
-    # end add_protocol_term
-
-    def add_filter_term(self, ff, name):
-        term = Term()
-        term.set_name(name)
-        ff.add_terms(term)
-        term.set_then(Then(accept_or_reject=True))
-        return term
-
-    def add_dns_dhcp_terms(self, ff):
-        port_list = [67, 68, 53]
-        term = Term()
-        term.set_name("allow-dns-dhcp")
-        from_ = From()
-        from_.set_ip_protocol("udp")
-        term.set_from(from_)
-        for port in port_list:
-            from_.add_source_ports(str(port))
-        term.set_then(Then(accept_or_reject=True))
-        ff.add_terms(term)
-    # end add_dns_dhcp_terms
-
-    def add_ether_type_term(self, ff, ether_type_match):
-        if not ether_type_match:
-            return None
-        term = Term()
-        from_ = From()
-        term.set_from(from_)
-        term.set_name("ether-type")
-        from_.set_ether_type(ether_type_match.lower())
-        term.set_then(Then(accept_or_reject=True))
-        ff.add_terms(term)
-
-    # end add_ether_type_term
-
-    def build_firewall_filters(self, sg, acl, is_egress=False):
-        acl_rule_present = False
-        if not sg or not acl or not acl.vnc_obj:
-            return
-        acl = acl.vnc_obj
-        entries = acl.get_access_control_list_entries()
-        if not entries:
-            return
-        rules = entries.get_acl_rule() or []
-        if not rules:
-            return
-        self.firewall_config = self.firewall_config or\
-                               Firewall(DMUtils.firewall_comment())
-        for rule in rules:
-            if not self.has_terms(rule):
-                continue
-            match = rule.get_match_condition()
-            if not match:
-                continue
-            acl_rule_present = True
-            break
-
-        if acl_rule_present:
-            filter_name = DMUtils.make_sg_firewall_name(sg.name, acl.uuid)
-            f = FirewallFilter(name=filter_name)
-            f.set_comment(DMUtils.make_sg_firewall_comment(sg.name, acl.uuid))
-            # allow arp ether type always
-            self.add_ether_type_term(f, 'arp')
-            # allow dhcp/dns always
-            self.add_dns_dhcp_terms(f)
-            for rule in rules:
-                if not self.has_terms(rule):
-                    continue
-                match = rule.get_match_condition()
-                if not match:
-                    continue
-                rule_uuid = rule.get_rule_uuid()
-                dst_addr_match = match.get_dst_address()
-                dst_port_match = match.get_dst_port()
-                ether_type_match = match.get_ethertype()
-                protocol_match = match.get_protocol()
-                src_addr_match = match.get_src_address()
-                src_port_match = match.get_src_port()
-                term = self.add_filter_term(f, rule_uuid)
-                self.add_addr_term(term, dst_addr_match, False,
-                                   ether_type_match)
-                self.add_addr_term(term, src_addr_match, True,
-                                   ether_type_match)
-                self.add_port_term(term, dst_port_match, False)
-                # source port match is not needed for now (BMS source port)
-                #self.add_port_term(term, src_port_match, True)
-                self.add_protocol_term(term, protocol_match)
-            self.firewall_config.add_firewall_filters(f)
-    # end build_firewall_filters
-
-    def is_default_sg(self, match):
-        if (not match.get_dst_address()) or \
-           (not match.get_dst_port()) or \
-           (not match.get_ethertype()) or \
-           (not match.get_src_address()) or \
-           (not match.get_src_port()) or \
-           (not match.get_protocol()):
-            return False
-        if not match.get_dst_address().get_subnet():
-            return False
-        if ((str(match.get_dst_address().get_subnet().get_ip_prefix()) == "0.0.0.0") or \
-            (str(match.get_dst_address().get_subnet().get_ip_prefix()) == "::")) and \
-           (str(match.get_dst_address().get_subnet().get_ip_prefix_len()) == "0") and \
-           (str(match.get_dst_port().get_start_port()) == "0") and \
-           (str(match.get_dst_port().get_end_port()) == "65535") and \
-           ((str(match.get_ethertype()) == "IPv4") or \
-            (str(match.get_ethertype()) == "IPv6")) and \
-           (not match.get_src_address().get_subnet()) and \
-           (not match.get_src_address().get_subnet_list()) and \
-           (str(match.get_src_port().get_start_port()) == "0") and \
-           (str(match.get_src_port().get_end_port()) == "65535") and \
-           (str(match.get_protocol()) == "any"):
-            return True
-        return False
-    # end is_default_sg
-
-    def has_terms(self, rule):
-        match = rule.get_match_condition()
-        if not match:
-            return False
-        # return False if it is default SG, no filter is applied
-        if self.is_default_sg(match):
-            return False
-        return match.get_dst_address() or match.get_dst_port() or \
-              match.get_ethertype() or match.get_src_address() or match.get_src_port() or \
-              (match.get_protocol() and match.get_protocol() != 'any')
-
-    def get_firewall_filters(self, sg, acl, is_egress=False):
-        acl_rule_present = False
-        if not sg or not acl or not acl.vnc_obj:
-            return []
-        acl = acl.vnc_obj
-        entries = acl.get_access_control_list_entries()
-        if not entries:
-            return []
-        rules = entries.get_acl_rule() or []
-        if not rules:
-            return []
-        filter_names = []
-        for rule in rules:
-            if not self.has_terms(rule):
-                continue
-            match = rule.get_match_condition()
-            if not match:
-                continue
-            rule_uuid = rule.get_rule_uuid()
-            ether_type_match = match.get_ethertype()
-            if not ether_type_match:
-                continue
-            if 'ipv6' in ether_type_match.lower():
-                continue
-            acl_rule_present = True
-            break
-
-        if acl_rule_present:
-            filter_name = DMUtils.make_sg_firewall_name(sg.name, acl.uuid)
-            filter_names.append(filter_name)
-        return filter_names
-    # end get_firewall_filters
-
-    def get_configured_filters(self, sg):
-        if not sg:
-            return []
-        filter_names = []
-        acls = sg.access_control_lists
-        for acl in acls or []:
-            acl = AccessControlListDM.get(acl)
-            if acl and not acl.is_ingress:
-                fnames = self.get_firewall_filters(sg, acl)
-                filter_names += fnames
-        return filter_names
-    # end get_configured_filters
 
     def build_ri_config(self):
         vn_dict = self.get_vn_li_map()
@@ -1082,7 +741,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_ri_config
 
     def build_service_chain_ri_config(self, si_name, left_vrf_info, right_vrf_info):
-        #left vrf
+        # left vrf
         vn_obj = VirtualNetworkDM.get(left_vrf_info.get('vn_id'))
         if vn_obj:
 
@@ -1121,7 +780,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 protocols.add_pim(pim)
                 left_ri.add_protocols(protocols)
 
-        #create new service chain ri for vni targets
+        # create new service chain ri for vni targets
         for vn in left_vrf_info.get('tenant_vn') or []:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
@@ -1140,7 +799,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     for target in ri.get_export_targets():
                         self.add_to_list(vni_ri_left.get_export_targets(), target)
 
-        #right vrf
+        # right vrf
         vn_obj = VirtualNetworkDM.get(right_vrf_info.get('vn_id'))
         if vn_obj:
             vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1178,7 +837,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 protocols.add_pim(pim)
                 right_ri.add_protocols(protocols)
 
-        #create new service chain ri for vni targets
+        # create new service chain ri for vni targets
         for vn in right_vrf_info.get('tenant_vn') or []:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
@@ -1196,7 +855,6 @@ class AnsibleRoleCommon(AnsibleConf):
 
                     for target in ri.get_export_targets():
                         self.add_to_list(vni_ri_right.get_export_targets(), target)
-
 
     def build_service_chain_irb_bd_config(self, svc_app_obj, left_right_params):
         left_fq_name = left_right_params['left_qfx_fq_name']
@@ -1431,91 +1089,9 @@ class AnsibleRoleCommon(AnsibleConf):
                                                        left_vrf_info,
                                                        right_vrf_info)
 
-    def build_server_config(self):
-        pr = self.physical_router
-        if not pr:
-            return
-        pi_tag = []
-        for pi in pr.physical_interfaces:
-            pi_obj = PhysicalInterfaceDM.get(pi)
-            if not pi_obj:
-                continue
-            if pi_obj.port:
-                port = PortDM.get(pi_obj.port)
-                pi_info = {'pi': pi, 'tag': port.tags}
-                pi_tag.append(pi_info)
-
-        if not pi_tag:
-            return
-
-        for pi_info in pi_tag:
-            for tag in pi_info.get('tag') or []:
-                tag_obj = TagDM.get(tag)
-                for vn in tag_obj.virtual_networks or []:
-                    vn_obj = VirtualNetworkDM.get(vn)
-                    for net_ipam in vn_obj.network_ipams or []:
-                        net_ipam_obj = NetworkIpamDM.get(net_ipam)
-                        for server_info in net_ipam_obj.server_discovery_params:
-                            dhcp_relay_server = None
-                            if server_info.get('dhcp_relay_server'):
-                                dhcp_relay_server = server_info.get(
-                                    'dhcp_relay_server')[0]
-                            vlan_tag = server_info.get('vlan_tag') or 4094
-                            default_gateway = server_info.get(
-                                'default_gateway') + '/' + str(
-                                server_info.get('ip_prefix_len'))
-
-                            #create irb interface
-                            irb_intf, li_map = self.set_default_pi('irb', 'irb')
-                            irb_intf.set_comment("Underlay Infra BMS Access")
-                            irb_intf_unit = self.set_default_li(li_map,
-                                'irb.' + str(vlan_tag),
-                                vlan_tag)
-                            self.add_ip_address(irb_intf_unit, default_gateway)
-
-                            # create LI
-                            pi_obj = PhysicalInterfaceDM.get(pi_info.get('pi'))
-                            access_intf, li_map = self.set_default_pi(
-                                        pi_obj.name, 'regular')
-                            access_intf.set_comment("Underlay Infra BMS Access")
-                            access_intf_unit = self.set_default_li(li_map,
-                                                          pi_obj.fq_name[-1]+ '.' +
-                                                                   str(0), 0)
-                            access_intf_unit.add_vlans(Vlan(
-                                name=tag_obj.name+"_vlan"))
-                            access_intf_unit.set_family("ethernet-switching")
-                            if vlan_tag == 4094:
-                                access_intf_unit.set_is_tagged(False)
-                            else:
-                                access_intf_unit.set_is_tagged(True)
-
-                            #create Vlan
-                            vlan = Vlan(name=tag_obj.name+"_vlan")
-                            vlan.set_vlan_id(vlan_tag)
-                            vlan.set_comment("Underlay Infra BMS Access")
-                            vlan.set_l3_interface('irb.' + str(vlan_tag))
-                            self.vlan_map[vlan.get_name()] = vlan
-
-                            #set dhcp relay info
-                            if dhcp_relay_server:
-                                self.forwarding_options_config = self.forwarding_options_config or ForwardingOptions()
-                                dhcp_relay = DhcpRelay()
-                                dhcp_relay.set_comment("Underlay Infra BMS Access")
-                                dhcp_relay.set_dhcp_relay_group(
-                                    "SVR_RELAY_GRP_"+tag_obj.name)
-
-                                ip_address = IpAddress(address=dhcp_relay_server)
-                                dhcp_relay.add_dhcp_server_ips(ip_address)
-                                self.add_ref_to_list(dhcp_relay.get_interfaces(), 'irb.' + str(vlan_tag))
-                                self.forwarding_options_config.add_dhcp_relay(dhcp_relay)
-
-
     def set_common_config(self):
-        if self.physical_router.underlay_managed:
-            self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
-        self.build_server_config()
         self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()

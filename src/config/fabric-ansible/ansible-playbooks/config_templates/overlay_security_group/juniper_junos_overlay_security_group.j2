@@ -1,29 +1,26 @@
-{%     set firewall = device_abstract_config.get('firewall') %}
+{%     set firewall = device_abstract_config.get('features', {}).get('firewall', {}).get('firewall',{}) %}
 {%     if firewall != None %}
 {%         set firewall_filters = firewall.get('firewall_filters', []) %}
 {%         for filter in firewall_filters %}
-{%             if 'Security Group' not in filter.get('comment', '') %}
-{%                 continue %}
-{%             endif %}
 {%             set filter_name = filter.get('name', '') %}
 {%             set terms = filter.get('terms', []) %}
 {%             set ns = namespace(found=false) %}
 {%             for term in terms %}
-{%                 set term_name = term.get('name') %}
 {%                 set term_from = term.get('fromxx') %}
 {%                 if term_from == None %}
 {%                     continue %}
 {%                 endif %}
+{%                 set ether_type = term_from.get('ether_type', '') %}
+{%                 set term_then = term.get('then') %}
+{%                 if term_then == None or ether_type == 'IPv6' %}
+{%                     continue %}
+{%                 endif %}
+{%                 set term_name = term.get('name') %}
 {%                 set dst_addrs = term_from.get('destination_address', []) %}
 {%                 set src_addrs = term_from.get('source_address', []) %}
 {%                 set src_ports = term_from.get('source_ports', []) %}
 {%                 set dst_ports = term_from.get('destination_ports', []) %}
 {%                 set ip_proto = term_from.get('ip_protocol') %}
-{%                 set ether_type = term_from.get('ether_type') %}
-{%                 set term_then = term.get('then') %}
-{%                 if term_then == None %}
-{%                     continue %}
-{%                 endif %}
 {%                 set then_accept_or_reject = term_then.get('accept_or_reject', []) %}
 {%                 for src_port in src_ports %}
 set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{term_name}} from source-port {{src_port}}
@@ -32,17 +29,21 @@ set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{te
 set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{term_name}} from destination-port {{dst_port}}
 {%                 endfor %}
 {%                 for src_addr in src_addrs %}
-{%                     set cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
+{%                     if 'ipv6' not in src_addr.get('comment', '') %}
+{%                         set cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
 set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{term_name}} from ip-source-address {{cidr}}
+{%                     endif %}
 {%                 endfor %}
 {%                 for dst_addr in dst_addrs %}
-{%                     set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+{%                     if 'ipv6' not in dst_addr.get('comment', '') %}
+{%                         set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
 set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{term_name}} from ip-destination-address {{cidr}}
+{%                     endif %}
 {%                 endfor %}
 {%                 if ip_proto %}
 set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{term_name}} from ip-protocol {{ip_proto}}
 {%                 endif %}
-{%                 if ether_type %}
+{%                 if ether_type == 'arp' %}
 set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term {{term_name}} from ether-type {{ether_type}}
 {%                 endif %}
 {%                 if then_accept_or_reject == True %}
@@ -56,12 +57,16 @@ set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term tden
 {%         endfor %}
 {%     endif %}
 {%     set sys_config = device_abstract_config.get('system', None) %}
-{%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('firewall', {}).get('physical_interfaces', []) %}
 {# These firewalls are related to L2 so the interface type should be other than irb #}
 {%         if phy_int.get('interface_type', '') != 'irb' %}
 {%             for li in phy_int.get('logical_interfaces', []) %}
 {%                set firewall_filters = li.get('firewall_filters', []) %}
+{%                if firewall_filters | length > 0 %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} mtu 9192
+set groups {{cfg_group}} interfaces {{phy_int.name}} encapsulation extended-vlan-bridge
+set groups {{cfg_group}} interfaces {{phy_int.name}} flexible-vlan-tagging
+{%                endif %}
 {%                for firewall_filter in firewall_filters %}
 {%                   set unit = li.get('unit') %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family bridge filter input-list {{firewall_filter}}

@@ -28,6 +28,7 @@
         <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
         <xsd:element name="routing-instances" type="dac:RoutingInstance" maxOccurs="unbounded"/>
         <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
+        <xsd:element name="forwarding-options" type="dac:ForwardingOptions"/>
         <xsd:element name="firewall" type="dac:Firewall"/>
         <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
         <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
