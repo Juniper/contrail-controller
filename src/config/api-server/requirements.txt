@@ -2,7 +2,7 @@ cfgm_common
 vnc_api
 sandesh
 sandesh-common
-gevent<1.3  # removed when kazoo fix released https://github.com/python-zk/kazoo/commit/257b58961f7ddd9db04d6efa070739a1b0404487
+gevent==1.2.2
 geventhttpclient==1.0a
 pycassa>=1.7.2
 netaddr>=0.7.5
