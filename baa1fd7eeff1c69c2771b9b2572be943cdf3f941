@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "9ed6e801_3f8d1e3a",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_conf.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-04-18T01:04:36Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "43b22ca5_bab47ae0",
+      "revId": "baa1fd7eeff1c69c2771b9b2572be943cdf3f941",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bdd59cd7_9e549e4a",
         "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
         "patchSetId": 1
@@ -47,6 +65,24 @@
       "writtenOn": "2020-04-17T21:04:06Z",
       "side": 1,
       "message": "What about AR roles ?",
+      "revId": "baa1fd7eeff1c69c2771b9b2572be943cdf3f941",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2700cb92_d7940e34",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 282,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-04-18T01:04:36Z",
+      "side": 1,
+      "message": "I didn\u0027t see any entries for the AR in the old way. Can you check and confirm if it\u0027s miss in the existing code?",
+      "parentUuid": "1504fa21_0d0fa992",
       "revId": "baa1fd7eeff1c69c2771b9b2572be943cdf3f941",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
