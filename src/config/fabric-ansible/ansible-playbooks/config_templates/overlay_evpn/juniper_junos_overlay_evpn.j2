@@ -3,9 +3,9 @@
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 from protocol evpn
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then load-balance per-packet
 set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
-{% set ris = device_abstract_config.features.get('l2-gateway').get('routing_instances', []) %}
-{% set ris = ris + device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
-{% for ri in device_abstract_config.features.get('l3-gateway').get('routing_instances', []) %}
+{% set ris = device_abstract_config.features.get('l2-gateway',{}).get('routing_instances', []) %}
+{% set ris = ris + device_abstract_config.features.get('vn-interconnect',{}).get('routing_instances', []) %}
+{% for ri in device_abstract_config.features.get('l3-gateway',{}).get('routing_instances', []) %}
 {%     if ri.get('is_public_network') == true %}
 {%         do ris.append(ri) %}
 {%     endif %}
@@ -52,7 +52,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
 set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
 
-{%             for ri in device_abstract_config.features.get('l2-gateway').get('routing_instances', []) %}
+{%             for ri in device_abstract_config.features.get('l2-gateway',{}).get('routing_instances', []) %}
 {%                 set ri_name = ri.get('name', '')[:127] %}
 {%                 set vxlan_id = ri.get('vxlan_id', '') %}
 {%                 set vn_id  = ri.get('virtual_network_id') %}
@@ -67,7 +67,7 @@ set groups {{cfg_group}} routing-instances {{ri_name}} route-distinguisher {{rou
 set groups {{cfg_group}} routing-instances {{ri_name}} vrf-target target:{{esi_rt}}
 set groups {{cfg_group}} routing-instances {{ri_name}} vrf-import {{vrf_import}}
 set groups {{cfg_group}} routing-instances {{ri_name}} vrf-export {{vrf_export}}
-{%                 for vlan in device_abstract_config.features.get('l2-gateway').get('vlans', []) %}
+{%                 for vlan in device_abstract_config.features.get('l2-gateway',{}).get('vlans', []) %}
 {%                     set vlan_vxlan_id = vlan.get('vxlan_id','') %}
 {%                     set vlan_name = vlan.get('name','') %}
 {%                     set vlan_id = vlan.get('vlan_id','none') %}
@@ -86,7 +86,7 @@ set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_nam
 {%                        endfor %}
 {%                     endif %}
 {%                 endfor %}
-{%                 for vlan in device_abstract_config.features.get('l3-gateway').get('vlans', []) %}
+{%                 for vlan in device_abstract_config.features.get('l3-gateway',{}).get('vlans', []) %}
 {%                     set vlan_vxlan_id = vlan.get('vxlan_id','') %}
 {%                     set vlan_name = vlan.get('name','') %}
 {%                     if vxlan_id|int() == vlan_vxlan_id|int() %}

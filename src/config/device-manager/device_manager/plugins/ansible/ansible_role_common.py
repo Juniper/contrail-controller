@@ -1509,13 +1509,17 @@ class AnsibleRoleCommon(AnsibleConf):
                                 self.add_ref_to_list(dhcp_relay.get_interfaces(), 'irb.' + str(vlan_tag))
                                 self.forwarding_options_config.add_dhcp_relay(dhcp_relay)
 
-
     def set_common_config(self):
-        if self.physical_router.underlay_managed:
-            self.build_underlay_bgp()
+        # This Abstract code generation needs to be skipped for ERB-UCAST-GW or
+        # CRB-Access roles alone.
+        if self.is_erb_ucast_only() or self.is_crb_access_only():
+            self._logger.error(
+                "Not executing set_common_config for : {}".format(
+                    self.physical_router.routing_bridging_roles))
+            return
+
         if not self.ensure_bgp_config():
             return
-        self.build_server_config()
         self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
@@ -1525,6 +1529,20 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
+
+    def is_erb_ucast_only(self):
+        return self.physical_router.is_erb_only()
+    # end is_erb_ucast_only
+
+    # check crb-access only assigned.
+    def is_crb_access_only(self):
+        if self.physical_router.routing_bridging_roles:
+            gw_role = any('gateway' in r.lower() for r in
+                       self.physical_router.routing_bridging_roles)
+            if 'CRB-Access' in self.physical_router.routing_bridging_roles \
+                    and not gw_role:
+                return True
+        return False
 
     @staticmethod
     def get_subnet_for_cidr(cidr):
