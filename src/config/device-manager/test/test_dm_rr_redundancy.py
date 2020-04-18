@@ -25,7 +25,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         super(TestAnsibleRRRedundancy, self).tearDown()
 
     @retries(5, hook=retry_exc_handler)
-    def check_pr(self, pr, peer_a, peer_b, check_feature=False):
+    def check_pr(self, pr, peer_a, peer_b, check_feature=True):
         abstract_config = FakeJobHandler.get_dev_job_input(pr.name)
         self.assertIsNotNone(abstract_config)
         device_abstract_config = abstract_config.get('device_abstract_config')
@@ -35,7 +35,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
                 'overlay-bgp')
             self.assertIsNotNone(overlay_bgp_feature)
 
-        bgp_grps = device_abstract_config.get('bgp')
+        bgp_grps = overlay_bgp_feature.get('bgp')
         self.assertEqual(len(bgp_grps), 1)
 
         bgp_grp = bgp_grps[0]
@@ -51,11 +51,16 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
                            peer_b.get_physical_router_management_ip()])
 
     @retries(5, hook=retry_exc_handler)
-    def check_pr_aux(self, pr, peer_a, peer_b):
+    def check_pr_aux(self, pr, peer_a, peer_b, check_feature=True):
         abstract_config = FakeJobHandler.get_dev_job_input(pr.name)
         self.assertIsNotNone(abstract_config)
         device_abstract_config = abstract_config.get('device_abstract_config')
-        bgp_grps = device_abstract_config.get('bgp')
+        if check_feature:
+            overlay_bgp_feature = device_abstract_config.get('features', {}).get(
+                'overlay-bgp')
+            self.assertIsNotNone(overlay_bgp_feature)
+
+        bgp_grps = overlay_bgp_feature.get('bgp')
         self.assertEqual(len(bgp_grps), 2)
 
         for bgp_grp in bgp_grps:
@@ -244,7 +249,9 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
                                               product='qfx5110-48s-4c', family='junos-qfx',
                                               role='spine', rb_roles=['Route-Reflector'],
                                               physical_role=self.physical_roles['spine'],
-                                              overlay_role=None, fabric=fabric,
+                                              overlay_role=self.overlay_roles[
+                                                  'Route-Reflector'.lower()],
+                                              fabric=fabric,
                                               node_profile=np)
         pr3.set_physical_router_loopback_ip('30.30.0.3')
         self._vnc_lib.physical_router_update(pr3)
@@ -259,7 +266,28 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
             AttrDict({
                 'name': 'overlay-bgp-role',
                 'physical_role': 'leaf',
+                'overlay_role': 'crb-access',
+                'features': ['overlay-bgp'],
+                'feature_configs': None
+            }),
+            AttrDict({
+                'name': 'overlay-bgp-role1',
+                'physical_role': 'leaf',
                 'overlay_role': 'erb-ucast-gateway',
+                'features': ['overlay-bgp'],
+                'feature_configs': None
+            }),
+            AttrDict({
+                'name': 'overlay-bgp-role2',
+                'physical_role': 'spine',
+                'overlay_role': 'route-reflector',
+                'features': ['overlay-bgp'],
+                'feature_configs': None
+            }),
+            AttrDict({
+                'name': 'overlay-bgp-role3',
+                'physical_role': 'leaf',
+                'overlay_role': 'route-reflector',
                 'features': ['overlay-bgp'],
                 'feature_configs': None
             })

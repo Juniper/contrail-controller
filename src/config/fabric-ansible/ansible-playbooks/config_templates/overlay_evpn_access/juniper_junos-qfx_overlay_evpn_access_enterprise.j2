@@ -1,33 +1,30 @@
-{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
-{%         if phy_int.get('interface_type') != 'irb' %}
-{%             set name = phy_int.get('name') %}
-{%             for li in phy_int.get('logical_interfaces', []) %}
-{%                 if 'EVPN' in li.get('comment', '') %}
-{%                     set unit = li.get('unit') %}
-{%                     set vlan_id = li.get('vlan_tag') %}
+{%     for phy_int in device_abstract_config.features.get('l2-gateway',{}).get('physical_interfaces', []) %}
+{%         set name = phy_int.get('name') %}
+{%         if phy_int.get('link_aggregation_group') %}
+set groups {{cfg_group}} interfaces {{name}} description "{{phy_int.get('link_aggregation_group').get('description')}}"
+{%         endif %}
+{%         for li in phy_int.get('logical_interfaces', []) %}
+{%             if 'EVPN' in li.get('comment', '') %}
+{%                 set unit = li.get('unit') %}
+{%                 set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
 set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode trunk
-{%                     if li.get('is_tagged', false) == false %}
+{%                 if li.get('is_tagged', false) == false %}
 set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
-{%                     endif %}
 {%                 endif %}
-{%             endfor %}
-set groups {{cfg_group}} interfaces {{name}} description phy_int.get('link_aggregation_group').get('description')
-{%         endif %}
+{%             endif %}
+{%         endfor %}
 {%     endfor %}
 
-{%     for vlan in device_abstract_config.get('vlans', []) %}
+{%     for vlan in device_abstract_config.features.get('l2-gateway',{}).get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set ns = namespace(tagged_vlan_id='', untagged_vlan_id='') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan.get('description')
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
 {%         for each in intfs %}
 {%             set int_name = each.get('name', '') %}
-{%             if 'irb' in int_name %}
-{%                 continue %}
-{%             endif %}
-{%             for phy_intf in device_abstract_config.get('physical_interfaces', []) %}
+{%             for phy_intf in device_abstract_config.features.get('l2-gateway',{}).get('physical_interfaces', []) %}
 {%                 for li in phy_intf.get('logical_interfaces', []) %}
 {%                     if li.get('name', '') == int_name %}
 {%                         set ifd_name = int_name.split('.')[0] %}
@@ -50,12 +47,10 @@ set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{ns.tagged_vlan_id}}
 {%         endif %}
 {%     endfor %}
 
-{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%     for bgp_elem in device_abstract_config.features.get('overlay-bgp',{}).get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
-{%         for fam in families %}
-{%             if fam == 'evpn' %}
+{%         if 'evpn' in families %}
 set groups {{cfg_group}} protocols evpn multicast-mode ingress-replication
 set groups {{cfg_group}} switch-options vrf-target auto
-{%             endif %}
-{%         endfor %}
+{%         endif %}
 {%     endfor %}

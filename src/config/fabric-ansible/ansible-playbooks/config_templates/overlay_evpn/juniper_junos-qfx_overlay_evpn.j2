@@ -1,9 +1,9 @@
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 from protocol evpn
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then load-balance per-packet
 set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
-{% set ris = device_abstract_config.features.get('l2-gateway').get('routing_instances', []) %}
-{% set ris = ris + device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
-{% for ri in device_abstract_config.features.get('l3-gateway').get('routing_instances', []) %}
+{% set ris = device_abstract_config.features.get('l2-gateway',{}).get('routing_instances', []) %}
+{% set ris = ris + device_abstract_config.features.get('vn-interconnect',{}).get('routing_instances', []) %}
+{% for ri in device_abstract_config.features.get('l3-gateway', {}).get('routing_instances', []) %}
 {%     if ri.get('is_public_network') == true %}
 {%         do ris.append(ri) %}
 {%     endif %}
@@ -49,7 +49,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
 set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
 set groups {{cfg_group}} switch-options vrf-import import-evpn
-{%             for ri in device_abstract_config.features.get('l2-gateway').get('routing_instances', []) %}
+{%             for ri in device_abstract_config.features.get('l2-gateway', {}).get('routing_instances', []) %}
 {%                 set name = ri.get('name', '')[:127] %}
 {%                 set vxlan_id = ri.get('vxlan_id', '') %}
 {%                 for export_target in ri.get('export_targets', []) %}
