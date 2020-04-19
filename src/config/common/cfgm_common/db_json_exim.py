@@ -41,7 +41,14 @@ from thrift.transport import TSSLSocket
 import ssl
 
 from cfgm_common.vnc_cassandra import VncCassandraClient
-from vnc_cfg_api_server import utils
+try:
+    from vnc_cfg_api_server import utils
+except ImportError:
+    # cfgm_common does not have hard dependence with api-server and
+    # should not have to avoid circular dependencies. The ImportError
+    # happens when executing unittests for cfgm_common but none of the
+    # tests really need it.
+    pass
 
 logger = logging.getLogger(__name__)
 

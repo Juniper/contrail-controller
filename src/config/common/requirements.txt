@@ -10,6 +10,7 @@ kazoo
 # pycassa>=1.7.2  # Don't install pycassa to run UT in python 3 env
 requests>=2.20.0
 sandesh==0.1dev
+sandesh-common
 simplejson
 six
 stevedore

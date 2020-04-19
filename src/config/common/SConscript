@@ -91,13 +91,7 @@ def SymLink(target, source, env):
     os.symlink(os.path.abspath(str(source[0])), os.path.abspath(str(target[0])))
 
 # We can't use SetupPyTestSuite because it adds ourselves to dependencies
-env.SetupPyTestSuiteWithDeps(
-    sdist_gen,
-    sdist_depends = [
-        env.GetVncAPIPkg(),
-        'sandesh/library/python:sdist',
-    ],
-    use_tox=True)
+env.SetupPyTestSuite(sdist_gen, use_tox=True)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
