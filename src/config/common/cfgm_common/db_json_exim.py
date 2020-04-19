@@ -41,7 +41,6 @@ from thrift.transport import TSSLSocket
 import ssl
 
 from cfgm_common.vnc_cassandra import VncCassandraClient
-from vnc_cfg_api_server import utils
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +154,12 @@ class DatabaseExim(object):
 
         args_obj, remaining_argv = parser.parse_known_args(args_str.split())
         self._args = args_obj
+
+        from vnc_cfg_api_server import utils
+        # cfgm_common does not have hard dependence with api-server
+        # and should not have to avoid circular dependencies. The
+        # ImportError happens when executing unittests for cfgm_common
+        # but none of the tests really need it.
 
         self._api_args = utils.parse_args('-c %s %s'
             %(self._args.api_conf, ' '.join(remaining_argv)))[0]
