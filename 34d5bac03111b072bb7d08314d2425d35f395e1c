@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4972a079_c2e7be3c",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-04-20T07:58:27Z",
+      "side": 1,
+      "message": "is this needed?, why are we checking for 0xffffffff, initialising to NULL in ksync constructor ill make sure that it is either NULL or valid memory?",
+      "range": {
+        "startLine": 88,
+        "startChar": 68,
+        "endLine": 88,
+        "endChar": 69
+      },
+      "revId": "34d5bac03111b072bb7d08314d2425d35f395e1c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "173fd7e1_656426c9",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-04-20T07:58:27Z",
+      "side": 1,
+      "message": "same here,",
+      "range": {
+        "startLine": 96,
+        "startChar": 67,
+        "endLine": 96,
+        "endChar": 68
+      },
+      "revId": "34d5bac03111b072bb7d08314d2425d35f395e1c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
