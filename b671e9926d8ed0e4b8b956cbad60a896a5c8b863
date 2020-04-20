@@ -16,6 +16,24 @@
       "revId": "b671e9926d8ed0e4b8b956cbad60a896a5c8b863",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dfe37850_f1a7162b",
+        "filename": "src/config/vnc_openstack/requirements.txt",
+        "patchSetId": 22
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-04-20T05:14:23Z",
+      "side": 1,
+      "message": "Without it UT for Py3 always fail.",
+      "parentUuid": "e2db9776_15632409",
+      "revId": "b671e9926d8ed0e4b8b956cbad60a896a5c8b863",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
