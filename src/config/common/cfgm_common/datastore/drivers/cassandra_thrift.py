@@ -59,11 +59,6 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
     def __init__(self, server_list, **options):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self.log_response_time = self.options.log_response_time
-
-        # if no generate_url is specified, use a dummy function that always
-        # returns an empty string
-        self._generate_url = self.options.generate_url or (lambda x, y: '')
         self._cf_dict = {}
         if ((datastore_api.UUID_KEYSPACE_NAME not in self.options.ro_keyspaces) and
             (datastore_api.UUID_KEYSPACE_NAME not in self.options.rw_keyspaces)):
