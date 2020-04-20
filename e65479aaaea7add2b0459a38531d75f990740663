@@ -1,0 +1,225 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6d14bd27_f49cce25",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "ok needs to be validated",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c0bfc33a_c618a33f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 72,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "Better message please.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "216e226e_b23f7fc7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 368,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "why is this required?",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c1748150_f3bbb26c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 371,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "you\u0027d need to validate ok. if thats False, you\u0027ll need to return accordingly. Please see other implementations",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e95533c6_beb64f7c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 376,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "how do you determine this to be v4 family?",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "82d7135b_1fea3713",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 390,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "i\u0027d suggest to return ok, read_result. This would send original error code and message. You may extend error message. But better to keep bool returned by dbe_read.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7da779da_9bd7dd8b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 405,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "just curious to know what does the round braces does?",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "079f59b9_33ad1ba9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "return ok, iip_list",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "197631ba_70af4045",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 423,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "I\u0027d suggest to use get instead of accessing directly accessing \u0027router_properties\u0027 key.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f4aad53f_00c9e735",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 428,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "if pr_uuid or lr_uuid set as None, split will fail.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec7ee43a_1e70a831",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 448,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "Better message please.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "79fa2927_798f50fb",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "There were several validations done in this patch. Can you try inserting more failures and check if those negative cases are handled?",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a388ed0b_d9e94430",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-20T06:42:23Z",
+      "side": 1,
+      "message": "better to check exact VN got created than checking as None",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
