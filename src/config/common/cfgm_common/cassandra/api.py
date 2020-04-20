@@ -51,7 +51,9 @@ OptionsDefault = {
     'rw_keyspaces': {},
     'ro_keyspaces': {},
     'logger': None,
-    'generate_url': None,
+    # if no generate_url is specified, use a dummy function that
+    # always returns an empty string
+    'generate_url': lambda x, y: '',
     'reset_config': False,
     'credential': None,
     'walk': True,
@@ -82,6 +84,14 @@ class API(object):
 
         self._server_list = server_list
         self._conn_state = ConnectionStatus.INIT
+
+        # TODO(sahid): should be removed we sure of that is not used
+        # by anything else.
+        self.log_response_time = self.options.log_response_time
+
+        # TODO(sahid): should be removed we sure of that is not used
+        # by anything else.
+        self._generate_url = self.options.generate_url
 
     @abc.abstractmethod
     def get_cf_batch(keyspace_name, cf_name):
