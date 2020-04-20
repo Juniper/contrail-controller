@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "77ffaaa9_607d2d1a",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 398,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-20T21:15:56Z",
+      "side": 1,
+      "message": "Remove this commented code",
+      "revId": "e6d92cdca237f7e6bc7e82a08a3150f2309c3aab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "514f107d_285c3ebc",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1101,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-20T21:15:56Z",
+      "side": 1,
+      "message": "This should also be removed then",
+      "revId": "e6d92cdca237f7e6bc7e82a08a3150f2309c3aab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "57693088_a00534c7",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 116,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-20T21:15:56Z",
+      "side": 1,
+      "message": "Make sure that complete build_vpg_config functionality is in this function",
+      "revId": "e6d92cdca237f7e6bc7e82a08a3150f2309c3aab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "607599d2_9b9b98ed",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 2820,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-20T21:15:56Z",
+      "side": 1,
+      "message": "As discussed, let\u0027s add l2_gateway/firewall feature for all gateway roles (leaf or spine)",
+      "revId": "e6d92cdca237f7e6bc7e82a08a3150f2309c3aab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

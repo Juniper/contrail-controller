@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4d2e270e_6be53cac",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 591,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-20T21:15:56Z",
+      "side": 0,
+      "message": "Why do we need this, if we are moving access completely for all roles ?",
+      "revId": "b46dc8db5ebe33f7168d5672e638a423753521cf",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
