@@ -111,6 +111,29 @@ class TestOptions(unittest.TestCase):
         drv = FakeDriver([], rw_keyspaces={'c': 'd'})
         self.assertEqual({'c': 'd'}, drv.options.rw_keyspaces)
 
+    def test_log_response_time(self):
+        drv = FakeDriver([])
+        self.assertIsNone(drv.options.log_response_time)
+        # TODO(sahid): Should be removed
+        self.assertIsNone(drv.log_response_time)
+
+        drv = FakeDriver([], log_response_time='<time>')
+        self.assertEqual('<time>', drv.options.log_response_time)
+        # TODO(sahid): Should be removed
+        self.assertEqual('<time>', drv.log_response_time)
+
+    def test_(self):
+        drv = FakeDriver([])
+        self.assertIsNotNone(drv.options.generate_url)
+        # TODO(sahid): Should be removed
+        self.assertIsNotNone(drv._generate_url)
+
+        drv = FakeDriver([], generate_url='<url>')
+        self.assertEqual('<url>', drv.options.generate_url)
+        # TODO(sahid): Should be removed
+        self.assertEqual('<url>', drv._generate_url)
+
+
 
 class TestStatus(unittest.TestCase):
 
