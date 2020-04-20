@@ -78,6 +78,15 @@ class VnInterconnectFeature(FeatureBase):
         return forwarding_options
     # end _build_dhcp_relay_config
 
+    def _build_loopback_intf_info(self, ip, unit, ri):
+        lo0_unit = 1000 + unit
+        _, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
+        lo0_li = self._add_or_lookup_li(
+            li_map, 'lo0.' + str(lo0_unit), lo0_unit)
+        self._add_ip_address(lo0_li, ip)
+        self._add_ref_to_list(ri.get_loopback_interfaces(),
+                              lo0_li.get_name())
+
     def _build_ri_config(self, vn, ri_obj, lr_obj, vn_list, is_master_int_vn):
         gevent.idle()
         network_id = vn.vn_network_id
@@ -115,13 +124,15 @@ class VnInterconnectFeature(FeatureBase):
                 routing_instance_type='vrf', virtual_network_is_internal=True,
                 is_master=False)
 
-            _, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
+            if lr_obj and len(lr_obj.loopback_pr_ip_map) > 0 and\
+                lr_obj.loopback_pr_ip_map.get(self._physical_router.uuid,
+                                              None) is not None:
+                ip_addr = lr_obj.loopback_pr_ip_map[self._physical_router.uuid]
+            else:
+                ip_addr = '127.0.0.1'
+
             lo0_unit = 1000 + int(network_id)
-            lo0_li = self._add_or_lookup_li(
-                li_map, 'lo0.' + str(lo0_unit), lo0_unit)
-            self._add_ip_address(lo0_li, '127.0.0.1')
-            self._add_ref_to_list(ri.get_loopback_interfaces(),
-                                  lo0_li.get_name())
+            self._build_loopback_intf_info(ip_addr, lo0_unit, ri)
         else:
             # create routing instance of type master, which represents inet.0
             # setting is_public_network to false as per review comment - 57282
@@ -138,6 +149,18 @@ class VnInterconnectFeature(FeatureBase):
             self._add_ref_to_list(ri.get_routing_interfaces(), irb_name)
         return ri
     # end _build_ri_config
+
+    def _set_routed_vn_proto_info(self, ri, feature_config, vn_list,
+                                  is_loopback_vn=False, lr_uuid=None):
+        routing_policies = []
+        routing_protocols = []
+        self._physical_router.set_routing_vn_proto_in_ri(
+            ri, routing_policies, vn_list, is_loopback_vn, lr_uuid,
+            routing_protocols)
+        if len(routing_policies) > 0:
+            feature_config.set_routing_policies(routing_policies)
+        if len(routing_protocols) > 0:
+            feature_config.set_routing_protocols(routing_protocols)
 
     def feature_config(self, **kwargs):
         self.pi_map = OrderedDict()
@@ -178,11 +201,15 @@ class VnInterconnectFeature(FeatureBase):
                 rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
 
-            routing_policies = []
-            self._physical_router.set_routing_vn_proto_in_ri(
-                ri, routing_policies, vn_list)
-            if len(routing_policies) > 0:
-                feature_config.set_routing_policies(routing_policies)
+            self._set_routed_vn_proto_info(ri, feature_config, vn_list)
+
+            if len(lr_obj.loopback_pr_ip_map) > 0:
+                if (lr_obj.loopback_pr_ip_map.get(self._physical_router.uuid,
+                                                  None)) is not None:
+                    self._set_routed_vn_proto_info(ri, feature_config,
+                                                   [lr_obj.loopback_vn_uuid],
+                                                   True,
+                                                   vn_obj.logical_router)
 
             feature_config.add_routing_instances(ri)
 
