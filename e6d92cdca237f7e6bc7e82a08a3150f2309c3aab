@@ -53,6 +53,23 @@
     },
     {
       "key": {
+        "uuid": "f1a10ac7_31e275c9",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/security_group_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-20T23:31:10Z",
+      "side": 1,
+      "message": "Some of this can be optimised",
+      "revId": "e6d92cdca237f7e6bc7e82a08a3150f2309c3aab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "607599d2_9b9b98ed",
         "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
         "patchSetId": 1
