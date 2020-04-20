@@ -82,6 +82,22 @@ public:
     KSyncBridgeMemory* ksync_bridge_memory() const {
         return ksync_bridge_memory_.get();
     }
+
+    void *btable_huge_page_mem_get() const {
+        if ((huge_pages_[btable_huge_pages_index_] == NULL) ||
+            (huge_pages_[btable_huge_pages_index_] == (void *) -1)) {
+            return NULL;
+        }
+        return huge_pages_[btable_huge_pages_index_];
+    }
+
+    void *ftable_huge_page_mem_get() const {
+        if ((huge_pages_[ftable_huge_pages_index_] == NULL) ||
+            (huge_pages_[ftable_huge_pages_index_] == (void *) -1)) {
+            return NULL;
+        }
+        return huge_pages_[ftable_huge_pages_index_];
+    }
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_;
@@ -113,6 +129,10 @@ private:
     static const int kHugePageFiles = 4;
     int huge_fd_[kHugePageFiles];
     void *huge_pages_[kHugePageFiles];
+    // index into huge_pages_[] where bridge table is mapped
+    int btable_huge_pages_index_;
+    // index into huge_pages_[] where flow table is mapped
+    int ftable_huge_pages_index_;
 
     DISALLOW_COPY_AND_ASSIGN(KSync);
 };

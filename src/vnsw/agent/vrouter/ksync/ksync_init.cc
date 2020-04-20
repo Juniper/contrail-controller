@@ -135,8 +135,8 @@ void KSync::InitDone() {
 }
 
 void KSync::InitFlowMem() {
-    ksync_flow_memory_.get()->InitMem();
-    ksync_bridge_memory_.get()->InitMem();
+    ksync_flow_memory_.get()->InitMem(ftable_huge_page_mem_get());
+    ksync_bridge_memory_.get()->InitMem(btable_huge_page_mem_get());
 }
 
 void KSync::NetlinkInit() {
@@ -286,6 +286,11 @@ void KSync::SetHugePages() {
             fail[i] = true;
             continue;
         }
+        if ((i % 2) == 0) {
+            btable_huge_pages_index_ = i;
+        } else {
+            ftable_huge_pages_index_ = i;
+        }
 
         huge_fd_[i] = open(filename[i].c_str(), flags[i], 0755);
         if (huge_fd_[i] < 0) {
@@ -299,7 +304,7 @@ void KSync::SetHugePages() {
                                        PROT_READ | PROT_WRITE, MAP_SHARED,
                                        huge_fd_[i], 0);
         if (huge_pages_[i] == MAP_FAILED) {
-            LOG(INFO, "Failed to Mmap hugepage file:" << filename[i].c_str() << "\n");
+            LOG(ERROR, "Failed to Mmap hugepage file:" << filename[i].c_str() << "\n");
             fail[i] = true;
         } else {
             LOG(INFO, "Mem mapped hugepage file:" << filename[i].c_str()
@@ -312,17 +317,21 @@ void KSync::SetHugePages() {
     std::vector<uint64_t> huge_mem;
     std::vector<uint32_t> huge_mem_size;
     std::vector<uint32_t> huge_page_size;
+    std::vector<std::string> huge_page_file_path;
+
     for (uint16_t i = 0; i < kHugePageFiles; ++i) {
         if (fail[i] == false) {
             huge_mem.push_back((uint64_t) huge_pages_[i]);
             huge_page_size.push_back(pagesize[i]);
             huge_mem_size.push_back(filesize[i]);
+            huge_page_file_path.push_back(filename[i]);
         }
     }
     encoder.set_vhp_mem(huge_mem);
     encoder.set_vhp_psize(huge_page_size);
     // set huge_mem_size
     encoder.set_vhp_mem_sz(huge_mem_size);
+    encoder.set_vhp_file_path(huge_page_file_path);
     encoder.set_vhp_resp(VR_HPAGE_CFG_RESP_HPAGE_SUCCESS);
 
     uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
