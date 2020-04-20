@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "f8299c51_fba3da23",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 293,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-04-20T08:13:42Z",
+      "side": 1,
+      "message": "These vars seem to get overwritten with each iteration of the loop. Is that ok?",
+      "revId": "34d5bac03111b072bb7d08314d2425d35f395e1c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "4972a079_c2e7be3c",
         "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.h",
         "patchSetId": 1
