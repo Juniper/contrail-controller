@@ -144,15 +144,15 @@ class AnsibleRoleCommon(AnsibleConf):
 
     # lo0 interface in RI for route lookup to happen for Inter VN traffic
     # qfx10k pfe limitation
-    def add_bogus_lo0(self, ri, network_id, vn):
+    def add_interface_lo0(self, ri, network_id, ip_addr, comment):
         ifl_num = 1000 + int(network_id)
         lo_intf, li_map = self.set_default_pi('lo0', 'loopback')
         intf_name = 'lo0.' + str(ifl_num)
         intf_unit = self.set_default_li(li_map, intf_name, ifl_num)
-        intf_unit.set_comment(DMUtils.l3_bogus_lo_intf_comment(vn))
-        self.add_ip_address(intf_unit, "127.0.0.1")
+        intf_unit.set_comment(comment)
+        self.add_ip_address(intf_unit, ip_addr)
         self.add_ref_to_list(ri.get_loopback_interfaces(), intf_name)
-    # end add_bogus_lo0
+    # end add_interface_lo0
 
     def add_inet_vrf_filter(self, firewall_config, vrf_name):
         firewall_config.set_family("inet")
@@ -212,6 +212,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
         ri = RoutingInstance(name=ri_name)
         is_master_int_vn = False
+        lr = None
         if vn:
             is_nat = True if fip_map else False
             ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat,
@@ -273,7 +274,23 @@ class AnsibleRoleCommon(AnsibleConf):
 
 
         if (is_internal_vn and not is_master_int_vn) or router_external:
-            self.add_bogus_lo0(ri, network_id, vn)
+            if not lr:
+                lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
+                                        ri_name)
+                if lr_uuid:
+                    lr = LogicalRouterDM.get(lr_uuid)
+
+            if lr and len(lr.loopback_pr_ip_map) > 0 and\
+                        lr.loopback_pr_ip_map.get(self.physical_router.uuid,
+                                                  None)\
+                        is not None:
+                comment = "loopback routed VN ip"
+                ip_addr = lr.loopback_pr_ip_map[self.physical_router.uuid]
+            else:
+                comment = DMUtils.l3_bogus_lo_intf_comment(vn)
+                ip_addr = "127.0.0.1"
+            vn_network_id = network_id
+            self.add_interface_lo0(ri, vn_network_id, ip_addr, comment)
 
         if self.is_gateway() and is_l2_l3 and not is_internal_vn:
             self.add_irb_config(ri_conf)
@@ -309,7 +326,7 @@ class AnsibleRoleCommon(AnsibleConf):
             term_ri_name = ri.get_name()
             # Routing instance name is set to description for internal vns
             # in the template. Routing instance name in the firewall
-            # filter is required to match with routing-instance name 
+            # filter is required to match with routing-instance name
             # in the template. This is used only by mx for fip-snat.
             if ri.get_virtual_network_is_internal():
                 term_ri_name = ri.get_description()
@@ -1555,6 +1572,19 @@ class AnsibleRoleCommon(AnsibleConf):
                                                     pr_uuid=
                                                     self.physical_router.uuid)
                 self.physical_router.set_routing_vn_proto_in_ri(
-                    int_ri, self.routing_policies, vn_list)
+                    int_ri, self.routing_policies,
+                    vn_list, self.routing_protocols)
+                if len(lr.loopback_pr_ip_map) > 0 and\
+                    lr.loopback_pr_ip_map.get(self.physical_router.uuid, None)\
+                    is not None:
+                    self.physical_router.set_routing_vn_proto_in_ri(
+                                int_ri,
+                                self.routing_policies,
+                                [lr.loopback_vn_uuid],
+                                True, lr_uuid,
+                                self.routing_protocols)
+
+
     # end set_internal_vn_routed_vn_config
+
 # end AnsibleRoleCommon
