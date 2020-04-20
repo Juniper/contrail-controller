@@ -17,7 +17,6 @@ set groups {{cfg_group}} interfaces {{pi_interface_name}} native-vlan-id 4094 fl
 {%                 endif %}
 {%                 for vlan in li_item.get('vlans') or [] %}
 set groups {{cfg_group}} interfaces {{pi_interface_name}} vlan-tagging
-set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family bridge interface-mode trunk
 set groups {{cfg_group}} bridge-domains {{vlan.name}} interface {{li_item.name}}
 {%                 endfor %}
 {%             endif %}
