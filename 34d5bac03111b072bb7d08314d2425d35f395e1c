@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "26d3edb7_5dd09efc",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 293,
+      "author": {
+        "id": 631
+      },
+      "writtenOn": "2020-04-20T08:57:18Z",
+      "side": 1,
+      "message": "The i is unique for each of the 2MB and 1GB hugepage files. And at any point in time, either 2MB or 1GB hugepage files will be used. So we are good.",
+      "parentUuid": "f8299c51_fba3da23",
+      "revId": "34d5bac03111b072bb7d08314d2425d35f395e1c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "4972a079_c2e7be3c",
         "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.h",
         "patchSetId": 1
@@ -30,6 +48,30 @@
       "writtenOn": "2020-04-20T07:58:27Z",
       "side": 1,
       "message": "is this needed?, why are we checking for 0xffffffff, initialising to NULL in ksync constructor ill make sure that it is either NULL or valid memory?",
+      "range": {
+        "startLine": 88,
+        "startChar": 68,
+        "endLine": 88,
+        "endChar": 69
+      },
+      "revId": "34d5bac03111b072bb7d08314d2425d35f395e1c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e0e27fe8_e1bc343c",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 631
+      },
+      "writtenOn": "2020-04-20T08:57:18Z",
+      "side": 1,
+      "message": "In case open/mmap fails, it will be set to -1. Maybe I can simplify this by setting it to valid only when mmap succeeds.",
+      "parentUuid": "4972a079_c2e7be3c",
       "range": {
         "startLine": 88,
         "startChar": 68,
