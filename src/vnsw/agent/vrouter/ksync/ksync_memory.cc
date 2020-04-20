@@ -86,24 +86,37 @@ void KSyncMemory::Init() {
                         boost::bind(&KSyncMemory::AuditProcess, this));
 }
 
-void KSyncMemory::Mmap(bool unlink_node) {
+void KSyncMemory::Mmap(bool unlink_node, void *khpmem, bool kernel_mode) {
+    // In case of non hugepage kernel mode,
     // Remove the existing /dev/ file first. We will add it again in vr_table_map
-    if (unlink_node) {
+    if (!khpmem && unlink_node) {
         const char *error_msg = vr_table_unlink(table_path_.c_str());
         if (error_msg) {
-            LOG(DEBUG, "Error unmapping KSync memory: " << error_msg);
+            LOG(ERROR, "Error unmapping KSync memory: " << error_msg);
             assert(0);
         }
     }
     parse_ini_file();
 
-    const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_path_.c_str(),
-                                              table_size_, &table_);
-    if (mmap_error_msg) {
-        LOG(ERROR, "Error mapping KSync memory. Device: " << table_path_ << "; " << mmap_error_msg);
-        assert(0);
+    // Kernel hugepage present
+    if (khpmem) {
+        table_ = khpmem;
+    } else {
+        // DPDK or kernel without hugepage support
+        const char *table_str;
+        if (kernel_mode) {
+            table_str = NULL;
+        } else {
+            table_str = table_path_.c_str();
+        }
+        const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_str,
+                                                  table_size_, &table_);
+        if (mmap_error_msg) {
+            LOG(ERROR, "Error mapping KSync memory. Device: " << table_path_ << "; " << mmap_error_msg);
+            assert(0);
+        }
+        LOG(INFO, "Mem mapped dev file:" << table_path_.c_str() << " to addr:" << table_ << "\n");
     }
-    LOG(INFO, "Mem mapped dev file:" << table_path_.c_str() << " to addr:" << table_ << "\n");
 
     table_entries_count_ = table_size_ / get_entry_size();
     SetTableSize();
@@ -144,12 +157,16 @@ int KSyncMemory::GetKernelTableSize() {
 }
 
 // Steps to map  table entry
+// In case of non huge pages
 // - Query the  table parameters from kernel
 // - Create device /dev/ with major-num and minor-num
 // - Map device memory
-void KSyncMemory::InitMem() {
+// In case of huge pages
+// - Just use the huge page memory which is initialized
+//   and passed to this function
+void KSyncMemory::InitMem(void *hpmem) {
     GetKernelTableSize();
-    Mmap(true);
+    Mmap(true, hpmem, true);
     return;
 }
 
@@ -263,5 +280,5 @@ void KSyncMemory::GetTableSize() {
 
 void KSyncMemory::MapSharedMemory() {
     GetTableSize();
-    Mmap(false);
+    Mmap(false, NULL, false);
 }

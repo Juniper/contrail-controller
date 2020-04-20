@@ -72,7 +72,10 @@ KSync::KSync(Agent *agent)
       ksync_bridge_memory_(new KSyncBridgeMemory(this, VR_MEM_BRIDGE_TABLE_OBJECT)) {
       for (uint16_t i = 0; i < kHugePageFiles; i++) {
           huge_fd_[i] = -1;
+          huge_pages_[i] = NULL;
       }
+      btable_huge_pages_index_ = 0;
+      ftable_huge_pages_index_ = 0;
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
           FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
           flow_table_ksync_obj_list_.push_back(obj);
@@ -135,8 +138,8 @@ void KSync::InitDone() {
 }
 
 void KSync::InitFlowMem() {
-    ksync_flow_memory_.get()->InitMem();
-    ksync_bridge_memory_.get()->InitMem();
+    ksync_flow_memory_.get()->InitMem(ftable_huge_page_mem_get());
+    ksync_bridge_memory_.get()->InitMem(btable_huge_page_mem_get());
 }
 
 void KSync::NetlinkInit() {
@@ -299,11 +302,17 @@ void KSync::SetHugePages() {
                                        PROT_READ | PROT_WRITE, MAP_SHARED,
                                        huge_fd_[i], 0);
         if (huge_pages_[i] == MAP_FAILED) {
-            LOG(INFO, "Failed to Mmap hugepage file:" << filename[i].c_str() << "\n");
+            LOG(ERROR, "Failed to Mmap hugepage file:" << filename[i].c_str() << "\n");
+            huge_pages_[i] = NULL;
             fail[i] = true;
         } else {
             LOG(INFO, "Mem mapped hugepage file:" << filename[i].c_str()
                       << " to addr:" << huge_pages_[i] << "\n");
+            if ((i % 2) == 0) {
+                btable_huge_pages_index_ = i;
+            } else {
+                ftable_huge_pages_index_ = i;
+            }
         }
     }
 
@@ -312,17 +321,28 @@ void KSync::SetHugePages() {
     std::vector<uint64_t> huge_mem;
     std::vector<uint32_t> huge_mem_size;
     std::vector<uint32_t> huge_page_size;
+    std::vector<int8_t>   huge_page_paths;
+    std::vector<uint32_t> huge_page_paths_sz;
+
     for (uint16_t i = 0; i < kHugePageFiles; ++i) {
         if (fail[i] == false) {
             huge_mem.push_back((uint64_t) huge_pages_[i]);
             huge_page_size.push_back(pagesize[i]);
             huge_mem_size.push_back(filesize[i]);
+            const char *path = filename[i].c_str();
+            uint32_t len = strlen(path) + 1;
+            for (uint32_t c = 0; c < len; c++) {
+                huge_page_paths.push_back(path[c]);
+            }
+            huge_page_paths_sz.push_back(len);
         }
     }
     encoder.set_vhp_mem(huge_mem);
     encoder.set_vhp_psize(huge_page_size);
     // set huge_mem_size
     encoder.set_vhp_mem_sz(huge_mem_size);
+    encoder.set_vhp_file_paths(huge_page_paths);
+    encoder.set_vhp_file_path_sz(huge_page_paths_sz);
     encoder.set_vhp_resp(VR_HPAGE_CFG_RESP_HPAGE_SUCCESS);
 
     uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
