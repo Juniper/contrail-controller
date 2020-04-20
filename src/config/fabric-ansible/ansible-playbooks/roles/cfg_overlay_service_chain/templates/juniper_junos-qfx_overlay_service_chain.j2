@@ -12,10 +12,9 @@
 {%                 set sys_config = device_abstract_config.get('system', None) %}
 {%                 set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%                 if 'PNF-Servicechain' in sys_roles %}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols evpn ip-prefix-routes export PNF_ROUTES
-set groups {{cfg_group}} policy-options policy-statement PNF_ROUTES term DEFAULT_BGP from protocol bgp
-set groups {{cfg_group}} policy-options policy-statement PNF_ROUTES term DEFAULT_BGP then accept
-set groups {{cfg_group}} policy-options policy-statement PNF_ROUTES then reject
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols evpn ip-prefix-routes export BGP_ROUTES
+set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT_BGP from protocol bgp
+set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT_BGP then accept
 {%                 endif %}
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp multipath
 set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
