@@ -165,6 +165,7 @@ class NetworkType(object):
     LOOPBACK_NETWORK = 'loopback'
     FABRIC_NETWORK = 'ip-fabric'
     PNF_SERVICECHAIN_NETWORK = 'pnf-servicechain'
+    OVERLAY_LOOPBACK_NETWORK = 'overlay-loopback'
 
     def __init__(self):
         """Init."""
@@ -572,6 +573,21 @@ class FilterModule(object):
                 loopback_subnets,
                 False
             )
+
+        # overlay loopback network
+        overlay_loopback_subnets = []
+        if fabric_info.get('overlay_loopback_subnets'):
+            overlay_loopback_subnets = [
+                {
+                    'cidr': subnet
+                } for subnet in fabric_info.get('overlay_loopback_subnets')
+            ]
+            self._add_cidr_namespace(
+                vnc_api,
+                fabric_obj,
+                'overlay-loopback-subnets',
+                overlay_loopback_subnets,
+                'label=fabric-overlay-loopback-ip')
 
         # fabric network
         if fabric_info.get('fabric_subnets'):
@@ -1260,6 +1276,11 @@ class FilterModule(object):
             )
             self._delete_fabric_network(
                 vnc_api, fabric_name, NetworkType.PNF_SERVICECHAIN_NETWORK
+            )
+
+            # delete overlay loopback network if it exists
+            self._delete_fabric_network(
+                vnc_api, fabric_name, NetworkType.OVERLAY_LOOPBACK_NETWORK
             )
 
             #delete intent map object
