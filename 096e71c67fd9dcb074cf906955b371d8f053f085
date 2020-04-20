@@ -16,6 +16,24 @@
       "revId": "096e71c67fd9dcb074cf906955b371d8f053f085",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e25aea5f_d7aac9db",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-04-20T09:02:14Z",
+      "side": 1,
+      "message": "I see your point. Thanks.\n\nI noticed that utils\u0027s module is used only in line 166. I\u0027m going to move the import here so that woul not create an issue when exectuting the tests only. Sounds reasonable?",
+      "parentUuid": "42979437_abc4bbbf",
+      "revId": "096e71c67fd9dcb074cf906955b371d8f053f085",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
