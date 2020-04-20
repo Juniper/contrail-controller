@@ -36,6 +36,11 @@ set groups {{cfg_group}} protocols bgp group {{bgp_name}} local-as {{bgp_local_a
 set groups __contrail_overlay_bgp__ protocols bgp group _contrail_asn-{{bf_global_asn}} local-as {{bf_global_asn}} loops 2
 set groups __contrail_overlay_bgp__ routing-options autonomous-system loops 2
 {%                     endif %}
+{%                     set local_ip = bgp.get('ip_address', '') %}
+{%                     if local_ip != '' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} local-address {{local_ip}}
+{%                     endif %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} multipath
 {%                     for peer in bgp.get('peers', []) %}
 {%                         set peer_ip = peer.get('ip_address') %}
 {%                         set peer_as = peer.get('autonomous_system') %}
@@ -62,16 +67,108 @@ set groups {{cfg_group}} protocols bgp group {{bgp_name}} export {{export_rp}}
 {%                         endfor %}
 {%                     endif %}{# /* bgp has routing policies */ #}
 {%                 endfor %}{# /* end of bgp for loop */ #}
+{%                 for pim in protocols.get('pim', []) %}
+{%                     set rp_list = pim.get('rp', []) %}
+{%                     set intf_list = pim.get('pim_interfaces', '') %}
+{%                     set eoai = pim.get('enable_on_all_interfaces', false) %}
+{%                     set mode = pim.get('mode') %}
+{%                     set bfd  = pim.get('bfd', {}) %}
+{%                     if rp_list|length > 0 %}
+{%                         for rp_ip in rp_list %}
+set groups {{cfg_group}} protocols pim rp address {{rp_ip}}
+{%                         endfor %} {# /* end for rp list */ #}
+{%                     endif %} {# /* endif for rp */ #}
+{%                     for intf in intf_list %}
+set groups {{cfg_group}} protocols pim interface {{intf.interface.name}}  mode {{mode}}
+{%                         if bfd|length > 0 %}
+{%                            set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                            set detection_time_multiplier = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} protocols pim interface {{intf.interface.name}} family inet bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} protocols pim interface {{intf.interface.name}} family inet bfd-liveness-detection multiplier {{detection_time_multiplier}}
+{%                         endif %} {# /* endif for bfd */ #}
+{%                     endfor %} {# /* endif for pim intf */ #}
+{%                 endfor %} {# /* end for proto pim */ #}
+{%                 for ospf in protocols.get('ospf', []) %}
+{%                     set area_id = ospf.get('area_id', '') %}
+{%                     set intf = ospf.get('interface', '') %}
+{%                     set area_type = ospf.get('area_type') %}
+{%                     set advertise_loop = ospf.get('advertise_loopback', false) %}
+{%                     set rp = ospf.get('routing_policies', {}) %}
+{%                     if rp|length > 0 %}
+{%                         for import_rp in rp.get('import_routing_policies', []) %}
+{%                             if import_rp != '' %}
+set groups {{cfg_group}} protocols ospf import {{import_rp}}
+{%                             endif %}
+{%                         endfor %}
+{%                         for export_rp in rp.get('export_routing_policies', []) %}
+{%                             if export_rp != '' %}
+set groups {{cfg_group}} protocols ospf export {{export_rp}}
+{%                             endif %}
+{%                         endfor %}
+{%                     endif %}{# /* ospf routing policies */ #}
+{%                     if area_id != '0.0.0.0' %}
+{%                         if area_type == 'nssa' %}
+{%                             if ospf.get('orignate_summary_lsa', false) == true %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} nssa default-lsa default-metric 10
+{%                             else %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} nssa no-summaries
+{%                             endif %}
+{%                         else %}
+{%                             if ospf.get('orignate_summary_lsa', false) == true %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} nssa stub default-metric 10
+{%                             else %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} nssa stub default-metric 10 no-summaries
+{%                             endif %}
+{%                         endif %}
+{%                     else %}
+{%                         if advertise_loop == true %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interface lo0.0 passive
+{%                         endif %}
+{%                     endif %} {# /* end of ospf area id */ #}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interrface {{intf}} interface-type p2p
+{%                     set ospf_auth_key = ospf.get('authentication_key', '') %}
+{%                     if ospf_auth_key != '' %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interrface {{intf}} authentication-key {{ospf_auth_key}}
+{%                     endif %}
+{%                     set hello_intv = ospf.get('hello_interval', 0) %}
+{%                     set dead_intv = ospf.get('dead_interval', 0) %}
+{%                     if hello_intv != 0 %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interrface {{intf}} hello-interval {{hello_intv}}
+{%                     endif %}
+{%                     if dead_intv != 0 %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interrface {{intf}} dead-interval {{dead_intv}}
+{%                     endif %}
+{%                     set bfd  = ospf.get('bfd', {}) %}
+{%                     if bfd|length > 0 %}
+{%                         set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                         set detection_time_multiplier = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interrface {{intf}} bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interrface {{intf}} bfd-liveness-detection multiplier  {{detection_time_multiplier}}
+{%                     endif %} {# /* endif for OSPF BFD*/ #}
+{%                 endfor %} {# /* end of OSPF loop */ #}
 {%             endfor %}{# /* end of protocols for loop */ #}
 {%         endif %}{# /* virtual_network_is_internal */ #}
 {%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) and (ri.get('is_master') != true) %}
 {%             set name = ri.get('description', '')[:127] %}
 {%             for lo_int in ri.get('loopback_interfaces', []) %}
-{%                 set int_name = lo_int.get('name', '') %}
-{%                 set unit_num = int_name.split('.')[-1] %}
-set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
+{%                 set loopback_intf_name = lo_int.get('name', '') %}
+{%                 for pi in device_abstract_config.get('physical_interfaces', []) %}
+{%                     if pi.get('interface_type', '') == 'loopback' %}
+{%                         for li in pi.get('logical_interfaces'), [] %}
+{%                             set int_name = li.get('name', '') %}
+{%                             if int_name == loopback_intf_name %}
+{%                                 set unit_num = int_name.split('.')[-1] %}
+{%                                 set addresses = li.get('ip_addresses',[]) %}
+{%                                 for address in addresses or [] %}
+{%                                     set addr = address.get('address','') + '/32' %}
+set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address {{ addr }}
 set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
-{%             endfor %}
+{%                                 endfor %} {# /* end for LI address loop */ #}
+{%                             endif %} {# /* endif for interface name check  */ #}
+{%                         endfor %} {# /* end for LI in physical interfaces  */ #}
+{%                     endif %} {# /* endif  interface type loopback */ #}
+{%                 endfor %} {# /* end for physical interfaces loop */ #}
+{%             endfor %} {# /* end for loopback interfaces loop */ #}
 set groups {{cfg_group}} routing-instances {{name}} routing-options multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options rib {{name}}.inet6.0 multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{dummy_ip}}/32 discard
@@ -118,6 +215,10 @@ set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_na
 set groups __contrail_overlay_bgp__ protocols bgp group _contrail_asn-{{bf_global_asn}} local-as {{bf_global_asn}} loops 2
 set groups __contrail_overlay_bgp__ routing-options autonomous-system loops 2
 {%                         endif %}
+{%                         set local_ip = bgp.get('ip_address', '') %}
+{%                         if local_ip != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} local-address {{local_ip}}
+{%                         endif %}
 set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} multipath
 {%                         for peer in bgp.get('peers', []) %}
 {%                             set peer_ip = peer.get('ip_address') %}
@@ -150,6 +251,89 @@ set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT
 set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES then reject
 {%                     endif %}
 {%                 endfor %}{# /* end of bgp for loop */ #}
+{%                 for pim in protocols.get('pim', []) %}
+{%                     if 'Routed VN PIM info' in pim.get('comment','') %}
+{%                         set rp_list = pim.get('rp', []) %}
+{%                         set intf_list = pim.get('pim_interfaces', []) %}
+{%                         set eoai = pim.get('enable_on_all_interfaces', false) %}
+{%                         set mode = pim.get('mode') %}
+{%                         set bfd  = pim.get('bfd', {}) %}
+{%                         if rp_list|length > 0 %}
+{%                             for rp_ip in rp_list %}
+set groups {{cfg_group}} routing-instances {{name}} protocols pim rp address {{rp_ip}}
+{%                             endfor %} {# /* end for rp list */ #}
+{%                         endif %} {# /* endif for rp */ #}
+{%                         for intf in intf_list %}
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface {{intf.interface.name}}  mode {{mode}}
+{%                             if bfd|length > 0 %}
+{%                                 set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                                 set detection_time_multiplier = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface {{intf.interface.name}} family inet bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface {{intf.interface.name}} family inet bfd-liveness-detection multiplier {{detection_time_multiplier}}
+{%                             endif %} {# /* endif for bfd */ #}
+{%                         endfor %} {# /* endif for pim intf */ #}
+{%                     endif %} {# /* endif for pim comment */ #}
+{%                 endfor %} {# /* end for proto pim */ #}
+{%                 for ospf in protocols.get('ospf', []) %}
+{%                     if 'Routed VN OSPF info' in ospf.get('comment','') %}
+{%                         set area_id = ospf.get('area_id', '') %}
+{%                         set intf = ospf.get('interface', '') %}
+{%                         set area_type = ospf.get('area_type') %}
+{%                         set advertise_loop = ospf.get('advertise_loopback', false) %}
+{%                         set rp = ospf.get('routing_policies', {}) %}
+{%                         if rp|length > 0 %}
+{%                             for import_rp in rp.get('import_routing_policies', []) %}
+{%                                 if import_rp != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf import {{import_rp}}
+{%                                 endif %}
+{%                             endfor %}
+{%                             for export_rp in rp.get('export_routing_policies', []) %}
+{%                                 if export_rp != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf export {{export_rp}}
+{%                                 endif %}
+{%                             endfor %}
+{%                         endif %}{# /* ospf routing policies */ #}
+{%                         if area_id != '0.0.0.0' %}
+{%                             if area_type == 'nssa' %}
+{%                                 if ospf.get('orignate_summary_lsa', false) == true %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} nssa default-lsa default-metric 10
+{%                                 else %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} nssa no-summaries
+{%                                 endif %}
+{%                             else %}
+{%                                 if ospf.get('orignate_summary_lsa', false) == true %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} nssa stub default-metric 10
+{%                                 else %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} nssa stub default-metric 10 no-summaries
+{%                                 endif %}
+{%                             endif %}
+{%                         else %}
+{%                             if advertise_loop == true %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interface lo0.0 passive
+{%                             endif %}
+{%                         endif %} {# /* end of ospf area id */ #}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interrface {{intf}} interface-type p2p
+{%                         set ospf_auth_key = ospf.get('authentication_key', '') %}
+{%                         if ospf_auth_key != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interrface {{intf}} authentication-key {{ospf_auth_key}}
+{%                         endif %}
+{%                         set hello_intv = ospf.get('hello_interval', 0) %}
+{%                         set dead_intv = ospf.get('dead_interval', 0) %}
+{%                         if hello_intv != 0 %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interrface {{intf}} hello-interval {{hello_intv}}
+{%                         endif %}
+{%                         if dead_intv != 0 %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interrface {{intf}} dead-interval {{dead_intv}}
+{%                         endif %}
+{%                         set bfd  = ospf.get('bfd', {}) %}
+{%                         if bfd|length > 0 %}
+{%                             set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                             set detection_time_multiplier = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interrface {{intf}} bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interrface {{intf}} bfd-liveness-detection multiplier  {{detection_time_multiplier}}
+{%                         endif %} {# /* endif for OSPF BFD*/ #}
+{%                     endif %} {# /* end of OSPF comment loop */ #}
+{%                 endfor %} {# /* end of OSPF loop */ #}
 {%             endfor %}{# /* end of protocols for loop */ #}
 {%             set sys_config = device_abstract_config.get('system', None) %}
 {%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
@@ -168,6 +352,24 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%     if ns.public_network == true %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%     endif %}
+{%     for rp in device_abstract_config.features.get('vn-interconnect').get('routing_protocols', []) %}
+{%         for igmp in rp.get('igmp', []) %}
+{%             for intf in igmp.get('interfaces', []) %}
+{%                 set intf_name = intf.get('name', '') %}
+set groups {{cfg_group}} protocols igmp interface {{intf_name}}
+{%             endfor %}
+{%         endfor %} {# /* end for igmp*/ #}
+{%         for igmp_snoop in rp.get('igmp_snooping', []) %}
+{%             for vlan in igmp_snoop.get('vlans', []) %}
+{%                 set vlan_name = vlan.get('name', '') %}
+set groups {{cfg_group}} protocols igmp-snooping vlan {{vlan_name}}
+{%                 for intf in vlan.get('interfaces', []) %}
+{%                     set intf_name = intf.get('name', '') %}
+set groups {{cfg_group}} protocols igmp-snooping vlan {{vlan_name}} interface {{intf_name}}
+{%                 endfor %}
+{%             endfor %}
+{%         endfor %} {# /* end for igmp snooping*/ #}
+{%     endfor %} {# /* end for routing-protocols */ #}
 {%     for rp in device_abstract_config.get('routing_policies', []) %}
 {%         set rp_entery = rp.get('routing_policy_entries', {}) %}
 {%         if rp_entery|length > 0 %}
