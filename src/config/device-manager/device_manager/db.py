@@ -850,11 +850,12 @@ class PhysicalRouterDM(DBBaseDM):
                     list(self.vn_ip_map[ip_used_for].items()):
                 (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
                 vn = VirtualNetworkDM.get(vn_uuid)
-                if vn_uuid not in ips[ip_used_for]:
-                    ips[ip_used_for][vn_uuid] = set()
-                ips[ip_used_for][vn_uuid].add(
-                    (ip_addr,
-                     vn.gateways[subnet_prefix].get('default_gateway')))
+                if vn:
+                    if vn_uuid not in ips[ip_used_for]:
+                        ips[ip_used_for][vn_uuid] = set()
+                    ips[ip_used_for][vn_uuid].add(
+                        (ip_addr,
+                         vn.gateways[subnet_prefix].get('default_gateway')))
         return ips
     # end get_vn_irb_ip_map
 
@@ -1368,7 +1369,7 @@ class PhysicalRouterDM(DBBaseDM):
                     rp_obj_list[rp_name] = rp_obj
     # end _build_routing_policies_list
 
-    def _set_bgp_routing_policies_for_routed_vn(self, rp_obj_list, bgp,
+    def _set_bgp_routing_policies_for_routed_vn(self, rp_obj_list, proto,
                                                 vn_obj, rp_params):
         if not rp_params:
             return
@@ -1381,8 +1382,54 @@ class PhysicalRouterDM(DBBaseDM):
         rp_param_obj = AbstractDevXsd.RoutingPolicyParameters(
             import_routing_policies=rp_imported_list,
             export_routing_policies=rp_exported_list)
-        bgp.set_routing_policies(rp_param_obj)
+        proto.set_routing_policies(rp_param_obj)
     # end _set_bgp_routing_policies_for_routed_vn
+
+    def _set_routed_vn_ospf_info(self, ri, rp_obj_list, vn_obj,
+                                 routed_param):
+        protocols = AbstractDevXsd.RoutingInstanceProtocols()
+        ospf_info = routed_param.get('ospf_params', None)
+        bfd_info = routed_param.get('bfd_params', None)
+        rp_params = routed_param.get('routing_policy_params', None)
+        if not ospf_info:
+            return
+        ospf_name = vn_obj.name + '_ospf'
+        key = ''
+        auth_key_data = ospf_info.get('auth_data', None)
+        if auth_key_data:
+            for key_data in auth_key_data.get('key_items', []):
+                key = key_data.get('key', '')
+                if key.lower().startswith(('$9$', '$1$', '$5$', '$6$')):
+                    key = '"%s"' % key
+        intf = 'irb.' + str(vn_obj.vn_network_id)
+        ospf_obj = AbstractDevXsd.Ospf(name=ospf_name,
+                                       authentication_key=key,
+                                       interface=intf,
+                                       hello_interval=ospf_info.get(
+                                           'hello_interval'),
+                                       dead_interval=ospf_info.get(
+                                           'dead_interval'),
+                                       area_id=ospf_info.get('area_id'),
+                                       area_type=ospf_info.get('area_type'),
+                                       advertise_loopback=ospf_info.get(
+                                           'advertise_loopback'),
+                                       orignate_summary_lsa=ospf_info.get(
+                                           'orignate_summary_lsa'),
+                                       send_lsa_in_nssa=ospf_info.get(
+                                           'send_lsa_in_nssa'))
+
+        ospf_obj.set_comment('Routed VN OSPF info')
+        if bfd_info:
+            bfd = AbstractDevXsd.Bfd(rx_tx_interval=bfd_info.get(
+                                     'time_interval'),
+                                     detection_time_multiplier=bfd_info.get(
+                                     'detection_time_multiplier'))
+            ospf_obj.set_bfd(bfd)
+        self._set_bgp_routing_policies_for_routed_vn(rp_obj_list, ospf_obj,
+                                                     vn_obj, rp_params)
+        protocols.add_ospf(ospf_obj)
+        ri.add_protocols(protocols)
+    # end _set_routed_vn_ospf_info
 
     def _set_internal_vn_routed_bgp_info(self, ri, rp_obj_list, vn_obj,
                                          routed_param):
@@ -1393,11 +1440,6 @@ class PhysicalRouterDM(DBBaseDM):
         if not bgp_info:
             return
         bgp_name = vn_obj.name + '_bgp'
-        peer_bgp = AbstractDevXsd.Bgp(name=bgp_info.get('peer_ip_address'),
-                                      autonomous_system=bgp_info.get(
-                                          'peer_autonomous_system'),
-                                      ip_address=bgp_info.get(
-                                          'peer_ip_address'))
         key = ''
         auth_key_data = bgp_info.get('auth_data', None)
         if auth_key_data:
@@ -1407,11 +1449,33 @@ class PhysicalRouterDM(DBBaseDM):
                     key = '"%s"' % key
         local_asnv = bgp_info.get(
             'local_autonomous_system', None) or self.brownfield_global_asn
+
         bgp = AbstractDevXsd.Bgp(name=bgp_name,
                                  type_="external",
                                  autonomous_system=local_asnv,
                                  authentication_key=key)
-        bgp.add_peers(peer_bgp)
+
+        if routed_param.get('loopback_ip_address', None) is not None:
+            bgp.set_ip_address(routed_param.get('loopback_ip_address'))
+
+        # this is for backward compatibility. from 2005 onwards
+        # peer_ip_address_list is expected and in case DM gets both
+        # peer_ip_address_list would be given priority.
+        if bgp_info.get('peer_ip_address_list', None):
+            for peer_ip in bgp_info.get('peer_ip_address_list') or []:
+                peer_bgp = AbstractDevXsd.Bgp(name=peer_ip,
+                                              autonomous_system=bgp_info.get(
+                                                  'peer_autonomous_system'),
+                                              ip_address=peer_ip)
+                bgp.add_peers(peer_bgp)
+        else:
+            peer_ip = bgp_info.get('peer_ip_address')
+            peer_bgp = AbstractDevXsd.Bgp(name=peer_ip,
+                                          autonomous_system=bgp_info.get(
+                                              'peer_autonomous_system'),
+                                          ip_address=peer_ip)
+
+            bgp.add_peers(peer_bgp)
         bgp.set_comment('Routed VN BGP info')
         if bfd_info:
             bfd = AbstractDevXsd.Bfd(
@@ -1444,7 +1508,95 @@ class PhysicalRouterDM(DBBaseDM):
             ri.add_static_routes(route)
     # end set_routed_vn_static_route_info
 
-    def set_routing_vn_proto_in_ri(self, ri, rp, vn_list):
+    def get_bd_li_map(self, vn_obj):
+        vn_dict = {}
+        bd_name = "bd-" + str(vn_obj.vn_network_id)
+        vmi_list = vn_obj.virtual_machine_interfaces
+        for vmi_uuid in vmi_list or []:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            vlan_tag = vmi.vlan_tag
+            if vmi and not vmi.virtual_port_group:
+                continue
+            vpg = VirtualPortGroupDM(vmi.virtual_port_group)
+            if vpg:
+                for pi_uuid in vpg.physical_interfaces or []:
+                    pi = PhysicalInterfaceDM(pi_uuid, None)
+                    if pi and pi.physical_router == self.uuid:
+                        ae_id = vpg.pi_ae_map.get(pi_uuid)
+                        if ae_id is not None and vlan_tag is not None:
+                            ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
+                            vn_dict.setdefault(bd_name, []).append(ae_name)
+                        else:
+                            li_name = pi.name + "." + str(vlan_tag)
+                            vn_dict.setdefault(bd_name, []).append(li_name)
+        return vn_dict
+
+    def _set_routed_vn_pim_info(self, ri, vn_obj, routed_param, rproto):
+        rp = AbstractDevXsd.RoutingProtocol()
+        protocols = AbstractDevXsd.RoutingInstanceProtocols()
+        pim_params = routed_param.get('pim_params', None)
+        if not pim_params:
+            return
+        rp_ip = pim_params.get('rp_ip_address', None)
+        pim_mode = pim_params.get('mode', None)
+        flag_eoai = pim_params.get('enable_all_interfaces', False)
+        bfd_info = routed_param.get('bfd_params', None)
+        pim_intf = None
+        if not flag_eoai:
+            intf = 'irb.' + str(vn_obj.vn_network_id)
+        else:
+            intf = 'all'
+        pim_intf = [AbstractDevXsd.PimInterface(
+            interface=AbstractDevXsd.Reference(intf))]
+
+        # Create IGMP anstract config
+        igmp_name = "igmp-" + str(vn_obj.vn_network_id)
+        igmp_interface = [AbstractDevXsd.Reference(intf)]
+        igmp = AbstractDevXsd.Igmp(name=igmp_name,
+                                   comment='Routed VN IGMP config',
+                                   interfaces=igmp_interface)
+
+        rp.add_igmp(igmp)
+
+        pim_obj = AbstractDevXsd.Pim(rp=rp_ip,
+                                     mode=pim_mode,
+                                     pim_interfaces=pim_intf,
+                                     enable_on_all_interfaces=flag_eoai)
+
+        pim_obj.set_comment('Routed VN PIM info')
+        if bfd_info:
+            bfd = AbstractDevXsd.Bfd(
+                rx_tx_interval=bfd_info.get('time_interval'),
+                detection_time_multiplier=bfd_info.get(
+                    'detection_time_multiplier'))
+            pim_obj.set_bfd(bfd)
+        protocols.add_pim(pim_obj)
+
+        ri.add_protocols(protocols)
+
+        # Create IGMP Snooping Config
+        bd_li_map = self.get_bd_li_map(vn_obj)
+        if len(bd_li_map) > 0:
+            igs_name = "igmp-snoop-" + str(vn_obj.vn_network_id)
+            igs_comment = "Routed VN IGMP SNOOPING"
+            igs = AbstractDevXsd.IgmpSnooping(name=igs_name,
+                                              comment=igs_comment)
+            for bd in bd_li_map.keys() or None:
+                vlan_name = bd
+                vlan = AbstractDevXsd.Vlan(name=vlan_name)
+                intf_lst = vlan.get_interfaces()
+                for intf in bd_li_map[bd]:
+                    if not any(v.get_name() == intf for v in intf_lst):
+                        intf_lst.append(AbstractDevXsd.Reference(name=intf))
+                if not any(v.get_name() == vlan for v in igs.get_vlans()):
+                    igs.get_vlans().append(vlan)
+            rp.add_igmp_snooping(igs)
+        rproto.append(rp)
+    # end _set_routed_vn_pim_info
+
+    def set_routing_vn_proto_in_ri(self, ri, rp, vn_list,
+                                   is_loopback_vn=False, lr_uuid=None,
+                                   rproto=[]):
         rp_obj_list = {}
         for vn in vn_list or []:
             vn_obj = VirtualNetworkDM.get(vn)
@@ -1452,6 +1604,11 @@ class PhysicalRouterDM(DBBaseDM):
                 continue
             for route_param in vn_obj.routed_properties or []:
                 if self.uuid == route_param.get('physical_router_uuid'):
+                    if is_loopback_vn:
+                        if route_param.get('logical_router_uuid', None) !=\
+                           lr_uuid:
+                            continue
+
                     if route_param.get('routing_protocol') == 'bgp':
                         self._set_internal_vn_routed_bgp_info(ri, rp_obj_list,
                                                               vn_obj,
@@ -1460,6 +1617,14 @@ class PhysicalRouterDM(DBBaseDM):
                             == 'static-routes':
                         self._set_routed_vn_static_route_info(ri, vn_obj,
                                                               route_param)
+                    elif route_param.get('routing_protocol') \
+                            == 'ospf':
+                        self._set_routed_vn_ospf_info(ri, rp_obj_list, vn_obj,
+                                                      route_param)
+                    elif route_param.get('routing_protocol') == 'pim':
+                        self._set_routed_vn_pim_info(ri, vn_obj,
+                                                     route_param, rproto)
+
         self._set_routing_policies(rp, rp_obj_list)
 
     # end set_routing_vn_proto_in_ri
@@ -2006,6 +2171,8 @@ class LogicalRouterDM(DBBaseDM):
         # internal virtual-network
         self.virtual_network = None
         self.is_master = False
+        self.loopback_pr_ip_map = {}
+        self.loopback_vn_uuid = None
         self.port_tuples = set()
         self.update(obj_dict)
     # end __init__
@@ -2044,6 +2211,13 @@ class LogicalRouterDM(DBBaseDM):
                     return True
         return False
 
+    def _create_pr_loopback_ip_map(self, pr_uuid, vn):
+        for route_param in vn.routed_properties or []:
+            if self.uuid == route_param.get('logical_router_uuid', None) and\
+                    pr_uuid == route_param.get('physical_router_uuid', None):
+                self.loopback_pr_ip_map[pr_uuid] = route_param.\
+                    get('loopback_ip_address', None)
+
     def get_connected_networks(self, include_internal=True, pr_uuid=None):
         vn_list = []
         if include_internal and self.virtual_network:
@@ -2051,11 +2225,16 @@ class LogicalRouterDM(DBBaseDM):
         for vmi_uuid in self.virtual_machine_interfaces or []:
             vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
             if vmi and vmi.virtual_network:
-                vm_obj = VirtualNetworkDM.get(vmi.virtual_network)
-                if vm_obj:
-                    if vm_obj.virtual_network_category == 'routed':
+                vn_obj = VirtualNetworkDM.get(vmi.virtual_network)
+                if vn_obj:
+                    if vn_obj.virtual_network_category == 'routed':
+                        if 'overlay-loopback' in vn_obj.name:
+                            self._create_pr_loopback_ip_map(pr_uuid,
+                                                            vn_obj)
+                            self.loopback_vn_uuid = vn_obj.uuid
+                            continue
                         if self.is_pruuid_in_routed_vn(pr_uuid,
-                                                       vm_obj) == False:
+                                                       vn_obj) == False:
                             continue
                 vn_list.append(vmi.virtual_network)
         return vn_list
