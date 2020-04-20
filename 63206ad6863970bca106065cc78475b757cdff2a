@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1f5fcc68_363df628",
+        "filename": "src/vnsw/agent/port_ipc/vrouter-port-control",
+        "patchSetId": 2
+      },
+      "lineNbr": 221,
+      "author": {
+        "id": 216
+      },
+      "writtenOn": "2020-04-20T15:31:36Z",
+      "side": 1,
+      "message": "typo in parameter for self.StripQuotes \ni guess it has to be self._args.* not self.args",
+      "revId": "63206ad6863970bca106065cc78475b757cdff2a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
