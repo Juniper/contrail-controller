@@ -253,11 +253,13 @@ class VncKombuClientBase(object):
 
     _SUPPORTED_SSL_PROTOCOLS = ("tlsv1_2", "tlsv1.2")
 
-    @classmethod
-    def validate_ssl_version(cls, version):
+    def validate_ssl_version(self, version):
         version = version.lower()
-        if version not in cls._SUPPORTED_SSL_PROTOCOLS:
-            raise RuntimeError('Invalid SSL version: {}'.format(version))
+        if version not in self._SUPPORTED_SSL_PROTOCOLS:
+            log_str = 'Trying to use deprecated SSL version: %s. ' \
+                      'Actually only TLS 1.2 is supported - ' \
+                      'it was set anyway.' % (str(version))
+            self._logger(log_str, level=SandeshLevel.SYS_WARN)
 
     def _fetch_ssl_params(self, **kwargs):
         if strtobool(str(kwargs.get('rabbit_use_ssl', False))):
