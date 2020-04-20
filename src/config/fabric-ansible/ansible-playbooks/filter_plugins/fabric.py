@@ -573,6 +573,21 @@ class FilterModule(object):
                 False
             )
 
+        # overlay loopback network
+        overlay_loopback_subnets = []
+        if fabric_info.get('overlay_loopback_subnets'):
+            overlay_loopback_subnets = [
+                {
+                    'cidr': subnet
+                } for subnet in fabric_info.get('overlay_loopback_subnets')
+            ]
+            self._add_cidr_namespace(
+                vnc_api,
+                fabric_obj,
+                'overlay-loopback-subnets',
+                overlay_loopback_subnets,
+                'label=fabric-overlay-loopback-ip')
+
         # fabric network
         if fabric_info.get('fabric_subnets'):
             fabric_subnets = [

@@ -17,6 +17,7 @@
        <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
        <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
        <xsd:element name="routing-policies" type="dac:RoutingPolicy" maxOccurs="unbounded"/>
+       <xsd:element name="routing-protocols" type="dac:RoutingProtocol" maxOccurs="unbounded"/>
        <!-- Deprecated: These sections are encapsulated inside feature groups -->
     </xsd:all>
 </xsd:complexType>
@@ -38,6 +39,7 @@
         <xsd:element name="storm-control" type="dac:StormControl" maxOccurs="unbounded"/>
         <xsd:element name="telemetry" type="dac:Telemetry" maxOccurs="unbounded"/>
         <xsd:element name="routing-policies" type="dac:RoutingPolicy" maxOccurs="unbounded"/>
+        <xsd:element name="routing-protocols" type="dac:RoutingProtocol" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -123,8 +125,37 @@
     </xsd:all>
 </xsd:complexType>
 
-<xsd:complexType name="Credentials">
+<xsd:simpleType name="OspfAreaType">
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='nssa'/>
+        <xsd:enumeration value='stub'/>
+        <xsd:enumeration value='backbone'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="Ospf">
     <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="uuid" type="xsd:string"/>
+       <xsd:element name="type" type="xsd:string"/>
+       <xsd:element name="interface" type="xsd:string"/>
+       <xsd:element name="authentication-key" type="xsd:string"/>
+       <xsd:element name="authentication-method" type="xsd:string"/>
+       <xsd:element name="hello-interval" type="xsd:integer"/>
+       <xsd:element name="dead-interval" type="xsd:integer"/>
+       <xsd:element name="area-id" type="xsd:string"/>
+       <xsd:element name='area-type' type='OspfAreaType'/>
+       <xsd:element name='advertise-loopback' type='xsd:boolean'/>
+       <xsd:element name='orignate-summary-lsa' type='xsd:boolean'/>
+       <xsd:element name='send-lsa-in-nssa' type='xsd:boolean'/>
+       <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
+       <xsd:element name="routing-policies" type="dac:RoutingPolicyParameters"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Credentials">
+<xsd:all>
        <xsd:element name="authentication-method" type="dac:DeviceAuthenticationMethods"/>
        <xsd:element name="user-name" type="xsd:string"/>
        <xsd:element name="password" type="xsd:string"/>
@@ -193,6 +224,14 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="PimMode">
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='sparse'/>
+        <xsd:enumeration value='sparse-dense'/>
+        <xsd:enumeration value='dense'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="PimRp">
     <xsd:all>
         <xsd:element name="ip-address" type="xsd:string"/>
@@ -209,7 +248,26 @@
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="pim-interfaces" type="dac:PimInterface" maxOccurs="unbounded"/>
-       <xsd:element name="rp" type="dac:PimRp"/>
+       <xsd:element name="rp" type="dac:PimRp" maxOccurs="unbounded"/>
+       <xsd:element name="mode" type="dac:PimMode"/>
+       <xsd:element name="enable-on-all-interfaces" type="dac:boolean"/>
+       <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Igmp">
+    <xsd:all>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="interfaces" type="dac:Reference" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="IgmpSnooping">
+    <xsd:all>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -221,12 +279,20 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="RoutingProtocol">
+    <xsd:all>
+        <xsd:element name="igmp" type="dac:Igmp" maxOccurs="unbounded"/>
+        <xsd:element name="igmp-snooping" type="dac:IgmpSnooping" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="RoutingInstanceProtocols">
     <xsd:all>
         <xsd:element name="evpn" type="dac:Evpn" maxOccurs="unbounded"/>
         <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
         <xsd:element name="pim" type="dac:Pim" maxOccurs="unbounded"/>
         <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
+        <xsd:element name="ospf" type="dac:Ospf" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 

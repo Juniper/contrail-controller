@@ -886,6 +886,15 @@
         },
         {
           "fq_name": [
+            "label=fabric-overlay-loopback-ip"
+          ],
+          "name": "label=fabric-overlay-loopback-ip",
+          "tag_type_name": "label",
+          "tag_value": "fabric-overlay-loopback-ip",
+          "tag_predefined": true
+        },
+        {
+          "fq_name": [
             "label=fabric-peer-ip"
           ],
           "name": "label=fabric-peer-ip",

@@ -8,6 +8,7 @@
       "fabric_fq_name",
       "management_subnets",
       "loopback_subnets",
+      "overlay_loopback_subnets",
       "fabric_subnets",
       "fabric_asn_pool",
       "device_auth",
@@ -53,6 +54,14 @@
         "items": {
           "type": "string",
           "description": "List of the subnet prefixes that fabric device loopback ips can be allocated.",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        }
+      },
+      "overlay_loopback_subnets": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "List of the subnet prefixes that fabric device overlay loopback ips can be allocated.",
           "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
         }
       },
