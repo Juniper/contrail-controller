@@ -1299,6 +1299,8 @@ class VncDbClient(object):
                                obj_type, obj_uuids, field_names=obj_fields)
 
         uve_trace_list = []
+        def_master_lr_created = False
+
         for obj_dict in obj_dicts:
             try:
                 obj_uuid = obj_dict['uuid']
@@ -1469,6 +1471,95 @@ class VncDbClient(object):
                         obj_dict['project_refs'] = [ref]
                         self._object_db.object_update('floating_ip',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'logical_router':
+                    if not def_master_lr_created:
+                        new_obj_dict = dict()
+                        # now create the new LR with default-project
+                        # as parent
+
+                        new_obj_dict['fq_name'] = [
+                            'default-domain',
+                            'default-project',
+                            'master-LR'
+                        ]
+                        new_obj_dict['name'] = 'master-LR'
+                        new_obj_dict['logical_router_gateway_external'] \
+                            = False
+                        new_obj_dict['logical_router_type'] \
+                            = 'vxlan-routing'
+                        project_uuid = self.fq_name_to_uuid(
+                            'project',
+                            ['default-domain',
+                             'default-project'])
+                        new_obj_dict['parent_uuid'] = project_uuid
+
+                        # set global_access to true and perms2 to rwx
+                        perms2 = self.update_perms2(None)
+                        perms2['global_access'] = PERMS_RWX
+                        new_obj_dict['perms2'] = perms2
+
+                        # try to find admin master lr if it exists
+                        # and delete it after saving properties
+
+                        try:
+                            admin_lr_uuid = self.fq_name_to_uuid(
+                                'logical_router',
+                                ['default-domain', 'admin', 'master-LR']
+                            )
+                            (ok, lr_objs) = self._object_db.object_read(
+                                'logical_router',
+                                [admin_lr_uuid],
+                                field_names=['virtual_machine_interface_refs',
+                                             'physical_router_refs'])
+
+                            if ok and len(lr_objs) > 0:
+                                lr_obj = lr_objs[0]
+                                vmi_ref_list = []
+                                for vmi_ref in lr_obj.get(
+                                        'virtual_machine_interface_refs') or []:
+                                    vmi_ref_list.append(
+                                        {'to': vmi_ref['to'],
+                                         'attr': vmi_ref['attr']})
+                                new_obj_dict['virtual_machine_interface_refs'] \
+                                    = vmi_ref_list
+
+                                pr_ref_list = []
+                                for pr_ref in lr_obj.get(
+                                        'physical_router_refs') or []:
+                                    pr_ref_list.append({'to': pr_ref['to'],
+                                                        'attr': pr_ref['attr']})
+                                new_obj_dict['physical_router_refs'] \
+                                    = pr_ref_list
+
+                                vn_ref_list = []
+                                for vn_ref in lr_obj.get(
+                                        'virtual_network_refs') or []:
+                                    vn_ref_list.append({'to': vn_ref['to'],
+                                                        'attr': vn_ref['attr']})
+                                new_obj_dict['virtual_network_refs'] \
+                                    = vn_ref_list
+
+                            # now delete the logical router with admin
+                            # as parent
+                            self._object_db.object_delete(
+                                'logical_router',
+                                admin_lr_uuid)
+
+                        except NoIdError:
+                            # do nothing if no admin master-lr found
+                            pass
+
+                        try:
+                            self._api_svr_mgr.create_singleton_entry(
+                                LogicalRouter(**new_obj_dict)
+                            )
+                        except RefsExistError:
+                            # do nothing if default project is already created
+                            # this would be the case of clean upgrade
+                            # after R2005
+                            pass
+
+                        def_master_lr_created = True
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
