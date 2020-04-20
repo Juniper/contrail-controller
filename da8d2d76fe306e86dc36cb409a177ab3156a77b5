@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ddc9779d_290fb39e",
+        "filename": "src/vnsw/agent/port_ipc/vrouter-port-control",
+        "patchSetId": 1
+      },
+      "lineNbr": 221,
+      "author": {
+        "id": 216
+      },
+      "writtenOn": "2020-04-20T15:22:23Z",
+      "side": 1,
+      "message": "onee more typo \nself.args.port_json_path has to be self._args.port_json_path",
+      "revId": "da8d2d76fe306e86dc36cb409a177ab3156a77b5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
