@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "42979437_abc4bbbf",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-20T08:41:39Z",
+      "side": 1,
+      "message": "That script is used by support to dump or load DBs.\nWe should not hide the import errors at they can run it in a setup with all dependency.",
+      "revId": "096e71c67fd9dcb074cf906955b371d8f053f085",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
