@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "46bfae14_2db41e0a",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 267,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T01:28:38Z",
+      "side": 1,
+      "message": "what if this read fails?",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "474cf6e3_21883a09",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 271,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T01:28:38Z",
+      "side": 1,
+      "message": "Do not hardcode to 7",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4d3fd06b_d6c8cd4d",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T01:28:38Z",
+      "side": 1,
+      "message": "can we do read with fq_name instead ?",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f878878e_33202c83",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 296,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T01:28:38Z",
+      "side": 1,
+      "message": "if master-LR already exists, I hope this code will not update it, since we will loose existing PR and VMI refs, correct ?",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
