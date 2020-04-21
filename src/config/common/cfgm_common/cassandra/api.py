@@ -112,6 +112,11 @@ class CassandraDriver(object):
         pass
 
     @abc.abstractmethod
+    def get_count(self, keyspace_name, cf_name, key, start='', finish=''):
+        """Count rows in a column family"""
+        pass
+
+    @abc.abstractmethod
     def get_one_col(self, keyspace_name, cf_name, key, column):
         """Fetch one column of a row in a column family"""
         pass
