@@ -9,17 +9,22 @@ from builtins import str
 from builtins import range
 from builtins import object
 import copy
+import importlib
 
 import six
 import abc
 
-import pycassa
-from pycassa import ColumnFamily
-from pycassa.batch import Mutator
-from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
-from pycassa.pool import AllServersUnavailable, MaximumRetryException
-from pycassa.cassandra.ttypes import ConsistencyLevel
-from pycassa.cassandra.ttypes import InvalidRequestException
+try:
+    pycassa = importlib.import_module('pycassa')
+    pycassa.batch = importlib.import_module('pycassa.batch')
+    pycassa.system_manager = importlib.import_module('pycassa.system_manager')
+    pycassa.cassandra = importlib.import_module('pycassa.cassandra')
+    pycassa.cassandra.ttypes = importlib.import_module('pycassa.cassandra.ttypes')
+    pycassa.pool = importlib.import_module('pycassa.pool')
+    transport = importlib.import_module('thrift.transport')
+except ImportError:
+    pycassa, transport = None, None
+
 import gevent
 
 from vnc_api import vnc_api
@@ -34,7 +39,6 @@ import datetime
 import itertools
 import sys
 from collections import Mapping
-from thrift.transport import TSSLSocket
 import ssl
 from cfgm_common.cassandra import api as cassa_api
 
@@ -55,6 +59,12 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     _MAX_COL = 10000000
 
     def __init__(self, server_list, **options):
+        global pycassa, transport
+        if pycassa is None or transport is None:
+            raise ImportError("The variables 'pycassa' and 'tranport' can't "
+                              "be null at this step. Please verify "
+                              "dependencies.")
+
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
         self._cf_dict = {}
@@ -76,13 +86,13 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
 
         self.report_status_init()
 
-        ColumnFamily.get = self._handle_exceptions(ColumnFamily.get, "GET")
-        ColumnFamily.multiget = self._handle_exceptions(ColumnFamily.multiget, "MULTIGET")
-        ColumnFamily.xget = self._handle_exceptions(ColumnFamily.xget, "XGET")
-        ColumnFamily.get_range = self._handle_exceptions(ColumnFamily.get_range, "GET_RANGE")
-        ColumnFamily.insert = self._handle_exceptions(ColumnFamily.insert, "INSERT")
-        ColumnFamily.remove = self._handle_exceptions(ColumnFamily.remove, "REMOVE")
-        Mutator.send = self._handle_exceptions(Mutator.send, "SEND")
+        pycassa.ColumnFamily.get = self._handle_exceptions(pycassa.ColumnFamily.get, "GET")
+        pycassa.ColumnFamily.multiget = self._handle_exceptions(pycassa.ColumnFamily.multiget, "MULTIGET")
+        pycassa.ColumnFamily.xget = self._handle_exceptions(pycassa.ColumnFamily.xget, "XGET")
+        pycassa.ColumnFamily.get_range = self._handle_exceptions(pycassa.ColumnFamily.get_range, "GET_RANGE")
+        pycassa.ColumnFamily.insert = self._handle_exceptions(pycassa.ColumnFamily.insert, "INSERT")
+        pycassa.ColumnFamily.remove = self._handle_exceptions(pycassa.ColumnFamily.remove, "REMOVE")
+        pycassa.batch.Mutator.send = self._handle_exceptions(pycassa.batch.Mutator.send, "SEND")
 
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
@@ -105,7 +115,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         while not connected:
             try:
                 cass_server = self._server_list[server_idx]
-                sys_mgr = SystemManager(cass_server,
+                sys_mgr = pycassa.system_manager.SystemManager(cass_server,
                                         credentials=self.options.credential,
                                         socket_factory=socket_factory)
                 connected = True
@@ -130,15 +140,15 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         if self.options.reset_config and keyspace_name in self.existing_keyspaces:
             try:
                 self.sys_mgr.drop_keyspace(keyspace_name)
-            except InvalidRequestException as e:
+            except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self.options.logger(str(e), level=SandeshLevel.SYS_NOTICE)
 
         if (self.options.reset_config or keyspace_name not in self.existing_keyspaces):
             try:
-                self.sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
+                self.sys_mgr.create_keyspace(keyspace_name, pycassa.system_manager.SIMPLE_STRATEGY,
                         {'replication_factor': str(self.nodes())})
-            except InvalidRequestException as e:
+            except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self.options.logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
@@ -152,7 +162,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                     gc_grace_seconds=gc_grace_sec,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
-            except InvalidRequestException as e:
+            except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self.options.logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
@@ -165,8 +175,8 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
         # copy method from pycassa library because no other method
         # to override ssl version
         def ssl_socket_factory(host, port):
-            TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
-            return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
+            transport.TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
+            return transport.TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
         return ssl_socket_factory
 
     def _make_socket_factory(self):
@@ -189,11 +199,11 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
 
             for cf_name in cf_dict:
                 cf_kwargs = cf_dict[cf_name].get('cf_args', {})
-                self._cf_dict[cf_name] = ColumnFamily(
+                self._cf_dict[cf_name] = pycassa.ColumnFamily(
                     pool,
                     cf_name,
-                    read_consistency_level=ConsistencyLevel.QUORUM,
-                    write_consistency_level=ConsistencyLevel.QUORUM,
+                    read_consistency_level=pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM,
+                    write_consistency_level=pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM,
                     dict_class=dict,
                     **cf_kwargs)
 
@@ -217,7 +227,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
 
                 self.start_time = datetime.datetime.now()
                 return func(*args, **kwargs)
-            except (AllServersUnavailable, MaximumRetryException) as e:
+            except (pycassa.pool.AllServersUnavailable, pycassa.pool.MaximumRetryException) as e:
                 if self.get_status() != ConnectionStatus.DOWN:
                     self.report_status_down()
                     msg = 'Cassandra connection down. Exception in %s' % (
@@ -371,6 +381,10 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                                start=start,
                                finish=finish)
         return result.get(key)
+
+    def get_count(self, cf_name, key, start='', finish='', keyspace_name=None):
+        return self.get_cf(cf_name).get_count(
+            key, column_start=start, column_finish=finish)
 
     def insert(self, key, columns, keyspace_name=None, cf_name=None,
                batch=None, column_famiy=None):

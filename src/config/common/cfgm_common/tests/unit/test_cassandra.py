@@ -13,6 +13,9 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 
 from cfgm_common.cassandra import api as cassa_api
 
+# Drivers
+from cfgm_common.cassandra.drivers import thrift
+
 
 class FakeDriver(cassa_api.CassandraDriver):
     def get_cf_batch(self, keyspace_name, cf_name):
@@ -38,6 +41,9 @@ class FakeDriver(cassa_api.CassandraDriver):
 
     def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
                batch=None):
+        pass
+
+    def get_count(self, keyspace_name, cf_name, key, start='', finish=''):
         pass
 
 
@@ -184,4 +190,42 @@ class TestStatus(unittest.TestCase):
             server_addrs=['a', 'b', 'c'])
         self.assertEqual(ConnectionStatus.INIT, drv.get_status())
 
+
+class TestCassandraDriverThrift(unittest.TestCase):
+    # The aim here is not to test the legacy driver which already runs
+    # in production, but test new methods updated to avoid
+    # regressions.
+
+    def setUp(self):
+        # Mock the libraries
+        thrift.pycassa = mock.MagicMock()
+        thrift.transport = mock.MagicMock()
+
+        # Mock creating keyspaces
+        def _cassandra_init(self, server_list):
+            self._cf_dict = {
+                cassa_api.OBJ_UUID_CF_NAME: mock.MagicMock(),
+                cassa_api.OBJ_FQ_NAME_CF_NAME: mock.MagicMock(),
+                cassa_api.OBJ_SHARED_CF_NAME: mock.MagicMock(),
+            }
+        p = mock.patch(
+            'cfgm_common.cassandra.drivers.thrift.CassandraDriverThrift._cassandra_init',
+            _cassandra_init)
+        p.start()
+
+        self.drv = thrift.CassandraDriverThrift(['a', 'b'])
+
+        # Ensure to cleanup mockings
+        self.addCleanup(p.stop)
+
+    def test_import_error(self):
+        thrift.pycassa = None
+        self.assertRaises(ImportError, thrift.CassandraDriverThrift, ['a', 'b'])
+
+    def test_get_count(self):
+        self.drv.get_count(
+            cassa_api.OBJ_UUID_CF_NAME, '<uuid>', start='a', finish='z')
+        self.drv._cf_dict[
+            cassa_api.OBJ_UUID_CF_NAME].get_count.assert_called_once_with(
+                '<uuid>', column_finish='z', column_start='a')
 
