@@ -356,6 +356,7 @@ const vr_flow_entry *KSyncFlowMemory::GetKFlowStatsAndInfo(const FlowKey &key,
     return kflow;
 }
 
+<<<<<<< HEAD   (ecce2a Changing the version from 3.2.19 to 3.2.20 for new build)
 bool KSyncFlowMemory::AuditProcess() {
     uint32_t flow_idx;
     uint8_t gen_id;
@@ -412,6 +413,15 @@ bool KSyncFlowMemory::AuditProcess() {
         }
     }
     return true;
+=======
+void KSyncFlowMemory::InitTest() {
+    table_ = KSyncSockTypeMap::FlowMmapAlloc(kTestFlowTableSize);
+    memset(table_, 0, kTestFlowTableSize);
+    table_entries_count_ = kTestFlowTableSize / get_entry_size();
+    audit_yield_ = table_entries_count_;
+    audit_timeout_ = 100 * 1000; // timout immediately.
+    SetTableSize();
+>>>>>>> CHANGE (5c7a37  vrouter-agent UT fixes)
 }
 
 void KSyncFlowMemory::GetFlowTableSize() {
