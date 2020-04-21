@@ -29,7 +29,7 @@ public:
     virtual ~KSyncMemory();
 
     virtual void Init();
-    void InitMem();
+    void InitMem(void *hpmem);
     virtual void InitTest();
     virtual void Shutdown();
     bool AuditProcess();
@@ -53,7 +53,7 @@ public:
         table_path_ = path;
     }
     uint32_t audit_timeout() const { return audit_timeout_; }
-    void Mmap(bool unlink);
+    void Mmap(bool unlink, void *khpmem, bool kernel_mode);
     uint32_t table_entries_count() { return table_entries_count_; }
 
 protected:
