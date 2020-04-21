@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ad5fff8d_78e2e5c6",
+        "filename": "src/config/device-manager/device_schema/abstract_device/abstract_device.xsd",
+        "patchSetId": 1
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T00:45:53Z",
+      "side": 1,
+      "message": "Where is multi-hop/TTL exposed in the abstract device schema ?",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "29a0c985_dee9ba7b",
+        "filename": "src/config/device-manager/device_schema/abstract_device/abstract_device.xsd",
+        "patchSetId": 1
+      },
+      "lineNbr": 140,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T00:45:53Z",
+      "side": 1,
+      "message": "why do we need uuid ?",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "22b5d734_7b74a73f",
+        "filename": "src/config/device-manager/device_schema/abstract_device/abstract_device.xsd",
+        "patchSetId": 1
+      },
+      "lineNbr": 141,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T00:45:53Z",
+      "side": 1,
+      "message": "why do we need type ?",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d156ce76_fcaed61a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 588,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T00:45:53Z",
+      "side": 1,
+      "message": "During fabric delete, we should delete the overlay loopback VN as well, like how we delete the other VN\u0027s created internally. Delete should happen in 2 cases - if we delete the namespace or if we delete the fabric",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9954cad6_ef4c29e1",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_service_chain/templates/juniper_junos-qfx_overlay_service_chain.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T00:45:53Z",
+      "side": 1,
+      "message": "why is this changed? Is it because of Patrik comments when both PNF and CEM-4455 is used together? Can you run this through with Patrik once again",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2e7b3a7a_301c6e3a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/schema/fabric_onboard_schema.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T00:45:53Z",
+      "side": 1,
+      "message": "Is this always required? We can have greenfield fabric without overlay_loopback_subnets too. This property shouldn\u0027t be a mandatory field for both brownfield and greenfield fabric",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
