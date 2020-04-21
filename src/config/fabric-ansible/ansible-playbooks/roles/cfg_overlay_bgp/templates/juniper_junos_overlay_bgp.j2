@@ -34,18 +34,18 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.a
 {%             endfor %}
 {%             set dynamic_tunnels = false %}
 {%             if mode|length > 0 and mode[0] == 'MPLSoUDP' and tunnel_destinations|length > 0 %}
-{%             set tunnel_type = '_contrail_udp_tunnel' %}
+{%                 set tunnel_type = '_contrail_udp_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export mpls_over_udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then community add encap-udp
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then accept
 set groups {{cfg_group}} policy-options community encap-udp members 0x030c:64512:13
-{%             set dynamic_tunnels = true %}
+{%                 set dynamic_tunnels = true %}
 {%             elif mode[0] == 'MPLSoGRE' and tunnel_destinations|length > 0 %}
-{%             set tunnel_type = '_contrail_gre_tunnel' %}
+{%                 set tunnel_type = '_contrail_gre_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} gre
-{%             set dynamic_tunnels = true %}
+{%                 set dynamic_tunnels = true %}
 {%             endif %}
 {%             if dynamic_tunnels == true %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} source-address {{bgp.get('ip_address')}}
@@ -82,20 +82,23 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{family}} {{mode}}
 {%             endfor %}
 {%             if bgp_group_type == 'external' %}
-set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
-{%                 if 'DCI-Gateway' in sys_roles %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop no-nexthop-change
-{%                 endif %}
 {%             endif %}
-{%             if bgp_group_type == 'internal' %}
+{%             if ('DC-Gateway' in sys_roles and bgp_group_type == 'internal') or (bgp_group_type == 'external') %}
+{%                 if bgp_group_type == 'internal' %}
+{%                     set policy_name = '_contrail_ibgp_export_policy' %}
+{%                 else %}
+{%                     set policy_name = 'set-nexthop-self-for-inet-vpn-routes' %}
+{%                 endif %}
 {%                 for family in bgp.get('families', []) %}
-{%                     if family == 'inet-labeled' %}
-{%                         set family_input='inet' %}
-{%                     elif family.startswith('inet') %}
+{%                     if family.startswith('inet') %}
 {%                         set family_input = family %}
-set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{family}} from family {{family_input}}
-set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{family}} then next-hop self
-set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
+{%                         if family == 'inet-labeled' %}
+{%                             set family_input='inet' %}
+{%                         endif %}
+set groups {{cfg_group}} policy-options policy-statement {{ policy_name }} term {{family}} from family {{family_input}}
+set groups {{cfg_group}} policy-options policy-statement {{ policy_name }} term {{family}} then next-hop self
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{ policy_name }}
 {%                     endif %}
 {%                 endfor %}
 {%             endif %}
