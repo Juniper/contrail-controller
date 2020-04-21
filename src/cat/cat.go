@@ -12,6 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"encoding/json"
+	"io/ioutil"
+	"regexp"
+	"net"
 
 	"cat/agent"
 	"cat/config"
@@ -141,8 +145,8 @@ func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.Co
 
 // AddControlNode creates a contrail-control object and starts the mock
 // control-node process in the background.
-func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, http_port int) (*controlnode.ControlNode, error) {
-	cn, err := controlnode.New(c.SUT.Manager, name, ip_address, conf_file, test, http_port)
+func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, bgp_port int) (*controlnode.ControlNode, error) {
+	cn, err := controlnode.New(c.SUT.Manager, name, ip_address, conf_file, test, bgp_port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create control-node: %v", err)
 	}
@@ -162,3 +166,76 @@ func (c *CAT) AddCRPD(test, name string) (*crpd.CRPD, error) {
 	c.CRPDs = append(c.CRPDs, cr)
 	return cr, nil
 }
+
+func GetFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+func GetNumOfControlNodes() (ConNodesDS map[string]int, err error) {
+        var confile string
+        confile = controlnode.GetConfFile()
+        jsonFile, err := os.Open(confile)
+        if err != nil {
+                return nil, fmt.Errorf("failed to open ConfFile: %v", err)
+        }
+
+        defer jsonFile.Close()
+        byteValue, _ := ioutil.ReadAll(jsonFile)
+        //var result map[string]interface{}
+        var result interface{}
+        json.Unmarshal([]byte(byteValue), &result)
+
+        ConNodesDS = make(map[string]int)
+
+        //res := result["cassandra"].(map[string]interface{})
+        res := result.([]interface{})
+        res1 := res[0].(map[string]interface{})
+        res2 := res1["OBJ_FQ_NAME_TABLE"].(map[string]interface{})
+        //res1 := res["config_db_uuid"].(map[string]interface{})
+        //res2 := res1["obj_fq_name_table"].(map[string]interface{})
+        res3 := res2["bgp_router"].(map[string]interface{})
+        //res4 := res1["obj_uuid_table"].(map[string]interface{})
+        res4 := res1["db"].(map[string]interface{})
+        for key := range res3 {
+                re := regexp.MustCompile(":")
+                val := re.Split(key,-1)
+                res5 := res4[val[5]].(map[string]interface{})
+                //res6 := res5["prop:bgp_router_parameters"].([]interface{})
+                res6 := res5["prop:bgp_router_parameters"]
+                //res7 := fmt.Sprintf("%v", res6[0])
+                res7 := fmt.Sprintf("%v", res6)
+                port, _ := GetFreePort()
+                re2 := regexp.MustCompile("\"port\":null")
+                c := fmt.Sprintf("\"port\":%d", port)
+                val1 := re2.ReplaceAllString(res7, c)
+                re3 := regexp.MustCompile("\"port\":[[:digit:]]{3,5}")
+                val2 := re3.ReplaceAllString(val1, c)
+                res6 = val2
+                //res6[0] = val2
+                res5["prop:bgp_router_parameters"] = res6
+                res4[val[5]] = res5
+                ConNodesDS[val[4]] = port
+        }
+        res1["db"] = res4
+        //res1["obj_uuid_table"] = res4
+        res[0] = res1
+        //res["config_db_uuid"] = res1
+        //result["cassandra"] = res
+        result = res
+
+        write, _ := json.Marshal(result)
+        err = ioutil.WriteFile(confile, write, os.ModePerm)
+        jsonFile.Sync()
+        return ConNodesDS, nil
+}
+
