@@ -105,6 +105,24 @@
     },
     {
       "key": {
+        "uuid": "6d734505_22ac74bd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6d14bd27_f49cce25",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c91a6aa2_fe381223",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 4
@@ -311,6 +329,24 @@
     },
     {
       "key": {
+        "uuid": "d15e231a_abcb11ed",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 368,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "216e226e_b23f7fc7",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c1748150_f3bbb26c",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -325,6 +361,24 @@
       "revId": "e65479aaaea7add2b0459a38531d75f990740663",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f4061298_f7f90763",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 371,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "c1748150_f3bbb26c",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -362,6 +416,24 @@
     },
     {
       "key": {
+        "uuid": "7ac7abfa_df1c2e1a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 376,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "We only support for IPV4 for overlay loopback subnets fabric namespace",
+      "parentUuid": "e95533c6_beb64f7c",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "82d7135b_1fea3713",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -373,6 +445,24 @@
       "writtenOn": "2020-04-20T06:42:23Z",
       "side": 1,
       "message": "i\u0027d suggest to return ok, read_result. This would send original error code and message. You may extend error message. But better to keep bool returned by dbe_read.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "54cf4f46_9c66792f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 390,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "I took care of returning dbe_read ... I kept None so that it is in sync with other return cases in same function.",
+      "parentUuid": "82d7135b_1fea3713",
       "revId": "e65479aaaea7add2b0459a38531d75f990740663",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -396,6 +486,24 @@
     },
     {
       "key": {
+        "uuid": "98947775_9611d73a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 405,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7da779da_9bd7dd8b",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "079f59b9_33ad1ba9",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -407,6 +515,24 @@
       "writtenOn": "2020-04-20T06:42:23Z",
       "side": 1,
       "message": "return ok, iip_list",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3e0a610f_d3c26fa0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "This is internal function fetching ip_address to uuid map. So returning empty dictionary in case of error.",
+      "parentUuid": "079f59b9_33ad1ba9",
       "revId": "e65479aaaea7add2b0459a38531d75f990740663",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -430,6 +556,24 @@
     },
     {
       "key": {
+        "uuid": "987a4d41_c287a635",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 423,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "197631ba_70af4045",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f4aad53f_00c9e735",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -447,6 +591,24 @@
     },
     {
       "key": {
+        "uuid": "36e93e43_f18e0886",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 428,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f4aad53f_00c9e735",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ec7ee43a_1e70a831",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -461,6 +623,24 @@
       "revId": "e65479aaaea7add2b0459a38531d75f990740663",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c4493697_1e1bf78e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 448,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ec7ee43a_1e70a831",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -521,6 +701,24 @@
     },
     {
       "key": {
+        "uuid": "99c829a6_367cdecf",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "79fa2927_798f50fb",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a388ed0b_d9e94430",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_fabric_namespace.py",
         "patchSetId": 4
@@ -535,6 +733,24 @@
       "revId": "e65479aaaea7add2b0459a38531d75f990740663",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e2c9f90a_4d2cf0b7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-21T19:15:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a388ed0b_d9e94430",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
