@@ -40,6 +40,9 @@ class FakeDriver(cassa_api.CassandraDriver):
                batch=None):
         pass
 
+    def get_count(self, keyspace_name, cf_name, key, start='', finish=''):
+        pass
+
 
 class TestOptions(unittest.TestCase):
 
@@ -185,4 +188,29 @@ class TestStatus(unittest.TestCase):
             server_addrs=['a', 'b', 'c'])
         self.assertEqual(ConnectionStatus.INIT, drv.get_status())
 
+
+class TestCassandraDriverThrift(unittest.TestCase):
+    # The aim here is not to test the legacy driver which already run
+    # in prodcution but just the new methods added/updated.
+    def setUp(self):
+        from cfgm_common.cassandra.drivers import thrift
+
+        def __init__(_):
+            thrift.pycassa = mock.MagicMock()
+            thrift.CassandraDriverThrift._cf_dict = {
+                cassa_api.OBJ_UUID_CF_NAME: mock.MagicMock(),
+                cassa_api.OBJ_FQ_NAME_CF_NAME: mock.MagicMock(),
+                cassa_api.OBJ_SHARED_CF_NAME: mock.MagicMock(),
+            }
+
+        thrift.CassandraDriverThrift.__init__ = mock.MagicMock(
+            side_effect=__init__)
+        self.drv = thrift.CassandraDriverThrift(['a', 'b'])
+
+    def test_get_count(self):
+        self.drv.get_count(
+            cassa_api.OBJ_UUID_CF_NAME, '<uuid>', start='a', finish='z')
+        self.drv._cf_dict[
+            cassa_api.OBJ_UUID_CF_NAME].get_count.assert_called_once_with(
+                '<uuid>', column_finish='z', column_start='a')
 
