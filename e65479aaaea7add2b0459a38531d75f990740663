@@ -19,6 +19,23 @@
     },
     {
       "key": {
+        "uuid": "c91a6aa2_fe381223",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 56,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T15:25:40Z",
+      "side": 1,
+      "message": "I do not see setting perms2 to global_access for this VN. This should be visible across all projects.",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "c0bfc33a_c618a33f",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 4
