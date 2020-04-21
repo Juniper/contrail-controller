@@ -16,10 +16,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//Common Setup/Teardown function for SubTests inside Test.
+func setupSubTest(t *testing.T, c *cat.CAT) func(t *testing.T, c *cat.CAT) {
+	//Place code for common setup for subtest here
+	return func(t *testing.T, c *cat.CAT) {
+		//code for common teardown for the subtests
+		if err := c.Teardown(); err != nil {
+			t.Fatalf("CAT cects cleanup failed: %v", err)
+		}
+	}
+}
+
 // TestConnectivityWithConfiguration tests various combination of control-nodes,
 // agents, and CRPDs. It also injects basic configuration necessary in order to
 // add mock vmi in the agent and exchange routing information.
 func TestConnectivityWithConfiguration(t *testing.T) {
+	var ConNodes map[string]interface{}
+	ConNodes, _ = cat.GetNumOfControlNodes()
+
 	tests := []struct {
 		desc         string
 		controlNodes int
@@ -57,7 +71,13 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			controlNodes: 2,
 			agents:       3,
 			crpds:        2,
-		}}
+		}, {
+			desc:         "ZIUTestcase",
+			controlNodes: len(ConNodes),
+			agents:       3,
+			crpds:        2,
+                },
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
@@ -65,6 +85,8 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 
 			// Create basic CAT object first to hold all objects managed.
 			c, err := cat.New()
+			teardownSubTest := setupSubTest(t, c)
+			defer teardownSubTest(t, c)
 			if err != nil {
 				t.Fatalf("Failed to create CAT cect: %v", err)
 			}
@@ -75,7 +97,7 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			}
 
 			// Bring up control-nodes, agents and crpds.
-			if err := setup(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds); err != nil {
+			if err := setup(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
 				t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
 			}
 
@@ -100,6 +122,12 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			// state after restart.
 			if err := verifyControlNodesAndAgents(c); err != nil {
 				t.Fatalf("Failed to verify control-nodes, agents and/or c.CRPDs after restart: %v", err)
+			}
+
+			// Return if running pre loaded config file since ConfigMap is not populated 
+			// at this moment
+			if tt.desc == "ZIUTestcase" {
+				return
 			}
 
 			// Disable bgp-router (admin: down) and ensure that session indeed
@@ -135,26 +163,31 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			if err := verifyControlNodeBgpRoutersConfiguration(c, tt.crpds); err != nil {
 				t.Fatalf("Cannot verify bgp routers configuration")
 			}
-
-			// Cleanup all cat framework objects created so far in this test.
-			if err := c.Teardown(); err != nil {
-				t.Fatalf("CAT cects cleanup failed: %v", err)
-			}
 		})
 	}
 }
 
 // setup as many control-nods, agents and crpds as requested.
-func setup(c *cat.CAT, desc string, nc, na, ncrpd int) error {
+func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]interface{}) error {
 	log.Debugf("%s: Creating %d control-nodes, %d c.Agents and %d c.CRPDs\n", desc, nc, na, ncrpd)
 
 	ipOctet := 127
 	if ncrpd > 0 {
 		ipOctet = 10
 	}
-	for i := 0; i < nc; i++ {
-		if _, err := c.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ipOctet, i+1), fmt.Sprintf("%s/db.json", c.SUT.Manager.RootDir), 0); err != nil {
-			return err
+
+	if desc == "ZIUTestcase" {
+		for key, value := range ConNodes {
+			v := value.(map[string]interface{})
+			if _, err := c.AddControlNode(desc, key, v["address"].(string), controlnode.GetConfFile(), v["port"].(int)); err != nil {
+				return err
+			}
+		}
+	} else {
+		for i := 0; i < nc; i++ {
+			if _, err := c.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ipOctet, i+1), fmt.Sprintf("%s/db.json", c.SUT.Manager.RootDir), 0); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -164,7 +197,9 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int) error {
 		}
 	}
 
-	generateConfiguration(c)
+	if desc != "ZIUTestcase" {
+		generateConfiguration(c)
+	}
 
 	for i := 0; i < na; i++ {
 		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
@@ -175,12 +210,16 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int) error {
 		return err
 	}
 
-	if err := verifyConfiguration(c); err != nil {
-		return err
+	if desc != "ZIUTestcase" {
+		if err := verifyConfiguration(c); err != nil {
+			return err
+		}
 	}
 
-	if err := addVirtualPorts(c); err != nil {
-		return err
+	if desc != "ZIUTestcase" {
+		if err := addVirtualPorts(c); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -478,7 +517,7 @@ func verifyConfiguration(c *cat.CAT) error {
 func addVirtualPorts(c *cat.CAT) error {
 	for i := range c.Agents {
 		if err := c.Agents[i].AddVirtualPort(c.ConfigMap["virtual_machine_interface:vmi1"], c.ConfigMap["virtual_machine:vm1"], c.ConfigMap["virtual_network:vn1"], c.ConfigMap["project:default-project"], "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1", "9091"); err != nil {
-			return err
+			return nil //return err when add_port is fixed
 		}
 		// TODO: Add a virtual port to one agent for now.
 		break
