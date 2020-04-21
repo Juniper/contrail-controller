@@ -610,9 +610,11 @@ class VncCassandraClient(object):
 
         col_start = 'children:' + child_type[:-1] + ':'
         col_finish = 'children:' + child_type[:-1] + ';'
-        num_children = obj_uuid_cf.get_count(obj_uuid,
-                                             column_start=col_start,
-                                             column_finish=col_finish)
+        num_children = self._cassandra_driver.get_count(
+            cassa_api.OBJ_UUID_CF_NAME,
+            obj_uuid,
+            start=col_start,
+            finish=col_finish)
         return (True, num_children)
     # end object_count_children
 
