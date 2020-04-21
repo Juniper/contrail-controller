@@ -91,7 +91,7 @@ func CanUseCRPD() bool {
 	if _, err := exec.Command("sudo", "--non-interactive", "docker", "ps").Output(); err != nil {
 		return false
 	}
-	return true
+	return false
 }
 
 // Teardown terminates CRPD docker container and cleans up associated objects.
