@@ -53,6 +53,23 @@
     },
     {
       "key": {
+        "uuid": "de97d5b7_6e51f020",
+        "filename": "src/config/device-manager/device_schema/abstract_device/abstract_device.xsd",
+        "patchSetId": 1
+      },
+      "lineNbr": 142,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-21T03:58:45Z",
+      "side": 1,
+      "message": "Can there be multiple interfaces for same OSPF session ?",
+      "revId": "6cbc7dc942eed8de1639f16df1aa65cd05717922",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "d156ce76_fcaed61a",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
         "patchSetId": 1
