@@ -1,4 +1,4 @@
-bottle
+bottle==150.40a
 future
 six
 requests >= 2.20.0
