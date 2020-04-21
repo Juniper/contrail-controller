@@ -209,7 +209,7 @@ TEST_F(SessionStatsTest, RemoteFlowAddVerify) {
     DeleteFlow(flow, 4);
     client->WaitForIdle();
     FlowTeardown();
-    EXPECT_EQ(0U, flow_proto_->FlowCount());
+    WAIT_FOR(100, 1000, (flow_proto_->FlowCount() == 0));
     EnqueueSessionTask();
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (ssc->Size() == 0));

@@ -286,7 +286,7 @@ void KSyncFlowMemory::InitTest() {
     memset(table_, 0, kTestFlowTableSize);
     table_entries_count_ = kTestFlowTableSize / get_entry_size();
     audit_yield_ = table_entries_count_;
-    audit_timeout_ = 10 * 1000; // timout immediately.
+    audit_timeout_ = 100 * 1000; // timout immediately.
     SetTableSize();
 }
 
