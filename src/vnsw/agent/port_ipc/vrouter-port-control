@@ -219,7 +219,7 @@ class VrouterPortControl(object):
             self._args.vhostuser_socket = self.StripQuotes(self._args.vhostuser_socket)
             self._args.vhostuser_mode = self.StripQuotes(self._args.vhostuser_mode)
             self._args.agent_port = self.StripQuotes(self._args.agent_port)
-            self._args.port_json_path = self.StripQuortes(self.args.port_json_path)
+            self._args.port_json_path = self.StripQuotes(self._args.port_json_path)
             if self._args.no_persist:
                 self._args.no_persist = True
 
