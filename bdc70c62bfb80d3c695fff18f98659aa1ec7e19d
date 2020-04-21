@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4b9605a6_ec0a2644",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 267,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-04-21T02:45:09Z",
+      "side": 1,
+      "message": "Handled this in a try except. The assumption here is if default master LR creation had failed, this read would also fail. Therefore not proceeding in case of failed read.",
+      "parentUuid": "46bfae14_2db41e0a",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "474cf6e3_21883a09",
         "filename": "src/config/device-manager/device_manager/fabric_manager.py",
         "patchSetId": 3
@@ -33,6 +51,24 @@
       "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "475c7976_070c38b7",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 271,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-04-21T02:45:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "474cf6e3_21883a09",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "4afd903a_b9af26a3",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-04-21T02:45:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4d3fd06b_d6c8cd4d",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f878878e_33202c83",
         "filename": "src/config/device-manager/device_manager/fabric_manager.py",
         "patchSetId": 3
@@ -67,6 +121,24 @@
       "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "050a2dbe_cddb7dd5",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 296,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-04-21T02:45:09Z",
+      "side": 1,
+      "message": "If default master LR already exists, it will still update here. But it will only update the perms2 in that case as admin master LR would have got deleted when default master LR is created the first time. Also, update would not delete the already created refs.",
+      "parentUuid": "f878878e_33202c83",
+      "revId": "bdc70c62bfb80d3c695fff18f98659aa1ec7e19d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
