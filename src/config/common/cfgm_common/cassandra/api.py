@@ -116,6 +116,12 @@ class API(object):
         pass
 
     @abc.abstractmethod
+    def xget(self, keyspace_name, cf_name, key, columns=None, start='',
+            finish=''):
+        """Like get but creates a generator that pages over the columns automatically."""
+        pass
+
+    @abc.abstractmethod
     def get_count(self, keyspace_name, cf_name, key, start='', finish=''):
         """Count rows in a column family"""
         pass
