@@ -83,9 +83,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{family}
 {%             endfor %}
 {%             if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
-{%                 if 'DCI-Gateway' in sys_roles %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop no-nexthop-change
-{%                 endif %}
 {%             endif %}
 {%             if bgp_group_type == 'internal' %}
 {%                 for family in bgp.get('families', []) %}
