@@ -32,6 +32,10 @@ class FakeDriver(cassa_api.CassandraDriver):
             finish=''):
         pass
 
+    def xget(self, keyspace_name, cf_name, key, columns=None, start='',
+            finish=''):
+        pass
+
     def get_one_col(self, keyspace_name, cf_name, key, column):
         pass
 
@@ -227,5 +231,12 @@ class TestCassandraDriverThrift(unittest.TestCase):
             cassa_api.OBJ_UUID_CF_NAME, '<uuid>', start='a', finish='z')
         self.drv._cf_dict[
             cassa_api.OBJ_UUID_CF_NAME].get_count.assert_called_once_with(
+                '<uuid>', column_finish='z', column_start='a')
+
+    def test_xget(self):
+        self.drv.xget(
+            cassa_api.OBJ_UUID_CF_NAME, '<uuid>', start='a', finish='z')
+        self.drv._cf_dict[
+            cassa_api.OBJ_UUID_CF_NAME].xget.assert_called_once_with(
                 '<uuid>', column_finish='z', column_start='a')
 

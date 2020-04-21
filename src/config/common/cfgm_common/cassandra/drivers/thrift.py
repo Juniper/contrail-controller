@@ -382,6 +382,10 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                                finish=finish)
         return result.get(key)
 
+    def xget(self, cf_name, key, columns=None, start='', finish=''):
+        return self.get_cf(cf_name).xget(
+            key, column_start=start, column_finish=finish)
+
     def get_count(self, cf_name, key, start='', finish='', keyspace_name=None):
         return self.get_cf(cf_name).get_count(
             key, column_start=start, column_finish=finish)

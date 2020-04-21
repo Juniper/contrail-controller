@@ -691,7 +691,8 @@ class VncCassandraClient(object):
         else:
             bch = obj_uuid_cf.batch()
 
-        for col_name, col_value in obj_uuid_cf.xget(obj_uuid):
+        for col_name, col_value in self._cassandra_driver.xget(
+                cassa_api.OBJ_UUID_CF_NAME, obj_uuid):
             if self._is_prop(col_name):
                 (_, prop_name) = col_name.split(':')
                 if prop_name == 'id_perms':
@@ -983,8 +984,9 @@ class VncCassandraClient(object):
                 else:
                     start = ''
 
-                cols = obj_fq_name_cf.xget('%s' %(obj_type),
-                                           column_start=start)
+                cols = self._cassandra_driver.xget(
+                    cassa_api.OBJ_FQ_NAME_CF_NAME, '%s' %(obj_type),
+                    start=start)
 
                 def filter_rows_no_anchor():
                     marker = None
@@ -1038,8 +1040,8 @@ class VncCassandraClient(object):
         # unlink from parent
         col_start = 'parent:'
         col_fin = 'parent;'
-        col_name_iter = obj_uuid_cf.xget(
-            obj_uuid, column_start=col_start, column_finish=col_fin)
+        col_name_iter = self._cassandra_driver.xget(cassa_api.OBJ_UUID_CF_NAME,
+            obj_uuid, start=col_start, finish=col_fin)
         for (col_name, col_val) in col_name_iter:
             (_, parent_type, parent_uuid) = col_name.split(':')
             self._delete_child(
@@ -1048,8 +1050,8 @@ class VncCassandraClient(object):
         # remove refs
         col_start = 'ref:'
         col_fin = 'ref;'
-        col_name_iter = obj_uuid_cf.xget(
-            obj_uuid, column_start=col_start, column_finish=col_fin)
+        col_name_iter = self._cassandra_driver.xget(cassa_api.OBJ_UUID_CF_NAME,
+            obj_uuid, start=col_start, finish=col_fin)
         symmetric_ref_updates = []
         for (col_name, col_val) in col_name_iter:
             (_, ref_type, ref_uuid) = col_name.split(':')
@@ -1059,8 +1061,8 @@ class VncCassandraClient(object):
         # remove link from relaxed back refs
         col_start = 'relaxbackref:'
         col_fin = 'relaxbackref;'
-        col_name_iter = obj_uuid_cf.xget(
-            obj_uuid, column_start=col_start, column_finish=col_fin)
+        col_name_iter = self._cassandra_driver.xget(cassa_api.OBJ_UUID_CF_NAME,
+            obj_uuid, start=col_start, finish=col_fin)
         for (col_name, col_val) in col_name_iter:
             (_, backref_uuid) = col_name.split(':')
             self._delete_ref(bch, None, backref_uuid, obj_type, obj_uuid)
@@ -1108,9 +1110,11 @@ class VncCassandraClient(object):
                 col_start = '%s:%s:' % (prop_pfx, field)
                 col_end = '%s:%s;' % (prop_pfx, field)
 
-            obj_cols = self._obj_uuid_cf.xget(obj_uuid,
-                                              column_start=col_start,
-                                              column_finish=col_end)
+            obj_cols = self._cassandra_driver.xget(
+                cassa_api.OBJ_UUID_CF_NAME,
+                obj_uuid,
+                start=col_start,
+                finish=col_end)
 
             result[field] = []
             for name, value in obj_cols:
