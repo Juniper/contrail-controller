@@ -75,12 +75,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.28"
+__version__ = "1.29"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.29:
+  - Add error msg to inform when aggregated ethernet ID is not supported
 * 1.28:
   - Add support to detect aggregated ethernet ID and clean stale ones in ZK.
 * 1.27:
@@ -250,6 +252,7 @@ exceptions = [
     'ZkSubnetPathInvalid',
     'FqNameDuplicateError',
     'AEIDZookeeperError',
+    'NotSupportedError',
 ]
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
@@ -2035,6 +2038,12 @@ class DatabaseChecker(DatabaseManager):
 
     @checker
     def check_aggregated_ethernet_id(self):
+        """Displays additional (stale) aggregated ethernet ID
+        in zk (vs cassandra)."""
+        if not AE_MAX_ID:
+            errmsg = 'Aggregated ethernet ID are not supported ' \
+                     'in this release. Checker was not ran.'
+            return [NotSupportedError(errmsg)]
         _, _, ae_id_to_remove_from_zk, ret_errors = \
             self.audit_aggregated_ethernet_id()
         for prouter, pi_to_ae_dict in ae_id_to_remove_from_zk.items():
@@ -2799,6 +2808,10 @@ class DatabaseCleaner(DatabaseManager):
     @cleaner
     def clean_aggregated_ethernet_id(self):
         """Removes extra AE IDs from zk."""
+        if not AE_MAX_ID:
+            errmsg = 'Aggregated ethernet ID are not supported ' \
+                     'in this release. Cleaner was not ran.'
+            return [NotSupportedError(errmsg)]
         logger = self._logger
         _, _, ae_id_to_remove_from_zk, ret_errors = \
             self.audit_aggregated_ethernet_id()
