@@ -1,0 +1,109 @@
+---
+
+- import_role:
+    name: Juniper.junos
+
+- name: "Read source and group"
+  set_fact:
+    source: "{{input_params.get('source', '') | trim}}"
+    group: "{{input_params.get('group', '') | trim}}"
+
+- name: "Print source"
+  debug:
+    var: source
+
+- name: "Print group"
+  debug:
+    var: group
+
+- name: Read the physical-router properties for {{ device_uuid }}
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: {"uuid": "{{ device_uuid }}"}
+  register: physical_router_properties
+
+- name: "Fetch fabric uuid from physical router properties"
+  set_fact:
+    fabric_uuid: "{{ physical_router_properties.obj.fabric_refs[0].uuid }}"
+
+- name: Read the fabric properties for {{ fabric_uuid }}
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "fabric"
+    object_op: "read"
+    object_dict: {"uuid": "{{ fabric_uuid }}"}
+  register: fabric_properties
+
+- name: "Fetch fabric name from fabric properties"
+  set_fact:
+    fabric_name: "{{ fabric_properties.obj.fq_name[1] }}"
+
+- name: "Read physical routers for the fabric: {{ fabric_name }}"
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "list"
+    object_dict: "{ 'filters':{'fabric_refs[0].uuid':'{{ fabric_uuid }}'} }"
+  register: devices_from_fabric
+
+- name: "Fetch device uuids from the list of physical routers"
+  set_fact:
+    device_uuids: >
+      {{ devices_from_fabric | json_query('obj."physical-routers"[*].uuid') }}
+
+- name: "Print device uuids for the fabric {{ fabric_name }}"
+  debug:
+    var: device_uuids
+
+- name: "Initialize variables for ingress report and egress report"
+  set_fact:
+    ingress_list: []
+    egress_list: []
+
+- name: "Inspect devices that belong to the fabric {{ fabric_name }}"
+  include_tasks: inspect_device.yml
+  with_items: "{{ device_uuids }}"
+
+- name: "Print ingress_list"
+  debug:
+    var: ingress_list
+
+- name: "Print egress_list"
+  debug:
+    var: egress_list
+
+- name: "Initialize output string"
+  set_fact:
+    output_string: "        Ingress\n\n"
+
+- name: "Add ingress list to the output string"
+  set_fact:
+    output_string: >
+      {{ output_string + 'Device: ' + item.device_name
+      + ', interface: ' + item.upstream_interface
+      + ', source: ' + source
+      + ', rate: ' + item.kbps + ' kbps / ' + item.pps + ' pps' }}
+  with_items: "{{ ingress_list  }}"
+
+- name: "Add 'Egress' header to the output string"
+  set_fact:
+    output_string: "{{ output_string + '\n\n        Egress\n\n'}}"
+
+- name: "Add egress list to the output string"
+  set_fact:
+    output_string: >
+      {{ output_string + 'Leaf: ' + item.device_name
+      + ', interfaces: ' + item.downstream_interface | join(' ')
+      + ', source: ' + item.source_address
+      + ', rate: ' + item.kbps + ' kbps / ' + item.pps + ' pps' }}
+  with_items: "{{ egress_list }}"
+
+- name: "Write results to the temporary file: {{ tmp_dir_name }}/tmp-results.txt"
+  copy:
+    content: "{{ output_string }}"
+    dest: "{{ tmp_dir_name }}/tmp-results.txt"
+
+- name: "Give the temporary file its final name: {{ tmp_dir_name }}/results.txt"
+  command: "mv {{ tmp_dir_name }}/tmp-results.txt {{ tmp_dir_name }}/results.txt"

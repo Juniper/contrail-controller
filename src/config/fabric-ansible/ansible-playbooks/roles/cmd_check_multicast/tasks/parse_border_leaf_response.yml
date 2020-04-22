@@ -1,0 +1,39 @@
+---
+
+- name: >-
+    Fetch multicast statistics from the results
+    for the device {{ inspected_device_name }}
+  set_fact:
+    routing_instance_name: "{{ border_leaf_results.routing_instance }}"
+    multicast_statistics: "{{ border_leaf_results.parsed_output }}"
+
+- name: >-
+    Create new entry for ingress list (routing instance
+    {{ routing_instance_name }} on the device {{ incpected_device_name }})
+  set_fact:
+    new_entry:
+      device_name: "{{ inspected_device_name }}"
+      source_address: >-
+        {{ multicast_statistics['multicast-route-information']['route-family']
+        ['multicast-route']['multicast-source-address'] }}
+      upstream_interface: >-
+        {{ multicast_statistics['multicast-route-information']['route-family']
+        ['multicast-route']['upstream-interface-name'] }}
+      kbps: >-
+        {{ multicast_statistics['multicast-route-information']['route-family']
+        ['multicast-route']['forwarding-rate-kilobytes'] }}
+      pps: >-
+        {{ multicast_statistics['multicast-route-information']['route-family']
+        ['multicast-route']['forwarding-rate-packets'] }}
+  when: >-
+    multicast_statistics['multicast-route-information'] is defined and
+    multicast_statistics['multicast-route-information']['multicast-route-no-group-prefix']
+    is not defined
+
+- name: "Add new entry to ingress_list if source address is matching"
+  set_fact:
+    ingress_list: "{{ ingress_list + [new_entry] }}"
+  when: >-
+    multicast_statistics['multicast-route-information'] is defined and
+    multicast_statistics['multicast-route-information']['multicast-route-no-group-prefix']
+    is not defined and new_entry.source_address == source

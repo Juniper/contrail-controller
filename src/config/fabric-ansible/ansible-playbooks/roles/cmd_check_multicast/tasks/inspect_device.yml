@@ -1,0 +1,107 @@
+---
+
+- name: "Read physical router properties: {{ item }}"
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: {"uuid": "{{ item }}"}
+  register: physical_router_response
+
+- name: "Print physical_router_response"
+  debug:
+    var: physical_router_response
+
+- name: "Fetch device name, user and password for current device"
+  set_fact:
+    inspected_device_user: >-
+      {{ physical_router_response.obj.physical_router_user_credentials.username }}
+    inspected_device_password: >-
+      {{ physical_router_response.obj.physical_router_user_credentials.password
+      | decrypt_device_password(physical_router_response.obj.uuid) }}
+    inspected_device_name: "{{ physical_router_response.obj.display_name }}"
+
+- name: "Check if device {{ item }} is border leaf or server leaf"
+  set_fact:
+    border_leaf: >-
+      {{ 'CRB-MCAST-Gateway' in
+      physical_router_response.obj.routing_bridging_roles.rb_roles }}
+    server_leaf: >-
+      {{ physical_router_response.obj.physical_router_role == 'leaf' }}
+
+- name: "Is {{ inspected_device_name }} a border leaf?"
+  debug:
+    var: border_leaf
+
+- name: "Is {{ inspected_device_name }} a server leaf?"
+  debug:
+    var: server_leaf
+
+- name: "Handle server leaf: {{ inspected_device_name }}"
+  include_tasks: handle_server_leaf.yml
+  when: server_leaf == true
+
+- name: "Execute 'show route instance for the device {{ inspected_device_name }}'"
+  juniper_junos_command:
+    commands:
+      - "show route instance"
+    display: xml
+    provider:
+      host: "{{ physical_router_response.obj.physical_router_management_ip }}"
+      username: "{{ inspected_device_user }}"
+      password: "{{ inspected_device_password }}"
+      port: 22
+      timeout: "{{ JUNOS_COMMAND_TIMEOUT|int }}"
+  when: border_leaf == true
+  register: show_route_instance_response
+
+- name: Print show_route_instance_response
+  debug:
+    var: show_route_instance_response
+  when: show_route_instance_response is defined
+
+- name: Fetch routing intances from show_route_instance_response
+  set_fact:
+    routing_instances: >
+      {{ show_route_instance_response | json_query(
+      'parsed_output."instance-information"."instance-core"[*]."instance-name"'
+      ) }}
+  when: show_route_instance_response is defined
+
+- name: "Print routing_instances of {{ inspected_device_name }}"
+  debug:
+    var: routing_instances
+  when: routing_instances is defined
+
+- name: >-
+    Execute 'show multicast route instance <<instance>> group {{ group }}
+    extensive' on {{ inspected_device_name }}
+  juniper_junos_command:
+    commands:
+      - "show multicast route instance {{ routing_instance }} group {{ group }} extensive"
+    display: xml
+    provider:
+      host: "{{ physical_router_response.obj.physical_router_management_ip }}"
+      username: "{{ inspected_device_user }}"
+      password: "{{ inspected_device_password }}"
+      port: 22
+      timeout: "{{ JUNOS_COMMAND_TIMEOUT|int }}"
+  with_items: "{{ routing_instances }}"
+  loop_control:
+    loop_var: routing_instance
+  when: border_leaf == true
+  register: border_leaf_query_response
+
+- name: >-
+    Extract information about upstream interfaces
+    from border leaf query response ({{ inspected_device_name }})
+  include_tasks: parse_border_leaf_response.yml
+  with_items: "{{ border_leaf_query_response.results }}"
+  loop_control:
+    loop_var: border_leaf_results
+  when: border_leaf == true
+
+- name: Print border_leaf_query_response ({{ inspected_device_name }})
+  debug:
+    var: border_leaf_query_response
+  when: border_leaf_query_response is defined
