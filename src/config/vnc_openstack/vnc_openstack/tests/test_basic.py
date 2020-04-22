@@ -1352,6 +1352,21 @@ class TestBasic(test_case.NeutronBackendTestCase):
                                                             "mac": None,
                                                             "address_mode": "active-active"}]}})
 
+    '''
+    This test case checks and validates dns_server_address
+    JIRA bug: CEM-14411
+    '''
+    def test_dns_server_address(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        net_q = self.create_resource('network', proj_obj.uuid)
+        subnet_q = self.create_resource('subnet', proj_obj.uuid,
+                                        extra_res_fields={'network_id': net_q['id'],
+                                                          'cidr': '1.1.1.0/24',
+                                                          'ip_version': 4,
+                                                          'dns_nameservers' : ['1.0.0.1']})
+        subnet_vnc = self.neutron_db_obj._subnet_neutron_to_vnc(subnet_q)
+        assert subnet_vnc.dns_server_address == '1.1.1.2'
+
     def test_update_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         port_q = self._create_port_with_sg(proj_obj.uuid, True)

@@ -1708,7 +1708,7 @@ class DBInterface(object):
             if dns_servers:
                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
                                                    dhcp_option_value=dns_servers))
-                dns_server_address = subnet_q['dns_nameservers'][0]
+                dns_server_address = str(IPAddress(cidr.first+2))
             if dhcp_options:
                 dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
