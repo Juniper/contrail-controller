@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "a360d945_99d121b0",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 1954,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "We do not support multiple Community at this moment for this story. Single community and community member per DCI, Also Schema transformer makes single RT per LR in this ref.",
+      "parentUuid": "0986a5b0_81bd65a3",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "386e8d04_f29fca1a",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 12
@@ -33,6 +51,24 @@
       "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6f52551b_bf5c991e",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4038,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "Correct. i Fixed it.",
+      "parentUuid": "386e8d04_f29fca1a",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "a387091e_34902350",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4076,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "Correct. I fixed ut.",
+      "parentUuid": "aa4b58dd_d4c0f2e8",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b7ecd6ce_a0453146",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 12
@@ -67,6 +121,24 @@
       "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "eddfa869_8d70c813",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4090,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "Yes that\u0027s ok. Causes RoutFType is of type xsd:string only. It has enum string value defined as list of allowed values, and exact string is one of allowed value. so this is fine.",
+      "parentUuid": "b7ecd6ce_a0453146",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "faa6dc5a_ab5d96b6",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4157,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "Nope. It won\u0027t break. causes we also have updated j2 files accordingly as part of this changes. which consumes this. old function was not having this new change schema along with j2 files.",
+      "parentUuid": "a8026be9_3c4288bb",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "265c0f31_45ca0600",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 12
@@ -104,6 +194,24 @@
     },
     {
       "key": {
+        "uuid": "5b636c41_f232669b",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4164,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "yes that is ok with schema. Please see j2 files where it consumes this value. this abstract function meaning caller does not use or care of this term, it derives from user provided RP. so that is fine, and will work same as it call from VN_interconnect or ansible role common.",
+      "parentUuid": "265c0f31_45ca0600",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f6a87118_1d202a89",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 12
@@ -118,6 +226,24 @@
       "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "02280633_1827cbe0",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4177,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-04-22T19:34:38Z",
+      "side": 1,
+      "message": "yes, obj here is of type RoutingPolicyDM instance, it has term_type defined in its init function. schema has this term_type definition and default is set to vrouter in this class of RoutingPolicyDM for backward compatibility and if this term_type not found. So this is correct.",
+      "parentUuid": "f6a87118_1d202a89",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
