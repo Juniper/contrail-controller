@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "55c7ca0a_151c1856",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1435,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-04-22T09:10:41Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "734cb25f_b5200834",
+      "revId": "137345d098540ed1fb2d6461d438d49539518a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1c07e9c4_555b626c",
         "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
         "patchSetId": 2
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "c644666e_818061ea",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1516,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-04-22T09:10:41Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "1c07e9c4_555b626c",
+      "revId": "137345d098540ed1fb2d6461d438d49539518a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "34e1b4cd_435122f0",
         "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
         "patchSetId": 2
@@ -50,6 +86,24 @@
       "revId": "137345d098540ed1fb2d6461d438d49539518a91",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "262b46ce_abeef004",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 127,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-04-22T09:10:41Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "34e1b4cd_435122f0",
+      "revId": "137345d098540ed1fb2d6461d438d49539518a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
