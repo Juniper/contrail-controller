@@ -21,7 +21,7 @@ class FakeDriver(cassa_api.CassandraDriver):
     def get_cf_batch(self, keyspace_name, cf_name):
         pass
 
-    def get_range(self, keyspace_name, cf_name):
+    def get_range(self, keyspace_name, cf_name, columns=None, column_count=100000):
         pass
 
     def multiget(self, keyspace_name, cf_name, keys, columns=None, start='',
@@ -212,15 +212,24 @@ class TestCassandraDriverThrift(unittest.TestCase):
                 cassa_api.OBJ_FQ_NAME_CF_NAME: mock.MagicMock(),
                 cassa_api.OBJ_SHARED_CF_NAME: mock.MagicMock(),
             }
-        p = mock.patch(
+        # Mock handle_exceptions
+        def _handle_exceptions(self, func, oper=None):
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+            return wrapper
+        p = []
+        p.append(mock.patch(
             'cfgm_common.cassandra.drivers.thrift.CassandraDriverThrift._cassandra_init',
-            _cassandra_init)
-        p.start()
+            _cassandra_init))
+        p.append(mock.patch(
+            'cfgm_common.cassandra.drivers.thrift.CassandraDriverThrift._handle_exceptions',
+            _handle_exceptions))
+        [x.start() for x in p]
 
         self.drv = thrift.CassandraDriverThrift(['a', 'b'])
 
         # Ensure to cleanup mockings
-        self.addCleanup(p.stop)
+        [self.addCleanup(x.stop) for x in p]
 
     def test_import_error(self):
         thrift.pycassa = None
@@ -240,3 +249,9 @@ class TestCassandraDriverThrift(unittest.TestCase):
             cassa_api.OBJ_UUID_CF_NAME].xget.assert_called_once_with(
                 '<uuid>', column_finish='z', column_start='a')
 
+    def test_get_range(self):
+        self.drv.get_range(
+            cassa_api.OBJ_UUID_CF_NAME, columns=['type', 'fq_name'])
+        self.drv._cf_dict[
+            cassa_api.OBJ_UUID_CF_NAME].get_range.assert_called_once_with(
+                column_count=100000, columns=['type', 'fq_name'])
