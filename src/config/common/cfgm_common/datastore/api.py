@@ -99,7 +99,7 @@ class API(object):
         pass
 
     @abc.abstractmethod
-    def get_range(self, keyspace_name, cf_name):
+    def get_range(self, keyspace_name, cf_name, columns=None, column_count=100000):
         """List all column family rows"""
         pass
 
