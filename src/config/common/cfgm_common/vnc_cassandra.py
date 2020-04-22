@@ -1155,7 +1155,7 @@ class VncCassandraClient(object):
             for name, value in obj_cols:
                 # tuple of col_value, position. result is already sorted
                 # lexically by position (necessary only for list property)
-                result[field].append((json.loads(value), name.split(':')[-1]))
+                result[field].append((json.loads(value), name.split(':', 2)[-1]))
 
         return (True, result)
     # end prop_collection_read
@@ -1315,7 +1315,7 @@ class VncCassandraClient(object):
                     continue
 
                 if self._is_prop_map(col_name):
-                    (_, prop_name, _) = col_name.split(':')
+                    (_, prop_name, _) = col_name.split(':', 2)
                     if field_names and prop_name not in field_names:
                         continue
                     if obj_class.prop_map_field_has_wrappers[prop_name]:
