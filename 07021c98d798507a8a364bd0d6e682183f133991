@@ -1,0 +1,164 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d584616f_780eb335",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "nit: in you next patch set, can you set a constant for that domain/project fq_name in cfgm_common here https://github.com/Juniper/contrail-controller/blob/master/src/config/common/cfgm_common/__init__.py#L12",
+      "range": {
+        "startLine": 24,
+        "startChar": 12,
+        "endLine": 25,
+        "endChar": 30
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ecdf5024_619b6565",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "Can you be more precise in that check also. is it a prefix, suffix or string in the middle of the name? Could you validate parent names?",
+      "range": {
+        "startLine": 89,
+        "startChar": 8,
+        "endLine": 89,
+        "endChar": 52
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "83d84861_7bf86ef8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 121,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "same as above",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7e4d0ca6_effe9f81",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 130,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "you can also use locate method here if you set arg `create_it` to false.\nDo you need to read the loopback network? Just check it exists with fq_name_to_uuid is not enough?",
+      "range": {
+        "startLine": 123,
+        "startChar": 12,
+        "endLine": 130,
+        "endChar": 37
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6d5cf49e_1aab8119",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "why using list call to get instance_ip_back_refs of VN you just read above? You can limit the read above to the field \u0027instance_ip_back_refs\u0027 (locate can do that also)",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e1d9efda_7361e8a8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 154,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "Are you sure the IIP is the only back-refs the VN can have?",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2a14b542_552defbc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "only the loopback VN just delete before can use that IPAM?",
+      "range": {
+        "startLine": 161,
+        "startChar": 16,
+        "endLine": 163,
+        "endChar": 50
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "47339f21_002b4d0d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 172,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-04-22T17:53:12Z",
+      "side": 1,
+      "message": "Are you sure you should delete VN and IPAM before the fabric namespace was deleted?\nYou can do it after with \u0027post_dbe_delete\u0027 hook.\ni you need to do it before, you need to provide roolback code to restore what you deleted if the fabric Namepace deletion fails.",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
