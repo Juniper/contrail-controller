@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1c07e9c4_555b626c",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1516,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-22T02:28:39Z",
+      "side": 1,
+      "message": "why printing it as error ?",
+      "revId": "137345d098540ed1fb2d6461d438d49539518a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "34e1b4cd_435122f0",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 127,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-22T02:28:39Z",
+      "side": 1,
+      "message": "Can you have an info log here like we do have in build_vpg_config, easy for debugging",
+      "revId": "137345d098540ed1fb2d6461d438d49539518a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
