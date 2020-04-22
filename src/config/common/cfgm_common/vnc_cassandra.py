@@ -98,8 +98,6 @@ class VncCassandraClient(object):
 
         self._logger = self._cassandra_driver.options.logger
         self._cache_uuid_to_fq_name = {}
-        self._obj_uuid_cf = (self._cassandra_driver.
-                                _cf_dict[cassa_api.OBJ_UUID_CF_NAME])
         self._obj_fq_name_cf = (self._cassandra_driver.
                                 _cf_dict[cassa_api.OBJ_FQ_NAME_CF_NAME])
         self._obj_shared_cf = (self._cassandra_driver.
@@ -328,7 +326,7 @@ class VncCassandraClient(object):
         symmetric_ref_updates = []
         if bch is None:
             send = True
-            bch = self._obj_uuid_cf.batch()
+            bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
         self._cassandra_driver.remove(
                 obj_uuid,
                 columns=['ref:%s:%s' % (ref_obj_type, ref_uuid)],
@@ -378,7 +376,7 @@ class VncCassandraClient(object):
         else:
             # Gather column values for obj and updates to backrefs
             # in a batch and write it at the end
-            bch = self._obj_uuid_cf.batch()
+            bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
 
         obj_cols = {}
         obj_cols['fq_name'] = json.dumps(obj_dict['fq_name'])
@@ -603,7 +601,6 @@ class VncCassandraClient(object):
             return (False, '')
 
         obj_class = self._get_resource_class(obj_type)
-        obj_uuid_cf = self._obj_uuid_cf
         if child_type not in obj_class.children_fields:
             return (False,
                     '%s is not a child type of %s' % (child_type, obj_type))
@@ -684,12 +681,11 @@ class VncCassandraClient(object):
 
         # Gather column values for obj and updates to backrefs
         # in a batch and write it at the end
-        obj_uuid_cf = self._obj_uuid_cf
-
         if uuid_batch:
             bch = uuid_batch
         else:
-            bch = obj_uuid_cf.batch()
+            bch = self._cassandra_driver.get_cf_batch(
+                cassa_api.OBJ_UUID_CF_NAME)
 
         for col_name, col_value in self._cassandra_driver.xget(
                 cassa_api.OBJ_UUID_CF_NAME, obj_uuid):
@@ -1031,11 +1027,10 @@ class VncCassandraClient(object):
 
     def object_delete(self, obj_type, obj_uuid):
         obj_class = self._get_resource_class(obj_type)
-        obj_uuid_cf = self._obj_uuid_cf
         fq_name = self._cassandra_driver.get_one_col(cassa_api.OBJ_UUID_CF_NAME,
                                                      obj_uuid,
                                                      'fq_name')
-        bch = obj_uuid_cf.batch()
+        bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
 
         # unlink from parent
         col_start = 'parent:'
@@ -1442,7 +1437,8 @@ class VncCassandraClient(object):
 
     def walk(self, fn=None):
         type_to_object = {}
-        for obj_uuid, obj_col in self._obj_uuid_cf.get_range(
+        for obj_uuid, obj_col in self._cassandra_driver.get_range(
+                cassa_api.OBJ_UUID_CF_NAME,
                 columns=['type', 'fq_name']):
             try:
                 obj_type = json.loads(obj_col['type'])

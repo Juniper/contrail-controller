@@ -113,7 +113,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def prop_collection_update(self, obj_type, obj_uuid, updates):
         obj_class = self._db_client_mgr.get_resource_class(obj_type)
-        bch = self._obj_uuid_cf.batch()
+        bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
         for oper_param in updates:
             oper = oper_param['operation']
             prop_name = oper_param['field']
@@ -152,7 +152,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid,
                    ref_data, operation, id_perms, relax_ref_for_delete=False):
-        bch = self._obj_uuid_cf.batch()
+        bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
         if operation == 'ADD':
             self._create_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
                              ref_data)
@@ -167,7 +167,7 @@ class VncServerCassandraClient(VncCassandraClient):
     # end ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
-        bch = self._obj_uuid_cf.batch()
+        bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
         self._relax_ref_for_delete(bch, obj_uuid, ref_uuid)
         bch.send()
     # end ref_relax_for_delete
@@ -176,7 +176,7 @@ class VncServerCassandraClient(VncCassandraClient):
         send = False
         if bch is None:
             send = True
-            bch = self._obj_uuid_cf.batch()
+            bch = self._cassandra_driver.get_cf_batch(cassa_api.OBJ_UUID_CF_NAME)
         self._cassandra_driver.insert(ref_uuid, {'relaxbackref:%s' % (obj_uuid):
                                       json.dumps(None)},
                                       batch=bch)
