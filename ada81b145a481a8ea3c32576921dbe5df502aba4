@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f4fd13d1_f053e899",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1372,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-22T03:14:31Z",
+      "side": 1,
+      "message": "change this function name, it still says bgp, however u have made it common for all protos",
+      "revId": "ada81b145a481a8ea3c32576921dbe5df502aba4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
