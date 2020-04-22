@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "34bca83a_0c8f1480",
+        "filename": "src/config/api-server/test-requirements.txt",
+        "patchSetId": 11
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-22T15:58:50Z",
+      "side": 1,
+      "message": "not pinned?",
+      "revId": "2b97ff69e78e39e68598ea1cfb80f0b5694df722",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
