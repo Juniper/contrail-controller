@@ -250,10 +250,11 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
     def get_cf(self, cf_name):
         return self._cf_dict.get(cf_name)
 
-    def get_range(self, cf_name):
+    def get_range(self, cf_name, columns=None, column_count=100000):
         try:
             return self.get_cf(cf_name).get_range(
-                         column_count=100000)
+                column_count=column_count,
+                columns=columns)
         except:
             return None
 
