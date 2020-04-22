@@ -392,7 +392,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             key, column_start=start, column_finish=finish)
 
     def insert(self, key, columns, keyspace_name=None, cf_name=None,
-               batch=None, column_famiy=None):
+               batch=None, column_family=None):
         """Insert columns with value in a row in a column family"""
 
         if batch:
@@ -406,7 +406,7 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
                 % (columns, key))
 
     def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
-               batch=None, column_famiy=None):
+               batch=None, column_family=None):
         """Remove a specified row or a set of columns within the row"""
 
         if batch:

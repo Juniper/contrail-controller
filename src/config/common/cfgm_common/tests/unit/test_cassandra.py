@@ -255,3 +255,17 @@ class TestCassandraDriverThrift(unittest.TestCase):
         self.drv._cf_dict[
             cassa_api.OBJ_UUID_CF_NAME].get_range.assert_called_once_with(
                 column_count=100000, columns=['type', 'fq_name'])
+
+    def test_remove(self):
+        self.drv.remove(
+            cf_name=cassa_api.OBJ_FQ_NAME_CF_NAME, key='<uuid>', columns=['fq_name'])
+        self.drv._cf_dict[
+            cassa_api.OBJ_FQ_NAME_CF_NAME].remove.assert_called_once_with(
+                '<uuid>', ['fq_name'])
+
+    def test_insert(self):
+        self.drv.insert(
+            cf_name=cassa_api.OBJ_FQ_NAME_CF_NAME, key='<uuid>', columns=['fq_name'])
+        self.drv._cf_dict[
+            cassa_api.OBJ_FQ_NAME_CF_NAME].insert.assert_called_once_with(
+                '<uuid>', ['fq_name'])
