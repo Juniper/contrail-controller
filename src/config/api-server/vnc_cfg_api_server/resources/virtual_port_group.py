@@ -120,18 +120,16 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         # Handling both deletion and addition of interfaces here
 
-        # compute the already existing physical interface refs for the
-        # vpg object
-
-        ok, result = db_conn.dbe_read(
-            obj_type='virtual_port_group',
-            obj_id=obj_dict['uuid'],
-            obj_fields=['physical_interface_refs'])
-
-        if not ok:
-            return ok, (400, result)
-
         if obj_dict.get('physical_interface_refs'):
+            # compute the already existing physical interface refs for the
+            # vpg object
+            ok, result = db_conn.dbe_read(
+                obj_type='virtual_port_group',
+                obj_id=obj_dict['uuid'],
+                obj_fields=['physical_interface_refs'])
+            if not ok:
+                return ok, (400, result)
+
             ok, res = cls.update_physical_intf_type(obj_dict, result)
             if not ok:
                 return ok, res
