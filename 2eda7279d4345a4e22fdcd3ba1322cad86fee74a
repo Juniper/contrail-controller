@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0986a5b0_81bd65a3",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 1954,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "there can be multiple RT\u0027s per VN/RI, we do not want to support multiple?",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "386e8d04_f29fca1a",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4038,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "init o_external to None like o_update, if at all it goes in this if cond",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aa4b58dd_d4c0f2e8",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4076,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "shouldnt this be \u0027prefixes\u0027 and not prefixs, looking at the xsd change for PrefixListMatchType?",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b7ecd6ce_a0453146",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4090,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "route_type is of type RouteFType, here it may pass string. Is that ok?",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a8026be9_3c4288bb",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4157,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "The old function _set_routing_policies, which is removed with this change was not using community and extcommunity. Will it break the set_routing_vn_proto_in_ri() calls from ansible_role_common and vn_interconnect modules?",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "265c0f31_45ca0600",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4164,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "external as_path_expand as_path_prepend are new additions. Will it break set_routing_vn_proto_in_ri() calls from ansible_role_common and vn_interconnect modules?\n\nThe external is ExternalRouteType type, as_path_expand and as_path_prepend are strings. They may be None if if conditions are not hit. is that ok with the schema that expects string or ExternalRouteType?",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f6a87118_1d202a89",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 4177,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-04-22T15:31:16Z",
+      "side": 1,
+      "message": "will the obj here have term_type attribute, api-client has it? the ask is bcoz this is new addition",
+      "revId": "2eda7279d4345a4e22fdcd3ba1322cad86fee74a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
