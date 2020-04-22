@@ -18,7 +18,7 @@ class FakeDriver(cassa_api.CassandraDriver):
     def get_cf_batch(self, keyspace_name, cf_name):
         pass
 
-    def get_range(self, keyspace_name, cf_name):
+    def get_range(self, keyspace_name, cf_name, columns=None, column_count=100000):
         pass
 
     def multiget(self, keyspace_name, cf_name, keys, columns=None, start='',
@@ -225,3 +225,9 @@ class TestCassandraDriverThrift(unittest.TestCase):
             cassa_api.OBJ_UUID_CF_NAME].xget.assert_called_once_with(
                 '<uuid>', column_finish='z', column_start='a')
 
+    def test_get_range(self):
+        self.drv.get_range(
+            cassa_api.OBJ_UUID_CF_NAME, columns=['type', 'fq_name'])
+        self.drv._cf_dict[
+            cassa_api.OBJ_UUID_CF_NAME].get_range.assert_called_once_with(
+                column_count=100000, columns=['type', 'fq_name'])
