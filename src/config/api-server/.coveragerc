@@ -7,4 +7,4 @@ omit =
     */gen/*
 
 [report]
-ignore_errors = True
+ignore_errors = False
