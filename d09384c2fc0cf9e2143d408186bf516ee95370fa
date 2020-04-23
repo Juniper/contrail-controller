@@ -1,0 +1,140 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cf6cc72a_9b7cdaae",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Can you split this  logic into multiple methods ? Too much logic is packed in one function.",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2ccf25d3_8e92dbea",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Can you pls restructure it by breaking this functionality to multiple methods ?",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8885b743_9a49cf72",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Don\u0027t we need to return False here ?",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3ab0ba98_f62d3998",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 150,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "If actionlist is None, does the term is valid ?",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "59f96d4c_1f7225c3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 182,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Is action is optional here ? If not we need to  return error here.",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "643aaad5_12a7667f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 186,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Can we have expand without asn_list ?",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "980a1dc1_19e34d8b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Can we make this into multiple UT cases ? If you are short of time pls open Bug to track this.",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5c56a8cb_b65e4a09",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_routing_policy.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 142,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-04-23T14:56:36Z",
+      "side": 1,
+      "message": "Pls also add more tests covering with -ve case. Missing mandatoroy parameters etc",
+      "revId": "d09384c2fc0cf9e2143d408186bf516ee95370fa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
