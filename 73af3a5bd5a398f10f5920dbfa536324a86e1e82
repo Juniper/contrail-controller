@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1cf2b5c8_4c98d024",
+        "filename": "src/config/api-server/requirements.txt",
+        "patchSetId": 13
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 834
+      },
+      "writtenOn": "2020-04-23T03:01:27Z",
+      "side": 1,
+      "message": "ACK",
+      "revId": "73af3a5bd5a398f10f5920dbfa536324a86e1e82",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a6906ab9_4a74af0d",
+        "filename": "src/config/vnc_openstack/requirements.txt",
+        "patchSetId": 13
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 834
+      },
+      "writtenOn": "2020-04-23T03:01:27Z",
+      "side": 1,
+      "message": "Need to remove",
+      "revId": "73af3a5bd5a398f10f5920dbfa536324a86e1e82",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
