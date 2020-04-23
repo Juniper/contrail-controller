@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b829af80_3088cca8",
+        "filename": "src/config/api-server/test-requirements.txt",
+        "patchSetId": 23
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-23T18:51:48Z",
+      "side": 0,
+      "message": "pycrypto is removed from test-requirements.txt so it\u0027ll be downloaded based on requirements.txt. So requirements.txt must pin it to ensure no breakage during UT",
+      "revId": "8932e6a9fe1658d04e5281bcd37e9118410820bd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
