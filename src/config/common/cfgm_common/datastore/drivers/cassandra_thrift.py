@@ -74,11 +74,6 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
             (datastore_api.UUID_KEYSPACE_NAME not in self.options.rw_keyspaces)):
             self.options.ro_keyspaces.update(datastore_api.UUID_KEYSPACE)
         self._cassandra_init(server_list)
-        if (((datastore_api.OBJ_SHARED_CF_NAME in self.options.ro_keyspaces.get(
-                datastore_api.UUID_KEYSPACE_NAME, {}))) or
-             (datastore_api.OBJ_SHARED_CF_NAME in self.options.rw_keyspaces.get(
-                 datastore_api.UUID_KEYSPACE_NAME, {}))):
-            self._obj_shared_cf = self._cf_dict[datastore_api.OBJ_SHARED_CF_NAME]
 
         self.get_one_col = self._handle_exceptions(self.get_one_col)
         self.get_range = self._handle_exceptions(self.get_range)
