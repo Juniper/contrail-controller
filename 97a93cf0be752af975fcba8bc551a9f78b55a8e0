@@ -16,6 +16,24 @@
       "revId": "97a93cf0be752af975fcba8bc551a9f78b55a8e0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "34a6f492_12bad608",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1186,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-04-23T19:15:44Z",
+      "side": 1,
+      "message": "fq_name is default keyword, you don\u0027t need to specify it while using dbe_read - I checked it. What is wrong with syntax?",
+      "parentUuid": "e2f27019_7799e3b6",
+      "revId": "97a93cf0be752af975fcba8bc551a9f78b55a8e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
