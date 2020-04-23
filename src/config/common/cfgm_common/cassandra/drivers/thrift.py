@@ -72,9 +72,6 @@ class CassandraDriverThrift(cassa_api.CassandraDriver):
             (cassa_api.UUID_KEYSPACE_NAME not in self.options.rw_keyspaces)):
             self.options.ro_keyspaces.update(cassa_api.UUID_KEYSPACE)
         self._cassandra_init(server_list)
-        if (((cassa_api.OBJ_SHARED_CF_NAME in self.options.ro_keyspaces.get(cassa_api.UUID_KEYSPACE_NAME, {}))) or
-             (cassa_api.OBJ_SHARED_CF_NAME in self.options.rw_keyspaces.get(cassa_api.UUID_KEYSPACE_NAME, {}))):
-            self._obj_shared_cf = self._cf_dict[cassa_api.OBJ_SHARED_CF_NAME]
 
         self.get_one_col = self._handle_exceptions(self.get_one_col)
         self.get_range = self._handle_exceptions(self.get_range)
