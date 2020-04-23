@@ -98,8 +98,6 @@ class VncCassandraClient(object):
 
         self._logger = self._cassandra_driver.options.logger
         self._cache_uuid_to_fq_name = {}
-        self._obj_shared_cf = (self._cassandra_driver.
-                                _cf_dict[datastore_api.OBJ_SHARED_CF_NAME])
 
         self._obj_cache_mgr = ObjectCacheManager(
             self._cassandra_driver.options.logger,
@@ -1203,14 +1201,18 @@ class VncCassandraClient(object):
     # rwx indicate type of access (sharing) allowed
     def set_shared(self, obj_type, obj_id, share_id = '', share_type = 'global', rwx = 7):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
-        self._cassandra_driver._obj_shared_cf.insert(obj_type,
-                                                     {col_name:json.dumps(rwx)})
+        self._cassandra_driver.insert(
+            cf_name=datastore_api.OBJ_SHARED_CF_NAME,
+            key=obj_type,
+            columns={col_name:json.dumps(rwx)})
 
     # delete share of 'obj_id' object with <share_type:share_id>
     def del_shared(self, obj_type, obj_id, share_id = '', share_type = 'global'):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
-        self._cassandra_driver._obj_shared_cf.remove(obj_type,
-                                                     columns=[col_name])
+        self._cassandra_driver.remove(
+            cf_name=datastore_api.OBJ_SHARED_CF_NAME,
+            key=obj_type,
+            columns=[col_name])
 
     def _render_obj_from_db(self, obj_class, obj_rows, field_names=None,
                             include_backrefs_children=False):
