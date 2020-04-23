@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "adacc49e_e62e96f5",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d584616f_780eb335",
+      "range": {
+        "startLine": 24,
+        "startChar": 12,
+        "endLine": 25,
+        "endChar": 30
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ecdf5024_619b6565",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 7
@@ -36,6 +60,30 @@
       "writtenOn": "2020-04-22T17:53:12Z",
       "side": 1,
       "message": "Can you be more precise in that check also. is it a prefix, suffix or string in the middle of the name? Could you validate parent names?",
+      "range": {
+        "startLine": 89,
+        "startChar": 8,
+        "endLine": 89,
+        "endChar": 52
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7dafaec2_84bafe02",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "This is complete name of this fabric namespace object. Since it has fabric name in fq it can be uniquely identified per fabric.\ne.g from database i copy pasted this.\nfq_name:  [\n\"default-global-system-config\",\n\"fabric-temp\",\n\"overlay-loopback-subnets\"\n],",
+      "parentUuid": "ecdf5024_619b6565",
       "range": {
         "startLine": 89,
         "startChar": 8,
@@ -65,6 +113,24 @@
     },
     {
       "key": {
+        "uuid": "3a0bbace_90d87957",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 121,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "This is complete name of this fabric namespace object. Since it has fabric name in fq it can be uniquely identified per fabric.\ne.g from database i copy pasted this.\nfq_name:  [\n\"default-global-system-config\",\n\"fabric-temp\",\n\"overlay-loopback-subnets\"\n],",
+      "parentUuid": "83d84861_7bf86ef8",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "7e4d0ca6_effe9f81",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 7
@@ -88,6 +154,30 @@
     },
     {
       "key": {
+        "uuid": "17fa20ac_ced8341a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 130,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7e4d0ca6_effe9f81",
+      "range": {
+        "startLine": 123,
+        "startChar": 12,
+        "endLine": 130,
+        "endChar": 37
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6d5cf49e_1aab8119",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 7
@@ -105,6 +195,24 @@
     },
     {
       "key": {
+        "uuid": "b92686e3_cd3428c8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6d5cf49e_1aab8119",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e1d9efda_7361e8a8",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 7
@@ -119,6 +227,24 @@
       "revId": "07021c98d798507a8a364bd0d6e682183f133991",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "24cb7f27_0735613b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 154,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done. Other back refs are taken care by VN delete itself.",
+      "parentUuid": "e1d9efda_7361e8a8",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -145,6 +271,30 @@
     },
     {
       "key": {
+        "uuid": "f620bddc_bdc89c32",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2a14b542_552defbc",
+      "range": {
+        "startLine": 161,
+        "startChar": 16,
+        "endLine": 163,
+        "endChar": 50
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "47339f21_002b4d0d",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 7
@@ -159,6 +309,24 @@
       "revId": "07021c98d798507a8a364bd0d6e682183f133991",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b86d6fab_a462c4d7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 172,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "47339f21_002b4d0d",
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }

@@ -845,6 +845,24 @@
     },
     {
       "key": {
+        "uuid": "472a1856_604bcaf2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "3e0a610f_d3c26fa0",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "197631ba_70af4045",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -973,6 +991,30 @@
     },
     {
       "key": {
+        "uuid": "80b4c46e_aaa59a65",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 771,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "I would like other VN processing to go ahead as this field is common. If virtual_network_category is None overlay-loopback VN should not be called. If you think None is redundant i can remove that.",
+      "parentUuid": "2c4ad751_236589be",
+      "range": {
+        "startLine": 771,
+        "startChar": 66,
+        "endLine": 771,
+        "endChar": 70
+      },
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "63db0838_8eb3b21b",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 4
@@ -984,6 +1026,24 @@
       "writtenOn": "2020-04-21T17:38:05Z",
       "side": 1,
       "message": "sounds dangerous to just rely on the resource name to determine this kind of thing",
+      "revId": "e65479aaaea7add2b0459a38531d75f990740663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "33af7f4d_5c47b43c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 772,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-23T06:37:50Z",
+      "side": 1,
+      "message": "Yes i will open a subtask to take of transaction based on Name.",
+      "parentUuid": "63db0838_8eb3b21b",
       "revId": "e65479aaaea7add2b0459a38531d75f990740663",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
