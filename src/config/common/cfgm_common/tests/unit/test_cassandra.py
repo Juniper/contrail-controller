@@ -18,36 +18,35 @@ from cfgm_common.cassandra.drivers import thrift
 
 
 class FakeDriver(cassa_api.CassandraDriver):
-    def get_cf_batch(self, keyspace_name, cf_name):
+    def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         pass
 
-    def get_range(self, keyspace_name, cf_name, columns=None, column_count=100000):
+    def _Get_Range(self, cf_name, columns=None, column_count=100000):
         pass
 
-    def multiget(self, keyspace_name, cf_name, keys, columns=None, start='',
-                 finish='', timestamp=False, num_columns=None):
+    def _Multiget(self, cf_name, keys, columns=None, start='', finish='',
+                  timestamp=False, num_columns=None):
         pass
 
-    def get(self, keyspace_name, cf_name, key, columns=None, start='',
-            finish=''):
+    def _Get(self, keyspace_name, cf_name, key, columns=None, start='',
+             finish=''):
         pass
 
-    def xget(self, keyspace_name, cf_name, key, columns=None, start='',
-            finish=''):
+    def _XGet(self, cf_name, key, columns=None, start='', finish=''):
         pass
 
-    def get_one_col(self, keyspace_name, cf_name, key, column):
+    def _Get_Count(self, cf_name, key, start='', finish='', keyspace_name=None):
         pass
 
-    def insert(self, key, columns, keyspace_name=None, cf_name=None,
-               batch=None):
+    def _Get_One_Col(self, cf_name, key, column):
         pass
 
-    def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
-               batch=None):
+    def _Insert(self, key, columns, keyspace_name=None, cf_name=None,
+                batch=None, column_family=None):
         pass
 
-    def get_count(self, keyspace_name, cf_name, key, start='', finish=''):
+    def _Remove(self, key, columns=None, keyspace_name=None, cf_name=None,
+                batch=None, column_family=None):
         pass
 
 
