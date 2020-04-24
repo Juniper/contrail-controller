@@ -242,14 +242,14 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         return wrapper
     # end _handle_exceptions
 
-    def get_cf_batch(self, cf_name, keyspace_name=None):
+    def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         """Get batch object bind to a column family used in insert/remove"""
         return self.get_cf(cf_name).batch()
 
     def get_cf(self, cf_name):
         return self._cf_dict.get(cf_name)
 
-    def get_range(self, cf_name, columns=None, column_count=100000):
+    def _Get_Range(self, cf_name, columns=None, column_count=100000):
         try:
             return self.get_cf(cf_name).get_range(
                 column_count=column_count,
@@ -257,7 +257,7 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         except:
             return None
 
-    def get_one_col(self, cf_name, key, column):
+    def _Get_One_Col(self, cf_name, key, column):
         col = self.multiget(cf_name, [key], columns=[column])
         if key not in col:
             raise NoIdError(key)
@@ -265,7 +265,7 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
             raise VncError('Multi match %s for %s' % (column, key))
         return col[key][column]
 
-    def multiget(self, cf_name, keys, columns=None, start='', finish='',
+    def _Multiget(self, cf_name, keys, columns=None, start='', finish='',
                  timestamp=False, num_columns=None):
         _thrift_limit_size = 10000
         results = {}
@@ -374,7 +374,7 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
             del results[row_key]
         return results
 
-    def get(self, cf_name, key, columns=None, start='', finish=''):
+    def _Get(self, cf_name, key, columns=None, start='', finish=''):
         result = self.multiget(cf_name,
                                [key],
                                columns=columns,
@@ -382,15 +382,15 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
                                finish=finish)
         return result.get(key)
 
-    def xget(self, cf_name, key, columns=None, start='', finish=''):
+    def _XGet(self, cf_name, key, columns=None, start='', finish=''):
         return self.get_cf(cf_name).xget(
             key, column_start=start, column_finish=finish)
 
-    def get_count(self, cf_name, key, start='', finish='', keyspace_name=None):
+    def _Get_Count(self, cf_name, key, start='', finish='', keyspace_name=None):
         return self.get_cf(cf_name).get_count(
             key, column_start=start, column_finish=finish)
 
-    def insert(self, key, columns, keyspace_name=None, cf_name=None,
+    def _Insert(self, key, columns, keyspace_name=None, cf_name=None,
                batch=None, column_family=None):
         """Insert columns with value in a row in a column family"""
 
@@ -404,7 +404,7 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
             raise VncError('No cf or batch for db insert %s for %s'
                 % (columns, key))
 
-    def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
+    def _Remove(self, key, columns=None, keyspace_name=None, cf_name=None,
                batch=None, column_family=None):
         """Remove a specified row or a set of columns within the row"""
 

@@ -94,54 +94,92 @@ class API(object):
         self._generate_url = self.options.generate_url
 
     @abc.abstractmethod
-    def get_cf_batch(keyspace_name, cf_name):
+    def _Get_CF_Batch(self, cf_name, keyspace_name=None):
+        pass
+
+    def get_cf_batch(self, cf_name, keyspace_name=None):
         """Get batch object bind to a column family used in insert/remove"""
-        pass
+        return self._Get_CF_Batch(cf_name=cf_name, keyspace_name=keyspace_name)
 
     @abc.abstractmethod
-    def get_range(self, keyspace_name, cf_name, columns=None, column_count=100000):
+    def _Get_Range(self, cf_name, columns=None, column_count=100000):
+        pass
+
+    def get_range(self, cf_name, columns=None, column_count=100000):
         """List all column family rows"""
-        pass
+        return self._Get_Range(
+            cf_name=cf_name, columns=columns, column_count=column_count)
 
     @abc.abstractmethod
-    def multiget(self, keyspace_name, cf_name, keys, columns=None, start='',
-                 finish='', timestamp=False, num_columns=None):
+    def _Multiget(self, cf_name, keys, columns=None, start='', finish='',
+                  timestamp=False, num_columns=None):
+        pass
+
+    def multiget(self, cf_name, keys, columns=None, start='', finish='',
+                 timestamp=False, num_columns=None):
         """List multiple rows on a column family"""
-        pass
+        return self._Multiget(
+            cf_name=cf_name, keys=keys, columns=columns, start=start,
+            finish=finish, timestamp=timestamp, num_columns=num_columns)
 
     @abc.abstractmethod
-    def get(self, keyspace_name, cf_name, key, columns=None, start='',
-            finish=''):
+    def _Get(self, keyspace_name, cf_name, key, columns=None, start='',
+             finish=''):
+        pass
+
+    def get(self, cf_name, key, columns=None, start='', finish=''):
         """Fetch one row in a column family"""
-        pass
+        return self._Get(
+            cf_name, key, columns=columns, start=start, finish=finish)
 
     @abc.abstractmethod
-    def xget(self, keyspace_name, cf_name, key, columns=None, start='',
-            finish=''):
+    def _XGet(self, cf_name, key, columns=None, start='', finish=''):
+        pass
+
+    def xget(self, cf_name, key, columns=None, start='', finish=''):
         """Like get but creates a generator that pages over the columns automatically."""
-        pass
+        return self._XGet(
+            cf_name=cf_name, key=key, columns=columns, start=start, finish=finish)
 
     @abc.abstractmethod
-    def get_count(self, keyspace_name, cf_name, key, start='', finish=''):
+    def _Get_Count(self, cf_name, key, start='', finish='', keyspace_name=None):
+        pass
+
+    def get_count(self, cf_name, key, start='', finish='', keyspace_name=None):
         """Count rows in a column family"""
-        pass
+        return self._Get_Count(
+            cf_name=cf_name, key=key, start=start, finish=finish,
+            keyspace_name=keyspace_name)
 
     @abc.abstractmethod
-    def get_one_col(self, keyspace_name, cf_name, key, column):
+    def _Get_One_Col(self, cf_name, key, column):
+        pass
+
+    def get_one_col(self, cf_name, key, column):
         """Fetch one column of a row in a column family"""
-        pass
+        return self._Get_One_Col(cf_name=cf_name, key=key, column=column)
 
     @abc.abstractmethod
+    def _Insert(self, key, columns, keyspace_name=None, cf_name=None,
+                batch=None, column_family=None):
+        pass
+
     def insert(self, key, columns, keyspace_name=None, cf_name=None,
-               batch=None):
+               batch=None, column_family=None):
         """Insert columns with value in a row in a column family"""
-        pass
+        self._Insert(key=key, columns=columns, keyspace_name=keyspace_name,
+                     cf_name=cf_name, batch=batch, column_family=column_family)
 
     @abc.abstractmethod
-    def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
-               batch=None):
-        """Remove a specified row or a set of columns within the row"""
+    def _Remove(self, key, columns=None, keyspace_name=None, cf_name=None,
+                batch=None, column_family=None):
         pass
+
+    def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
+               batch=None, column_family=None):
+        """Remove a specified row or a set of columns within the row"""
+        self._Remove(key=key, columns=columns, keyspace_name=keyspace_name,
+                     cf_name=cf_name, batch=batch, column_family=column_family)
 
 
 # Defines common methods/functions that will be useful for the drivers.
