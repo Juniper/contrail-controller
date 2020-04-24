@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "0ebbde9b_b927acc2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-24T06:17:21Z",
+      "side": 1,
+      "message": "There are multiple fabric namespaces of different type per Fabric (like management subnets, ASN ranges, Fabric subnets). Ref is from the fabric to the virtual network representing the namespace. fabric has fabric namespace information",
+      "parentUuid": "7f2599ed_3ba4d976",
+      "revId": "2f8eedc9bad30721a6bb0f6a613624abfa7c7803",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3f6efe08_75f929ef",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 9
