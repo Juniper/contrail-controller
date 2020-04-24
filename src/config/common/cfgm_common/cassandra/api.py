@@ -1,6 +1,9 @@
 import abc
 import collections
 import copy
+import cProfile
+import functools
+import os
 import six
 
 from sandesh_common.vns import constants as vns_constants
@@ -68,13 +71,53 @@ OptionsDefault = {
 OptionsType = collections.namedtuple(
     'Options', OptionsDefault.keys())
 
+ProfilerType = collections.namedtuple(
+    'Profiler', ['Get',])
+
+
+# Defines base class to trace drivers calls to Cassandra.  The results
+# will be stored in files `profile.cassandra.<function>.trace`. They
+# can be read using `pstats` or more evoluated tools like kcachegrind
+# to find bottlenecks.
+
+class Trace(object):
+    def __init__(self):
+        self._trace_track = {}
+        self._trace_enabled = bool(int(
+            # When defined and equal to 1, profiling the executions.
+            os.getenv('CONTRAIL_PROFILE_CASSANDRA', 0)))
+
+    @staticmethod
+    def trace(f):
+        @functools.wraps(f)
+        def wrapped(self, *args, **kwargs):
+            if self._trace_enabled:
+                if f.__name__ not in self._trace_track:
+                    self._trace_track[f.__name__] = cProfile.Profile()
+
+                p = self._trace_track[f.__name__]
+                p.enable()
+                r = f(self, *args, **kwargs)
+                p.disable()
+
+                # TODO((sahid): We dump the information after each call. a bit
+                # expensive, a better way could be found later.
+                p.dump_stats("profile.cassandra.{}.trace".format(
+                    f.__name__))
+                return r
+            else:
+                return f(self, *args, **kwargs)
+        return wrapped
+
 
 # Defines API that drivers should implement.
 
 @six.add_metaclass(abc.ABCMeta)
-class API(object):
+class API(Trace):
 
     def __init__(self, server_list, **options):
+        super(API, self).__init__()
+
         self.options = copy.deepcopy(OptionsDefault)
         self.options.update(
             # This to filter inputs that are None, in that case we
@@ -97,6 +140,7 @@ class API(object):
     def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         pass
 
+    @Trace.trace
     def get_cf_batch(self, cf_name, keyspace_name=None):
         """Get batch object bind to a column family used in insert/remove"""
         return self._Get_CF_Batch(cf_name=cf_name, keyspace_name=keyspace_name)
@@ -105,6 +149,7 @@ class API(object):
     def _Get_Range(self, cf_name, columns=None, column_count=100000):
         pass
 
+    @Trace.trace
     def get_range(self, cf_name, columns=None, column_count=100000):
         """List all column family rows"""
         return self._Get_Range(
@@ -115,6 +160,7 @@ class API(object):
                   timestamp=False, num_columns=None):
         pass
 
+    @Trace.trace
     def multiget(self, cf_name, keys, columns=None, start='', finish='',
                  timestamp=False, num_columns=None):
         """List multiple rows on a column family"""
@@ -127,6 +173,7 @@ class API(object):
              finish=''):
         pass
 
+    @Trace.trace
     def get(self, cf_name, key, columns=None, start='', finish=''):
         """Fetch one row in a column family"""
         return self._Get(
@@ -145,6 +192,7 @@ class API(object):
     def _Get_Count(self, cf_name, key, start='', finish='', keyspace_name=None):
         pass
 
+    @Trace.trace
     def get_count(self, cf_name, key, start='', finish='', keyspace_name=None):
         """Count rows in a column family"""
         return self._Get_Count(
@@ -155,6 +203,7 @@ class API(object):
     def _Get_One_Col(self, cf_name, key, column):
         pass
 
+    @Trace.trace
     def get_one_col(self, cf_name, key, column):
         """Fetch one column of a row in a column family"""
         return self._Get_One_Col(cf_name=cf_name, key=key, column=column)
@@ -164,6 +213,7 @@ class API(object):
                 batch=None, column_family=None):
         pass
 
+    @Trace.trace
     def insert(self, key, columns, keyspace_name=None, cf_name=None,
                batch=None, column_family=None):
         """Insert columns with value in a row in a column family"""
@@ -175,6 +225,7 @@ class API(object):
                 batch=None, column_family=None):
         pass
 
+    @Trace.trace
     def remove(self, key, columns=None, keyspace_name=None, cf_name=None,
                batch=None, column_family=None):
         """Remove a specified row or a set of columns within the row"""
