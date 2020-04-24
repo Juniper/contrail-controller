@@ -1024,12 +1024,22 @@ class DatabaseManager(object):
                     vn_id = mch.group(1)
             else:
                 vn_fq_name_str = ':'.join(json.loads(ip_cols['fq_name'])[:-2])
-                vn_cols = obj_fq_name_table.get(
-                    'virtual_network',
-                    column_start='%s:' % (vn_fq_name_str),
-                    column_finish='%s;' % (vn_fq_name_str))
-                vn_id = list(vn_cols.keys())[0].split(':')[-1]
-
+                if vn_fq_name_str:
+                    vn_cols = obj_fq_name_table.get(
+                        'virtual_network',
+                        column_start='%s:' % (vn_fq_name_str),
+                        column_finish='%s;' % (vn_fq_name_str))
+                    vn_id = list(vn_cols.keys())[0].split(':')[-1]
+                else:
+                    # short fq_name case, get vn_id from parent object
+                    parent_id = json.loads(
+                        ip_cols.get('fq_name'))[0].split('__')[1]
+                    parent_cols = dict(obj_uuid_table.xget(parent_id))
+                    for col_name in list(parent_cols.keys()):
+                        mch = re.match('ref:virtual_network:(.*)', col_name)
+                        if not mch:
+                            continue
+                        vn_id = mch.group(1)
             if not vn_id:
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
