@@ -1023,6 +1023,14 @@ class DatabaseManager(object):
                         continue
                     vn_id = mch.group(1)
             else:
+                # omit ip with a instance-ip as parent
+                parent_type = json.loads(ip_cols.get('parent_type', None))
+                if parent_type == 'instance-ip':
+                    logger.debug(
+                        "ignoring %s '%s' with instance-ip as parent type",
+                        ip_type, ip_id)
+                    continue
+
                 vn_fq_name_str = ':'.join(json.loads(ip_cols['fq_name'])[:-2])
                 vn_cols = obj_fq_name_table.get(
                     'virtual_network',
