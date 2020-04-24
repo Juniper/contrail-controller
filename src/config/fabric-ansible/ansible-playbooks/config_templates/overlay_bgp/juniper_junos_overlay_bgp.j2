@@ -58,6 +58,9 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-address {{
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} hold-time {{bgp.get('hold_time')}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multipath
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection minimum-interval 1000
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection multiplier 3
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection session-mode automatic
 {%         for family in bgp.get('families', []) %}
 {%             if family == 'inet-labeled' %}
 {%                   set family = 'inet' %}
