@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "9e07142d_efec258a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-24T06:27:42Z",
+      "side": 1,
+      "message": "Nagendra, this is Fabric namespace object, whose parent is fabric. Ins ame fabric, we cannot have more than one fabric namespace object with same fq_name",
+      "parentUuid": "28144137_a5e5aa04",
+      "revId": "2f8eedc9bad30721a6bb0f6a613624abfa7c7803",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "de807e24_1c4e5095",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 9
