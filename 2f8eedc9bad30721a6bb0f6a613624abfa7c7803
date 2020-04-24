@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "28144137_a5e5aa04",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-04-24T06:05:52Z",
+      "side": 1,
+      "message": "Hi Nagendra\n\nOne solution could be, we could introduce a flag in fabric_namespace something like fabric_type and set as overlay_loopback ? This would require schema change . Could you suggest a better way or any alternate way you are thinking that i could implement ? \nAlso correct me if there are implications of this ?  \n\nRegards\nAbhinav",
+      "parentUuid": "3f6efe08_75f929ef",
+      "revId": "2f8eedc9bad30721a6bb0f6a613624abfa7c7803",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "de807e24_1c4e5095",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 9
