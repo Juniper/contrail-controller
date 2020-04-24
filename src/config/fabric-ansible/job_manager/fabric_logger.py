@@ -53,6 +53,9 @@ def fabric_ansible_logger(name, ctx=None):
             level=level,
             format=LOGGING_FORMAT,
             datefmt=DATE_FORMAT)
+        logging.handlers.RotatingFileHandler(logfile,
+                                             maxBytes=10*1024*1024,
+                                             backupCount=5)
         name_hdr = "[{}]".format(name)
         name_hdr += " pid={}".format(str(os.getpid()))
         # Include any context attributes
