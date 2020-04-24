@@ -96,6 +96,30 @@
     },
     {
       "key": {
+        "uuid": "f631f102_725ec42f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-24T05:51:08Z",
+      "side": 1,
+      "message": "The ask here is to check only fn_fq_name[-1] so if someone creates a tenant \"overlay-loopback-subnets\" it wont match.",
+      "parentUuid": "7dafaec2_84bafe02",
+      "range": {
+        "startLine": 89,
+        "startChar": 8,
+        "endLine": 89,
+        "endChar": 52
+      },
+      "revId": "07021c98d798507a8a364bd0d6e682183f133991",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "83d84861_7bf86ef8",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric_namespace.py",
         "patchSetId": 7
