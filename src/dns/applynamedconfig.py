@@ -23,10 +23,10 @@ import subprocess
 from six.moves import configparser
 import logging
 
-def setup_logger():
+def setup_logger(log_file):
     log = logging.getLogger('applynamedconfig')
     # create file handler
-    fh = logging.FileHandler('/var/log/contrail/contrail-dns.log')
+    fh = logging.FileHandler(log_file)
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '[%(asctime)s %(name)s(%(lineno)s) %(levelname)s]: %(message)s',
@@ -35,6 +35,17 @@ def setup_logger():
     log.addHandler(fh)
 
     return log
+
+
+def parse_own_config():
+    config = {
+        'log_file': '/var/log/contrail/contrail-dns.log',
+    }
+    file_config = configparser.SafeConfigParser()
+    file_config.read('/etc/contrail/contrail-dns.conf')
+    config.update(dict(file_config.items("DEFAULT")))
+    return config
+
 
 def parse_contrail_dns_conf():
 
@@ -119,7 +130,8 @@ def parse_contrail_dns_conf():
 # end parse_contrail_dns_conf
 
 def main():
-    log = setup_logger()
+    config = parse_own_config()
+    log = setup_logger(config['log_file'])
     if not os.path.exists('/etc/contrail/dns/contrail-named-base.conf'):
         # parse contrail-dns.conf and build contrail-named-base.conf
         parse_contrail_dns_conf()
