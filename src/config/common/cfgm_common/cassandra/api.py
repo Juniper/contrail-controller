@@ -148,6 +148,16 @@ class API(Trace):
             # special requierment for it, we set as read-only mode.
             self.options.ro_keyspaces.update(UUID_KEYSPACE)
 
+        self._init_cluster()
+
+    @abc.abstractmethod
+    def _Init_Cluster(self):
+        pass
+
+    def _init_cluster(self):
+        """Initializes Cassandra cluster, create/prepare keyspaces."""
+        self._Init_Cluster()
+
     @abc.abstractmethod
     def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         pass
