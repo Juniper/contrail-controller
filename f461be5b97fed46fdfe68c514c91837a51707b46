@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "2bcb4ed5_bb78f8a9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_bgp/juniper_junos-qfx_overlay_bgp.j2",
+        "patchSetId": 5
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 820
+      },
+      "writtenOn": "2020-04-25T06:09:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "d9846beb_7e76cf2d",
+      "revId": "f461be5b97fed46fdfe68c514c91837a51707b46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a8f7fe41_66d2e7b6",
         "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_bgp/templates/juniper_junos-qfx_overlay_bgp.j2",
         "patchSetId": 5
