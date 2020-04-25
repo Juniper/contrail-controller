@@ -49,6 +49,9 @@ class FakeDriver(datastore_api.CassandraDriver):
                 batch=None, column_family=None):
         pass
 
+    def _Init_Cluster(self):
+        pass
+
 
 class TestOptions(unittest.TestCase):
 
@@ -222,7 +225,7 @@ class TestCassandraDriverThrift(unittest.TestCase):
         cassandra_thrift.transport = mock.MagicMock()
 
         # Mock creating keyspaces
-        def _cassandra_init(self, server_list):
+        def _Init_Cluster(self):
             self._cf_dict = {
                 datastore_api.OBJ_UUID_CF_NAME: mock.MagicMock(),
                 datastore_api.OBJ_FQ_NAME_CF_NAME: mock.MagicMock(),
@@ -235,8 +238,8 @@ class TestCassandraDriverThrift(unittest.TestCase):
             return wrapper
         p = []
         p.append(mock.patch(
-            'cfgm_common.datastore.drivers.cassandra_thrift.CassandraDriverThrift._cassandra_init',
-            _cassandra_init))
+            'cfgm_common.datastore.drivers.cassandra_thrift.CassandraDriverThrift._Init_Cluster',
+            _Init_Cluster))
         p.append(mock.patch(
             'cfgm_common.datastore.drivers.cassandra_thrift.CassandraDriverThrift._handle_exceptions',
             _handle_exceptions))
