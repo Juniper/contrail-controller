@@ -69,10 +69,6 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._cf_dict = {}
-        if ((datastore_api.UUID_KEYSPACE_NAME not in self.options.ro_keyspaces) and
-            (datastore_api.UUID_KEYSPACE_NAME not in self.options.rw_keyspaces)):
-            self.options.ro_keyspaces.update(datastore_api.UUID_KEYSPACE)
         self._cassandra_init(server_list)
 
         self.get_one_col = self._handle_exceptions(self.get_one_col)
