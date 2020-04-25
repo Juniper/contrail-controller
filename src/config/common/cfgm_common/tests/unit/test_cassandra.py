@@ -113,10 +113,27 @@ class TestOptions(unittest.TestCase):
 
     def test_ro_keyspaces(self):
         drv = FakeDriver([])
-        self.assertEqual({}, drv.options.ro_keyspaces)
+        self.assertEqual({
+            'config_db_uuid': {
+                'obj_fq_name_table': {
+                    'cf_args': {'autopack_values': False}},
+                'obj_shared_table': {},
+                'obj_uuid_table': {
+                    'cf_args': {'autopack_names': False,
+                                'autopack_values': False}}
+            }}, drv.options.ro_keyspaces)
 
         drv = FakeDriver([], ro_keyspaces={'a': 'b'})
-        self.assertEqual({'a': 'b'}, drv.options.ro_keyspaces)
+        self.assertEqual({
+            'a': 'b',
+            'config_db_uuid': {
+                'obj_fq_name_table': {
+                    'cf_args': {'autopack_values': False}},
+                'obj_shared_table': {},
+                'obj_uuid_table': {
+                    'cf_args': {'autopack_names': False,
+                                'autopack_values': False}}
+            }}, drv.options.ro_keyspaces)
 
     def test_rw_keyspaces(self):
         drv = FakeDriver([])
