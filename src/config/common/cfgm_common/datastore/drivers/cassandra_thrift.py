@@ -69,16 +69,14 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
-        self._cassandra_init(server_list)
-
+        # TODO(sahid): I need to identify what is the aim to this and
+        # try to remove it in future.
         self.get_one_col = self._handle_exceptions(self.get_one_col)
         self.get_range = self._handle_exceptions(self.get_range)
     # end __init__
 
     # Helper routines for cassandra
-    def _cassandra_init(self, server_list):
-        # Ensure keyspace and schema/CFs exist
-
+    def _Init_Cluster(self):
         self.report_status_init()
 
         pycassa.ColumnFamily.get = self._handle_exceptions(pycassa.ColumnFamily.get, "GET")
