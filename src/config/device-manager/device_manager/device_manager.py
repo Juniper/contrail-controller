@@ -96,7 +96,7 @@ class DeviceManager(object):
         },
         'data_center_interconnect': {
             'self': ['logical_router', 'virtual_network'],
-            'logical_router': [],
+            'logical_router': ['logical_router'],
             'routing_policy': ['logical_router'],
             'virtual_network': ['logical_router'],
             'global_system_config': ['logical_router'],
@@ -236,7 +236,8 @@ class DeviceManager(object):
             'intent_map': ['physical_router'],
         },
         'logical_router': {
-            'self': ['physical_router', 'virtual_network', 'port_tuple'],
+            'self': ['physical_router', 'data_center_interconnect',
+                     'virtual_network', 'port_tuple'],
             'physical_router': [],
             'data_center_interconnect': ['physical_router'],
             'virtual_network': ['physical_router'],
