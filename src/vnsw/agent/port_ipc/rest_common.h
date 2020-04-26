@@ -12,9 +12,9 @@ class HttpSession;
 namespace REST {
 
 void SendResponse(HttpSession *session, const std::string &msg,
-                  int status_code = 200);
+                  int status_code = 200, std::string context="");
 void SendErrorResponse(HttpSession *session, const std::string &error_msg,
-                       int status_code = 500);
+                       int status_code = 500, std::string context="");
 
 }  // namespace REST
 
