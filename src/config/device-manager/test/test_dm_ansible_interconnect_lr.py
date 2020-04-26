@@ -9,7 +9,6 @@ from attrdict import AttrDict
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM, RPTerm
-from unittest import skip
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_client import *
 
@@ -96,13 +95,13 @@ class PRExpectedACfg(object):
                 for a_rib in a_ribs:
                     a_ribname = a_rib.get('name')
                     cself.assertIsNotNone(a_ribname)
-                    if a_ribname not in self.rib_groups.keys():
-                        continue
-                    c_verified += 1
+                    # if a_ribname not in self.rib_groups.keys():
+                    #    continue
                     cself.assertIn(a_ribname, self.rib_groups.keys())
+                    c_verified += 1
                     for key in ['interface_routes', 'bgp', 'static']:
-                        cself.assertEqual( a_rib.get(key),
-                                           self.rib_groups[a_ribname][key])
+                        cself.assertEqual(a_rib.get(key),
+                                          self.rib_groups[a_ribname][key])
                     for key in ['import_rib', 'import_policy']:
                         a_keylist = a_rib.get(key)
                         for a_key in a_keylist:
@@ -110,7 +109,7 @@ class PRExpectedACfg(object):
                                            self.rib_groups[a_ribname][key])
                 cself.assertEqual(c_verified, len(self.rib_groups))
         self._verify_routing_policy_in_abstract_cfg(cself, a_cfg,
-                                                    self.routing_policies )
+                                                    self.routing_policies)
 
     def _verify_routing_policy_in_abstract_cfg(self, cself, abstract_cfg,
                                                rp_inputdict):
@@ -120,23 +119,23 @@ class PRExpectedACfg(object):
         if rp_abstract is None:
             return
         cself.assertIsNotNone(rp_abstract)
-        c_verified = 0
+        rps = []
         for rp_abs in rp_abstract:
             rpname = rp_abs.get('name')
             cself.assertIsNotNone(rpname)
+            rps.append(rpname)
             if rpname not in rp_inputdict:
                 continue
-            c_verified += 1
             cself.assertIn(rpname, rp_inputdict)
             rpterms = rp_abs.get('routing_policy_entries', None)
             cself.assertIsNotNone(rpterms)
             termlist = rpterms.get('terms', None)
             cself.assertIsNotNone(termlist)
-            # cself.verify_rpterms_in_abstract_cfg(rpname, termlist,
-            #                                     rp_inputdict)
-        # cself.assertEqual(c_verified, len(rp_inputdict))
+            cself.verify_rpterms_in_abstract_cfg(rpname, termlist,
+                                                 rp_inputdict)
     # end verify_abstract_config
 # class PRExpectedACfg
+
 
 class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
 
@@ -170,8 +169,8 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
         self.delete_physical_roles()
     # end _delete_objects
 
-    @retries(3, hook=retry_exc_handler)
-    def verify_intrafabric_dci(self, prname, probj, dict_pr_acfg):
+    @retries(4, hook=retry_exc_handler)
+    def verify_intrafabric_dci(self, prname, probj, dict_pr_acfg, dciname=''):
         if prname not in dict_pr_acfg or len(dict_pr_acfg[prname]) == 0:
             return
         prnew_name = 'qfx10002'
@@ -239,7 +238,7 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
             self.physical_routers.append(pr)
             self.bgp_routers.append(br)
             dict_prs[prname] = pr
-        return fabric
+        return
     # end _create_fabrics_prs
 
     def make_vn_name(self, subnet):
@@ -272,11 +271,11 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
 
     def create_vn_with_subnets(self, id, vn_name, ipam_obj, subnet,
                                subnetmask=24):
-        #vn_name = 'vn' + vn_id + '_' + self.id()
         vn_obj = VirtualNetwork(vn_name)
         vn_obj_properties = VirtualNetworkType()
         vn_obj_properties.set_vxlan_network_identifier(2000 + id)
         vn_obj_properties.set_forwarding_mode('l2_l3')
+
         vn_obj.set_virtual_network_properties(vn_obj_properties)
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(
             [IpamSubnetType(SubnetType(subnet, subnetmask))]))
@@ -284,10 +283,25 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
         return self._vnc_lib.virtual_network_read(id=vn_uuid)
     # end create_vn_with_subnets
 
+    @retries(5, hook=retry_exc_handler)
+    def check_lr_internal_vn_state(self, lr_obj):
+        internal_vn_name = '__contrail_lr_internal_vn_' + lr_obj.uuid + '__'
+        vn_fq = lr_obj.get_fq_name()[:-1] + [internal_vn_name]
+        vn_obj = None
+        vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq)
+        vn_obj_properties = vn_obj.get_virtual_network_properties()
+        if not vn_obj_properties:
+            raise Exception("LR Internal VN properties are not set")
+        fwd_mode = vn_obj_properties.get_forwarding_mode()
+        if fwd_mode != 'l3':
+            raise Exception("LR Internal VN Forwarding mode is not set to L3")
+        return vn_obj
+    # end check_lr_internal_vn_state
+
     def create_lr(self, lrname, vns, prs, vmis):
         lr_fq_name = ['default-domain', 'default-project', lrname]
         lr = LogicalRouter(fq_name=lr_fq_name, parent_type='project',
-                            logical_router_type='vxlan-routing')
+                           logical_router_type='vxlan-routing')
         for pr in prs:
             probj = self._vnc_lib.physical_router_read(id=pr.get_uuid())
             lr.add_physical_router(probj)
@@ -300,21 +314,56 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
             self._vnc_lib.virtual_machine_interface_create(vmi)
             vmis[vminame] = vmi
             lr.add_virtual_machine_interface(vmi)
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
+
+        # make sure internal is created
+        try:
+            self.check_lr_internal_vn_state(lr)
+        except:
+            pass
         return lr, self._vnc_lib.logical_router_read(id=lr_uuid)
     # end create_lr
 
-    # @retries(2, hook=retry_exc_handler)
-    def get_coumminty_from_lr(self, dciname, srclrname, dict_lrs, lrobj):
-        community_member = ""
-        rt_ref = dict_lrs[srclrname].get_route_target_refs() or []
-        if len(rt_ref) == 0:
+    @retries(4, hook=retry_exc_handler)
+    def get_coumminty_from_ri(self, dciname, srclrname, dict_lrs):
+        community_member = []
+        internal_vn_name = '__contrail_lr_internal_vn_' + \
+                           dict_lrs[srclrname].get_uuid() + '__'
+        ri_fq_name = ['default-domain', 'default-project',
+                      internal_vn_name,
+                      internal_vn_name]
+        riobj = self._vnc_lib.routing_instance_read(fq_name=ri_fq_name)
+        rt_refs = riobj.get_route_target_refs() or []
+        if len(rt_refs) == 0:
+            raise Exception("RI %s route_target_refs empty" %
+                            riobj.get_fq_name()[-1])
+        for rt in rt_refs:
+            community_member.append(rt.get('to')[0])
+        return community_member
+    # end get_coumminty_from_lr
+
+    def get_coumminty_from_lr(self, dciname, srclrname, dict_lrs):
+        try:
+            community_member = self.get_coumminty_from_ri(
+                dciname, srclrname, dict_lrs)
+            if len(community_member) > 0:
+                community_name = "_contrail_rp_inter_%s" % dciname
+                return community_name, community_member
+        except:
+            pass
+        # get internal vn from source lr.virtual_network_refs
+        # walk through each ri (routing_instances) under internal vn
+        #   get route_target_refs.to values as communitylist of ri
+        community_member = []
+        ivn_Ref = dict_lrs[srclrname].get_virtual_network_refs() or []
+        if len(ivn_Ref) == 0:
             dict_lrs[srclrname] = self._vnc_lib.logical_router_read(
                 id=dict_lrs[srclrname].get_uuid())
-            rt_ref = dict_lrs[srclrname].get_route_target_refs() or []
+            ivn_Ref = dict_lrs[srclrname].get_virtual_network_refs() or []
         displayname = dict_lrs[srclrname].display_name
         retry_cnt = 0
-        while len(rt_ref) == 0 and retry_cnt < 3:
+        while len(ivn_Ref) == 0 and retry_cnt < 3:
             retry_cnt += 1
             dict_lrs[srclrname].set_display_name(
                 '%s_changed%s' % (displayname, retry_cnt))
@@ -322,18 +371,41 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
             gevent.sleep(2)
             dict_lrs[srclrname] = self._vnc_lib.logical_router_read(
                 id=dict_lrs[srclrname].get_uuid())
-            rt_ref = dict_lrs[srclrname].get_route_target_refs() or []
-        for rt in rt_ref:
-            community_member = rt.get('to')[0]
-            break
-        community_name = "_contrail_rp_inter_%s" % dciname
+            ivn_Ref = dict_lrs[srclrname].get_virtual_network_refs() or []
+        for vn in ivn_Ref:
+            vn_uuid = vn.get('uuid')
+            if not vn_uuid:
+                continue
+            retry_cnt = 0
+            vnobj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+            ri_list = vnobj.get_routing_instances() or []
+            while len(ri_list) == 0 and retry_cnt < 3:
+                retry_cnt += 1
+                mac_aging = vnobj.get_mac_aging_time()
+                mac_aging += 1
+                vnobj.set_mac_aging_time(mac_aging)
+                self._vnc_lib.virtual_network_update(vnobj)
+                gevent.sleep(2)
+                vnobj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+                ri_list = vnobj.get_routing_instances() or []
+            for ri in ri_list:
+                ri_uuid = ri.get('uuid')
+                riobj = self._vnc_lib.routing_instance_read(id=ri_uuid)
+                if not riobj:
+                    continue
+                rt_refs = riobj.get_route_target_refs() or []
+                for rt in rt_refs:
+                    community_member.append(rt.get('to')[0])
+        community_name = ''
+        if len(community_member) > 0:
+            community_name = "_contrail_rp_inter_%s" % dciname
         return community_name, community_member
 
     def create_intrafabric_dci(self, dciname, src_lrname, srcvn_names,
                                srcrp_names, dstlrs_pr_names_map, dict_lrs,
                                dict_vns, dict_rps_created, dict_prs,
                                srclrs_pr_map, dict_pr_acfg, dict_rps,
-                               community_name = '', community_member = []):
+                               community_name='', community_member=[]):
         dci_fq_name = ["default-global-system-config", dciname]
         dci = DataCenterInterconnect(
             fq_name=dci_fq_name, parent_type='global-system-config',
@@ -372,17 +444,27 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
             srcrp_term = [
                 RPTerm(vrf_rp_name, action='accept',
                        tcommunity_list=community_member,
-                       tcommunity_add=[community_name])
-                ]
+                       tcommunity_add=[community_name])]
             src_ri = self.make_ri_name(src_lrname,
                                        dict_lrs[src_lrname].get_uuid())
+            export_policy = []
+            export_policy_dict = {}
+            for rpname in srcrp_names:
+                export_policy.append(rpname)
+                export_policy_dict[rpname] = dict_rps[rpname]
+            export_policy.append(vrf_rp_name)
+            export_policy_dict[vrf_rp_name] = srcrp_term
             for srcpr in srclrs_pr_map[src_lrname]:
                 pr_acfg = PRExpectedACfg(dciname)
                 pr_acfg.set_routing_instances(
-                    riname=src_ri, vrf_export=[vrf_rp_name])
+                    riname=src_ri, vrf_export=export_policy)
+                for rpname in srcrp_names:
+                    pr_acfg.set_routing_policies(
+                        rpname, term_type='network-device',
+                        terms=export_policy_dict[rpname])
                 pr_acfg.set_routing_policies(
                     vrf_rp_name, term_type='network-device',
-                    terms=srcrp_term)
+                    terms=export_policy_dict[vrf_rp_name])
                 dict_pr_acfg[srcpr].append(pr_acfg)
 
             dstr_vn_term = []
@@ -390,9 +472,7 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                 dstr_vn_term = [
                     RPTerm(vrf_rp_name, action='accept',
                            fcommunity_list=community_member,
-                           fcommunity=community_name)
-                    ]
-
+                           fcommunity=community_name)]
             for dstlrname, prnames in dstlrs_pr_names_map.items():
                 dst_ri = self.make_ri_name(dstlrname,
                                            dict_lrs[dstlrname].get_uuid())
@@ -420,11 +500,11 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                 id=dci_uuid)
         if "_RIB_" in dciname:
             for srcpr in srclrs_pr_map[src_lrname]:
-                pr_acfg= PRExpectedACfg(dciname)
+                pr_acfg = PRExpectedACfg(dciname)
                 ribgroup_name = "_contrail_rib_%s_%s" % (dciname, dci_uuid)
                 src_ri = self.make_ri_name(src_lrname,
                                            dict_lrs[src_lrname].get_uuid())
-                import_rib = [src_ri];
+                import_rib = [src_ri]
                 pr_acfg.set_routing_instances(
                     riname=src_ri, rib_group=ribgroup_name)
                 for dstlrname, dstprnames in dstlrs_pr_names_map.items():
@@ -476,9 +556,7 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                                            termtype='network-device')
     # end create_rps
 
-    def _create_and_validate_dci_intrafabric(self):
-        # prepare all dictionary for input params
-        # dict_xx key: name, value is either db object or class object
+    def _create_and_validate_dci_intrafabric(self, indci_name=''):
         dict_rps = {}
         dict_rps_created = {}
         dict_vns = {}
@@ -486,45 +564,42 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
         dict_vmis = {}
         dict_prs = {"PR1": None, "PR2": None, "PR3": None, "PR4": None}
         dict_pr_acfg = {"PR1": [], "PR2": [], "PR3": [], "PR4": []}
-
-        dict_dcis = {"DCI_RIB_VN_1": None, "DCI_RIB_RP_1": None,
-                     "DCI_VRF_VN_1": None, "DCI_VRF_RP_1": None,
-                     "DCI_RIB_VRF_VN_1": None, "DCI_RIB_VRF_RP_1": None}
-
-        # dict_dcis = {"DCI_VRF_VN_1": None}
+        dict_dcis = {}
+        if len(indci_name) == 0:
+            dict_dcis = {"DCI_RIB_VN_1": None, "DCI_RIB_RP_1": None,
+                         "DCI_VRF_VN_1": None, "DCI_VRF_RP_1": None}
+        else:
+            indci_name += "_1"
+            dict_dcis[indci_name] = None
         ipam_obj = self.create_vn_ipam(self.id())
         subnetmask = 24
         vn_starting_index = 21
         # create 4 PR and single fabric
-        fabric = self._create_fabrics_prs(dict_prs)
+        self._create_fabrics_prs(dict_prs)
 
         # create all 28 VN, 16 (6 src LR with PR1, PR2 PR, 10 dst LR) LRs
         for i in range(vn_starting_index, vn_starting_index + 29):
-            subnet = "%s.0.0.0" % i; vn_name = self.make_vn_name(i)
+            subnet = "%s.0.0.0" % i
+            vn_name = self.make_vn_name(i)
             dict_vns[vn_name] = self.create_vn_with_subnets(
                 i, vn_name, ipam_obj, subnet, subnetmask)
-
-        parag_lr_src_name = ''; parag_lr_obj = None
         vn_num = vn_starting_index
+        # validate every dci case
         for k in dict_dcis.keys():
+            print("----- Starting %s" % k)
             srclrs_pr_map = {}
             dstlrs_pr_map = {}
-            if "_RIB_VRF_" in k:
-                continue
             if "_VRF_" in k:
                 # create src lr
                 src_lrname = self.make_lr_name(vn_num, vn_num + 1, vn_num + 2)
                 srcvns = [dict_vns[self.make_vn_name(vn_num)],
                           dict_vns[self.make_vn_name(vn_num + 1)],
                           dict_vns[self.make_vn_name(vn_num + 2)]]
-                lrobj, dict_lrs[src_lrname] = self.create_lr(
+                _, dict_lrs[src_lrname] = self.create_lr(
                     src_lrname, srcvns, [dict_prs["PR1"]], dict_vmis)
                 community_name, c_member = \
-                    self.get_coumminty_from_lr(k, src_lrname, dict_lrs, lrobj)
-                community_member = []
-                if len(c_member) > 0:
-                    community_member = [c_member]
-                parag_lr_src_name = src_lrname; parag_lr_obj = lrobj
+                    self.get_coumminty_from_lr(k, src_lrname, dict_lrs)
+                community_member = c_member
 
                 srcrp_names = []
                 srcvn_names = []
@@ -546,7 +621,8 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                     rpname = self.make_rp_name(vn_num + 2)
                     dict_rps[rpname] = [
                         RPTerm(rpname, action='accept',
-                               routes=["%s.0.0.0/%s" % (vn_num + 2, subnetmask)],
+                               routes=["%s.0.0.0/%s" %
+                                       (vn_num + 2, subnetmask)],
                                route_types=["exact"],
                                route_values=[None],
                                fcommunity_list=community_member,
@@ -576,29 +652,27 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                     dict_lrs, dict_vns, dict_rps_created, dict_prs,
                     srclrs_pr_map, dict_pr_acfg, dict_rps, community_name,
                     community_member)
-                continue
-
-            if "_RIB_" in k:
+            elif "_RIB_" in k:
                 # create src lr
-                src_lrname = self.make_lr_name(vn_num, vn_num+1, vn_num+2)
+                src_lrname = self.make_lr_name(vn_num, vn_num + 1, vn_num + 2)
                 srcvn_names = []
                 srcrp_names = []
                 if "_VN_" in k:
                     srcvn_names = [self.make_vn_name(vn_num),
-                                   self.make_vn_name(vn_num+2)]
+                                   self.make_vn_name(vn_num + 2)]
                     vn_rp_name = self.make_rp_rib_vn_name(k)
                     dict_rps[vn_rp_name] = [
                         RPTerm(vn_rp_name, action='accept',
                                routes=[
                                    "%s.0.0.0/%s" % (vn_num, subnetmask),
-                                   "%s.0.0.0/%s" % (vn_num+2, subnetmask)],
+                                   "%s.0.0.0/%s" % (vn_num + 2, subnetmask)],
                                route_types=["exact", "exact"],
                                route_values=[None, None]),
                         RPTerm(vn_rp_name, action='reject')
                     ]
                 else:
                     srcrp_names = [self.make_rp_name(vn_num),
-                                   self.make_rp_name(vn_num+2)]
+                                   self.make_rp_name(vn_num + 2)]
                     rpname = self.make_rp_name(vn_num)
                     dict_rps[rpname] = [
                         RPTerm(rpname, action='accept',
@@ -606,10 +680,11 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                                route_types=["upto"],
                                route_values=["/%s" % subnetmask])
                     ]
-                    rpname = self.make_rp_name(vn_num+2)
+                    rpname = self.make_rp_name(vn_num + 2)
                     dict_rps[rpname] = [
                         RPTerm(rpname, action='accept',
-                               routes=["%s.0.0.0/%s" % (vn_num+2,subnetmask)],
+                               routes=["%s.0.0.0/%s" % (vn_num + 2,
+                                                        subnetmask)],
                                route_types=["exact"],
                                route_values=[None])
                     ]
@@ -640,12 +715,25 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                     k, src_lrname, srcvn_names, srcrp_names, dstlrs_pr_map,
                     dict_lrs, dict_vns, dict_rps_created, dict_prs,
                     srclrs_pr_map, dict_pr_acfg, dict_rps)
-                continue
 
-        # validate one PR ansible cfg at a time
-        for prname in dict_pr_acfg.keys():
-            self.verify_intrafabric_dci(prname, dict_prs[prname],
-                                        dict_pr_acfg)
+            # validate one PR ansible cfg at a time
+            for prname in dict_pr_acfg.keys():
+                print("Verifying %s on %s" % (k, prname))
+                self.verify_intrafabric_dci(prname, dict_prs[prname],
+                                            dict_pr_acfg, k)
+            # do cleanup for test dci dictionary
+            for dciname, dciobj in dict_dcis.items():
+                if dciobj is None:
+                    continue
+                self._vnc_lib.data_center_interconnect_delete(
+                    id=dciobj.get_uuid())
+                dict_dcis[dciname] = None
+            for rpname, rpobj in dict_rps_created.items():
+                self._vnc_lib.routing_policy_delete(id=rpobj.get_uuid())
+            dict_rps_created = {}
+            dict_rps = {}
+            dict_pr_acfg = {"PR1": [], "PR2": [], "PR3": [], "PR4": []}
+            print("----- Completed %s" % k)
 
         # cleanup
         for dciname, dciobj in dict_dcis.items():
@@ -667,9 +755,20 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
         self._delete_objects()
     # end _create_and_validate_dci_intrafabric
 
-    @skip("Timing failures")
-    def test_dci_intrafabric_lr_interconnect(self):
-        self._create_and_validate_dci_intrafabric()
-    # end test_dci_intrafabric_lr_interconnect
+    def test_dci_intrafabric_lr_interconnect_rib_vn(self):
+        self._create_and_validate_dci_intrafabric('DCI_RIB_VN')
+    # end test_dci_intrafabric_lr_interconnect_rib_vn
+
+    def test_dci_intrafabric_lr_interconnect_rib_rp(self):
+        self._create_and_validate_dci_intrafabric('DCI_RIB_RP')
+    # end test_dci_intrafabric_lr_interconnect_rib_rp
+
+    def test_dci_intrafabric_lr_interconnect_vrf_vn(self):
+        self._create_and_validate_dci_intrafabric('DCI_VRF_VN')
+    # end test_dci_intrafabric_lr_interconnect_vrf_vn
+
+    def test_dci_intrafabric_lr_interconnect_vrf_rp(self):
+        self._create_and_validate_dci_intrafabric('DCI_VRF_RP')
+    # end test_dci_intrafabric_lr_interconnect_vrf_rp
 
 # end TestAnsibleDciIntraFabric

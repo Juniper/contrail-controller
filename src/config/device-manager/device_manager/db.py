@@ -2116,6 +2116,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.physical_routers = set()
         self.tags = set()
         self.network_ipams = set()
+        self.data_center_interconnects = set()
         self.logical_router = None
         self.router_external = False
         self.forwarding_mode = None
@@ -2218,6 +2219,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('tag', obj)
         self.update_multiple_refs('network_ipam', obj)
+        self.update_multiple_refs('data_center_interconnect', obj)
         self.set_children('floating_ip_pool', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
@@ -2384,6 +2386,7 @@ class VirtualNetworkDM(DBBaseDM):
         obj.update_multiple_refs('physical_router', {})
         obj.update_multiple_refs('tag', {})
         obj.update_multiple_refs('network_ipam', {})
+        obj.update_multiple_refs('data_center_interconnect', {})
         obj.update_multiple_refs('intent_map', {})
         del cls._dict[uuid]
     # end delete
@@ -2922,7 +2925,6 @@ class DataCenterInterconnectDM(DBBaseDM):
         self.virtual_networks = set()
         self.dst_lr_pr = {}
         self.src_lr_uuid = None
-        self.vn_subnets = set()
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -3061,14 +3063,18 @@ class DataCenterInterconnectDM(DBBaseDM):
             vnlist = self.virtual_networks
         return srclr.get_protocols_connected_routedvn(pr_uuid, vnlist)
 
+    def get_all_vn_subnets(self):
+        # update all vn_subnets so it has latest values
+        vn_subnets = set()
+        for vn_uuid in self.virtual_networks:
+            vn = VirtualNetworkDM.get(vn_uuid)
+            if not vn or vn.gateways is None or len(vn.gateways) < 1:
+                continue
+            vn_subnets.update(vn.gateways.keys())
+        return vn_subnets
+
     def _build_rp_from_vn_intrafabric(self, for_ribgrp=True,
                                       vrf_srcexport=True):
-        if len(self.vn_subnets) < 1:
-            for vn_uuid in self.virtual_networks:
-                vn = VirtualNetworkDM.get(vn_uuid)
-                if not vn or vn.gateways is None or len(vn.gateways) < 1:
-                    continue
-                self.vn_subnets.update(vn.gateways.keys())
         rplist = {}
         if for_ribgrp == True:
             rp = AbstractDevXsd.RoutingPolicy(
@@ -3077,7 +3083,7 @@ class DataCenterInterconnectDM(DBBaseDM):
                 term_type='network-device')
             rp_entries = AbstractDevXsd.RoutingPolicyEntry()
             rp_props = []
-            for subnet in self.vn_subnets:
+            for subnet in self.get_all_vn_subnets():
                 rp_props.append(AbstractDevXsd.RouteFilterProperties(
                     route=subnet, route_type='exact'))
             route_filter = AbstractDevXsd.RouteFilterType(
@@ -3105,18 +3111,33 @@ class DataCenterInterconnectDM(DBBaseDM):
     # end _build_rp_from_vn_intrafabric
 
     def get_community_properties(self):
-        community_member = None
+        community_members_set = set()
         community_name = None
+        lr_vn_list = []
+        # retrieve internal vn object from source lr
         if self.src_lr_uuid:
             slr = LogicalRouterDM.get(self.src_lr_uuid)
-            if slr and slr.lr_route_target_for_dci is not None:
-                community_name = DMUtils.get_dci_vrf_community_name(self)
-                community_member = slr.lr_route_target_for_dci
-        return community_name, community_member
+            if slr and slr.virtual_network:
+                vn = VirtualNetworkDM.get(slr.virtual_network)
+                if vn:
+                    lr_vn_list.append(vn)
+        # from internal vn, get route target list and used it as
+        # community_members
+        for lr_vn in lr_vn_list:
+            exports, imports = lr_vn.get_route_targets()
+            # if imports:
+            #   community_members_set |= imports
+            if exports:
+                community_members_set |= exports
+        community_members = []
+        if len(community_members_set) > 0:
+            community_members = list(community_members_set)
+            community_name = DMUtils.get_dci_vrf_community_name(self)
+        return community_name, community_members
     # end get_community_properties
 
     def allocate_new_rp_for_vrf(self, vrf_srcexport):
-        community_name, src_lr_community_member = \
+        community_name, src_lr_community_members = \
             self.get_community_properties()
         if not community_name:
             self._logger.error(
@@ -3131,7 +3152,7 @@ class DataCenterInterconnectDM(DBBaseDM):
         rp_entries = AbstractDevXsd.RoutingPolicyEntry()
         if vrf_srcexport == False:
             rp_props = []
-            for subnet in self.vn_subnets:
+            for subnet in self.get_all_vn_subnets():
                 rp_props.append(AbstractDevXsd.RouteFilterProperties(
                     route=subnet, route_type='orlonger'))
             route_filter = AbstractDevXsd.RouteFilterType(
@@ -3139,7 +3160,7 @@ class DataCenterInterconnectDM(DBBaseDM):
             term = AbstractDevXsd.RoutingPolicyTerm(
                 term_match_condition=AbstractDevXsd.TermMatchConditionType(
                     community=community_name,
-                    community_list=[src_lr_community_member],
+                    community_list=src_lr_community_members,
                     route_filter=route_filter),
                 term_action_list=AbstractDevXsd.TermActionListType(
                     action="accept"))
@@ -3149,7 +3170,7 @@ class DataCenterInterconnectDM(DBBaseDM):
                 term_match_condition=None,
                 term_action_list=AbstractDevXsd.TermActionListType(
                     action="accept", community=community_name,
-                    community_list=[src_lr_community_member]))
+                    community_list=src_lr_community_members))
         rp_entries.add_terms(term)
         rp.set_routing_policy_entries(rp_entries)
         return rp
@@ -3213,7 +3234,7 @@ class DataCenterInterconnectDM(DBBaseDM):
             rp_vrf_import_list = {}
             for rp in rplist:
                 rp_vrf_import_list[rp.get_name()] = rp
-            community_name, src_lr_community_member = \
+            community_name, src_lr_community_members = \
                 self.get_community_properties()
             if not community_name:
                 self._logger.error(
@@ -3249,7 +3270,7 @@ class DataCenterInterconnectDM(DBBaseDM):
                             " already have communityList %s, adding new" %
                             (self.name, rpname,
                              len(cond.get_community_list())))
-                    cond.add_community_list(src_lr_community_member)
+                    cond.set_community_list(src_lr_community_members)
             return rp_vrf_import_list
         # build RP from user provided src LR's vn list
         return self._build_rp_from_vn_intrafabric(for_ribgrp, vrf_srcexport)
@@ -4171,10 +4192,15 @@ class RoutingPolicyDM(DBBaseDM):
             rp_list.append(rp)
     # end create_abstract_routing_policies
 
-    def delete_obj(self):
-        self.update_multiple_refs('virtual_network', {})
-        self.update_multiple_refs('data_center_interconnect', {})
-    # end delete_obj
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_network', {})
+        obj.update_multiple_refs('data_center_interconnect', {})
+        del cls._dict[uuid]
+    # end delete
 # end RoutingPolicyDM
 
 
