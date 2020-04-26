@@ -286,12 +286,10 @@ class TestAnsibleCommonDM(DMTestCase):
                     fcommunity_list = tm.get('community_list', [])
                     if len(fcommunity_list) == len(tpassed.fcommunity_list):
                         for j in range(len(tpassed.fcommunity_list)):
-                            if fcommunity_list[j] not in tpassed.fcommunity_list:
-                                continue
                             self.assertIn(fcommunity_list[j],
                                           tpassed.fcommunity_list)
-                    self.assertEqual(tm.get('community'),
-                                     tpassed.fcommunity)
+                        self.assertEqual(tm.get('community'),
+                                         tpassed.fcommunity)
                 tproto = tm.get('protocol', None)
                 for j in range(len(tpassed.protocols)):
                     self.assertEqual(tproto[j], tpassed.protocols[j])
