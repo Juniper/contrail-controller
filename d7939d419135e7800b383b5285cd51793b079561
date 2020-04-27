@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "00005b07_2de4821e",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_evpn_type5/templates/juniper_junos-qfx_overlay_evpn_type5.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 266,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-27T18:25:22Z",
+      "side": 1,
+      "message": "We need similar policies for OSPF too? Pls check with Patrik, else traffic will not work",
+      "revId": "d7939d419135e7800b383b5285cd51793b079561",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
