@@ -1353,7 +1353,9 @@ bool AgentUtXmlFlowValidate::ReadXml() {
     if (GetUintAttribute(node(), "rpf_nh", &rpf_nh_) == false) {
         rpf_nh_ = 0;
     }
-
+    if (GetStringAttribute(node(), "vrf", &vrf_) == false) {
+        vrf_ ="";
+    }
     if (GetStringAttribute(node(), "deleted", &deleted_) == false) {
         deleted_ = "false";
     }
@@ -1384,8 +1386,9 @@ bool AgentUtXmlFlowValidate::Validate() {
     if (present() == false)
         return (flow == NULL);
 
-    if (flow == NULL)
+    if (flow == NULL) {
         return false;
+    }
 
     if (svn_ != "" && !VnMatch(flow->data().source_vn_list, svn_))
         return false;
@@ -1398,12 +1401,28 @@ bool AgentUtXmlFlowValidate::Validate() {
     }
 
     if (rpf_nh_) {
+        int nh_id = 0;
+        if (vrf_ != "") {
+            Agent *agent = Agent::GetInstance();
+            InetUnicastAgentRouteTable *inet_table =
+                static_cast<InetUnicastAgentRouteTable *>
+                (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_));
+            InetUnicastRouteEntry *rt =
+                inet_table->FindRoute(Ip4Address::from_string(sip_));
+            if ( rt != NULL) {
+                const NextHop *nh = rt->GetActiveNextHop();
+                if ( nh && (nh->id() != rpf_nh_)) {
+                    nh_id = nh->id();
+                }
+            }
+        }
         if (rpf_nh_ == NextHopTable::kRpfDiscardIndex) {
             if (flow->data().rpf_nh.get() != NULL) {
                 return false;
             }
         } else if (!flow->data().rpf_nh.get() ||
-                   flow->data().rpf_nh.get()->id() != rpf_nh_) {
+                   ((flow->data().rpf_nh.get()->id() != rpf_nh_) &&
+                   (flow->data().rpf_nh.get()->id() != nh_id))) {
             return false;
         }
     }
