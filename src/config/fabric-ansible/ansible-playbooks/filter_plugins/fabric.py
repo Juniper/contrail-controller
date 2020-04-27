@@ -20,6 +20,7 @@ import time
 import traceback
 import uuid
 
+from cfgm_common import PERMS_RWX
 from cfgm_common.exceptions import (
     NoIdError,
     RefsExistError
@@ -44,6 +45,7 @@ from vnc_api.gen.resource_xsd import (
     KeyValuePair,
     KeyValuePairs,
     NamespaceValue,
+    PermType2,
     RoutingBridgingRolesType,
     SerialNumListType,
     SubnetListType,
@@ -685,6 +687,12 @@ class FilterModule(object):
             fabric_info.get('node_profiles')
         )
 
+        # create default logical router to be used to attach routed
+        # virtual-networks which are part of master routing table on
+        # leaf/spine devices
+        self._add_default_logical_router(
+            vnc_api, fabric_info.get('fabric_fq_name'), fabric_obj)
+
         # add intent-map object
         self._add_intent_maps(
             vnc_api,
@@ -1046,6 +1054,51 @@ class FilterModule(object):
     # end _add_node_profiles
 
     @staticmethod
+    def _add_default_logical_router(vnc_api,
+                                    fabric_fq_name,
+                                    fabric_obj):
+        """Add default logical router
+
+        :param vnc_api: <vnc_api.VncApi>
+        :return: <vnc_api.gen.resource_client.LogicalRouter>
+        """
+        lr_fq_name = [
+            'default-domain',
+            'default-project',
+            fabric_fq_name[-1] + '-master-LR']
+
+        # read default project, master LR belongs to default project
+        def_project = vnc_api.project_read(['default-domain', 'default-project'])
+        _task_log("creating logical router network, parent %s"
+                  % (def_project.get_uuid()))
+
+        master_lr = LogicalRouter(
+            name=lr_fq_name[-1],
+            fq_name=lr_fq_name,
+            logical_router_gateway_external=False,
+            logical_router_type='vxlan-routing',
+            parent_obj=def_project)
+        perms2 = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+        master_lr.set_perms2(perms2)
+        master_lr.set_fabric(fabric_obj)
+        try:
+            vnc_api.logical_router_create(master_lr)
+        except RefsExistError as ex:
+            _task_log(
+                "Logical router already exists or other conflict: %s"
+                % (str(ex)))
+            vnc_api.logical_router_update(master_lr)
+        except Exception as exc:
+            _task_log(
+                "An error occurred when trying to create fabric"
+                " master-LR: %s" % exc.message
+            )
+
+        master_lr = vnc_api.logical_router_read(fq_name=lr_fq_name)
+        _task_done()
+        return master_lr
+
+    @staticmethod
     def _add_intent_maps(vnc_api, fabric_obj):
         """Add intent map objects.
 
@@ -1394,13 +1447,40 @@ class FilterModule(object):
     # end _get_virtual_network_refs
 
     def _get_logical_router_refs(self, device):
-        # Get logical routers used by fabric
+        # Get logical routers used by device
         lr_list = set()
         for lr_ref in device.get('logical_router_back_refs') or []:
             lr_fq_name = lr_ref.get('to')
             lr_list.add(':'.join(lr_fq_name))
         return lr_list
     # end _get_logical_router_refs
+
+    def _get_logical_router_refs_for_fabric(self, fabric_obj):
+        lr_list = set()
+        for lr_ref in fabric_obj.get_logical_router_back_refs() or []:
+            lr_fq_name = lr_ref.get('to')
+            lr_list.add(':'.join(lr_fq_name))
+        return lr_list
+    # end _get_logical_router_refs_for_fabric
+
+    def get_master_lr_in_list(self, vnc_api, lr_list,
+                              fabric_fq_name,
+                              del_m_lr_from_list_if_exis=False):
+
+        master_lr_fqname_str = None
+
+        def_fab_master_lr_fqname_str = "default-domain:default-project:" \
+                                       + fabric_fq_name[-1] + "-master-LR"
+
+        for lr_fqname_str in lr_list:
+            if def_fab_master_lr_fqname_str == lr_fqname_str:
+                master_lr_fqname_str = lr_fqname_str
+                master_lr_fqname = lr_fqname_str.split(':')
+                if del_m_lr_from_list_if_exis:
+                    lr_list.remove(lr_fqname_str)
+                    vnc_api.logical_router_delete(fq_name=master_lr_fqname)
+                break
+        return master_lr_fqname_str
 
     def _get_virtual_port_group_refs(self, vnc_api, fabric_obj, device_uuids,
                                      is_device_del):
@@ -1506,6 +1586,11 @@ class FilterModule(object):
                   'referenced')
         vn_list = set()
         lr_list = set()
+
+        # to have specific err_msg for device delete case
+        # with device having ref to master-LR
+        is_master_lr_and_dev_del = False
+
         device_names = set()
 
         devices = vnc_bulk_get(
@@ -1522,6 +1607,27 @@ class FilterModule(object):
 
             # Check for logical router references
             lr_list |= self._get_logical_router_refs(device)
+
+        is_master_lr_and_dev_del = is_device_delete and \
+            self.get_master_lr_in_list(vnc_api, lr_list,
+                                       fabric_obj.get_fq_name())
+
+        # Check for LR refs in fabric as well, if it is not device
+        # (only) delete
+        if not is_device_delete:
+            lr_list |= self._get_logical_router_refs_for_fabric(
+                fabric_obj)
+            # delete fabric-master-lr as part of fabric deletion
+            # if one exists and pop from lr_list
+            master_lr_fqname_str = self.get_master_lr_in_list(
+                vnc_api,
+                lr_list,
+                fabric_obj.get_fq_name(),
+                del_m_lr_from_list_if_exis=True)
+            if master_lr_fqname_str:
+                _task_log("Found master-LR %s during fabric deletion and "
+                          "deleted this Logical Router in the process."
+                          % master_lr_fqname_str)
 
         # Check for virtual port groups in this fabric
         vpg_list = self._get_virtual_port_group_refs(vnc_api, fabric_obj,
@@ -1542,6 +1648,11 @@ class FilterModule(object):
 
         if lr_list:
             err_msg += 'Logical Routers: {}, '.format(list(lr_list))
+            if is_master_lr_and_dev_del:
+                err_msg += '\nOne or more devices are associated with ' \
+                           'master-LR for fabric. Remove device(s) from ' \
+                           'master Logical Router and retry ' \
+                           'deleting devices.'
 
         if vpg_list:
             err_msg += 'Virtual Port Groups: {}, '.format(list(vpg_list))
