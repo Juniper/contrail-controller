@@ -81,7 +81,7 @@ from vnc_cfg_api_server.resources.service_instance import ServiceInstanceServer
 from vnc_cfg_api_server.resources.port_tuple import PortTupleServer
 from vnc_cfg_api_server.resources.node_port import PortServer
 from vnc_cfg_api_server.resources.node import NodeServer
-
+from vnc_cfg_api_server.resources.fabric_namespace import FabricNamespaceServer
 
 def initialize_all_server_resource_classes(server_instance):
     """Initialize map of all resource server classes.

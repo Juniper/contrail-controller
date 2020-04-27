@@ -16,6 +16,7 @@ LINK_LOCAL_RI_FQ_NAME = LINK_LOCAL_VN_FQ_NAME + ['__link_local__']
 SG_NO_RULE_FQ_NAME = ['default-domain', 'default-project', '__no_rule__']
 DCI_VN_FQ_NAME = ['default-domain', 'default-project', 'dci-network']
 DCI_IPAM_FQ_NAME = ['default-domain', 'default-project', 'default-dci-lo0-network-ipam']
+OVERLAY_LOOPBACK_FQ_PREFIX = ['default-domain', 'default-project']
 
 _BGP_RTGT_MIN_ID_TYPE0 = 8000000
 _BGP_RTGT_MIN_ID_TYPE1_2 = 8000
