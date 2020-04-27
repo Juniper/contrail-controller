@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
+
 from cfgm_common import _obj_serializer_all
 from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
@@ -10,6 +12,7 @@ from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.zkclient import ZookeeperLock
 from vnc_api.gen.resource_common import LogicalRouter
 from vnc_api.gen.resource_common import Project
 from vnc_api.gen.resource_common import VirtualNetwork
@@ -39,6 +42,159 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return True, ''
 
     @classmethod
+    def _check_annotations(cls, api_server, obj_uuid,
+                           resource_type, annotation_key,
+                           fabric_uuid, lr_fqname_str,
+                           fail_if_exists=True):
+        """Check given annotation exists in the system.
+
+           Consider availability as PASS/FAIL
+           based on fail_if_exists.
+
+        Args:
+            api_server: api_server connection object
+            obj_uuid: UUID of the object on which
+            annotations to be checked
+            resource_type: resource type of object
+            for which annotations to be checked
+            annotation_key: key of the annotation
+            fail_if_exists: consider failure when annotation exists
+        Returns
+          True, '': PASS condition
+          (False, (<code>, msg): Fail condition
+        """
+        query = {'obj_uuid': obj_uuid,
+                 'fields': 'annotations',
+                 'position': annotation_key}
+        # get this annotation.
+        # if exists Fail per fail_if_exists
+        result = api_server.internal_request_prop_collection_get(
+            resource_type, **query)
+
+        exis_annotation_value = {}
+
+        if result:
+            if result.get('annotations'):
+                exis_annotations = result.get('annotations', {})
+                for annotation_tuple in exis_annotations:
+                    if annotation_tuple[0].get('key') == 'LogicalRouter':
+                        exis_annotation_value = json.loads(
+                            annotation_tuple[0].get('value'))
+                        exis_annotation_lrs = exis_annotation_value.get(
+                            fabric_uuid, []
+                        )
+                        if exis_annotation_lrs:
+                            if fail_if_exists:
+                                if exis_annotation_lrs != [lr_fqname_str]:
+                                    # Exists but not expected
+                                    return False, exis_annotation_lrs
+                            else:
+                                return True, exis_annotation_value
+                        break
+
+        return True, exis_annotation_value
+
+    @classmethod
+    def _add_annotations(cls, api_server, obj_uuid,
+                         resource_type, annotation_key,
+                         annotation_value):
+        """Add given annotation to the VN object.
+
+        Args:
+            api_server: api_server connection object
+            obj_uuid: UUID of the object for which
+            annotations to be added
+            resource_type: resource type of object
+            for which annotations to be added
+            annotation_key: key of the annotation
+            annotation_value: value of the annotation
+        Returns
+          True, '': PASS condition
+          (False, (<code>, msg): Fail condition
+        """
+        # format update dict
+        updates = [{'field': 'annotations',
+                    'operation': 'set',
+                    'value': {'key': annotation_key,
+                              'value': annotation_value}}]
+        ok, result = api_server.internal_request_prop_collection(
+            obj_uuid, updates)
+        if not ok:
+            return False, result
+        return True, ''
+
+    @classmethod
+    def _del_annotations(cls, api_server, obj_uuid,
+                         resource_type, annotation_key):
+        """Delete given annotation in the VN object.
+
+        Args:
+            api_server: api_server connection object
+            obj_uuid: UUID of the object for which
+            annotations to be added
+            resource_type: resource type of object for which
+            annotations to be added
+            annotation_key: key of the annotation
+            annotation_value: value of the annotation
+        Returns
+          True, '': PASS condition
+          (False, (<code>, msg): Fail condition
+        """
+        # format update dict
+        updates = [{'field': 'annotations',
+                    'operation': 'delete',
+                    'position': annotation_key
+                    }]
+        ok, result = api_server.internal_request_prop_collection(
+            obj_uuid, updates)
+        if not ok:
+            return False, result
+        return True, ''
+
+    @classmethod
+    def is_vn_not_in_another_lr(cls, db_conn, vn_refs, api_server,
+                                fabric_uuid, lr_fqname_str):
+        ann_key = "LogicalRouter"
+        # this will track the exis_annotations per fabric
+        # per vn. Key: Fabric_uuid, value: [lr_fqname_strs]
+        result = {}
+        # this will track all the annotations for all the vns
+        # key: vn_uuid, value: {
+        #                        fabric_uuid_1: [],
+        #                        fabric_uuid_2: [lr_a_fqname_str,
+        #                                        lr_b_fqname_str]
+        #                      }
+        results = {}
+
+        for vn_ref in vn_refs:
+            try:
+                vn_fq_name = db_conn.uuid_to_fq_name(vn_ref['uuid'])
+            except NoIdError as exc:
+                msg = ("Error while trying to obtain fq_name"
+                       " for vn id %s: %s "
+                       % (vn_ref['uuid'], str(exc)))
+                return False, (404, msg)
+            is_shared = cls._check_if_shared_across_all_lrs(
+                db_conn, vn_ref)
+            if is_shared:
+                ok, result = cls._check_annotations(
+                    api_server, vn_ref['uuid'],
+                    'virtual_network', ann_key,
+                    fabric_uuid, lr_fqname_str, fail_if_exists=False)
+                if ok:
+                    results[vn_ref['uuid']] = result
+            # check annotations and fail if exists,
+            # only if its only not shared
+            else:
+                ok, result = cls._check_annotations(
+                    api_server, vn_ref['uuid'], 'virtual_network', ann_key,
+                    fabric_uuid, lr_fqname_str, fail_if_exists=True)
+                if not ok:
+                    return ok, (result, vn_fq_name)
+                results[vn_ref['uuid']] = result
+        return True, results
+
+    @classmethod
     def is_port_gateway_in_same_network(cls, db_conn, vmi_refs, vn_refs):
         interface_vn_uuids = []
         for vmi_ref in vmi_refs:
@@ -55,6 +211,203 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                     msg = ("Logical router interface and gateway cannot be in"
                            "VN(%s)" % vn_ref['uuid'])
                     return False, (400, msg)
+        return True, ''
+
+    @classmethod
+    def _check_if_shared_across_all_lrs(cls, db_conn, vn_ref):
+        vn_uuid = vn_ref['uuid']
+
+        if vn_uuid:
+            ok, read_result = cls.dbe_read(db_conn, 'virtual_network',
+                                           vn_uuid)
+            if ok:
+                vn_routed_props_shared = read_result.get(
+                    'virtual_network_routed_properties', {}).get(
+                    'shared_across_all_lrs')
+                if vn_routed_props_shared:
+                    return True
+
+        return False
+
+    @classmethod
+    def _check_and_associate_logical_router_vn(cls, db_conn, obj_dict,
+                                               lr_id=None):
+
+        vn_refs = []
+        existing_vn_refs = []
+        fab_refs = []
+        pr_refs_exis = []
+        fab_uuid_to_be_del = None
+
+        if 'virtual_machine_interface_refs' in obj_dict:
+            vmi_refs = obj_dict.get('virtual_machine_interface_refs')
+            for vmi_ref in vmi_refs:
+                ok, read_result = cls.dbe_read(db_conn,
+                                               'virtual_machine_interface',
+                                               vmi_ref['uuid'])
+                if not ok:
+                    return ok, read_result
+
+                vn_refs.extend(read_result.get('virtual_network_refs', []))
+
+        # update
+        if lr_id:
+            ok, read_result = cls.dbe_read(db_conn, 'logical_router',
+                                           lr_id)
+            if not ok:
+                return ok, read_result
+
+            lr_fq_name = read_result.get('fq_name')
+            pr_refs_exis = read_result.get('physical_router_refs', [])
+            fab_refs = obj_dict.get('fabric_refs',
+                                    read_result.get('fabric_refs', []))
+            # fabric ref update as part of LR update
+            if fab_refs != read_result.get('fabric_refs', []):
+                if read_result.get('fabric_refs'):
+                    fab_uuid_to_be_del = read_result.get(
+                        'fabric_refs')[-1].get('uuid')
+
+            existing_vmi_refs = read_result.get(
+                'virtual_machine_interface_refs', []
+            )
+            for existing_vmi_ref in existing_vmi_refs:
+                ok, existing_vmi_ref_obj = cls.dbe_read(
+                    db_conn,
+                    'virtual_machine_interface',
+                    existing_vmi_ref['uuid'])
+                if not ok:
+                    return ok, existing_vmi_ref_obj
+                existing_vn_refs.extend(
+                    existing_vmi_ref_obj.get('virtual_network_refs', []))
+            if not vn_refs:
+                vn_refs = existing_vn_refs
+
+        # create
+        else:
+            lr_fq_name = obj_dict['fq_name']
+            fab_refs = obj_dict.get('fabric_refs', [])
+
+        # try to get fab_refs from pr if not obtained
+        # already through obj_dict (user input) or
+        # read through vnc db (already existing)
+
+        if not fab_refs:
+            pr_refs_inp = obj_dict.get('physical_router_refs', [])
+            if pr_refs_inp:
+                if (pr_refs_inp == pr_refs_exis) or not pr_refs_exis:
+                    pr_uuid = pr_refs_inp[-1].get('uuid')
+                    if not pr_uuid:
+                        pr_uuid = db_conn.fq_name_to_uuid(
+                            'physical_router',
+                            pr_refs_inp[-1].get('to')
+                        )
+                    (ok, pr_obj) = cls.dbe_read(db_conn,
+                                                'physical_router',
+                                                pr_uuid)
+                    fab_refs = pr_obj.get('fabric_refs', [])
+                else:
+                    # pr_refs_exis is not [] and is different
+                    # from pr_refs_inp --> may be a case of fab update
+                    pr_uuid = pr_refs_exis[-1].get('uuid')
+                    if not pr_uuid:
+                        pr_uuid = db_conn.fq_name_to_uuid(
+                            'physical_router',
+                            pr_refs_exis[-1].get('to')
+                        )
+                    (ok, pr_obj) = cls.dbe_read(db_conn,
+                                                'physical_router',
+                                                pr_uuid)
+                    fab_refs_exis = pr_obj.get('fabric_refs', [])
+                    pr_uuid = pr_refs_inp[-1].get('uuid')
+                    (ok, pr_obj) = cls.dbe_read(db_conn,
+                                                'physical_router',
+                                                pr_uuid)
+                    fab_refs_new = pr_obj.get('fabric_refs', [])
+                    fab_refs = fab_refs_new
+                    if fab_refs_new != fab_refs_exis:
+                        if fab_refs_exis:
+                            fab_uuid_to_be_del = fab_refs_exis[-1].get(
+                                'uuid')
+
+        lr_fq_name_str = ':'.join(lr_fq_name)
+        api_server = db_conn.get_api_server()
+        zk_lr_lock_path = os.path.join(
+            api_server.fabric_validation_lock_prefix,
+            'logical_routers', lr_fq_name_str)
+        zk_lr_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                      'path': zk_lr_lock_path, 'name': lr_fq_name_str,
+                      'timeout': 60}
+
+        if fab_refs:
+            fabric_uuid = str(fab_refs[-1].get('uuid'))
+
+            with ZookeeperLock(**zk_lr_args):
+                vn_not_in_another_lr, results = \
+                    cls.is_vn_not_in_another_lr(
+                        db_conn,
+                        vn_refs,
+                        api_server,
+                        fabric_uuid,
+                        lr_fq_name_str
+                )
+                if not vn_not_in_another_lr:
+                    result = results[0]
+                    vn_fq_name = results[1]
+
+                    # check for uuid not present
+                    if result == 404:
+                        return vn_not_in_another_lr, results
+
+                    # Error case when fabric uuid already has some
+                    # LR fq names against it
+                    err_msg = ("Virtual Network %s already exists"
+                               " in LogicalRouter(s)(%s)"
+                               % (vn_fq_name, str(result)))
+                    return vn_not_in_another_lr, (400, err_msg)
+
+                ann_key = 'LogicalRouter'
+                for vn_ref_uuid in results:
+                    result = results.get(vn_ref_uuid)
+                    exis_annotation_lrs = result.get(fabric_uuid, [])
+                    if lr_fq_name_str not in exis_annotation_lrs:
+                        exis_annotation_lrs.append(lr_fq_name_str)
+                        result.update({fabric_uuid: exis_annotation_lrs})
+                        ann_value = json.dumps(result)
+
+                        ok, result = cls._add_annotations(api_server,
+                                                          vn_ref_uuid,
+                                                          'virtual_network',
+                                                          ann_key,
+                                                          ann_value)
+                        if not ok:
+                            return ok, result
+
+        # clean up of any previous fabric keys must happen
+        # irrespective of if there is a new fabric update
+        # or not. Eg. if there is a VMI update but no fabric
+        # update and if there is a fabric update.
+        if lr_id:
+            obj_dict['uuid'] = lr_id
+            with ZookeeperLock(**zk_lr_args):
+                if fab_uuid_to_be_del:
+                    cls._check_and_delete_vn_annotations(
+                        obj_dict,
+                        db_conn,
+                        fab_uuid_to_be_del,
+                        existing_vn_refs
+                    )
+                else:
+                    vn_refs_to_be_deleted = []
+                    for exis_vn_ref in existing_vn_refs:
+                        if exis_vn_ref not in vn_refs:
+                            vn_refs_to_be_deleted.append(exis_vn_ref)
+                    cls._check_and_delete_vn_annotations(
+                        obj_dict,
+                        db_conn,
+                        fab_uuid_to_be_del,
+                        vn_refs_to_be_deleted
+                    )
+
         return True, ''
 
     @classmethod
@@ -236,6 +589,11 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         if not ok:
             return ok, result
 
+        ok, result = cls._check_and_associate_logical_router_vn(db_conn,
+                                                                obj_dict)
+        if not ok:
+            return ok, result
+
         vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
         logical_router_type = cls.check_lr_type(obj_dict)
 
@@ -294,6 +652,12 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         (ok, error) = cls._check_route_targets(obj_dict)
         if not ok:
             return (False, (400, error))
+
+        ok, result = cls._check_and_associate_logical_router_vn(
+            db_conn,
+            obj_dict, id)
+        if not ok:
+            return ok, result
 
         # To get the current vxlan_id, read the LR from the DB
         ok, result = cls.dbe_read(cls.db_conn,
@@ -525,7 +889,80 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return True, ''
 
     @classmethod
+    def _check_and_delete_vn_annotations(cls, obj_dict, db_conn,
+                                         fab_uuid=None,
+                                         vn_refs_to_del=None):
+        vn_refs = []
+        ok, result = db_conn.dbe_read(
+            'logical_router',
+            obj_dict['uuid'],
+            obj_fields=['virtual_machine_interface_refs', 'fabric_refs'])
+        if ok and result.get('virtual_machine_interface_refs'):
+            api_server = db_conn.get_api_server()
+            ann_key = 'LogicalRouter'
+            lr_fq_name_str = ':'.join(result.get('fq_name', []))
+            fabric_uuid = None
+            if fab_uuid:
+                fabric_uuid = fab_uuid
+            else:
+                if result.get('fabric_refs'):
+                    fabric_uuid = result.get('fabric_refs')[-1].get('uuid')
+            if fabric_uuid:
+                zk_lr_lock_path = os.path.join(
+                    api_server.fabric_validation_lock_prefix,
+                    'logical_routers', lr_fq_name_str)
+                zk_lr_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                              'path': zk_lr_lock_path, 'name': lr_fq_name_str,
+                              'timeout': 60}
+                if vn_refs_to_del is None:
+                    for vmi_ref in result.get('virtual_machine_interface_refs'):
+                        ok, res = db_conn.dbe_read(
+                            'virtual_machine_interface',
+                            vmi_ref['uuid'])
+                        if ok:
+                            vn_refs.extend(res.get('virtual_network_refs', []))
+                else:
+                    vn_refs = vn_refs_to_del
+                with ZookeeperLock(**zk_lr_args):
+                    fabric_uuid = str(fabric_uuid)
+                    for vn_ref in vn_refs:
+                        ok, result = cls._check_annotations(api_server,
+                                                            vn_ref['uuid'],
+                                                            'virtual_network',
+                                                            ann_key,
+                                                            fabric_uuid,
+                                                            lr_fq_name_str,
+                                                            fail_if_exists=False)
+                        if ok:
+                            exis_annotation_lrs = result.get(fabric_uuid, [])
+                            if exis_annotation_lrs:
+                                if lr_fq_name_str in exis_annotation_lrs:
+                                    exis_annotation_lrs.remove(lr_fq_name_str)
+                                if exis_annotation_lrs:
+                                    result.update({fabric_uuid: exis_annotation_lrs})
+                                    ann_value = json.dumps(result)
+                                    ok, result = cls._add_annotations(
+                                        api_server, vn_ref['uuid'],
+                                        'virtual_network', ann_key,
+                                        ann_value)
+                                else:
+                                    result.pop(fabric_uuid, None)
+                                    if result:
+                                        ann_value = json.dumps(result)
+                                        ok, result = cls._add_annotations(
+                                            api_server, vn_ref['uuid'],
+                                            'virtual_network', ann_key,
+                                            ann_value)
+                                    else:
+                                        cls._del_annotations(api_server,
+                                                             vn_ref['uuid'],
+                                                             'virtual_network',
+                                                             ann_key)
+
+    @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+
+        cls._check_and_delete_vn_annotations(obj_dict, db_conn)
         logical_router_type = cls.check_lr_type(obj_dict)
         if logical_router_type == 'vxlan-routing':
             vn_int_fqname = (obj_dict['fq_name'][:-1] +
