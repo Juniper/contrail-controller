@@ -1159,3 +1159,4 @@ class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
         super(ErrorInterceptingLogger, self).__init__(*args, **kwargs)
         self._logger = ErrorInterceptingLogger.LoggerWrapper(
             self._logger)
+
