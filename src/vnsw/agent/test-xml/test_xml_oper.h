@@ -399,6 +399,7 @@ private:
     std::string action_;
     uint16_t rpf_nh_;
     std::string deleted_;
+    std::string vrf_;
 };
 
 class AgentUtXmlL2Route : public AgentUtXmlNode {
