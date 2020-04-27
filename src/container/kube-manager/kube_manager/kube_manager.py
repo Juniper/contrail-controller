@@ -63,6 +63,10 @@ class KubeNetworkManager(object):
                 self.monitors['namespace'] = namespace_monitor.NamespaceMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
+                self.monitors['network'] = \
+                    network_monitor.NetworkMonitor(
+                        args=self.args, logger=self.logger, q=self.q)
+
                 self.monitors['pod'] = pod_monitor.PodMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
@@ -81,10 +85,6 @@ class KubeNetworkManager(object):
                     ingress_monitor.IngressMonitor(
                         args=self.args, logger=self.logger, q=self.q)
 
-                self.monitors['network'] = \
-                    network_monitor.NetworkMonitor(
-                        args=self.args, logger=self.logger, q=self.q)
-
                 kube_api_connected = True
 
             except Exception:  # FIXME: Except clause is too broad
@@ -97,6 +97,7 @@ class KubeNetworkManager(object):
         self.vnc = vnc_kubernetes.VncKubernetes(
             args=self.args, logger=self.logger, q=self.q, kube=self.kube,
             vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
+
     # end __init__
 
     def _kube_object_cache_enabled(self):

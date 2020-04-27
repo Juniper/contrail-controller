@@ -57,26 +57,26 @@ func (vrouter *VRouter) makeFileName(VmiUUID string) string {
     if VmiUUID != "" {
         fname = fname + "/" + VmiUUID
     }
-
     return fname
 }
 
 // Make URL for operation
-func (vrouter *VRouter) makeUrl(containerUuid, containerVn,
-    page string) string {
+func (vrouter *VRouter) makeUrl(page, containerUuid, vmiUuid string) string {
     url := "http://" + vrouter.Server + ":" + strconv.Itoa(vrouter.Port) + page
     if len(containerUuid) > 0 {
         url = url + "/" + vrouter.containerUuid
     }
-
+    if len(vmiUuid) > 0 {
+        url = url + "/" + vmiUuid
+    }
     return url
 }
 
 // Do a HTTP operation to VRouter
-func (vrouter *VRouter) doOp(op, containerUuid, containerVn, page string,
+func (vrouter *VRouter) doOp(op, page, containerUuid, vmiUuid string,
     msg []byte) (*http.Response, error) {
 
-    url := vrouter.makeUrl(containerUuid, containerVn, page)
+    url := vrouter.makeUrl(page, containerUuid, vmiUuid)
     log.Infof("VRouter request. Operation : %s Url :  %s", op, url)
     req, err := http.NewRequest(op, url, bytes.NewBuffer(msg))
     if err != nil {
@@ -156,10 +156,9 @@ func MakeCniResult(ifname string, vrouterResult *Result) *current.Result {
 }
 
 // Get operation from VRouter
-func (vrouter *VRouter) Get(url string) (*[]Result, error) {
+func (vrouter *VRouter) Get(url, containerUuid, vmiUuid string) (*[]Result, error) {
     var req []byte
-    resp, err := vrouter.doOp("GET", vrouter.containerUuid,
-        vrouter.containerVn, url, req)
+    resp, err := vrouter.doOp("GET", url, vrouter.containerUuid, vmiUuid, req)
     if err != nil {
         log.Errorf("Failed HTTP GET operation")
         return nil, err
@@ -168,21 +167,20 @@ func (vrouter *VRouter) Get(url string) (*[]Result, error) {
 
     if resp.StatusCode != http.StatusOK {
         msg := fmt.Sprintf("Failed HTTP Get operation. Return code %d",
-            int(resp.StatusCode))
+                int(resp.StatusCode))
         log.Errorf(msg)
         return nil, fmt.Errorf(msg)
     }
 
-    results := make([]Result, 0)
     var body []byte
-
     body, err = ioutil.ReadAll(resp.Body)
     if err != nil {
         log.Errorf("Error in reading HTTP GET response. Error : %+v", err)
         return nil, err
     }
-
     log.Infof("VRouter response %s", string(body))
+
+    results := make([]Result, 0)
     err = json.Unmarshal(body, &results)
     if err != nil {
         log.Errorf("Error decoding HTTP Get response. Error : %+v", err)
@@ -215,10 +213,10 @@ func (vrouter *VRouter) Get(url string) (*[]Result, error) {
 }
 
 // Poll response from VRouter
-func (vrouter *VRouter) PollUrl(url string) (*[]Result, error) {
+func (vrouter *VRouter) PollVm(containerUuid, vmiUuid string) (*[]Result, error) {
     var msg string
     for i := 0; i < vrouter.PollRetries; i++ {
-        results, err := vrouter.Get(url)
+        results, err := vrouter.Get("/vm", containerUuid, vmiUuid)
         if err == nil {
             log.Infof("Get from vrouter passed. Result %+v", results)
             return results, nil
@@ -229,7 +227,7 @@ func (vrouter *VRouter) PollUrl(url string) (*[]Result, error) {
         time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
     }
 
-    return nil, fmt.Errorf("Failed in PollVM. Error : %s", msg)
+    return nil, fmt.Errorf("Failed in PollVm. Error : %s", msg)
 }
 
 /****************************************************************************
@@ -292,7 +290,7 @@ func (vrouter *VRouter) addVmFile(addMsg []byte, vmiUuid string) error {
 }
 
 func (vrouter *VRouter) addVmToAgent(addMsg []byte) error {
-    resp, err := vrouter.doOp("POST", "", "", "/vm", addMsg)
+    resp, err := vrouter.doOp("POST", "/vm", "",  "", addMsg)
     if err != nil {
         log.Errorf("Failed in HTTP POST operation")
         return err
@@ -362,15 +360,14 @@ func (vrouter *VRouter) delVmFile(containerIfName string) (error, error) {
         return nil, nil
     }
 
-    log.Infof("Delete file done")
+    log.Infof("file %s deleted", fname)
     return nil, nil
 }
 
 func (vrouter *VRouter) delVmToAgent() error {
     delMsg := makeMsg("", vrouter.containerUuid, vrouter.containerId,
         "", "", "", "", "")
-    resp, err := vrouter.doOp("DELETE", vrouter.containerUuid,
-        vrouter.containerVn, "/vm", delMsg)
+    resp, err := vrouter.doOp("DELETE", "/vm", vrouter.containerUuid, "", delMsg)
     if err != nil {
         log.Errorf("Failed HTTP DELETE operation")
         return err
@@ -459,7 +456,6 @@ func (vrouter *VRouter) CanDelete(containerId, containerUuid,
             }
             return containerIntfNames, vmiUuids, err
         }
-
         if obj.Vm != vrouter.containerId {
             log.Infof("Mismatch in container-id between request and config file."+
                 "Expected %s got %s", vrouter.containerId, obj.Vm)
@@ -467,7 +463,6 @@ func (vrouter *VRouter) CanDelete(containerId, containerUuid,
                 " config file. Expected %s got %s", vrouter.containerId, obj.Vm)
             return containerIntfNames, vmiUuids, err
         }
-
         containerIntfNames = append(containerIntfNames, obj.ContainerIfName)
         vmiUuids = append(vmiUuids, f.Name())
     }
@@ -479,40 +474,44 @@ func (vrouter *VRouter) CanDelete(containerId, containerUuid,
 /****************************************************************************
  * POLL handling
  ****************************************************************************/
-func (vrouter *VRouter) Poll(containerUuid, containerVn string) (*[]Result,
+func (vrouter *VRouter) PollVmCfg(containerUuid string) (*[]Result,
     error) {
-    vrouter.containerUuid = containerUuid
-    vrouter.containerVn = containerVn
     var msg string
+    vrouter.containerUuid = containerUuid
 
     // Loop till we receive all the interfaces attached to the pod
     // in the Vrouter Response.
     for i := 0; i < vrouter.PollRetries; i++ {
-        results, poll_err := vrouter.PollUrl("/vm-cfg")
-        if poll_err != nil {
-            msg = poll_err.Error()
-            break
+        results, err := vrouter.Get("/vm-cfg", containerUuid, "")
+        if err != nil {
+            msg = err.Error()
+            log.Infof("Iteration %d : Get vrouter failed", i)
+            time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
+            continue
         }
 
+        log.Infof("Get from vrouter passed. Result %+v", results)
         result := (*results)[0]
         indices := strings.Split(result.Annotations.Index, "/")
         total_interfaces, err := strconv.Atoi(indices[1])
         if err != nil {
             msg = err.Error()
-            break
+            log.Infof(msg)
+            time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
+            continue
         }
 
-        if total_interfaces == len(*results) {
+        total_results := len(*results)
+        if (total_interfaces == total_results) {
             return results, nil
         }
-
-        msg = fmt.Sprintf("Iteration %d : Get VRouter Incomplete - "+
-            "Interfaces Expected: %d, Actual: %d", i, total_interfaces, len(*results))
+        msg = fmt.Sprintf("Iteration %d : Get VRouter Incomplete - " +
+            "Interfaces Expected: %d, Actual: %d",
+            i, total_interfaces, total_results)
         log.Infof(msg)
-        time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
     }
 
-    return nil, fmt.Errorf("Failed in Poll VM-CFG. Error : %s", msg)
+    return nil, fmt.Errorf("Failed in PollVmCfg. Error : %s", msg)
 }
 
 /****************************************************************************
@@ -526,7 +525,7 @@ func (vrouter *VRouter) Log() {
     log.Infof("%+v\n", *vrouter)
 }
 
-func VRouterInit(stdinData []byte) (*VRouter, error) {
+func VRouterInit(stdinData []byte, dataBytes []byte) (*VRouter, error) {
     httpClient := new(http.Client)
     vrouter := VRouter{Server: VROUTER_AGENT_IP, Port: VROUTER_AGENT_PORT,
         Dir: VROUTER_CONFIG_DIR, PollTimeout: VROUTER_POLL_TIMEOUT,
@@ -534,6 +533,12 @@ func VRouterInit(stdinData []byte) (*VRouter, error) {
         containerVn: "", VmiUuid: "", httpClient: httpClient}
     args := vrouterJson{VRouter: vrouter}
 
+    if err := json.Unmarshal(dataBytes, &args); err != nil {
+        msg := fmt.Sprintf("Invalid JSon string. Error : %v \nString %s\n",
+            err, dataBytes)
+        log.Errorf(msg)
+        return nil, fmt.Errorf(msg)
+    }
     if err := json.Unmarshal(stdinData, &args); err != nil {
         msg := fmt.Sprintf("Invalid JSon string. Error : %v \nString %s\n",
             err, stdinData)
