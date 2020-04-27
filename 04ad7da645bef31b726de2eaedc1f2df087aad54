@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7bc20fa1_218b8ac5",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_type5/juniper_junos-qfx_overlay_evpn_type5.j2",
+        "patchSetId": 3
+      },
+      "lineNbr": 168,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-27T18:13:25Z",
+      "side": 1,
+      "message": "Any reason of not using boolean True or False ?",
+      "revId": "04ad7da645bef31b726de2eaedc1f2df087aad54",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
