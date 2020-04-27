@@ -13,6 +13,7 @@ from cfgm_common.utils import CamelCase, detailed_traceback, str_to_class
 from vnc_api.exceptions import NoIdError, RefsExistError
 from vnc_api.gen import resource_client
 from vnc_api.gen.resource_client import (
+    LogicalRouter,
     NetworkIpam,
     VirtualNetwork
 )
@@ -169,7 +170,6 @@ class FabricManager(object):
 
                         if object_type != 'telemetry-profile' and \
                                 object_type != 'sflow-profile' and \
-                                object_type != 'logical-router' and \
                                 object_type != 'device-functional-group':
                             self._vnc_api._object_update(object_type,
                                                          instance_obj)
@@ -248,6 +248,103 @@ class FabricManager(object):
             except NoIdError:
                 pass
 
+        # handle replacing master-LR as <fab_name>-master-LR here
+        # as part of in-place cluster update. Copy the master-LR
+        # and also its associated vns and their annotations here
+
+        master_lr_obj = None
+        try:
+            master_lr_obj = self._vnc_api.logical_router_read(
+                fq_name=[
+                    'default-domain', 'default-project', 'master-LR'
+                ]
+            )
+        except NoIdError:
+            try:
+                master_lr_obj = self._vnc_api.logical_router_read(
+                    fq_name=[
+                        'default-domain', 'admin', 'master-LR'
+                    ]
+                )
+            except NoIdError:
+                pass
+
+        if master_lr_obj:
+            vmi_refs = master_lr_obj.get_virtual_machine_interface_refs(
+            ) or []
+            # get existing pr refs
+            pr_refs = master_lr_obj.get_physical_router_refs() or []
+            fabric_refs = master_lr_obj.get_fabric_refs() or []
+            perms2 = master_lr_obj.get_perms2()
+            fab_fq_name = None
+
+            try:
+                # This has to happen before creating fab-master-LR as
+                # otherwise it will fail creation
+                # of fab-master-lr with annotations having master-lr uuid
+                # Now delete master-LR object
+                # this will delete lr annotations from fabric in
+                # corresponding VNs if they exist
+                self._vnc_api.logical_router_delete(
+                    id=master_lr_obj.get_uuid())
+
+                # try to obtain the fabric refs either by fabric ref if one
+                # is available or from pr_refs if available
+
+                if pr_refs and not fabric_refs:
+                    # this is assuming that even though there can be
+                    # multiple pr refs, a LR cannot have more than
+                    # one fabric refs. So a random pr chosen in the pr
+                    # refs list will have the same fabric name as the other
+                    # prs in the list
+                    pr_ref = pr_refs[-1]
+                    pr_obj = self._vnc_api.physical_router_read(
+                        id=pr_ref.get('uuid',
+                                      self._vnc_api.fq_name_to_id(
+                                          pr_ref.get('to')
+                                      )))
+                    fabric_refs = pr_obj.get_fabric_refs() or []
+
+                if fabric_refs:
+                    fabric_ref = fabric_refs[-1]
+                    fab_fq_name = fabric_ref.get(
+                        'to', self._vnc_api.id_to_fq_name(
+                            fabric_ref.get('uuid')))
+
+                # if fab_fq_name is not derivable or was not present, then
+                # skip creating fab_name-master-LR as fabric information
+                # is not available
+                # if fab_fq_name is available, copy necessary refs from prev.
+                # master LR, create new fab_name-master-LR and this will update
+                # VN annotations accordingly.
+                if fab_fq_name:
+                    def_project = self._vnc_api.project_read(['default-domain',
+                                                              'default-project'])
+                    fab_name = fab_fq_name[-1]
+                    lr_fq_name = ['default-domain',
+                                  'default-project',
+                                  fab_name + '-master-LR']
+                    fab_master_lr_obj = LogicalRouter(
+                        name=lr_fq_name[-1],
+                        fq_name=lr_fq_name,
+                        logical_router_gateway_external=False,
+                        logical_router_type='vxlan-routing',
+                        parent_obj=def_project
+                    )
+                    perms2.set_global_access(PERMS_RWX)
+                    fab_master_lr_obj.set_perms2(perms2)
+
+                    fab_master_lr_obj.set_virtual_machine_interface_list(
+                        vmi_refs)
+                    fab_master_lr_obj.set_physical_router_list(pr_refs)
+                    fab_master_lr_obj.set_fabric_list(fabric_refs)
+
+                    fab_master_lr_id = self._vnc_api.logical_router_create(
+                        fab_master_lr_obj
+                    )
+            except NoIdError:
+                pass
+
         # handle deleted job_templates as part of in-place cluster update
         to_be_del_jt_names = ['show_interfaces_template',
                               'show_config_interfaces_template',
@@ -258,46 +355,6 @@ class FabricManager(object):
                     fq_name=['default-global-system-config', jt_name])
             except NoIdError:
                 pass
-
-        # 1. handle default LR update for perms2 and
-        # 2. update LR properties from admin LR if present
-        # 3. delete admin LR as part of in-place cluster update if present
-
-        try:
-            def_lr_obj = self._vnc_api.logical_router_read(
-                fq_name=[
-                    'default-domain', 'default-project', 'master-LR'
-                ]
-            )
-            perms2 = def_lr_obj.get_perms2()
-            perms2.set_global_access(PERMS_RWX)
-            def_lr_obj.set_perms2(perms2)
-
-            try:
-                admin_lr_obj = self._vnc_api.logical_router_read(
-                    fq_name=['default-domain', 'admin', 'master-LR']
-                )
-
-                # get existing vmi refs
-                vmi_refs = admin_lr_obj.get_virtual_machine_interface_refs(
-                ) or []
-                # get existing pr refs
-                pr_refs = admin_lr_obj.get_physical_router_refs() or []
-
-                def_lr_obj.set_virtual_machine_interface_list(vmi_refs)
-                def_lr_obj.set_physical_router_list(pr_refs)
-
-                self._vnc_api.logical_router_delete(
-                    fq_name=['default-domain', 'admin', 'master-LR'])
-            except NoIdError:
-                pass
-
-            self._vnc_api.logical_router_update(def_lr_obj)
-        except Exception as e:
-            err_msg = 'Error while attempting to read or update' \
-                      ' default logical router: %s\n' % str(e)
-            err_msg += detailed_traceback()
-            self._logger.error(err_msg)
 
     # end _load_init_data
 
