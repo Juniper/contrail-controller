@@ -20,6 +20,7 @@ import time
 import traceback
 import uuid
 
+from cfgm_common import PERMS_RWX
 from cfgm_common.exceptions import (
     NoIdError,
     RefsExistError
@@ -44,6 +45,7 @@ from vnc_api.gen.resource_xsd import (
     KeyValuePair,
     KeyValuePairs,
     NamespaceValue,
+    PermType2,
     RoutingBridgingRolesType,
     SerialNumListType,
     SubnetListType,
@@ -685,6 +687,12 @@ class FilterModule(object):
             fabric_info.get('node_profiles')
         )
 
+        # create default logical router to be used to attach routed
+        # virtual-networks which are part of master routing table on
+        # leaf/spine devices
+        self._add_default_logical_router(
+            vnc_api, fabric_info.get('fabric_fq_name'))
+
         # add intent-map object
         self._add_intent_maps(
             vnc_api,
@@ -1044,6 +1052,44 @@ class FilterModule(object):
         vnc_api.fabric_update(fabric_obj)
         _task_done()
     # end _add_node_profiles
+
+    @staticmethod
+    def _add_default_logical_router(vnc_api,
+                                    fabric_fq_name):
+        """Add default logical router
+
+        :param vnc_api: <vnc_api.VncApi>
+        :return: <vnc_api.gen.resource_client.LogicalRouter>
+        """
+        lr_fq_name = [
+            'default-domain',
+            'default-project',
+            fabric_fq_name[-1] + '-master-LR']
+
+        # read default project, master LR belongs to default project
+        def_project = vnc_api.project_read(['default-domain', 'default-project'])
+        _task_log("creating logical router network, parent %s"
+                  % (def_project.get_uuid()))
+
+        master_lr = LogicalRouter(
+            name=lr_fq_name[-1],
+            fq_name=lr_fq_name,
+            logical_router_gateway_external=False,
+            logical_router_type='vxlan-routing',
+            parent_obj=def_project)
+        perms2 = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+        master_lr.set_perms2(perms2)
+        try:
+            vnc_api.logical_router_create(master_lr)
+        except RefsExistError as ex:
+            _task_log(
+                "Logical router already exists or other conflict: %s"
+                % (str(ex)))
+            vnc_api.logical_router_update(master_lr)
+
+        master_lr = vnc_api.logical_router_read(fq_name=lr_fq_name)
+        _task_done()
+        return master_lr
 
     @staticmethod
     def _add_intent_maps(vnc_api, fabric_obj):
