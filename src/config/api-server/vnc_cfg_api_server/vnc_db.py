@@ -39,6 +39,7 @@ from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
+from cfgm_common import PERMS_RWX
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
 from . import utils
@@ -1428,6 +1429,145 @@ class VncDbClient(object):
                 'virtual_port_group', vpg_uuid, vpg_dict)
         return True, ''
 
+    def _clone_and_create_fab_master_lr(self, lr_dict, fab_fq_name):
+
+        new_master_lr_dict = {
+            'name': fab_fq_name[-1] + '-master-LR',
+            'display_name': fab_fq_name[-1] + '-master-LR',
+            'fq_name': ['default-domain',
+                        'default-project',
+                        fab_fq_name[-1] + '-master-LR'],
+            'physical_router_refs':
+                lr_dict.get('physical_router_refs') or [],
+            'virtual_machine_interface_refs':
+                lr_dict.get('virtual_machine_interface_refs') or [],
+            'perms2': lr_dict.get('perms2') or {},
+            'id_perms': lr_dict.get('id_perms'),
+            'logical_router_gateway_external': False,
+            'logical_router_type': 'vxlan-routing'
+        }
+
+        # copy perms2 and refs from original master LR to be set
+        # to new fabric master LR
+
+        new_master_lr_dict['perms2'].update({'global_access': PERMS_RWX})
+
+        (ok, result) = self.dbe_alloc('logical_router', new_master_lr_dict)
+        if not ok:
+            (code, msg) = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+        obj_id = result
+        self.dbe_create('logical_router', obj_id, new_master_lr_dict)
+        new_master_lr_dict['uuid'] = obj_id
+
+        return new_master_lr_dict
+    # end _clone_and_create_fab_master_lr
+
+    # this master LR can be both default project or admin project
+    # master LR. We are only checking for master-LR as the next time
+    # these master LRs will have already been moved as
+    # <fabric_name>-master-LR for which we dont need to classify
+    # as master-LR.
+
+    def _is_master_lr_only(self, lr_dict):
+        lr_fq_name = self.uuid_to_fq_name(lr_dict['uuid'])
+        return lr_fq_name[-1] == 'master-LR'
+
+    def _check_and_add_annotations_to_vn(self, lr_dict):
+
+        # this will be used only in master LR cases
+        to_be_del_dict = lr_dict
+
+        if lr_dict.get('physical_router_refs'):
+            pr_uuid = lr_dict.get('physical_router_refs')[-1].get('uuid')
+            (ok, pr_list) = self._object_db.object_read(
+                    'physical_router',
+                    obj_uuids=[pr_uuid],
+                    field_names=['fabric_refs'])
+
+            if pr_list and pr_list[-1].get('fabric_refs') and \
+                    not lr_dict.get('fabric_refs'):
+
+                fab_list = pr_list[-1].get('fabric_refs')
+
+                fab_uuid = str(fab_list[-1].get('uuid'))
+                fab_fq_name = fab_list[-1].get('to')
+
+                if self._is_master_lr_only(lr_dict):
+                    new_lr_dict = self._clone_and_create_fab_master_lr(
+                        lr_dict, fab_fq_name)
+                    lr_dict = new_lr_dict
+
+                ref = {'to': fab_fq_name, 'attr': None, 'uuid': fab_uuid}
+                lr_dict['fabric_refs'] = [ref]
+                self._object_db.object_update('logical_router',
+                                              lr_dict['uuid'], lr_dict)
+
+                vmi_refs = lr_dict.get('virtual_machine_interface_refs',
+                                       [])
+                vmi_uuid_list = [vmi['uuid'] for vmi in vmi_refs]
+                vmi_list = []
+                if vmi_uuid_list:
+                    (ok, vmi_list) = self._object_db.object_read(
+                        'virtual_machine_interface',
+                        obj_uuids=vmi_uuid_list,
+                        field_names=['virtual_network_refs'])
+
+                for vmi in vmi_list:
+                    vn_uuid_list = \
+                        [vn['uuid'] for vn in vmi.get(
+                            'virtual_network_refs', [])]
+                    if vn_uuid_list:
+                        (ok, vn_list) = self._object_db.object_read(
+                            'virtual_network',
+                            obj_uuids=vn_uuid_list,
+                            field_names=['annotations'])
+
+                        for vn_obj in vn_list:
+                            kvps = vn_obj.get('annotations', {}).get(
+                                'key_value_pair', [])
+                            needs_annotation = True
+                            lr_fq_name_str = ':'.join(
+                                lr_dict.get(
+                                    'fq_name',
+                                    self.uuid_to_fq_name(lr_dict['uuid'])))
+                            lr_kvp = False
+                            for kvp in kvps:
+                                if kvp['key'] == 'LogicalRouter':
+                                    kvalue = json.loads(kvp['value'])
+                                    if lr_fq_name_str in kvalue.get(
+                                            fab_uuid, []):
+                                        needs_annotation = False
+                                        break
+                                    else:
+                                        exis_lr_annotations = kvalue.get(
+                                            fab_uuid, [])
+                                        exis_lr_annotations.append(lr_fq_name_str)
+                                        kvalue.update(
+                                            {fab_uuid: exis_lr_annotations})
+                                        kvp['value'] = json.dumps(
+                                            kvalue
+                                        )
+                                        lr_kvp = True
+                            if needs_annotation:
+                                if not lr_kvp:
+                                    kvps.append({'key': 'LogicalRouter',
+                                                 'value': json.dumps(
+                                                     {fab_uuid: [
+                                                         lr_fq_name_str
+                                                     ]}
+                                                 )})
+                                vn_obj['annotations'] = {
+                                    'key_value_pair': kvps}
+                                self._object_db.object_update(
+                                    'virtual_network',
+                                    vn_obj['uuid'], vn_obj)
+
+        if self._is_master_lr_only(to_be_del_dict):
+            self.dbe_delete('logical_router',
+                            to_be_del_dict['uuid'],
+                            to_be_del_dict)
+
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
@@ -1615,6 +1755,8 @@ class VncDbClient(object):
                         obj_dict['project_refs'] = [ref]
                         self._object_db.object_update('floating_ip',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'logical_router':
+                    self._check_and_add_annotations_to_vn(obj_dict)
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
