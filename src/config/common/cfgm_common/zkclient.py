@@ -43,6 +43,7 @@ class ZookeeperLock(object):
         self.lock = zookeeper_client.lock(path, name)
         self.name = name
         self.timeout = timeout
+        self.name = name
 
     def __enter__(self):
         try:
