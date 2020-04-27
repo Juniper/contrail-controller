@@ -661,3 +661,8 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             self._vnc_lib.logical_router_update(lr)
 
         logger.debug('PASS: Could not update LR from SNAT to VXLAN')
+
+    # test create LR with VN not belonging to any other LR
+    # test update LR with VN not belonging to any other LR
+    # test update LR with VN belonging to another LR
+    # test create LR with VN belonging to another LR
