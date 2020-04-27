@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1d754f4b_fb181610",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_bgp/juniper_junos_overlay_bgp.j2",
+        "patchSetId": 7
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-27T05:28:22Z",
+      "side": 1,
+      "message": "Are we sure we want to continue with the name \u0027set-nexthop-self-for-inet-vpn-routes\u0027? Had used it for my testing but officially i believe _contrail_ebgp_export_policy or something with _contrail prefix would be better but would leave it up to you.",
+      "revId": "1690d23d5bf8dbf9567b87b3ea4ff08657ca02c5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dbd4beb2_4f89aab9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_bgp/juniper_junos_overlay_bgp.j2",
+        "patchSetId": 7
+      },
+      "lineNbr": 87,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-04-27T05:28:22Z",
+      "side": 1,
+      "message": "It shouldnt be inet family for inet-labeled. Can you please check the proper family for inet-labeled under from condtn.\nI couldnt figure out the family to use for inet-lableled, please check with QFX/MX team on the same (or) you may raise a P2 bug and handle the same later for inet-labeled but it shouldnt be inet.",
+      "revId": "1690d23d5bf8dbf9567b87b3ea4ff08657ca02c5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
