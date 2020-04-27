@@ -41,6 +41,7 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
 {%                 set sys_config = device_abstract_config.get('system') %}
 {%                 set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%                 if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
+{%                     set ns.public_network = true %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%                     for subnet in ri.get('prefixes', []) %}
@@ -52,8 +53,10 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%                         endif %}
 {%                     endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
-set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%                 endif %}
 {%             endif %}{# /* virtual_network_is_internal */ #}
 {%         endfor %}
+{%    if ns.public_network == true %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+{%    endif %}
 
