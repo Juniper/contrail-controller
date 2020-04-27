@@ -1943,19 +1943,6 @@
       ]
     },
     {
-      "object_type": "logical-router",
-      "objects": [
-        {
-          "fq_name": [
-            "default-domain", "default-project", "master-LR"
-          ],
-          "name": "master-LR",
-          "logical_router_gateway_external": false,
-          "logical_router_type": "vxlan-routing"
-        }
-      ]
-    },
-    {
       "object_type": "device-functional-group",
       "objects": [
         {
