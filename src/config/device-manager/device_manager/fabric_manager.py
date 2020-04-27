@@ -8,7 +8,6 @@ import json
 import os
 import uuid
 
-from cfgm_common import PERMS_RWX
 from cfgm_common.utils import CamelCase, detailed_traceback, str_to_class
 from vnc_api.exceptions import NoIdError, RefsExistError
 from vnc_api.gen import resource_client
@@ -19,7 +18,6 @@ from vnc_api.gen.resource_client import (
 from vnc_api.gen.resource_xsd import (
     IpamSubnets,
     IpamSubnetType,
-    PermType2,
     SubnetListType,
     SubnetType,
     VirtualNetworkType,
@@ -169,7 +167,6 @@ class FabricManager(object):
 
                         if object_type != 'telemetry-profile' and \
                                 object_type != 'sflow-profile' and \
-                                object_type != 'logical-router' and \
                                 object_type != 'device-functional-group':
                             self._vnc_api._object_update(object_type,
                                                          instance_obj)
@@ -258,46 +255,6 @@ class FabricManager(object):
                     fq_name=['default-global-system-config', jt_name])
             except NoIdError:
                 pass
-
-        # 1. handle default LR update for perms2 and
-        # 2. update LR properties from admin LR if present
-        # 3. delete admin LR as part of in-place cluster update if present
-
-        try:
-            def_lr_obj = self._vnc_api.logical_router_read(
-                fq_name=[
-                    'default-domain', 'default-project', 'master-LR'
-                ]
-            )
-            perms2 = def_lr_obj.get_perms2()
-            perms2.set_global_access(PERMS_RWX)
-            def_lr_obj.set_perms2(perms2)
-
-            try:
-                admin_lr_obj = self._vnc_api.logical_router_read(
-                    fq_name=['default-domain', 'admin', 'master-LR']
-                )
-
-                # get existing vmi refs
-                vmi_refs = admin_lr_obj.get_virtual_machine_interface_refs(
-                ) or []
-                # get existing pr refs
-                pr_refs = admin_lr_obj.get_physical_router_refs() or []
-
-                def_lr_obj.set_virtual_machine_interface_list(vmi_refs)
-                def_lr_obj.set_physical_router_list(pr_refs)
-
-                self._vnc_api.logical_router_delete(
-                    fq_name=['default-domain', 'admin', 'master-LR'])
-            except NoIdError:
-                pass
-
-            self._vnc_api.logical_router_update(def_lr_obj)
-        except Exception as e:
-            err_msg = 'Error while attempting to read or update' \
-                      ' default logical router: %s\n' % str(e)
-            err_msg += detailed_traceback()
-            self._logger.error(err_msg)
 
     # end _load_init_data
 

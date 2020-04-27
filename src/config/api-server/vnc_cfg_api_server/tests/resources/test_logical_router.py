@@ -4,6 +4,7 @@
 
 
 from builtins import str
+import json
 import logging
 import uuid
 
@@ -14,6 +15,7 @@ from vnc_api.exceptions import BadRequest
 from vnc_api.exceptions import NoIdError
 from vnc_api.exceptions import RefsExistError
 from vnc_api.gen.resource_client import Domain
+from vnc_api.gen.resource_client import Fabric
 from vnc_api.gen.resource_client import InstanceIp
 from vnc_api.gen.resource_client import LogicalRouter
 from vnc_api.gen.resource_client import NetworkIpam
@@ -28,6 +30,7 @@ from vnc_api.gen.resource_xsd import IpamType
 from vnc_api.gen.resource_xsd import RouteTableType
 from vnc_api.gen.resource_xsd import RouteType
 from vnc_api.gen.resource_xsd import SubnetType
+from vnc_api.gen.resource_xsd import VirtualNetworkRoutedPropertiesType
 from vnc_api.gen.resource_xsd import VnSubnetsType
 
 from vnc_cfg_api_server.tests import test_case
@@ -661,3 +664,399 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             self._vnc_lib.logical_router_update(lr)
 
         logger.debug('PASS: Could not update LR from SNAT to VXLAN')
+<<<<<<< HEAD   (50e485 [Fabric] Adding delay for bgp sessions to establish)
+=======
+
+    def test_delete_lr_missing_vn_refs(self):
+        # Get Project Ref
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        lr = LogicalRouter(
+            'router-test-missing_vn_refs-%s'
+            % (self.id()), project)
+
+        lr.set_logical_router_type('vxlan-routing')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        # Create a VN Object
+        vn = VirtualNetwork('%s-vn' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn)
+        # Create a Virtual Machine Interface that does not have VN Ref
+        id_perms = IdPermsType(enable=True)
+        vmi_no_vn_ref = VirtualMachineInterface(
+            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
+
+        vmi_no_vn_ref.set_virtual_network(vn)
+        vmi_uuid = self._vnc_lib.virtual_machine_interface_create(
+            vmi_no_vn_ref)
+        # Do not associate VN Ref to VMI and create
+        lr.add_virtual_machine_interface(vmi_no_vn_ref)
+        self._vnc_lib.logical_router_update(lr)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+        vn_refs = vmi_obj.get_virtual_network_refs()
+        vn_uuid = vn_refs[0]['uuid']
+        self._vnc_lib.ref_update(
+            'virtual_machine_interface', vmi_uuid,
+            'virtual_network', vn_uuid, None, 'DELETE')
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+        vn_refs = vmi_obj.get_virtual_network_refs()
+        self.assertIsNone(vn_refs)
+
+        # Create a VN Object
+        vn2 = VirtualNetwork('%s-vn2' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn2)
+        # Create a Virtual Machine Interface that does not have VN Ref
+        vmi_no_vn_ref_2 = VirtualMachineInterface(
+            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
+
+        vmi_no_vn_ref_2.set_virtual_network(vn2)
+        self._vnc_lib.virtual_machine_interface_create(
+            vmi_no_vn_ref_2)
+        # Do not associate VN Ref to VMI and create
+        lr.add_virtual_machine_interface(vmi_no_vn_ref_2)
+        self._vnc_lib.logical_router_update(lr)
+        # Deleting directly from api-server as api server
+        # will not allow deletion
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+
+    # test create LR with non-shared VN already in another LR
+    # under same fabric and different fabric
+    # 1. Create LR_A under fab_lr and assign a VN VN_not_shared --> Ok
+    # 2. VN_not_shared's annotations should have LR_A in the list under
+    #    fab_lr key
+    # 3. Create LR_B also under fab_lr and try to assign VN_not_shared
+    #    --> Error
+    # 4. Create LR_B under a different fabric, fab_another and try to
+    #    assign VN_not_shared --> Ok
+    # 5. VN_not_shared's annotations should have LR_A in the list under
+    #    fab_lr key and should have LR_B in the list under fab_another key
+    # 6. Delete LR_B and VN_not_shared's annotations should only have
+    #    one key value pair of fab_lr and LR_A respectively
+    # 7. Delete LR_A and VN_not_shared's annotations should not have
+    #    LR key value pair
+
+    def test_lr_create_delete_with_vn(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        # Create Logical Router
+        lr = LogicalRouter(
+            'LR_A-%s' % (self.id()), project)
+
+        ipam = self._vnc_lib.network_ipam_read(
+            ['default-domain', 'default-project', 'default-network-ipam'])
+
+        # Create subnets
+        ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+
+        # Create unshared VN
+        vn_not_shared = VirtualNetwork(
+            'VN_not_shared-%s' % (self.id()), project)
+        vn_not_shared.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+
+        self._vnc_lib.virtual_network_create(vn_not_shared)
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+
+        # Create Port
+        port_obj = self.create_port(project, net_obj)
+
+        # Add Router Interface
+        lr.add_virtual_machine_interface(port_obj)
+        # Add Fabric
+        fab_lr = Fabric('fab_lr')
+        self._vnc_lib.fabric_create(fab_lr)
+        lr.add_fabric(fab_lr)
+        lr_a_uuid = self._vnc_lib.logical_router_create(lr)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({str(fab_lr.uuid):
+                                ["default-domain:default-project:LR_A-%s"
+                                 % (self.id())]}))
+
+        # Create Logical Router
+        lr = LogicalRouter('LR_B-%s' % (self.id()), project)
+        # Try to add Router Interface
+        lr.add_virtual_machine_interface(port_obj)
+        lr.add_fabric(fab_lr)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.logical_router_create(lr)
+
+        lr.del_fabric(fab_lr)
+        fab_another = Fabric('fab_another')
+        self._vnc_lib.fabric_create(fab_another)
+        lr.add_fabric(fab_another)
+        lr_b_uuid = self._vnc_lib.logical_router_create(lr)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    json.loads(kvp.get_value()),
+                    {
+                        str(fab_lr.uuid):
+                        ["default-domain:default-project:LR_A-%s"
+                         % (self.id())],
+                        str(fab_another.uuid):
+                        ["default-domain:default-project:LR_B-%s"
+                         % (self.id())]
+                    })
+
+        self._vnc_lib.logical_router_delete(id=lr_b_uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({str(fab_lr.uuid):
+                                    ["default-domain:default-project:LR_A-%s"
+                                     % (self.id())]}))
+
+        self._vnc_lib.logical_router_delete(id=lr_a_uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNone(net_annotations)
+        self._vnc_lib.fabric_delete(id=fab_lr.uuid)
+        self._vnc_lib.fabric_delete(id=fab_another.uuid)
+
+    # test update LR with LR already having a shared VN and a non shared VN
+    # under same and different fabric
+    # 1. Create LR_A and assign a VN VN_not_shared under fabric, fab_lr
+    # 2. Update LR_A and assign VN_shared --> Ok
+    # 3. Create LR_B also under fab_lr
+    # 4. Update LR_B by trying to assign VN VN_shared --> Ok
+    # 5. VN_not_shared's annotations should have LR_A in the list
+    #    under fab_lr
+    # 6. VN_shared's annotations should have LR_A and LR_B in the list
+    #    under fab_lr
+    # 7. Update LR_B by trying to assign VN_not_shared and update LR_B's
+    #    fabric to fab_another --> Ok
+    # 8. VN_not_shared's annotations should have LR_A under fab_lr and
+    #    LR_B under fab_another
+    # 9. VN_shared's annotations should have LR_A under fab_lr's list
+    #    and LR_B under fab_another's list
+    # 10.Update LR_B's fabric to fab_lr --> Error
+    # 11.Update LR_B by removing VN_not_shared --> Ok
+    # 12.Now VN_not_shared's annotations should just have LR_A under fab_lr
+    # 13.Now update LR_B's fabric to fab_lr --> Ok
+    # 14.Now VN_shared's annotations should have both LR_A and LR_B under
+    #    fab_lr
+    # 15.Delete LR_A and VN_not_shared's annotations should not have
+    #    LR key value pair while VN_shared's annotations will only have VN_B
+    #    in LR key value pair under fab_lr
+
+    def test_lr_update_delete_with_vn(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        # Create Logical Router
+        lr = LogicalRouter(
+            'LR_A-%s' % (self.id()), project)
+
+        ipam = self._vnc_lib.network_ipam_read(
+            ['default-domain', 'default-project', 'default-network-ipam'])
+
+        # Create subnets
+        ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+
+        # Create unshared VN
+        vn_not_shared = VirtualNetwork(
+            'VN_not_shared-%s' % (self.id()), project)
+        vn_not_shared.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+
+        self._vnc_lib.virtual_network_create(vn_not_shared)
+        net_obj_unshared = self._vnc_lib.virtual_network_read(
+            id=vn_not_shared.uuid)
+
+        # Create Port
+        port_obj_unshared = self.create_port(project, net_obj_unshared)
+
+        # Add Router Interface
+        lr.add_virtual_machine_interface(port_obj_unshared)
+        # Add Fabric
+        fab_lr = Fabric('fab_lr')
+        self._vnc_lib.fabric_create(fab_lr)
+        lr.add_fabric(fab_lr)
+        lr_a_uuid = self._vnc_lib.logical_router_create(lr)
+
+        # Create shared VN
+        vn_shared = VirtualNetwork(
+            'VN_shared-%s' % (self.id()), project)
+        vn_shared.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+        vn_routed_prop = VirtualNetworkRoutedPropertiesType(
+            shared_across_all_lrs=True)
+        vn_shared.set_virtual_network_routed_properties(vn_routed_prop)
+
+        self._vnc_lib.virtual_network_create(vn_shared)
+        net_obj_shared = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+
+        # Create Port
+        port_obj_shared = self.create_port(project, net_obj_shared)
+
+        # Add Router Interface
+        lr.add_virtual_machine_interface(port_obj_shared)
+        self._vnc_lib.logical_router_update(lr)
+
+        # Create Logical Router
+        lr = LogicalRouter('LR_B-%s' % (self.id()), project)
+        # Add Fabric
+        lr.add_fabric(fab_lr)
+        lr_b_uuid = self._vnc_lib.logical_router_create(lr)
+
+        # Try to add Router Interface
+        lr.add_virtual_machine_interface(port_obj_shared)
+        self._vnc_lib.logical_router_update(lr)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({str(fab_lr.uuid):
+                                ["default-domain:default-project:LR_A-%s"
+                                 % (self.id())]}))
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({str(fab_lr.uuid):
+                                ["default-domain:default-project:LR_A-%s"
+                                 % (self.id()),
+                                 "default-domain:default-project:LR_B-%s"
+                                 % (self.id())]}))
+
+        # Add Router Interface
+        lr.add_virtual_machine_interface(port_obj_unshared)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.logical_router_update(lr)
+
+        fab_another = Fabric('fab_another')
+        self._vnc_lib.fabric_create(fab_another)
+        lr.set_fabric_list([{'uuid': fab_another.uuid,
+                             'to': fab_another.fq_name}])
+        lr.add_virtual_machine_interface(port_obj_unshared)
+
+        self._vnc_lib.logical_router_update(lr)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    json.loads(kvp.get_value()),
+                    {
+                        str(fab_lr.uuid):
+                        ["default-domain:default-project:LR_A-%s"
+                         % (self.id())],
+                        str(fab_another.uuid):
+                        ["default-domain:default-project:LR_B-%s"
+                         % (self.id())]
+                    })
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    json.loads(kvp.get_value()),
+                    {
+                        str(fab_lr.uuid):
+                            ["default-domain:default-project:LR_A-%s"
+                             % (self.id())],
+                        str(fab_another.uuid):
+                            ["default-domain:default-project:LR_B-%s"
+                             % (self.id())]
+                    })
+
+        # restore lr to before exception state
+        lr.del_virtual_machine_interface(port_obj_unshared)
+        lr.add_virtual_machine_interface(port_obj_shared)
+        self._vnc_lib.logical_router_update(lr)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({str(fab_lr.uuid):
+                                    ["default-domain:default-project:LR_A-%s"
+                                     % (self.id())]}))
+
+        lr.set_fabric_list([{'uuid': fab_lr.uuid,
+                             'to': fab_lr.fq_name}])
+        self._vnc_lib.logical_router_update(lr)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({str(fab_lr.uuid):
+                                    ["default-domain:default-project:LR_A-%s"
+                                     % (self.id()),
+                                     "default-domain:default-project:LR_B-%s"
+                                     % (self.id())]}))
+
+        self._vnc_lib.logical_router_delete(id=lr_a_uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNone(net_annotations)
+
+        net_obj = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+        net_annotations = net_obj.get_annotations()
+        self.assertIsNotNone(net_annotations)
+        net_kvps = net_annotations.get_key_value_pair()
+        self.assertIsNotNone(net_kvps)
+        for kvp in net_kvps:
+            if kvp.get_key() == 'LogicalRouter':
+                self.assertEqual(
+                    kvp.get_value(),
+                    json.dumps({
+                        str(fab_lr.uuid):
+                        ["default-domain:default-project:LR_B-%s"
+                         % (self.id())]}))
+
+        self._vnc_lib.logical_router_delete(id=lr_b_uuid)
+        self._vnc_lib.fabric_delete(id=fab_lr.uuid)
+        self._vnc_lib.fabric_delete(id=fab_another.uuid)
+
+>>>>>>> CHANGE (3c4d92 [API] VN (routed/tenant) can not belong to multiple LR's)
