@@ -11,6 +11,7 @@ standard_library.install_aliases()
 from builtins import str
 from builtins import object
 import argparse
+from ast import literal_eval
 import base64
 from cfgm_common import jsonutils as json
 from six.moves.configparser import SafeConfigParser
@@ -328,7 +329,9 @@ def parse_args(args_str):
     args_obj.sandesh_config = SandeshConfig.from_parser_arguments(args_obj)
     args_obj.cassandra_use_ssl = (str(args_obj.cassandra_use_ssl).lower() == 'true')
     args_obj.config_api_ssl_enable = (str(args_obj.config_api_ssl_enable).lower() == 'true')
-
+    # convert log_local to a boolean
+    if not isinstance(args_obj.log_local, bool):
+        args_obj.log_local = bool(literal_eval(args_obj.log_local))
     args_obj.conf_file = saved_conf_file
     return args_obj, remaining_argv
 # end parse_args
@@ -413,3 +416,4 @@ def encrypt_password(pwd_key, dict_password):
     password = base64.b64encode(cipher.encrypt(padded_text_b))
     return password
 # end encrypt_password
+
