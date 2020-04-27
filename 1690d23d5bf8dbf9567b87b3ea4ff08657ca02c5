@@ -33,6 +33,24 @@
       "revId": "1690d23d5bf8dbf9567b87b3ea4ff08657ca02c5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f346014e_3dc16edc",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_bgp/juniper_junos_overlay_bgp.j2",
+        "patchSetId": 7
+      },
+      "lineNbr": 87,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-04-27T09:00:30Z",
+      "side": 1,
+      "message": "Senthil, 1) https://www.juniper.net/documentation/en_US/junos/topics/reference/configuration-statement/labeled-unicast-edit-protocols-bgp.html as per this it comes under inet family. Only thing in the UI they have added as inet-labeled. 2) https://contrail-jws.atlassian.net/browse/CEM-5421 in this Jira bug ask is to set as family\u003dinet mode\u003dlabeled-unicast for inet-labeled family. Can you take a look once and let us know if you feel anything else required?",
+      "parentUuid": "dbd4beb2_4f89aab9",
+      "revId": "1690d23d5bf8dbf9567b87b3ea4ff08657ca02c5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
