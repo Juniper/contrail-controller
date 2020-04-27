@@ -4,10 +4,12 @@
 
 
 import logging
+import uuid
 
 import cfgm_common
 from testtools import ExpectedException
 from vnc_api.gen.resource_client import DataCenterInterconnect
+from vnc_api.gen.resource_client import Fabric
 from vnc_api.gen.resource_client import LogicalRouter
 from vnc_api.gen.resource_client import NetworkIpam
 from vnc_api.gen.resource_client import VirtualMachineInterface
@@ -107,6 +109,10 @@ class TestDataCenterInterconnect(test_case.ApiServerTestCase):
         lr_fq_name = ['default-domain', 'default-project', lrname]
         lr = LogicalRouter(fq_name=lr_fq_name, parent_type='project',
                            logical_router_type='vxlan-routing')
+        fab = Fabric('fab_lr' + str(uuid.uuid4()))
+        self._vnc_lib.fabric_create(fab)
+        lr.add_fabric(fab)
+
         for pr in prs:
             probj = self._vnc_lib.physical_router_read(id=pr.get_uuid())
             lr.add_physical_router(probj)
@@ -119,6 +125,7 @@ class TestDataCenterInterconnect(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_machine_interface_create(vmi)
             vmis[vminame] = vmi
             lr.add_virtual_machine_interface(vmi)
+
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         return lr, self._vnc_lib.logical_router_read(id=lr_uuid)
     # end create_lr
