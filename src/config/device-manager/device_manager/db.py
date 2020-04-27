@@ -2501,7 +2501,7 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('port_tuple', obj)
-        self.is_master = True if 'master-LR' == self.name else False
+        self.is_master = True if 'master-LR' in self.name else False
         for rt_ref in obj.get('route_target_refs', []):
             for rt in rt_ref.get('to', []):
                 if rt.lower().startswith('target:'):
