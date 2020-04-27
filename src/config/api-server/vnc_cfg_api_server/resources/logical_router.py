@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
+
 from cfgm_common import _obj_serializer_all
 from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
@@ -10,6 +12,7 @@ from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.zkclient import ZookeeperLock
 from vnc_api.gen.resource_common import LogicalRouter
 from vnc_api.gen.resource_common import Project
 from vnc_api.gen.resource_common import VirtualNetwork
@@ -39,6 +42,125 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return True, ''
 
     @classmethod
+    def _check_annotations(cls, api_server, obj_uuid,
+                           resource_type, annotation_key,
+                           fail_if_exists=True):
+        """Check given annotation exists in the system.
+
+           Consider availability as PASS/FAIL
+           based on fail_if_exists.
+
+        Args:
+            api_server: api_server connection object
+            obj_uuid: UUID of the object on which
+            annotations to be checked
+            resource_type: resource type of object
+            for which annotations to be checked
+            annotation_key: key of the annotation
+            fail_if_exists: consider failure when annotation exists
+        Returns
+          True, '': PASS condition
+          (False, (<code>, msg): Fail condition
+        """
+        query = {'obj_uuid': obj_uuid,
+                 'fields': 'annotations',
+                 'position': annotation_key}
+        # get this annotation.
+        # if exists Fail per fail_if_exists
+        result = api_server.internal_request_prop_collection_get(
+            resource_type, **query)
+        if fail_if_exists and result:
+            # Exists but not expected
+            if result.get('annotations'):
+                return False, result
+        return True, result
+
+    @classmethod
+    def _add_annotations(cls, api_server, obj_uuid,
+                         resource_type, annotation_key,
+                         annotation_value):
+        """Add given annotation to the VN object.
+
+        Args:
+            api_server: api_server connection object
+            obj_uuid: UUID of the object for which
+            annotations to be added
+            resource_type: resource type of object
+            for which annotations to be added
+            annotation_key: key of the annotation
+            annotation_value: value of the annotation
+        Returns
+          True, '': PASS condition
+          (False, (<code>, msg): Fail condition
+        """
+        # format update dict
+        updates = [{'field': 'annotations',
+                    'operation': 'set',
+                    'value': {'key': annotation_key,
+                              'value': annotation_value}}]
+        ok, result = api_server.internal_request_prop_collection(
+            obj_uuid, updates)
+        if not ok:
+            return False, result
+        return True, ''
+
+    @classmethod
+    def _del_annotations(cls, api_server, obj_uuid,
+                         resource_type, annotation_key):
+        """Delete given annotation in the VN object.
+
+        Args:
+            api_server: api_server connection object
+            obj_uuid: UUID of the object for which
+            annotations to be added
+            resource_type: resource type of object for which
+            annotations to be added
+            annotation_key: key of the annotation
+            annotation_value: value of the annotation
+        Returns
+          True, '': PASS condition
+          (False, (<code>, msg): Fail condition
+        """
+        # format update dict
+        updates = [{'field': 'annotations',
+                    'operation': 'delete',
+                    'position': annotation_key
+                    }]
+        ok, result = api_server.internal_request_prop_collection(
+            obj_uuid, updates)
+        if not ok:
+            return False, result
+        return True, ''
+
+    @classmethod
+    def is_vn_in_another_lr(cls, db_conn, vn_refs, api_server):
+        ann_key = "LogicalRouter"
+        for vn_ref in vn_refs:
+            try:
+                vn_fq_name = db_conn.uuid_to_fq_name(vn_ref['uuid'])
+            except NoIdError as exc:
+                msg = ("Error while trying to obtain fq_name"
+                       " for vn id %s: %s "
+                       % (vn_ref['uuid'], str(exc)))
+                return False, (404, msg)
+            is_shared, result = cls._check_if_shared_across_all_lrs(
+                db_conn, vn_ref)
+            if is_shared:
+                ok, result = cls._check_annotations(
+                    api_server, vn_ref['uuid'],
+                    'virtual_network', ann_key,
+                    fail_if_exists=False)
+                return is_shared, result
+            # check annotations and fail if exists,
+            # only if its only not shared
+            ok, result = cls._check_annotations(
+                api_server, vn_ref['uuid'], 'virtual_network', ann_key,
+                fail_if_exists=True)
+            if not ok:
+                return ok, (result, vn_fq_name)
+        return True, {}
+
+    @classmethod
     def is_port_gateway_in_same_network(cls, db_conn, vmi_refs, vn_refs):
         interface_vn_uuids = []
         for vmi_ref in vmi_refs:
@@ -53,6 +175,130 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                     msg = ("Logical router interface and gateway cannot be in"
                            "VN(%s)" % vn_ref['uuid'])
                     return False, (400, msg)
+        return True, ''
+
+    @classmethod
+    def _check_if_shared_across_all_lrs(cls, db_conn, vn_ref):
+        vn_uuid = vn_ref['uuid']
+
+        if vn_uuid:
+            ok, read_result = cls.dbe_read(db_conn, 'virtual_network',
+                                           vn_uuid)
+            if ok:
+                vn_routed_props_shared = read_result.get(
+                    'virtual_network_routed_properties', {}).get(
+                    'shared_across_all_lrs')
+                if vn_routed_props_shared:
+                    return True, ''
+
+        return False, ''
+
+    @classmethod
+    def _check_and_associate_logical_router_vn(cls, db_conn, obj_dict,
+                                               lr_id=None):
+
+        if 'virtual_machine_interface_refs' in obj_dict:
+            vmi_refs = obj_dict.get('virtual_machine_interface_refs')
+            vn_refs = []
+            for vmi_ref in vmi_refs:
+                ok, read_result = cls.dbe_read(db_conn,
+                                               'virtual_machine_interface',
+                                               vmi_ref['uuid'])
+                if not ok:
+                    return ok, read_result
+
+                vn_refs.extend(read_result.get('virtual_network_refs', []))
+
+            # update
+            if lr_id:
+                ok, read_result = cls.dbe_read(db_conn, 'logical_router',
+                                               lr_id)
+                if not ok:
+                    return ok, read_result
+
+                lr_fq_name = read_result.get('fq_name')
+                existing_vn_refs = []
+                existing_vmi_refs = read_result.get(
+                    'virtual_machine_interface_refs', []
+                )
+                for existing_vmi_ref in existing_vmi_refs:
+                    ok, existing_vmi_ref_obj = cls.dbe_read(
+                        db_conn,
+                        'virtual_machine_interface',
+                        existing_vmi_ref['uuid'])
+                    if not ok:
+                        return ok, existing_vmi_ref_obj
+                    existing_vn_refs.extend(
+                        existing_vmi_ref_obj.get('virtual_network_refs', []))
+                existing_vn_ref_uuids = []
+                for existing_vn_ref in existing_vn_refs:
+                    existing_vn_ref_uuids.append(existing_vn_ref['uuid'])
+
+                new_vn_refs = []
+                for vn_ref in vn_refs:
+                    if vn_ref['uuid'] not in existing_vn_ref_uuids:
+                        new_vn_refs.append(vn_ref)
+
+                vn_refs = new_vn_refs
+
+            # create
+            else:
+                lr_fq_name = obj_dict['fq_name']
+
+            lr_fq_name_str = ':'.join(lr_fq_name)
+            api_server = db_conn.get_api_server()
+            zk_lr_lock_path = os.path.join(
+                api_server.fabric_validation_lock_prefix,
+                'logical_routers', lr_fq_name_str)
+            zk_lr_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                          'path': zk_lr_lock_path, 'name': lr_fq_name_str,
+                          'timeout': 60}
+            with ZookeeperLock(**zk_lr_args):
+                vn_not_in_another_lr, results = cls.is_vn_in_another_lr(
+                    db_conn,
+                    vn_refs,
+                    api_server
+                )
+                if not vn_not_in_another_lr:
+                    result = results[0]
+                    vn_fq_name = results[1]
+
+                    # check for uuid not present
+                    if result == 404:
+                        return vn_not_in_another_lr, results
+
+                    annotations = result.get('annotations')
+                    for annotation_tuple in annotations:
+                        if annotation_tuple[0].get('key') == 'LogicalRouter':
+                            already_associated_lr = annotation_tuple[0].get(
+                                'value')
+                            err_msg = ("Virtual Network %s already exists"
+                                       " in LogicalRouter(s)(%s)"
+                                       % (vn_fq_name, already_associated_lr))
+                            return vn_not_in_another_lr, (400, err_msg)
+
+                ann_key = 'LogicalRouter'
+                exis_annotation_lrs = []
+                # get already existing annotations for shared LR case
+                exis_annotations = results.get('annotations', {})
+                for annotation_tuple in exis_annotations:
+                    if annotation_tuple[0].get('key') == 'LogicalRouter':
+                        exis_annotation_value = json.loads(
+                            annotation_tuple[0].get('value'))
+                        exis_annotation_lrs = exis_annotation_value.get(
+                            'lr_fqname_strs', []
+                        )
+                        break
+                exis_annotation_lrs.append(lr_fq_name_str)
+                ann_value = json.dumps({'lr_fqname_strs': exis_annotation_lrs})
+                for vn_ref in vn_refs:
+                    ok, result = cls._add_annotations(api_server,
+                                                      vn_ref['uuid'],
+                                                      'virtual_network',
+                                                      ann_key,
+                                                      ann_value)
+                    if not ok:
+                        return ok, result
         return True, ''
 
     @classmethod
@@ -234,6 +480,11 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         if not ok:
             return ok, result
 
+        ok, result = cls._check_and_associate_logical_router_vn(db_conn,
+                                                                obj_dict)
+        if not ok:
+            return ok, result
+
         vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
         logical_router_type = cls.check_lr_type(obj_dict)
 
@@ -292,6 +543,12 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         (ok, error) = cls._check_route_targets(obj_dict)
         if not ok:
             return (False, (400, error))
+
+        ok, result = cls._check_and_associate_logical_router_vn(
+            db_conn,
+            obj_dict, id)
+        if not ok:
+            return ok, result
 
         # To get the current vxlan_id, read the LR from the DB
         ok, result = cls.dbe_read(cls.db_conn,
@@ -523,7 +780,68 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return True, ''
 
     @classmethod
+    def _check_and_delete_vn_annotations(cls, obj_dict, db_conn):
+        vn_refs = []
+        ok, result = db_conn.dbe_read(
+            'logical_router',
+            obj_dict['uuid'],
+            obj_fields=['virtual_machine_interface_refs'])
+        if ok and result.get('virtual_machine_interface_refs'):
+            api_server = db_conn.get_api_server()
+            ann_key = 'LogicalRouter'
+            lr_fq_name_str = ':'.join(result.get('fq_name', []))
+            zk_lr_lock_path = os.path.join(
+                api_server.fabric_validation_lock_prefix,
+                'logical_routers', lr_fq_name_str)
+            zk_lr_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                          'path': zk_lr_lock_path, 'name': lr_fq_name_str,
+                          'timeout': 60}
+            for vmi_ref in result.get('virtual_machine_interface_refs'):
+                ok, result = db_conn.dbe_read(
+                    'virtual_machine_interface',
+                    vmi_ref['uuid'])
+                if ok:
+                    vn_refs.extend(result.get('virtual_network_refs', []))
+            with ZookeeperLock(**zk_lr_args):
+                for vn_ref in vn_refs:
+                    ok, result = cls._check_annotations(api_server,
+                                                        vn_ref['uuid'],
+                                                        'virtual_network',
+                                                        ann_key,
+                                                        fail_if_exists=False)
+                    if ok:
+                        exis_annotation_lrs = []
+                        # get already existing annotations for shared LR case
+                        exis_annotations = result.get('annotations', {})
+                        for annotation_tuple in exis_annotations:
+                            if annotation_tuple[0].get('key') == \
+                                    'LogicalRouter':
+                                exis_annotation_value = json.loads(
+                                    annotation_tuple[0].get('value'))
+                                exis_annotation_lrs = \
+                                    exis_annotation_value.get(
+                                        'lr_fqname_strs', [])
+                                break
+                        if exis_annotation_lrs:
+                            if lr_fq_name_str in exis_annotation_lrs:
+                                exis_annotation_lrs.remove(lr_fq_name_str)
+                            if exis_annotation_lrs:
+                                ann_value = json.dumps({'lr_fqname_strs':
+                                                        exis_annotation_lrs})
+                                ok, result = cls._add_annotations(
+                                    api_server, vn_ref['uuid'],
+                                    'virtual_network', ann_key,
+                                    ann_value)
+                            else:
+                                cls._del_annotations(api_server,
+                                                     vn_ref['uuid'],
+                                                     'virtual_network',
+                                                     ann_key)
+
+    @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+
+        cls._check_and_delete_vn_annotations(obj_dict, db_conn)
         logical_router_type = cls.check_lr_type(obj_dict)
         if logical_router_type == 'vxlan-routing':
             vn_int_fqname = (obj_dict['fq_name'][:-1] +
