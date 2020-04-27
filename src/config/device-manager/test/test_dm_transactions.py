@@ -351,6 +351,10 @@ class TestTransactionsDM(TestAnsibleCommonDM):
         self._vnc_lib.physical_interface_create(self.pi2_1)
 
         self.vn1 = self.create_vn('1', '1.1.1.0')
+        vn_routed_prop = VirtualNetworkRoutedPropertiesType(
+            shared_across_all_lrs=True)
+        self.vn1.set_virtual_network_routed_properties(vn_routed_prop)
+        self._vnc_lib.virtual_network_update(self.vn1)
 
         lr1_name = 'lr1-' + self.id()
         lr1_fq_name = ['default-domain', 'default-project', lr1_name]
