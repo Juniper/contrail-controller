@@ -2477,6 +2477,7 @@ class LogicalRouterDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
+        self.fabric = None
         self.data_center_interconnects = set()
         self.lr_route_target_for_dci = None
         self.virtual_machine_interfaces = set()
@@ -2514,11 +2515,12 @@ class LogicalRouterDM(DBBaseDM):
                 'logical_router_dhcp_relay_server').get('ip_address')
         self.configured_route_targets = set(obj.get(
             'configured_route_target_list', {}).get('route_target', []))
+        self.update_single_ref('fabric', obj)
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('port_tuple', obj)
-        self.is_master = True if 'master-LR' == self.name else False
+        self.is_master = self.check_if_default_master_lr()
         for rt_ref in obj.get('route_target_refs', []):
             for rt in rt_ref.get('to', []):
                 if rt.lower().startswith('target:'):
@@ -2527,6 +2529,22 @@ class LogicalRouterDM(DBBaseDM):
             if self.lr_route_target_for_dci is not None:
                 break
     # end update
+
+    def check_if_default_master_lr(self):
+        if self.fabric is not None:
+            fabric_obj = FabricDM.get(self.fabric)
+            # form default fab-master-LR fqname here
+            # so that master-LRs from non default
+            # project are not wrongly checked as
+            # master-LRs.
+            def_fab_master_lr_fqname = [
+                "default-domain",
+                "default-project",
+                fabric_obj.fq_name[-1] + "-master-LR"
+            ]
+            return self.fq_name == def_fab_master_lr_fqname
+
+        return False
 
     def do_update_trans(self, obj):
         if self.get_oper() == 'Create':
@@ -2640,6 +2658,7 @@ class LogicalRouterDM(DBBaseDM):
         obj.update_multiple_refs('port_tuple', {})
         obj.update_multiple_refs('data_center_interconnect', {})
         obj.update_single_ref('virtual_network', None)
+        obj.update_single_ref('fabric', {})
         del cls._dict[uuid]
     # end delete
 # end LogicalRouterDM
