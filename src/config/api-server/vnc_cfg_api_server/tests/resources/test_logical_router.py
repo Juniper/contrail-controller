@@ -4,6 +4,7 @@
 
 
 from builtins import str
+import json
 import logging
 import uuid
 
@@ -14,6 +15,7 @@ from vnc_api.exceptions import BadRequest
 from vnc_api.exceptions import NoIdError
 from vnc_api.exceptions import RefsExistError
 from vnc_api.gen.resource_client import Domain
+from vnc_api.gen.resource_client import Fabric
 from vnc_api.gen.resource_client import InstanceIp
 from vnc_api.gen.resource_client import LogicalRouter
 from vnc_api.gen.resource_client import NetworkIpam
@@ -28,6 +30,7 @@ from vnc_api.gen.resource_xsd import IpamType
 from vnc_api.gen.resource_xsd import RouteTableType
 from vnc_api.gen.resource_xsd import RouteType
 from vnc_api.gen.resource_xsd import SubnetType
+from vnc_api.gen.resource_xsd import VirtualNetworkRoutedPropertiesType
 from vnc_api.gen.resource_xsd import VnSubnetsType
 
 from vnc_cfg_api_server.tests import test_case
@@ -87,6 +90,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
+        fab = Fabric('fab_lr')
+        fab_uuid = self._vnc_lib.fabric_create(fab)
+        lr.add_fabric(fab)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
 
         # Create a Virtual Machine Interface belonging to my-vn-1
@@ -174,6 +180,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn1.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.fabric_delete(id=fab_uuid)
         self._vnc_lib.project_delete(id=project.uuid)
         self._vnc_lib.domain_delete(id=domain.uuid)
 
@@ -215,6 +222,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v6-%s' % self.id(), project)
+        fab = Fabric('fab_lr')
+        fab_uuid = self._vnc_lib.fabric_create(fab)
+        lr.add_fabric(fab)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
 
         # Create a Virtual Machine Interface belonging to my-vn-1
@@ -304,6 +314,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn1.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.fabric_delete(id=fab_uuid)
         self._vnc_lib.project_delete(id=project.uuid)
         self._vnc_lib.domain_delete(id=domain.uuid)
 
@@ -380,6 +391,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
+        fab = Fabric('fab_lr')
+        fab_uuid = self._vnc_lib.fabric_create(fab)
+        lr.add_fabric(fab)
         self._vnc_lib.logical_router_create(lr)
 
         # Add Router Interface
@@ -396,6 +410,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             port_obj.add_virtual_machine(vm_inst_obj)
             self._vnc_lib.virtual_machine_interface_update(port_obj)
         self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self._vnc_lib.fabric_delete(fab_uuid)
 
     def create_port(self, project, vn):
         # Create v4 Ip object
@@ -440,6 +455,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_logical_router_type('snat-routing')
+        fab = Fabric('fab_lr')
+        fab_uuid = self._vnc_lib.fabric_create(fab)
+        lr.add_fabric(fab)
         self._vnc_lib.logical_router_create(lr)
 
         # Add Router Interface
@@ -466,6 +484,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             lr.add_virtual_machine_interface(port_obj)
             self._vnc_lib.logical_router_update(lr)
         self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self._vnc_lib.fabric_delete(fab_uuid)
 
     def test_vxlan_routing_for_internal_vn(self):
         project = self._vnc_lib.project_read(fq_name=['default-domain',
@@ -661,3 +680,182 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             self._vnc_lib.logical_router_update(lr)
 
         logger.debug('PASS: Could not update LR from SNAT to VXLAN')
+
+    # # test create LR with non-shared VN already in another LR
+    # # 1. Create LR_A and assign a VN VN_not_shared --> Ok
+    # # 2. VN_not_shared's annotations should have LR_A in the list
+    # # 3. Create LR_B and try to assign VN_not_shared --> Error
+    # # 4. Delete LR_A and VN_not_shared's annotations should not have
+    # #    LR key value pair
+    #
+    # def test_lr_create_delete_with_vn(self):
+    #     project = self._vnc_lib.project_read(fq_name=['default-domain',
+    #                                                   'default-project'])
+    #     # Create Logical Router
+    #     lr = LogicalRouter(
+    #         'LR_A-%s' % (self.id()), project)
+    #
+    #     ipam = self._vnc_lib.network_ipam_read(
+    #         ['default-domain', 'default-project', 'default-network-ipam'])
+    #
+    #     # Create subnets
+    #     ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+    #
+    #     # Create unshared VN
+    #     vn_not_shared = VirtualNetwork(
+    #         'VN_not_shared-%s' % (self.id()), project)
+    #     vn_not_shared.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+    #
+    #     self._vnc_lib.virtual_network_create(vn_not_shared)
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+    #
+    #     # Create Port
+    #     port_obj = self.create_port(project, net_obj)
+    #
+    #     # Add Router Interface
+    #     lr.add_virtual_machine_interface(port_obj)
+    #     lr_a_uuid = self._vnc_lib.logical_router_create(lr)
+    #
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+    #     net_annotations = net_obj.get_annotations()
+    #     self.assertIsNotNone(net_annotations)
+    #     net_kvps = net_annotations.get_key_value_pair()
+    #     self.assertIsNotNone(net_kvps)
+    #     for kvp in net_kvps:
+    #         if kvp.get_key() == 'LogicalRouter':
+    #             self.assertEqual(
+    #                 kvp.get_value(),
+    #                 json.dumps({"lr_fqname_strs":
+    #                             ["default-domain:default-project:LR_A-%s"
+    #                              % (self.id())]}))
+    #
+    #     # Create Logical Router
+    #     lr = LogicalRouter('LR_B-%s' % (self.id()), project)
+    #     # Try to add Router Interface
+    #     lr.add_virtual_machine_interface(port_obj)
+    #     with ExpectedException(BadRequest):
+    #         self._vnc_lib.logical_router_create(lr)
+    #
+    #     self._vnc_lib.logical_router_delete(id=lr_a_uuid)
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+    #     net_annotations = net_obj.get_annotations()
+    #     self.assertIsNone(net_annotations)
+    #
+    # # test update LR with LR already having a shared VN and a non shared VN
+    # # 1. Create LR_A and assign a VN VN_not_shared
+    # # 2. Update LR_A and assign VN_shared --> Ok
+    # # 3. Create LR_B
+    # # 4. Update LR_B by trying to assign VN VN_shared --> Ok
+    # # 5. VN_not_shared's annotations should have LR_A in the list
+    # # 6. VN_shared's annotations should have LR_A and LR_B in the list
+    # # 7. Update LR_B by trying to assign VN_not_shared --> Error
+    # # 8. Delete LR_A and VN_not_shared's annotations should not have
+    # #    LR key value pair while VN_shared's annotations will only have VN_B
+    # #    in LR key value pair
+    #
+    # def test_lr_update_delete_with_vn(self):
+    #     project = self._vnc_lib.project_read(fq_name=['default-domain',
+    #                                                   'default-project'])
+    #     # Create Logical Router
+    #     lr = LogicalRouter(
+    #         'LR_A-%s' % (self.id()), project)
+    #
+    #     ipam = self._vnc_lib.network_ipam_read(
+    #         ['default-domain', 'default-project', 'default-network-ipam'])
+    #
+    #     # Create subnets
+    #     ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+    #
+    #     # Create unshared VN
+    #     vn_not_shared = VirtualNetwork(
+    #         'VN_not_shared-%s' % (self.id()), project)
+    #     vn_not_shared.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+    #
+    #     self._vnc_lib.virtual_network_create(vn_not_shared)
+    #     net_obj_unshared = self._vnc_lib.virtual_network_read(
+    #         id=vn_not_shared.uuid)
+    #
+    #     # Create Port
+    #     port_obj_unshared = self.create_port(project, net_obj_unshared)
+    #
+    #     # Add Router Interface
+    #     lr.add_virtual_machine_interface(port_obj_unshared)
+    #     lr_a_uuid = self._vnc_lib.logical_router_create(lr)
+    #
+    #     # Create shared VN
+    #     vn_shared = VirtualNetwork(
+    #         'VN_shared-%s' % (self.id()), project)
+    #     vn_shared.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+    #     vn_routed_prop = VirtualNetworkRoutedPropertiesType(
+    #         shared_across_all_lrs=True)
+    #     vn_shared.set_virtual_network_routed_properties(vn_routed_prop)
+    #
+    #     self._vnc_lib.virtual_network_create(vn_shared)
+    #     net_obj_shared = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+    #
+    #     # Create Port
+    #     port_obj_shared = self.create_port(project, net_obj_shared)
+    #
+    #     # Add Router Interface
+    #     lr.add_virtual_machine_interface(port_obj_shared)
+    #     self._vnc_lib.logical_router_update(lr)
+    #
+    #     # Create Logical Router
+    #     lr = LogicalRouter('LR_B-%s' % (self.id()), project)
+    #     self._vnc_lib.logical_router_create(lr)
+    #
+    #     # Try to add Router Interface
+    #     lr.add_virtual_machine_interface(port_obj_shared)
+    #     self._vnc_lib.logical_router_update(lr)
+    #
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+    #     net_annotations = net_obj.get_annotations()
+    #     self.assertIsNotNone(net_annotations)
+    #     net_kvps = net_annotations.get_key_value_pair()
+    #     self.assertIsNotNone(net_kvps)
+    #     for kvp in net_kvps:
+    #         if kvp.get_key() == 'LogicalRouter':
+    #             self.assertEqual(
+    #                 kvp.get_value(),
+    #                 json.dumps({"lr_fqname_strs":
+    #                             ["default-domain:default-project:LR_A-%s"
+    #                              % (self.id())]}))
+    #
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+    #     net_annotations = net_obj.get_annotations()
+    #     self.assertIsNotNone(net_annotations)
+    #     net_kvps = net_annotations.get_key_value_pair()
+    #     self.assertIsNotNone(net_kvps)
+    #     for kvp in net_kvps:
+    #         if kvp.get_key() == 'LogicalRouter':
+    #             self.assertEqual(
+    #                 kvp.get_value(),
+    #                 json.dumps({"lr_fqname_strs":
+    #                             ["default-domain:default-project:LR_A-%s"
+    #                              % (self.id()),
+    #                              "default-domain:default-project:LR_B-%s"
+    #                              % (self.id())]}))
+    #
+    #     # Add Router Interface
+    #     lr.add_virtual_machine_interface(port_obj_unshared)
+    #     with ExpectedException(BadRequest):
+    #         self._vnc_lib.logical_router_update(lr)
+    #
+    #     self._vnc_lib.logical_router_delete(id=lr_a_uuid)
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_not_shared.uuid)
+    #     net_annotations = net_obj.get_annotations()
+    #     self.assertIsNone(net_annotations)
+    #
+    #     net_obj = self._vnc_lib.virtual_network_read(id=vn_shared.uuid)
+    #     net_annotations = net_obj.get_annotations()
+    #     self.assertIsNotNone(net_annotations)
+    #     net_kvps = net_annotations.get_key_value_pair()
+    #     self.assertIsNotNone(net_kvps)
+    #     for kvp in net_kvps:
+    #         if kvp.get_key() == 'LogicalRouter':
+    #             self.assertEqual(
+    #                 kvp.get_value(),
+    #                 json.dumps({
+    #                     "lr_fqname_strs":
+    #                     ["default-domain:default-project:LR_B-%s"
+    #                      % (self.id())]}))

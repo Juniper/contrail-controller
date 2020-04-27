@@ -955,6 +955,12 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         vns = []
         vmis = []
         iips = []
+
+        if nb_of_attached_networks > 0:
+            fab = Fabric('fab_lr' + str(uuid.uuid4()))
+            self._vnc_lib.fabric_create(fab)
+            lr.add_fabric(fab)
+
         for idx in range(nb_of_attached_networks):
             # Virtual Network
             vn = self.create_virtual_network('%s-network%d' % (name, idx),
