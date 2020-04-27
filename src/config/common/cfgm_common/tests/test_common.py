@@ -251,7 +251,7 @@ def create_api_server_instance(test_id, config_knobs, db='cassandra'):
         # If the server did not start well, we should quit early.
         raise ret_server_info['greenlet'].exception
     block_till_port_listened(ret_server_info['ip'],
-        ret_server_info['service_port'])
+        ret_server_info['service_port'], retries=5)
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
                  'SERVER_PORT': native_str(ret_server_info['service_port'])}
     api_server_obj = ret_server_info['greenlet'].api_server
