@@ -1308,6 +1308,66 @@ class VncDbClient(object):
             obj_dict['uuid'],
             {'sub_cluster_id': sub_cluster_id})
 
+    def _check_and_add_annotations_to_vn(self, lr_dict):
+        vmi_refs = lr_dict.get('virtual_machine_interface_refs',
+                                [])
+        vmi_uuid_list = [vmi['uuid'] for vmi in vmi_refs]
+        vmi_list = []
+        if vmi_uuid_list:
+            (ok, vmi_list) = self._object_db.object_read(
+                'virtual_machine_interface',
+                obj_uuids=vmi_uuid_list,
+                field_names=['virtual_network_refs'])
+
+        for vmi in vmi_list:
+            vn_uuid_list = \
+                [vn['uuid'] for vn in vmi.get(
+                    'virtual_network_refs', [])]
+            if vn_uuid_list:
+                (ok, vn_list) = self._object_db.object_read(
+                    'virtual_network',
+                    obj_uuids=vn_uuid_list,
+                    field_names=['annotations'])
+
+                for vn_obj in vn_list:
+                    kvps = vn_obj.get('annotations', {}).get(
+                        'key_value_pair', [])
+                    needs_annotation = True
+                    lr_fq_name_str = ':'.join(
+                        lr_dict.get(
+                            'fq_name',
+                            self.uuid_to_fq_name(lr_dict['uuid'])))
+                    lr_kvp = False
+                    for kvp in kvps:
+                        if kvp['key'] == 'LogicalRouter':
+                            kvalue = json.loads(kvp['value'])
+                            if lr_fq_name_str in kvalue.get(
+                                    'lr_fqname_strs', []):
+                                needs_annotation = False
+                                break
+                            else:
+                                kvalue.get(
+                                    'lr_fqname_strs', []).append(
+                                    lr_fq_name_str
+                                )
+                                kvp['value'] = json.dumps(
+                                    kvalue
+                                )
+                                lr_kvp = True
+                    if needs_annotation:
+                        if not lr_kvp:
+                            kvps.append({'key': 'LogicalRouter',
+                                         'value': json.dumps(
+                                             {'lr_fqname_strs': [
+                                                 lr_fq_name_str
+                                             ]}
+                                         )})
+                        vn_obj['annotations'] = {
+                            'key_value_pair': kvps}
+                        self._object_db.object_update(
+                            'virtual_network',
+                            vn_obj['uuid'], vn_obj)
+
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
@@ -1564,6 +1624,8 @@ class VncDbClient(object):
                         obj_dict['project_refs'] = [ref]
                         self._object_db.object_update('floating_ip',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'logical_router':
+                    self._check_and_add_annotations_to_vn(obj_dict)
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
