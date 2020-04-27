@@ -226,8 +226,8 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                      dciref.get('to')[-1]))
 
         srclr_public = lrsrc.get('logical_router_gateway_external', False)
-        srclr_master = True if lrsrc.get('display_name', '') == 'master-LR'\
-            else False
+        srclr_master = True if 'master-LR' in (
+                lrsrc.get('display_name') or '') else False
         srclr_prs = []
         for pr_ref in lrsrc.get('physical_router_refs') or []:
             pr_uuid = pr_ref.get('uuid')
@@ -244,8 +244,8 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
             if not ok:
                 return False, dstlr
             dstlr_public = dstlr.get('logical_router_gateway_external', False)
-            dstlr_master = True if dstlr.get('display_name', '') == \
-                'master-LR' else False
+            dstlr_master = True if 'master-LR' in (dstlr.get(
+                'display_name') or '') else False
             if srclr_master is True and dstlr_public is True:
                 return False, (
                     400, "master-LR as source logical router, destination LR "
