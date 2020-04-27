@@ -1233,11 +1233,12 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
     @wait_for_api_server_connection
     def post_virtual_network_update(self, vn_uuid, vn_dict, old_dict):
-        ipam_refs = vn_dict.get('network_ipam_refs')
-        if ipam_refs is None:
-            return
-        self._update_subnet_id(vn_uuid, vn_dict.get('network_ipam_refs'),
-                               old_dict.get('network_ipam_refs'))
+        if vn_dict:
+            ipam_refs = vn_dict.get('network_ipam_refs')
+            if ipam_refs is None:
+                return
+            self._update_subnet_id(vn_uuid, vn_dict.get('network_ipam_refs'),
+                                   old_dict.get('network_ipam_refs'))
     # end post_virtual_network_update
 
     @wait_for_api_server_connection
