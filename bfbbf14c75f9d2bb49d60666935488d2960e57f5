@@ -34,6 +34,24 @@
       "revId": "bfbbf14c75f9d2bb49d60666935488d2960e57f5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4b1cdcdc_0cf4ed50",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_evpn_gateway/templates/juniper_junos_overlay_evpn_gateway.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-27T18:10:10Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "ebf29119_9bbb704e",
+      "revId": "bfbbf14c75f9d2bb49d60666935488d2960e57f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
