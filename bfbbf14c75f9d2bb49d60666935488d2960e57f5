@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "46ad9c45_fc793449",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_evpn_gateway/templates/juniper_junos_overlay_evpn_gateway.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-27T17:45:54Z",
+      "side": 1,
+      "message": "Is this desired behavior? In Danil\u0027s use-case, they are extending L3 mode VN directly to PR, will the functionality work after putting this check ?",
+      "revId": "bfbbf14c75f9d2bb49d60666935488d2960e57f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
