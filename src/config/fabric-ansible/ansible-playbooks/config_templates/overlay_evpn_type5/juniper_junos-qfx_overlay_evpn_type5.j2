@@ -7,6 +7,7 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 fro
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
 {%     set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
+{%     set ns = namespace(public_network='no') %}
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
 {%         set name = ri.get('name', '')[:127] %}
 {%         set is_master = ri.get('is_master', '') %}
@@ -145,6 +146,7 @@ set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES then reject
 {%         set sys_config = device_abstract_config.get('system') %}
 {%         set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%         if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
+{%             set ns.public_network = 'yes' %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%             for subnet in ri.get('prefixes', []) %}
@@ -152,7 +154,6 @@ set groups {{cfg_group}} forwarding-options family inet filter input redirect_to
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
 {%             endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
-set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%         endif %}
 {%         for verbs in ["vrf_export", "vrf_import"] %}
 {%             for vrf_rp in ri.get(verbs, []) %}
@@ -164,6 +165,9 @@ set groups {{cfg_group}} routing-instances {{name}} vrf-import {{vrf_rp}}
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}{# /* routing instances */ #}
+{%     if ns.public_network == 'yes' %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+{%     endif %}
 {%     for rp in device_abstract_config.features.get('vn-interconnect').get('routing_policies', []) %}
 {%         set rp_entery = rp.get('routing_policy_entries', {}) %}
 {%         if rp_entery|length > 0 %}
