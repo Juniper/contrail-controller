@@ -8,11 +8,13 @@ set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} 
 {%                 endfor %}
 {%             endif %}
 {%             if li_item.get('family') == 'ethernet-switching' %}
+{%                 if li_item.get('vlans')|length > 1 %}
+set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching interface-mode trunk
+{%                 endif %}
 {%                 if not li_item.get('is_tagged', false) %}
 set groups {{cfg_group}} interfaces {{pi_interface_name}} native-vlan-id 4094
 {%                 endif %}
 {%                 for vlan in li_item.get('vlans') or [] %}
-set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching interface-mode trunk
 set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching vlan members {{vlan.name}}
 {%                 endfor %}
 {%             endif %}
