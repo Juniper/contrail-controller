@@ -106,7 +106,7 @@ class TelemetryFeature(FeatureBase):
         if scf:
             if scf.get('sample_rate'):
                 sflow_profile_obj.set_sample_rate(scf.get('sample_rate'))
-            if scf.get('polling_interval'):
+            if scf.get('polling_interval') is not None:
                 sflow_profile_obj.set_polling_interval(
                     scf.get('polling_interval'))
             if scf.get('direction'):
