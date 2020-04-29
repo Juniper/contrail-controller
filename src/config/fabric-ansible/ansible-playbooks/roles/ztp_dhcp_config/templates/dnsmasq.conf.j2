@@ -16,23 +16,23 @@ dhcp-vendorclass=set:jn,Juniper
 {%       if alloc_list[idx+1] != alloc_list[idx]+1 %}
 {%         set first_ip = (alloc_list[idx]+1) | ipaddr %}
 {%         set last_ip = (alloc_list[idx+1]-1) | ipaddr %}
-{%           if subnet.intf_name is defined %}
-dhcp-range=set:{{ subnet.intf_name }},{{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
+{%           if subnet.name is defined %}
+dhcp-range=set:{{ subnet.name }},{{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
 {%           else %}
 dhcp-range={{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
 {%           endif %}
 {%       endif %}
 {%     endfor %}
 {%     if subnet.default_gateway is defined %}
-{%       if subnet.intf_name is defined %}
-dhcp-option=tag:{{ subnet.intf_name }},option:router,{{ subnet.default_gateway }}
+{%       if subnet.name is defined %}
+dhcp-option=tag:{{ subnet.name }},option:router,{{ subnet.default_gateway }}
 {%       else %}
 dhcp-option=option:router,{{ subnet.default_gateway }}
 {%       endif %}
 {%     endif %}
-{%     if subnet.intf_name is defined %}
-dhcp-option=tag:{{ subnet.intf_name }},66,{{ subnet.intf_ip }}
-dhcp-option=tag:{{ subnet.intf_name }},150,{{ subnet.intf_ip }}
+{%     if subnet.name is defined %}
+dhcp-option=tag:{{ subnet.name }},66,{{ subnet.intf_ip }}
+dhcp-option=tag:{{ subnet.name }},150,{{ subnet.intf_ip }}
 {%     else %}
 dhcp-option=66,<host-ip>
 dhcp-option=150,<host-ip>
