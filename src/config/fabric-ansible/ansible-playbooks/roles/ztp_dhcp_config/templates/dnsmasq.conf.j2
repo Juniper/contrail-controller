@@ -52,4 +52,5 @@ dhcp-host={{ host }},{{ ip }}
 {%   endfor %}
 {% endif %}
 dhcp-script=/etc/scripts/dnsmasq_init_script.sh
+dhcp-ignore=tag:!known
 leasefile-ro
