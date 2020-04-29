@@ -168,6 +168,11 @@
         "default": true,
         "description": "True if enterprise style, false if sp-style configuration"
       }
+      "disable_vlan_vn_uniqueness_check": {
+        "type": "boolean",
+        "default": false,
+        "description": "True if vlan-vn uniqueness validation checks needs to be disabled, false if enable all complex validations"
+      }
     }
   },
   "output_schema": {
