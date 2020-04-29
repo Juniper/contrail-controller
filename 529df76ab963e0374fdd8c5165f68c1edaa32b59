@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c73c0acd_0df13530",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 1711,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-29T18:32:18Z",
+      "side": 1,
+      "message": "space around operators\ncidr.first +. 2",
+      "revId": "529df76ab963e0374fdd8c5165f68c1edaa32b59",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a92d1662_fa3544e1",
+        "filename": "src/config/vnc_openstack/vnc_openstack/tests/test_basic.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 1355,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-29T18:32:18Z",
+      "side": 1,
+      "message": "could you move this inside the test, so it can work as function doc?",
+      "revId": "529df76ab963e0374fdd8c5165f68c1edaa32b59",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "023c1ee8_84f579a2",
+        "filename": "src/config/vnc_openstack/vnc_openstack/tests/test_basic.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 1368,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-29T18:32:18Z",
+      "side": 1,
+      "message": "Please add a note why dns_server_address should be 1.1.1.2?",
+      "revId": "529df76ab963e0374fdd8c5165f68c1edaa32b59",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "54003bd6_5daa8c66",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 1711,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-04-29T18:32:18Z",
+      "side": 0,
+      "message": "Just to ensure that your change do not introduce a regression:\nthe commit https://github.com/Juniper/contrail-controller/commit/8bd4fffa9f34988879e02202a48e688729d964f2 brought this change. So was the commit chose subnet_q[\u0027dns_namaservers\u0027][0] instead of your fix? Can we get a clarification from the submitter of the commit?",
+      "revId": "a69075cfc8e8edac12cd36018fe0477f6c4c4802",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
