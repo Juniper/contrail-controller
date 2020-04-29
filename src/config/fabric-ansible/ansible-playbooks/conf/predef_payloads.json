@@ -1976,7 +1976,7 @@
           "name": "Centrally Routed-Border-Spine-With-Optimized-Multicast",
           "device_functional_group_description": "Provides  L3 routing and gateway services for L2 server leafs ; provides route reflector and assisted replication",
           "device_functional_group_os_version": "18.4R2",
-          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","AR-Replicator", "CRB-Gateway","DC-Gateway","DCI-Gateway","PNF-Servicechain"]}
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","AR-Replicator", "CRB-MCAST-Gateway","DC-Gateway","DCI-Gateway","PNF-Servicechain"]}
 
         },
         {
@@ -1986,7 +1986,7 @@
           "name": "Border-Spine-in-Edge-Routed",
           "device_functional_group_description": "Provides L3 gateway services, route reflector",
           "device_functional_group_os_version": "18.4R2",
-          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","ERB-UCAST-Gateway","CRB-MCAST-Gateway"]}
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","CRB-MCAST-Gateway","CRB-Gateway"]}
 
         },
         {
@@ -1996,7 +1996,7 @@
           "name": "Border-Leaf-in-Edge-Routed",
           "device_functional_group_description": "Provides L3 gateway services, route reflector",
           "device_functional_group_os_version": "18.4R2",
-          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","ERB-UCAST-Gateway","CRB-MCAST-Gateway"]}
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","CRB-MCAST-Gateway","CRB-Gateway"]}
 
         },
          {
