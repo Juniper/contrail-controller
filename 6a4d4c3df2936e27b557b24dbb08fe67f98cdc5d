@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "cdcd7c18_80e99d22",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 2
+      },
+      "lineNbr": 1979,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-29T22:59:15Z",
+      "side": 1,
+      "message": "Need to resolve a way to update DFG\u0027s",
+      "revId": "6a4d4c3df2936e27b557b24dbb08fe67f98cdc5d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "2092b311_ac3a4af4",
         "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
         "patchSetId": 2
