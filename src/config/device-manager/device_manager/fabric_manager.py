@@ -20,6 +20,7 @@ from vnc_api.gen.resource_xsd import (
     IpamSubnets,
     IpamSubnetType,
     PermType2,
+    RoutingBridgingRolesType,
     SubnetListType,
     SubnetType,
     VirtualNetworkType,
@@ -296,6 +297,75 @@ class FabricManager(object):
         except Exception as e:
             err_msg = 'Error while attempting to read or update' \
                       ' default logical router: %s\n' % str(e)
+            err_msg += detailed_traceback()
+            self._logger.error(err_msg)
+
+        # 1. handle Centrally Routed-Border-Spine-With-Optimized-Multicast
+        # dfg update for rb_roles
+        # 2. handle Border-Spine-in-Edge-Routed
+        # dfg update for rb_roles
+        # 3. Border-Leaf-in-Edge-Routed
+        # dfg update for rb_roles
+        try:
+            dfg_opt_mcast = \
+                self._vnc_api.device_functional_group_read(
+                    fq_name=[
+                        'default-domain',
+                        'default-project',
+                        'Centrally-Routed-Border-Spine'
+                        '-With-Optimized-Multicast'
+                    ]
+                )
+            dfg_edge_routed_leaf = \
+                self._vnc_api.device_functional_group_read(
+                    fq_name=[
+                        'default-domain',
+                        'default-project',
+                        'Border-Leaf-in-Edge-Routed'
+                    ]
+                )
+            dfg_edge_routed_spine = \
+                self._vnc_api.device_functional_group_read(
+                    fq_name=[
+                        'default-domain',
+                        'default-project',
+                        'Border-Spine-in-Edge-Routed'
+                    ]
+                )
+
+            dfg_opt_mcast.set_device_functional_group_routing_bridging_roles(
+                RoutingBridgingRolesType(rb_roles=["Route-Reflector",
+                                                   "AR-Replicator",
+                                                   "CRB-MCAST-Gateway",
+                                                   "DC-Gateway",
+                                                   "DCI-Gateway",
+                                                   "PNF-Servicechain"])
+            )
+
+            dfg_edge_routed_leaf.\
+                set_device_functional_group_routing_bridging_roles(
+                    RoutingBridgingRolesType(rb_roles=["Route-Reflector",
+                                                       "DC-Gateway",
+                                                       "DCI-Gateway",
+                                                       "PNF-Servicechain",
+                                                       "CRB-MCAST-Gateway",
+                                                       "CRB-Gateway"]))
+
+            dfg_edge_routed_spine.\
+                set_device_functional_group_routing_bridging_roles(
+                    RoutingBridgingRolesType(rb_roles=["Route-Reflector",
+                                                       "DC-Gateway",
+                                                       "DCI-Gateway",
+                                                       "PNF-Servicechain",
+                                                       "CRB-MCAST-Gateway",
+                                                       "CRB-Gateway"]))
+
+            self._vnc_api.device_functional_group_update(dfg_opt_mcast)
+            self._vnc_api.device_functional_group_update(dfg_edge_routed_leaf)
+            self._vnc_api.device_functional_group_update(dfg_edge_routed_spine)
+        except Exception as e:
+            err_msg = 'Error while attempting to read or update' \
+                      ' device functional group(s): %s\n' % str(e)
             err_msg += detailed_traceback()
             self._logger.error(err_msg)
 
