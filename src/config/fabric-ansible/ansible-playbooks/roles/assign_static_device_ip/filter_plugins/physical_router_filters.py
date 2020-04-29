@@ -9,7 +9,11 @@ from builtins import str
 
 from cfgm_common.exceptions import NoIdError
 from netaddr import IPAddress, IPNetwork
+from netifaces import interfaces, ifaddresses, AF_INET
 from vnc_api.vnc_api import VncApi
+from pyroute2 import IPRoute
+import ipaddress
+from filter_utils import _task_error_log
 
 
 class FilterModule(object):
@@ -19,6 +23,25 @@ class FilterModule(object):
             'supplemental_config': self.get_supplemental_config
         }
     # end filters
+
+    # Method to get interface name and configured ip address from
+    # subnet/ip address from subnet.
+    @classmethod
+    def _get_subnet_from_host_ip(cls, cidr):
+        ip = IPRoute()
+        lookup_ip = ''
+        route_lst = ip.route('get', dst=cidr)
+        for tup in route_lst[0]['attrs'] or []:
+            if tup[0] == 'RTA_PREFSRC':
+                lookup_ip = str(tup[1])
+        for ifaceName in interfaces():
+            add_list = ifaddresses(ifaceName).get(AF_INET, None)
+            for index in add_list or []:
+                if index['addr'] == lookup_ip:
+                    return ipaddress.ip_network(unicode(
+                                index['addr']+'/'+index['netmask']),
+                                strict=False)
+        return None
 
     @classmethod
     def get_pr_subnet(cls, job_ctx, fabric_uuid, device_fq_name):
@@ -63,9 +86,11 @@ class FilterModule(object):
                 if ip_addr in IPNetwork(
                         cidr) and subnet.get('default_gateway'):
                     gateway = subnet.get('default_gateway')
+                    subnet = cls._get_subnet_from_host_ip(cidr)
                     break
-        if cidr and gateway:
-            return {'cidr': cidr, 'gateway': gateway}
+        if cidr and gateway and subnet:
+            return {'cidr': cidr, 'gateway': gateway,
+                    'intf_subnet': str(subnet)}
 
         raise NoIdError(
             "Cannot find cidr and gateway for device: %s" %
