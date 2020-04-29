@@ -51,5 +51,11 @@ dhcp-host={{ mac }},{{ ip }}
 dhcp-host={{ host }},{{ ip }}
 {%   endfor %}
 {% endif %}
+{% if ztp_dhcp_config.dynamic_hosts is defined %}
+{%   for host in ztp_dhcp_config.dynamic_hosts %}
+dhcp-host={{ host }}
+{%   endfor %}
+{% endif %}
 dhcp-script=/etc/scripts/dnsmasq_init_script.sh
+dhcp-ignore=tag:!known
 leasefile-ro

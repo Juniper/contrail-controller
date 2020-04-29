@@ -118,15 +118,21 @@ class FilterModule(object):
 
             # Get user-specified static ip configuration
             static_host_ips = {}
+            dynamic_hosts = []
             job_input = job_ctx.get('job_input', {})
             device_to_ztp = job_input.get('device_to_ztp', [])
             for dev in device_to_ztp:
                 mgmt_ip = dev.get('mgmt_ip')
                 sernum = dev.get('serial_number')
-                if mgmt_ip and sernum:
-                    static_host_ips[mgmt_ip] = sernum
+                if sernum:
+                    if mgmt_ip:
+                        static_host_ips[mgmt_ip] = sernum
+                    else:
+                        dynamic_hosts.append(sernum)
             if static_host_ips:
                 dhcp_config['static_host_ips'] = static_host_ips
+            if dynamic_hosts:
+                dhcp_config['dynamic_hosts'] = dynamic_hosts
 
         except Exception as ex:
             logging.error(
