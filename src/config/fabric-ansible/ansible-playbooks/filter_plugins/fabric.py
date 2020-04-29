@@ -670,6 +670,11 @@ class FilterModule(object):
             self._add_fabric_enterprise_style(
                 vnc_api, fabric_obj, fabric_info.get('enterprise_style'))
 
+        # Add enterprise style validations enable/disable
+        if fabric_info.get('disable_vlan_vn_uniqueness_check') is not None:
+            self._add_fabric_vlan_vn_uniqueness_check(
+                vnc_api, fabric_obj, fabric_info.get('disable_vlan_vn_uniqueness_check'))
+
         # add node profiles
         self._add_node_profiles(
             vnc_api,
@@ -995,6 +1000,14 @@ class FilterModule(object):
             % (enterprise_style, fab.name)
         )
         fab.set_fabric_enterprise_style(enterprise_style)
+        vnc_api.fabric_update(fab)
+
+    def _add_fabric_vlan_vn_uniqueness_check(vnc_api, fab, check):
+        _task_log(
+            'adding vlan-vn uniqueness validation "%s" to fabric "%s"'
+            % (check, fab.name)
+        )
+        fab.set_disable_vlan_vn_uniqueness_check(check)
         vnc_api.fabric_update(fab)
 
     @staticmethod
