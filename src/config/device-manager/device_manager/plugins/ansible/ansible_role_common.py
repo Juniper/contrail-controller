@@ -124,6 +124,7 @@ class AnsibleRoleCommon(AnsibleConf):
         is_l2_l3 = ri_conf.get("is_l2_l3", False)
         gateways = ri_conf.get("gateways", [])
         network_id = ri_conf.get("network_id", None)
+        router_external = ri_conf.get("router_external", False)
         irb_intf, li_map = self.set_default_pi('irb', 'irb')
         self._logger.debug("Vn=" + vn.name + ", IRB: " + str(gateways) + ", pr="
                           + self.physical_router.name)
@@ -133,7 +134,8 @@ class AnsibleRoleCommon(AnsibleConf):
         if gateways:
             if vn.has_ipv6_subnet is True:
                 intf_unit.set_is_virtual_router(True)
-            intf_unit.set_comment(DMUtils.vn_irb_comment(vn, False, is_l2_l3))
+            intf_unit.set_comment(
+                DMUtils.vn_irb_comment(vn,False, is_l2_l3, router_external))
             for (irb_ip, gateway) in gateways:
                 if len(gateway) and gateway != '0.0.0.0':
                     intf_unit.set_gateway(gateway)

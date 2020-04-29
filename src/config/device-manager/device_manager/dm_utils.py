@@ -402,14 +402,15 @@ class DMUtils(object):
             vn.fq_name[-1], vn.uuid, encap)
 
     @staticmethod
-    def vn_irb_comment(vn, is_l2, is_l2_l3):
+    def vn_irb_comment(vn, is_l2, is_l2_l3, router_external):
         vrf_type = "L3"
         if is_l2:
             vrf_type = "L2"
         if is_l2_l3:
             vrf_type = "L2-L3"
-        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */" % (
-            vn.fq_name[-1], vn.uuid, vrf_type)
+        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s," \
+            " PublicVN: %s */" % (vn.fq_name[-1], vn.uuid,
+                                  vrf_type, router_external)
 
     @staticmethod
     def service_set_comment(vn):

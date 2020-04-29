@@ -9,11 +9,16 @@ set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%                     set address = ip_addr.get('address') %}
 {%                     set family = ip_addr.get('family', 'inet') %}
 {%                     set gw = ip_addr.get('gateway', '') %}
+{%                     if 'PublicVN: True' in li.get('comment', '') %}
+{%                         set irb_mac = '00:00:5e:01:00:02' %}
+{%                     else %}
+{%                         set irb_mac = '00:00:5e:01:00:01' %}
+{%                     endif %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
 {%                     if family == 'inet' %}
-set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac {{ irb_mac }}
 {%                     elif family == 'inet6' %}
-set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac {{ irb_mac }}
 {%                     endif %}
 {%                     if gw != '' %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
