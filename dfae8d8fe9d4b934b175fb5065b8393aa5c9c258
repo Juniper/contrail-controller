@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "df4bb7fa_3d5905d7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1522,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-30T20:30:35Z",
+      "side": 1,
+      "message": "What about the case where fabric is already onboarded and customer did a in-place upgrade. We try to read disable_vlan_vn_uniqueness_check value from fabric object. Default value is false in schema, but I guess there is a bug where read object will not return default value if not set explicitly. In that case, you may want to set it to False here then ?",
+      "revId": "dfae8d8fe9d4b934b175fb5065b8393aa5c9c258",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
