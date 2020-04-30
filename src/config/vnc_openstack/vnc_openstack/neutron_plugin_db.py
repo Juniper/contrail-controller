@@ -2674,7 +2674,7 @@ class DBInterface(object):
                 pair = {}
                 pair["mac_address"] = aap.mac
 
-                if IPAddress(aap.ip.get_ip_prefix()).version is 4:
+                if IPNetwork(aap.ip.get_ip_prefix()).version is 4:
                     ip_len = 32
                 elif IPAddress(aap.ip.get_ip_prefix()).version is 6:
                     ip_len = 128
