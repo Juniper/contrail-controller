@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d2eb16b7_07b2a82a",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 338,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-04-30T05:27:26Z",
+      "side": 1,
+      "message": "Will this have same problem? Suppose someone edits pre-defined DFG\u0027s to modify RB role. Now, we restart DM. Here we will overwrite DFG\u0027s again if we call set rb roles. ?",
+      "revId": "816c0d630366dafdb319f63ec99703fa48748d5f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
