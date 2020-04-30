@@ -16,6 +16,24 @@
       "revId": "816c0d630366dafdb319f63ec99703fa48748d5f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "173edf9a_27f479bb",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 338,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-04-30T17:43:40Z",
+      "side": 1,
+      "message": "Yeah. But they will have to modify here (also) only in case they are doing a cluster upgrade. Because they are pre-defined, this is how we can do it?",
+      "parentUuid": "d2eb16b7_07b2a82a",
+      "revId": "816c0d630366dafdb319f63ec99703fa48748d5f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
