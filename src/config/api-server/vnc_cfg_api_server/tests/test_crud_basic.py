@@ -816,6 +816,56 @@ class TestCrud(test_case.ApiServerTestCase):
                    vmi.del_virtual_machine_interface(vmi)
     # end test_allowed_address_pair_prefix_len
 
+    def test_show_allowed_address_pair_with_leading_spaces(self):
+       """ This test case compares AAP addresses present in DB and API-server
+           based on leading white spaces and throws an exception if there is
+           a mismatch
+           JIRA TICKET:CEM-14035
+       """
+       proj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+       vn = VirtualNetwork()
+       ip_address = '10.10.10.1'
+       expected_address = '    10.10.10.1'
+       prefix = 24
+       vmi = VirtualMachineInterface('vmi-%s-' % prefix +self.id(), parent_obj=proj)
+       print('Validating with ip (%s) and prefix (%s)' % (ip_address, prefix))
+       aap = AllowedAddressPair(ip=SubnetType(ip_address, prefix), address_mode='active-standby')
+       aaps = AllowedAddressPairs()
+       aaps.allowed_address_pair.append(aap)
+       vmi.set_virtual_machine_interface_allowed_address_pairs(aaps)
+       vmi.add_virtual_network(vn)
+       self._vnc_lib.virtual_machine_interface_create(vmi)
+       # read vmi
+       ok, vmi_list = self._api_server._db_conn._object_db.object_read(
+           'virtual-machine-interface', [vmi.uuid])
+       vmi_dict = vmi_list[0]
+
+       # manipulate AAP of the VMI with space in the DB
+       vmi_aap = vmi_dict['virtual_machine_interface_allowed_address_pairs']
+       vmi_aap['allowed_address_pair'][0]['ip']['ip_prefix'] = (
+           expected_address)
+       self._api_server._db_conn._object_db.object_update(
+           'virtual-machine-interface', vmi.uuid, vmi_dict)
+
+       # reading at DB to ensure DB update was successful
+       ok, vmi_list2 = self._api_server._db_conn._object_db.object_read(
+           'virtual-machine-interface', [vmi.uuid])
+       vmi_dict2 = vmi_list2[0]
+       vmi_aap2 = vmi_dict2['virtual_machine_interface_allowed_address_pairs']
+       assert vmi_aap2['allowed_address_pair'][0]['ip']['ip_prefix'] == (
+           expected_address)
+
+       # reading at API-server to ensure read is successful
+       vmiobj_re = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
+       aap_read = vmiobj_re.virtual_machine_interface_allowed_address_pairs
+       api_aap_ip_prefix = aap_read.allowed_address_pair[0].ip.ip_prefix
+       assert api_aap_ip_prefix == expected_address, \
+           ("AAP IP prefix read from Api server (%s) "
+            "do not match expected (%s)" % (
+                api_aap_ip_prefix, expected_address))
+
+    # end test_show_allowed_address_pair_with_leading_spaces
+
     def test_allowed_address_pair_with_leading_spaces(self):
        """ This test case checks for leading white spaces in the IP address
            and throws an exception if present
