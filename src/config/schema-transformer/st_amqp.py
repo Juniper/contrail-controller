@@ -15,10 +15,10 @@ from schema_transformer.sandesh.traces.ttypes import MessageBusNotifyTrace,\
 
 class STAmqpHandle(VncAmqpHandle):
 
-    def __init__(self, logger, reaction_map, args):
+    def __init__(self, logger, reaction_map, args, timer_obj=None):
         q_name_prefix = 'schema_transformer'
         super(STAmqpHandle, self).__init__(logger, DBBaseST, reaction_map,
-                q_name_prefix, args=args)
+                q_name_prefix, args=args, timer_obj=timer_obj)
 
     def create_msgbus_trace(self, request_id, oper, uuid):
         self.msg_tracer = MessageBusNotifyTrace(request_id=request_id,

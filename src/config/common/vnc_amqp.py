@@ -11,13 +11,15 @@ from cfgm_common.dependency_tracker import DependencyTracker
 
 class VncAmqpHandle(object):
 
-    def __init__(self, logger, db_cls, reaction_map, q_name_prefix, args=None):
+    def __init__(self, logger, db_cls, reaction_map, q_name_prefix, args=None,
+            timer_obj=None):
         self.logger = logger
         self.db_cls = db_cls
         self.reaction_map = reaction_map
         self.q_name_prefix = q_name_prefix
         self._db_resync_done = gevent.event.Event()
         self._args = args
+        self.timer = timer_obj
 
     def establish(self):
         q_name = '.'.join([self.q_name_prefix, socket.gethostname()])
@@ -185,6 +187,10 @@ class VncAmqpHandle(object):
 
         self.init_msgbus_fq_name()
         self.init_msgbus_dtr()
+
+        evaluate_kwargs = {}
+        if self.timer and self.timer.yield_in_evaluate:
+            evaluate_kwargs['timer'] = self.timer
 
         for res_type, res_id_list in self.dependency_tracker.resources.items():
             if not res_id_list:
