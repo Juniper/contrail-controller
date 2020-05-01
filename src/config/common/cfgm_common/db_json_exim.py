@@ -119,10 +119,22 @@ class DatabaseExim(object):
                 reset_config=False,
                 ssl_enabled=self._api_args.cassandra_use_ssl,
                 ca_certs=self._api_args.cassandra_ca_certs)
+
+    def _cassa_get_range(self, cf_name, column_count):
         try:
-            self._get_cf = self._cassandra._cassandra_driver.get_cf
+            return self._cassandra._cassandra_driver.get_range(
+                cf_name=cf_name, column_count=column_count)
         except AttributeError:  # backward conpat before R2002
-            self._get_cf = self._cassandra.get_cf
+            return self._cassandra.get_cf(cf_name).get_range(
+                column_count=column_count)
+
+    def _cassa_insert(self, cf_name, key, columns):
+        try:
+            self._cassandra._cassandra_driver.insert(
+                cf_name=cf_name, key=key, columns=columns)
+        except AttributeError:  # backward conpat before R2002
+            self._cassandra.get_cf(cf_name).insert(
+                key, columns)
 
     def log(self, msg, level):
         logger.debug(msg)
@@ -194,7 +206,7 @@ class DatabaseExim(object):
         non_empty_errors = []
         for ks in list(self.import_data['cassandra'].keys()):
             for cf in list(self.import_data['cassandra'][ks].keys()):
-                if len(list(self._get_cf(cf).get_range(column_count=1))) > 0:
+                if len(list(self._cassa_get_range(cf, column_count=1))) > 0:
                     non_empty_errors.append(
                         'Keyspace %s CF %s already has entries.' %(ks, cf))
 
@@ -217,10 +229,9 @@ class DatabaseExim(object):
         # seed cassandra
         for ks_name in list(self.import_data['cassandra'].keys()):
             for cf_name in list(self.import_data['cassandra'][ks_name].keys()):
-                cf = self._get_cf(cf_name)
                 for row,cols in list(self.import_data['cassandra'][ks_name][cf_name].items()):
                     for col_name, col_val_ts in list(cols.items()):
-                        cf.insert(row, {col_name: col_val_ts[0]})
+                        self._cassa_insert(cf_name, row, {col_name: col_val_ts[0]})
         logger.info("Cassandra DB restored")
 
         # seed zookeeper
