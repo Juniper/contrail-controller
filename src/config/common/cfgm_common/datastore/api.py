@@ -151,6 +151,22 @@ class API(Trace):
         self._init_cluster()
 
     @abc.abstractmethod
+    def _Column_Families(self, keyspace, prefixed=False):
+        pass
+
+    def column_families(self, keyspace, prefixed=False):
+        """Returns list of CFs for a keyspace."""
+        return self._Column_Families(keyspace, prefixed)
+
+    @abc.abstractmethod
+    def _Create_Session(self, keyspace, cf_name, **cf_args):
+        pass
+
+    def create_session(self, keyspace, cf_name, **cf_args):
+        """Creates session for a given CF"""
+        return self._Create_Session(keyspace, cf_name, **cf_args)
+
+    @abc.abstractmethod
     def _Init_Cluster(self):
         pass
 
@@ -168,14 +184,15 @@ class API(Trace):
         return self._Get_CF_Batch(cf_name=cf_name, keyspace_name=keyspace_name)
 
     @abc.abstractmethod
-    def _Get_Range(self, cf_name, columns=None, column_count=100000):
+    def _Get_Range(self, cf_name, columns=None, column_count=100000, include_timestamp=False):
         pass
 
     @Trace.trace
-    def get_range(self, cf_name, columns=None, column_count=100000):
+    def get_range(self, cf_name, columns=None, column_count=100000, include_timestamp=False):
         """List all column family rows"""
         return self._Get_Range(
-            cf_name=cf_name, columns=columns, column_count=column_count)
+            cf_name=cf_name, columns=columns, column_count=column_count,
+            include_timestamp=include_timestamp)
 
     @abc.abstractmethod
     def _Multiget(self, cf_name, keys, columns=None, start='', finish='',

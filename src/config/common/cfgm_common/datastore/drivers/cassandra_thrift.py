@@ -100,6 +100,11 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         self._cassandra_init_conn_pools()
     # end _cassandra_init
 
+    def _Column_Families(self, keyspace, prefixed=False):
+        if not prefixed:
+            keyspace = self.keyspace(keyspace)
+        return self.sys_mgr.get_keyspace_column_families(keyspace).keys()
+
     def _cassandra_system_manager(self):
         # Retry till cassandra is up
         server_idx = 0
@@ -181,10 +186,12 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
     def _cassandra_init_conn_pools(self):
         socket_factory = self._make_socket_factory()
+
+        self._pools = {}
         for ks, cf_dict in itertools.chain(list(self.options.rw_keyspaces.items()),
                                            list(self.options.ro_keyspaces.items())):
             keyspace = self.keyspace(ks)
-            pool = pycassa.ConnectionPool(
+            self._pools[keyspace] = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
                 prefill=True, pool_size=self.pool_size(), pool_timeout=120,
                 max_retries=15, timeout=5, credentials=self.options.credential,
@@ -192,18 +199,21 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
             for cf_name in cf_dict:
                 cf_kwargs = cf_dict[cf_name].get('cf_args', {})
-                self._cf_dict[cf_name] = pycassa.ColumnFamily(
-                    pool,
-                    cf_name,
-                    read_consistency_level=pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM,
-                    write_consistency_level=pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM,
-                    dict_class=dict,
-                    **cf_kwargs)
+                self.create_session(keyspace, cf_name, **cf_kwargs)
 
         self.report_status_up()
         msg = 'Cassandra connection ESTABLISHED'
         self.options.logger(msg, level=SandeshLevel.SYS_NOTICE)
     # end _cassandra_init_conn_pools
+
+    def _Create_Session(self, keyspace, cf_name, **cf_args):
+        self._cf_dict[cf_name] = pycassa.ColumnFamily(
+            self._pools[keyspace],
+            cf_name,
+            read_consistency_level=pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM,
+            write_consistency_level=pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM,
+            dict_class=dict,
+            **cf_args)
 
     def _handle_exceptions(self, func, oper=None):
         def wrapper(*args, **kwargs):
@@ -243,11 +253,12 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
     def get_cf(self, cf_name):
         return self._cf_dict.get(cf_name)
 
-    def _Get_Range(self, cf_name, columns=None, column_count=100000):
+    def _Get_Range(self, cf_name, columns=None, column_count=100000, include_timestamp=False):
         try:
             return self.get_cf(cf_name).get_range(
                 column_count=column_count,
-                columns=columns)
+                columns=columns,
+                include_timestamp=include_timestamp)
         except:
             return None
 
