@@ -140,9 +140,41 @@ class SchemaTransformer(object):
         }
     }
 
+    class STtimer:
+        def __init__(self, logger, zk_timeout,
+                     yield_in_evaluate=False,
+                     print_stats=False):
+            self.timeout = time.time()
+            self.max_time = zk_timeout / 6
+            if self.max_time < 60:
+                self.max_time = 60
+            self.total_yield_stats = 0
+            self.yield_in_evaluate = yield_in_evaluate
+            self.total_yield_in_evaluate_stats = 0
+            self.print_stats = print_stats
+            self.logger =logger
+        #
+        # Sleep if we are continuously running without yielding
+        #
+        def timed_yield(self,is_evaluate_yield=False):
+            now = time.time()
+            if now > self.timeout:
+                gevent.sleep(0.5)
+                self.timeout = time.time() + self.max_time
+                if self.print_stats:
+                    self.total_yield_stats += 1
+                    print "Yielded at: %s, Total yields: %s" % (now, self.total_yield_stats)
+                    if is_evaluate_yield:
+                        self.total_yield_in_evaluate_stats += 1
+                        print "Yielded at: %s, Total yields in evaluate: %s" %  (now, self.total_yield_in_evaluate_stats)
+        # end timed_yield
+
+
     def __init__(self, st_logger=None, args=None):
         self._args = args
         self._fabric_rt_inst_obj = None
+        self.timer_obj = self.STtimer(st_logger, self._args.zk_timeout,self._args.yield_in_evaluate,
+                                      print_stats=False) # print_stats: True for debugging
 
         if st_logger is not None:
             self.logger = st_logger
@@ -168,7 +200,7 @@ class SchemaTransformer(object):
 
         # Initialize amqp
         self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args)
+                                      self._args, timer_obj=self.timer_obj)
         self._vnc_amqp.establish()
         try:
             # Initialize cassandra
@@ -228,6 +260,7 @@ class SchemaTransformer(object):
                     self.logger.error(
                         "Error while deleting routing instance %s: %s"%(
                         ri.get_fq_name_str(), str(e)))
+            self.timer_obj.timed_yield()
         # end for ri
 
         sg_list = list(SecurityGroupST.list_vnc_obj())
@@ -257,12 +290,14 @@ class SchemaTransformer(object):
                 except Exception as e:
                     self.logger.error("Error while deleting acl %s: %s"%(
                             acl.uuid, str(e)))
+            self.timer_obj.timed_yield()
         # end for acl
 
         gevent.sleep(0.001)
         for sg in sg_list:
             try:
                 SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
+                self.timer_obj.timed_yield()
             except Exception as e:
                 self.logger.error("Error in reinit security-group %s: %s" % (
                     sg.get_fq_name_str(), str(e)))
@@ -272,6 +307,7 @@ class SchemaTransformer(object):
         for sg in SecurityGroupST.values():
             try:
                 sg.update_policy_entries()
+                self.timer_obj.timed_yield()
             except Exception as e:
                 self.logger.error("Error in updating SG policies %s: %s" % (
                     sg.name, str(e)))
@@ -342,9 +378,13 @@ class SchemaTransformer(object):
 
         # evaluate virtual network objects first because other objects,
         # e.g. vmi, depend on it.
+        evaluate_kwargs = {}
+        if self.timer_obj.yield_in_evaluate:
+            evaluate_kwargs['timer'] = self.timer_obj
         for vn_obj in VirtualNetworkST.values():
             try:
-                vn_obj.evaluate()
+                vn_obj.evaluate(**evaluate_kwargs)
+                self.timer_obj.timed_yield()
             except Exception as e:
                 self.logger.error("Error in reinit evaluate virtual network %s: %s" % (
                     vn_obj.name, str(e)))
@@ -353,7 +393,8 @@ class SchemaTransformer(object):
                 continue
             for obj in cls.values():
                 try:
-                    obj.evaluate()
+                    obj.evaluate(**evaluate_kwargs)
+                    self.timer_obj.timed_yield()
                 except Exception as e:
                     self.logger.error("Error in reinit evaluate %s %s: %s" % (
                         cls.obj_type, obj.name, str(e)))
@@ -432,8 +473,9 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
-        'zk_timeout': 400,
+        'zk_timeout': 120,
         'logical_routers_enabled': True,
+        'yield_in_evaluate': False,
         'acl_direction_comp': False,
     }
     secopts = {
@@ -569,6 +611,8 @@ def parse_args(args_str):
                         help="End port for bgp-as-a-service proxy")
     parser.add_argument("--zk_timeout", type=int,
                         help="Timeout for ZookeeperClient")
+    parser.add_argument("--yield_in_evaluate", type=_bool,
+                        help="Yield for other greenlets during evaluate")
     parser.add_argument("--logical_routers_enabled", type=_bool,
                         help="Enabled logical routers")
     parser.add_argument("--acl_direction_comp", type=_bool,
