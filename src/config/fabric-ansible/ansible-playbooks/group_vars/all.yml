@@ -129,26 +129,38 @@ role_to_feature_mapping:
     - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
   DC-Gateway@spine:
     - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
   DCI-Gateway@leaf:
     - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
   DCI-Gateway@spine:
     - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
   CRB-MCAST-Gateway@leaf:
     - overlay_evpn
     - overlay_evpn_access
