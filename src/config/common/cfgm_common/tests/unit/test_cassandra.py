@@ -21,7 +21,7 @@ class FakeDriver(datastore_api.CassandraDriver):
     def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         pass
 
-    def _Get_Range(self, cf_name, columns=None, column_count=100000):
+    def _Get_Range(self, cf_name, columns=None, column_count=100000, include_timetamps=False):
         pass
 
     def _Multiget(self, cf_name, keys, columns=None, start='', finish='',
@@ -50,6 +50,12 @@ class FakeDriver(datastore_api.CassandraDriver):
         pass
 
     def _Init_Cluster(self):
+        pass
+
+    def _Column_Families(self, keyspace, prefixed=False):
+        pass
+
+    def _Create_Session(self, cf_name, **cf_args):
         pass
 
 
@@ -273,7 +279,7 @@ class TestCassandraDriverThrift(unittest.TestCase):
             datastore_api.OBJ_UUID_CF_NAME, columns=['type', 'fq_name'])
         self.drv._cf_dict[
             datastore_api.OBJ_UUID_CF_NAME].get_range.assert_called_once_with(
-                column_count=100000, columns=['type', 'fq_name'])
+                column_count=100000, columns=['type', 'fq_name'], include_timestamp=False)
 
     def test_remove(self):
         self.drv.remove(
