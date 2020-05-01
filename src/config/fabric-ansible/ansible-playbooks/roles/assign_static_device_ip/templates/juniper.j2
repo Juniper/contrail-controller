@@ -42,5 +42,6 @@ interfaces {
 routing-options {
     static {
         route {{ subnet.cidr }} next-hop {{ subnet.gateway }};
+        route {{ subnet.intf_subnet }} next-hop {{ subnet.gateway }};
     }
 }

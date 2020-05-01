@@ -16,6 +16,7 @@ from vnc_api.vnc_api import VncApi
 from job_manager.job_utils import JobVncApi
 from netifaces import interfaces, ifaddresses, AF_INET
 from pyroute2 import IPRoute
+from netaddr import IPNetwork
 
 class FilterModule(object):
 
@@ -99,9 +100,13 @@ class FilterModule(object):
                 for subnet in dhcp_config['ipam_subnets']:
                     intf_ip, intf_name = cls.get_host_ip_and_name(subnet)
                     if intf_ip and intf_name:
-                        subnet.update({'intf_ip':intf_ip})
-                        subnet.update({'intf_name':intf_name})
-
+                        subnet.update({'intf_ip': intf_ip})
+                        subnet.update({'intf_name': intf_name})
+                    cidr = subnet['subnet']['ip_prefix'] +\
+                            "/" + str(subnet['subnet']['ip_prefix_len'])
+                    ip = IPNetwork(cidr)
+                    if len(ip) > 0:
+                        subnet.update({'name': str(ip.ip).replace('.','')})
             # Get static ip configuration for physical routers
             pr_refs = fabric.get_physical_router_back_refs() or []
             pr_uuids = [ref['uuid'] for ref in pr_refs]
