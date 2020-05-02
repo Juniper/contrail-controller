@@ -1,3 +1,4 @@
+{%     set ns = namespace(fip_accept_term = false, ipv4 = false, ipv6 = false) %}
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set ri_vn_mode = ri.get('virtual_network_mode') %}
 {%         if (ri_vn_mode == 'l2') or ('l2' in ri.get('name', '')) %}
@@ -8,6 +9,12 @@
 {%             set contrail_l3_ri = ri.get('description', '')[:127] %}
 {%         endif %}
 {%         set intfs = ri.get('interfaces', []) %}
+{%         for intf in intfs %}
+{%             set name = intf.get('name') %}
+{%             if 'irb' not in name %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{name}}
+{%             endif %}
+{%         endfor %}
 {%         set ri_type = ri.get('routing_instance_type') %}
 {%         for intf in ri.get('ingress_interfaces', []) %}
 {%             set intf_name = intf.get('name') %}
@@ -62,7 +69,14 @@ set groups {{cfg_group}} services nat rule {{rule.get('name')}} match-direction 
 {%                     set cidr = source_addr.get('prefix') + '/' + source_addr.get('prefix_len')|string %}
 set groups {{cfg_group}} services nat rule {{rule.name}} term {{term_name}} from source-address {{cidr}}
 {%                     set cidr = source_prefix.get('prefix') + '/' + source_prefix.get('prefix_len')|string %}
+{%                     set ns.fip_accept_term = true %}
+{%                     if ':' in cidr %}
+{%                         set ns.ipv6 = true %}
+{%                     else %}
+{%                         set ns.ipv4 = true %}
+{%                     endif %}
 set groups {{cfg_group}} services nat rule {{rule.get('name')}} term {{term_name}} then translated source-prefix {{cidr}}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term bms_term from destination-address {{cidr}}
 set groups {{cfg_group}} services nat rule {{rule.get('name')}} term {{term_name}} then translated translation-type {{rule.get('translation_type')}}
 {%                 endfor %}
 {%                 set dst_addrs = rule.get('destination_addresses', []) %}
@@ -143,3 +157,11 @@ set groups {{cfg_group}} interfaces irb unit {{irb_unit}} family {{irb_family}} 
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
+{%     if ns.fip_accept_term == true %}
+{%         if ns.ipv4 == true %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term bms_term then accept
+{%         endif %}
+{%         if ns.ipv6 == true %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term bms_term then accept
+{%         endif %}
+{%     endif %}
