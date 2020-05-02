@@ -1,4 +1,5 @@
 attrdict
+cassandra-driver==3.23.0
 contrail-config-common
 contrail-api-client
 sandesh==0.1dev
