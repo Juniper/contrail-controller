@@ -38,7 +38,6 @@ class SecurityGroupFeature(FeatureBase):
 
     def _build_l2_evpn_interface_config(self, interfaces, vn):
         ifd_map = {}
-        # vpg_map = {}
         for interface in interfaces:
             ifd_map.setdefault(interface.pi_name, []).append(interface)
 
@@ -51,7 +50,7 @@ class SecurityGroupFeature(FeatureBase):
                     pi_name)
                 continue
             tagged = [int(i.vlan_tag) for i in interface_list
-                      if int(i.vlan_tag) == 0]
+                      if int(i.vlan_tag) != 0]
             if self._is_enterprise_style():
                 if len(untagged) > 0 and len(tagged) > 0:
                     self._logger.error(
@@ -66,9 +65,6 @@ class SecurityGroupFeature(FeatureBase):
                     pi_name)
                 continue
             pi, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
-            # lag = LinkAggrGroup(description="Virtual Port Group : %s" %
-            #                                 vpg_map[pi_name])
-            # pi.set_link_aggregation_group(lag)
             for interface in interface_list:
                 if int(interface.vlan_tag) == 0:
                     is_tagged = False
