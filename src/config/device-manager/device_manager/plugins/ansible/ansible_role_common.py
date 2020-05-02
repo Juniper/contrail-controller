@@ -276,7 +276,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
 
         if (is_internal_vn and not is_master_int_vn) or router_external:
-            if not lr:
+            if not lr and is_internal_vn:
                 lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
                                         ri_name)
                 if lr_uuid:
