@@ -2421,9 +2421,48 @@ class FilterModule(object):
             vnc_api, fabric_fq_name, role_assignments
         )
 
-        self._validate_ucast_mcast_role_exclusive(role_assignments)
+        self._validate_ucast_with_other_roles(role_assignments)
     # end _validate_role_assignments
 
+    @staticmethod
+    def _validate_ucast_with_other_roles(role_assignments):
+        """Validate ucast mcast, crb/dc/dci-gw and pnf roles exclusive.
+
+        This method validates UCAST and a set of other roles are not assigned
+        to the same device
+        """
+        for device_roles in role_assignments:
+            device_obj = device_roles.get('device_obj')
+            rb_roles = list(device_roles.get('routing_bridging_roles', []))
+
+            has_ucast_role = has_mcast_role = has_pnf_role = \
+                has_crb_gw_role = has_dc_gw_role = has_dci_gw_role = False
+
+            for r in rb_roles:
+                if 'ucast' in r.lower():
+                    has_ucast_role = True
+                elif 'mcast' in r.lower():
+                    has_mcast_role = True
+                elif 'pnf' in r.lower():
+                    has_pnf_role = True
+                elif 'crb-gateway' in r.lower():
+                    has_crb_gw_role = True
+                elif 'dc-gateway' in r.lower():
+                    has_dc_gw_role = True
+                elif 'dci-gateway' in r.lower():
+                    has_dci_gw_role = True
+
+            if has_ucast_role and (has_mcast_role or has_pnf_role
+                                   or has_crb_gw_role or has_dc_gw_role
+                                   or has_dci_gw_role):
+                err_msg = 'Cannot configure a ERB-UCAST-Gateway role ' \
+                          'along with the following roles: ' \
+                          '[CRB-Gateway, CRB-MCAST-gateway, DCI-Gateway, ' \
+                          'DC-Gateway, PNF-Servicechain] to the ' \
+                          'same device: %s' % device_obj.get_fq_name()[-1]
+                raise ValueError(err_msg)
+
+    # end _validate_ucast_with_other_roles
     @staticmethod
     def _validate_against_supported_roles(role_assignments):
         """Validate against supported roles.
@@ -2526,29 +2565,6 @@ class FilterModule(object):
                 'device and retry the role assignment' % str(ex)
             )
     # end _validate_rr_role_assigned
-
-    def _validate_ucast_mcast_role_exclusive(self, role_assignments):
-        """Validate ucast mcast role exclusive.
-
-        This method validates that both UCAST and MCAST roles are not assigned
-        to the same device
-        """
-        for device_roles in role_assignments:
-            device_obj = device_roles.get('device_obj')
-            rb_roles = list(device_roles.get('routing_bridging_roles', []))
-            if device_obj.get_routing_bridging_roles():
-                assigned_roles = device_obj.get_routing_bridging_roles().\
-                    get_rb_roles() or []
-                rb_roles += assigned_roles
-
-            has_ucast_role = any('ucast' in r.lower() for r in rb_roles)
-            has_mcast_role = any('mcast' in r.lower() for r in rb_roles)
-
-            if has_ucast_role and has_mcast_role:
-                raise ValueError('Cannot assign a UCAST role and a MCAST role '
-                                 'to the same device: %s' %
-                                 device_obj.get_fq_name()[-1])
-    # end _validate_ucast_mcast_role_exclusive
 
     def _validate_fabric_rr_role_assigned(
             self, vnc_api, fabric_fq_name,
