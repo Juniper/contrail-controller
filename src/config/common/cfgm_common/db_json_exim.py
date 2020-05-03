@@ -29,9 +29,15 @@ import json
 import cgitb
 import gevent
 
+from pycassa.connection import default_socket_factory
+from pycassa import ConnectionPool
+from pycassa import ColumnFamily
+from pycassa.system_manager import SystemManager
+from pycassa import NotFoundException
 import kazoo.client
 import kazoo.handlers.gevent
 import kazoo.exceptions
+from thrift.transport import TSSLSocket
 import ssl
 
 from cfgm_common.vnc_cassandra import VncCassandraClient
@@ -51,8 +57,7 @@ KEYSPACES = ['config_db_uuid',
             'useragent',
             'to_bgp_keyspace',
             'svc_monitor_keyspace',
-            'dm_keyspace',
-]
+            'dm_keyspace']
 
 
 class LongIntEncoder(json.JSONEncoder):
@@ -99,25 +104,36 @@ class DatabaseExim(object):
         self._zookeeper.start()
     # end __init__
 
-    def init_cassandra(self, server_list, rw_keyspaces=None, ro_keyspaces=None):
+    def init_cassandra(self, ks_cf_info=None):
         ssl_enabled = (self._api_args.cassandra_use_ssl
                        if 'cassandra_use_ssl' in self._api_args else False)
-        credential = None
-        if self._api_args.cassandra_user and self._api_args.cassandra_password:
-            credential = {'username': self._api_args.cassandra_user,
-                          'password': self._api_args.cassandra_password}
-
-        self._cassandra = VncCassandraClient(
-            server_list,
-            db_prefix=self._api_args.cluster_id,
-            rw_keyspaces=rw_keyspaces,
-            ro_keyspaces=ro_keyspaces,
-            logger=self.log,
-            reset_config=False,
-            ssl_enabled=self._api_args.cassandra_use_ssl,
-            ca_certs=self._api_args.cassandra_ca_certs,
-            credential=credential,
-            walk=False)
+        try:
+            self._cassandra = VncCassandraClient(
+                self._api_args.cassandra_server_list,
+                db_prefix=self._api_args.cluster_id,
+                rw_keyspaces=ks_cf_info,
+                ro_keyspaces=None,
+                logger=self.log,
+                reset_config=False,
+                ssl_enabled=self._api_args.cassandra_use_ssl,
+                ca_certs=self._api_args.cassandra_ca_certs)
+        except NotFoundException:
+            # in certain  multi-node setup, keyspace/CF are not ready yet when
+            # we connect to them, retry later
+            gevent.sleep(20)
+            self._cassandra = VncCassandraClient(
+                self._api_args.cassandra_server_list,
+                db_prefix=self._api_args.cluster_id,
+                rw_keyspaces=ks_cf_info,
+                ro_keyspaces=None,
+                logger=self.log,
+                reset_config=False,
+                ssl_enabled=self._api_args.cassandra_use_ssl,
+                ca_certs=self._api_args.cassandra_ca_certs)
+        try:
+            self._get_cf = self._cassandra._cassandra_driver.get_cf
+        except AttributeError:  # backward conpat before R2002
+            self._get_cf = self._cassandra.get_cf
 
     def log(self, msg, level):
         logger.debug(msg)
@@ -156,8 +172,8 @@ class DatabaseExim(object):
         # ImportError happens when executing unittests for cfgm_common
         # but none of the tests really need it.
 
-        self._api_args = utils.parse_args('-c {} {}'.format(
-            self._args.api_conf, ' '.join(remaining_argv)))[0]
+        self._api_args = utils.parse_args('-c %s %s'
+            %(self._args.api_conf, ' '.join(remaining_argv)))[0]
         logformat = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
         stdout = logging.StreamHandler(sys.stdout)
         stdout.setFormatter(logformat)
@@ -166,7 +182,7 @@ class DatabaseExim(object):
 
         if args_obj.import_from is not None and args_obj.export_to is not None:
             raise InvalidArguments(
-                'Both --import-from and --export-to cannot be specified {}'.format(
+                'Both --import-from and --export-to cannot be specified %s' %(
                 args_obj))
 
     def db_import(self):
@@ -183,16 +199,15 @@ class DatabaseExim(object):
 
         ks_cf_info = dict((ks, dict((c, {}) for c in list(cf.keys())))
             for ks,cf in list(self.import_data['cassandra'].items()))
-        self.init_cassandra(self._api_args.cassandra_server_list, rw_keyspaces=ks_cf_info)
-        driver = self._cassandra._cassandra_driver
+        self.init_cassandra(ks_cf_info)
 
         # refuse import if db already has data
         non_empty_errors = []
         for ks in list(self.import_data['cassandra'].keys()):
             for cf in list(self.import_data['cassandra'][ks].keys()):
-                if len(list(driver.get_range(cf, column_count=1))) > 0:
+                if len(list(self._get_cf(cf).get_range(column_count=1))) > 0:
                     non_empty_errors.append(
-                        'Keyspace {} CF {} already has entries.'.format(ks, cf))
+                        'Keyspace %s CF %s already has entries.' %(ks, cf))
 
         if non_empty_errors:
             raise CassandraNotEmptyError('\n'.join(non_empty_errors))
@@ -205,7 +220,7 @@ class DatabaseExim(object):
 
         for non_empty in existing_zk_dirs & import_zk_dirs - self._zk_ignore_list:
             non_empty_errors.append(
-                'Zookeeper has entries at /{}.'.format(non_empty))
+                'Zookeeper has entries at /%s.' %(non_empty))
 
         if non_empty_errors:
             raise ZookeeperNotEmptyError('\n'.join(non_empty_errors))
@@ -213,9 +228,10 @@ class DatabaseExim(object):
         # seed cassandra
         for ks_name in list(self.import_data['cassandra'].keys()):
             for cf_name in list(self.import_data['cassandra'][ks_name].keys()):
+                cf = self._get_cf(cf_name)
                 for row,cols in list(self.import_data['cassandra'][ks_name][cf_name].items()):
                     for col_name, col_val_ts in list(cols.items()):
-                        driver.insert(cf_name=cf_name, key=row, columns={col_name: col_val_ts[0]})
+                        cf.insert(row, {col_name: col_val_ts[0]})
         logger.info("Cassandra DB restored")
 
         # seed zookeeper
@@ -229,30 +245,51 @@ class DatabaseExim(object):
             self._zookeeper.create(path, native_str(value), makepath=True)
         logger.info("Zookeeper DB restored")
 
+    def _make_ssl_socket_factory(self, ca_certs, validate=True):
+        # copy method from pycassa library because no other method
+        # to override ssl version
+        def ssl_socket_factory(host, port):
+            TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
+            return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
+        return ssl_socket_factory
+
     def db_export(self):
         db_contents = {'cassandra': {},
                        'zookeeper': {}}
 
         cassandra_contents = db_contents['cassandra']
-
-        ro_keyspaces = {}
+        creds = None
+        if self._api_args.cassandra_user and self._api_args.cassandra_password:
+            creds = {'username': self._api_args.cassandra_user,
+                     'password': self._api_args.cassandra_password}
+        socket_factory = default_socket_factory
+        if ('cassandra_use_ssl' in self._api_args and
+                self._api_args.cassandra_use_ssl):
+            socket_factory = self._make_ssl_socket_factory(
+                self._api_args.cassandra_ca_certs, validate=False)
+        sys_mgr = SystemManager(
+            self._api_args.cassandra_server_list[0],
+            credentials=creds,
+            socket_factory=socket_factory)
+        existing_keyspaces = sys_mgr.list_keyspaces()
         for ks_name in set(KEYSPACES) - set(self._args.omit_keyspaces or []):
-            ro_keyspaces[ks_name] = {}
-
-        self.init_cassandra([self._api_args.cassandra_server_list[0]], ro_keyspaces=ro_keyspaces)
-
-        driver = self._cassandra._cassandra_driver
-        for ks_name in ro_keyspaces:
-            full_ks_name = driver.keyspace(ks_name)
-
+            if self._api_args.cluster_id:
+                full_ks_name = '%s_%s' %(self._api_args.cluster_id, ks_name)
+            else:
+                full_ks_name = ks_name
+            if full_ks_name not in existing_keyspaces:
+                continue
             cassandra_contents[ks_name] = {}
-            for cf_name in driver.column_families(ks_name):
-                driver.create_session(
-                    full_ks_name, cf_name, buffer_size=self._args.buffer_size)
 
+            pool = ConnectionPool(
+                full_ks_name, self._api_args.cassandra_server_list,
+                pool_timeout=120, max_retries=-1, timeout=5,
+                socket_factory=socket_factory, credentials=creds)
+            for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
                 cassandra_contents[ks_name][cf_name] = {}
-                for r, c in driver.get_range(
-                        cf_name=cf_name, column_count=10000000, include_timestamp=True):
+                cf = ColumnFamily(pool, cf_name,
+                                  buffer_size=self._args.buffer_size)
+                for r,c in cf.get_range(column_count=10000000, include_timestamp=True):
                     cassandra_contents[ks_name][cf_name][r] = c
         logger.info("Cassandra DB dumped")
 
@@ -268,7 +305,7 @@ class DatabaseExim(object):
 
             nodes = []
             for child in zk.get_children(path):
-                nodes.extend(get_nodes('{}{}/'.format(path, child)))
+                nodes.extend(get_nodes('%s%s/' %(path, child)))
 
             return nodes
 
@@ -284,7 +321,7 @@ class DatabaseExim(object):
             f.write(json.dumps(db_contents, cls=LongIntEncoder))
         finally:
             f.close()
-        logger.info("DB dump wrote to file {}".format(self._args.export_to))
+        logger.info("DB dump wrote to file %s" % self._args.export_to)
     # end db_export
 # end class DatabaseExim
 
