@@ -2,13 +2,21 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import setuptools
+import re
+from setuptools import setup, find_packages
 
 
-setuptools.setup(
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    c = re.compile(r'\s*#.*')
+    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
+
+
+setup(
     name='kube_manager',
     version='0.1dev',
-    packages=setuptools.find_packages(),
+    packages=find_packages(),
     package_data={'': ['*.html', '*.css', '*.xml', '*.yml']},
 
     # metadata
@@ -21,7 +29,8 @@ setuptools.setup(
 
     test_suite='kube_manager.tests',
 
-    install_requires=['future', 'six'],
+    install_requires=requirements('requirements.txt'),
+    tests_require=requirements('test-requirements.txt'),
 
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change

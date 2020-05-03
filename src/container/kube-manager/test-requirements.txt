@@ -24,6 +24,6 @@ pyaml
 keystonemiddleware!=4.19.0
 pyOpenSSL
 vine==1.1.3
-../../config/schema-transformer
-../../../noarch/config/svc-monitor
+schema-transformer
+svc-monitor
 pycrypto
