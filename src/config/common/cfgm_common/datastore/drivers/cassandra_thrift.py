@@ -240,9 +240,6 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         """Get batch object bind to a column family used in insert/remove"""
         return self.get_cf(cf_name).batch()
 
-    def get_cf(self, cf_name):
-        return self._cf_dict.get(cf_name)
-
     def _Get_Range(self, cf_name, columns=None, column_count=100000):
         try:
             return self.get_cf(cf_name).get_range(
