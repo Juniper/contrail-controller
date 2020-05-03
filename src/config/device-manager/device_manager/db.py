@@ -1405,6 +1405,7 @@ class PhysicalRouterDM(DBBaseDM):
 
     def _set_routed_vn_static_route_info(self, ri, vn_obj, routed_param):
         static_route = routed_param.get('static_route_params', None)
+        bfd_info = routed_param.get('bfd_params', None)
         if static_route is None:
             return
         irt_uuid = static_route.get('interface_route_table_uuid', None)
@@ -1419,6 +1420,12 @@ class PhysicalRouterDM(DBBaseDM):
                 prefix=ip, prefix_len=32,
                 next_hop=static_route.get('next_hop_ip_address')[-1],
                 comment='Routed VN static route')
+            if bfd_info:
+                bfd = AbstractDevXsd.Bfd(
+                    rx_tx_interval=bfd_info.get('time_interval'),
+                    detection_time_multiplier=bfd_info.get(
+                        'detection_time_multiplier'))
+                route.set_bfd(bfd)
             ri.add_static_routes(route)
     # end set_routed_vn_static_route_info
 
