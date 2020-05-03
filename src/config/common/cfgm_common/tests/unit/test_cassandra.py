@@ -288,3 +288,8 @@ class TestCassandraDriverThrift(unittest.TestCase):
         self.drv._cf_dict[
             cassa_api.OBJ_FQ_NAME_CF_NAME].insert.assert_called_once_with(
                 '<uuid>', ['fq_name'])
+
+    def test_get_cf(self):
+        self.assertEqual(
+            self.drv._cf_dict[cassa_api.OBJ_FQ_NAME_CF_NAME],
+            self.drv.get_cf(cassa_api.OBJ_FQ_NAME_CF_NAME))

@@ -302,3 +302,7 @@ class CassandraDriver(API):
                                server_addrs=self._server_list)
         # Keeps trace of the current status.
         self._conn_state = status
+
+    def get_cf(self, cf_name):
+        """Returns table/CF context based on name."""
+        return self._cf_dict.get(cf_name)
