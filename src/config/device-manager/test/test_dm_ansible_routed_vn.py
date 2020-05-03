@@ -102,6 +102,12 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             ri_prefix = ri.get('prefix')
             self.assertIn(ri_prefix, irt_prefixs_cpy)
             irt_prefixs_cpy.remove(ri_prefix)
+            #validate BFD
+            bfd = ri.get('bfd', None)
+            self.assertIsNotNone(bfd)
+            self.assertEqual(bfd.get('rx_tx_interval'), 10)
+            self.assertEqual(bfd.get('detection_time_multiplier'), 4)
+
     # end _verify_abstract_config_static_routes
 
     @retries(2, hook=retry_exc_handler)
@@ -171,7 +177,9 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             routing_protocol='static-routes',
             bgp_params=None,
             static_route_params=static_route_params,
-            routing_policy_params=None)
+            routing_policy_params=None,
+            bfd_params=BfdParameters(time_interval=10,
+                                     detection_time_multiplier=4))
     # end _create_route_props_static_route
 
     def _create_fabrics_two_pr(self, name, two_fabric=False):
@@ -420,7 +428,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             self._vnc_lib.routing_policy_update(tmp_rp_obj)
             rp_obj_dic['PR-STATIC-ACCEPT'] = \
                 self._vnc_lib.routing_policy_read(id=tmp_rp_obj.get_uuid())
-            
+
             self._verify_abstract_config_rp_and_bgp(
                 pr2, 'qfx10002', ri_name, vn_id, import_rp_name,
                 export_rp_name, rp_inputdict, bgp_param)

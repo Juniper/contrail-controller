@@ -92,6 +92,7 @@
        <xsd:element name="prefix-len" type="xsd:integer"/>
        <xsd:element name="next-hop" type="xsd:string"/>
        <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="bfd" type="dac:Bfd"/>
     </xsd:all>
 </xsd:complexType>
 
