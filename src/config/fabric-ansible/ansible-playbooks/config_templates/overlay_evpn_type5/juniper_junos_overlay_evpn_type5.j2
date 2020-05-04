@@ -7,7 +7,7 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 fro
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
 {%     set dict_var = {'route_distinguisher': ''} %}
-{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%     for bgp_elem in device_abstract_config.features.get('overlay-bgp', {}).get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         if 'evpn' in families %}
 {%             set route_distinguisher = bgp_elem.get('ip_address') %}
