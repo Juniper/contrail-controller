@@ -103,6 +103,7 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
                     'fabric_os_version': 'junos',
                     'fabric_credentials': fabric_credentials,
                     'fabric_enterprise_style': False,
+                    'disable_vlan_vn_uniqueness_check': False,
                     'annotations': {}}
 
         obj = self.set_properties(Fabric(), prop_map)
