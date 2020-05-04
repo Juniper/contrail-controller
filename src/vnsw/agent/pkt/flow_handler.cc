@@ -29,6 +29,11 @@ static const VmEntry *InterfaceToVm(const Interface *intf) {
 bool FlowHandler::IsL3ModeFlow() const {
     const Interface *intf =
         agent_->interface_table()->FindInterface(pkt_info_->agent_hdr.ifindex);
+    // here return true/false does not make any difference as flow processing
+    // will be aborted due to invalid interface in subsequent processing.
+    if (intf == NULL) {
+        return false;
+    }
     if (intf->type() == Interface::INET) {
         return true;
     }
