@@ -1210,21 +1210,21 @@ TEST_F(FlowTest, NonNat2Nat) {
 
     fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3], vnet_addr[1],
                  1, 0, 0, vnet[1]->flow_key_nh()->id());
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
-                fe->short_flow_reason() == FlowEntry::SHORT_NO_REVERSE_FLOW);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
 
     fe = FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3], "2.1.1.100",
                  1, 0, 0, vnet[3]->flow_key_nh()->id());
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(fe == NULL);
 
     agent_->flow_stats_manager()->
         default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
     client->WaitForIdle();
+    WAIT_FOR(1000, 100, (2U == flow_proto_->FlowCount()));
+    usleep(AGE_TIME);
+
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
-    //No change in stats. Flows should be aged by now
-    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
 // Two floating-IPs for a given interface. Negative test-case
