@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "f4ac839d_42d4fc04",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1769,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-04T06:37:57Z",
+      "side": 1,
+      "message": "Since UUID, fields are required args, i\u0027d instead make them mandatory.",
+      "parentUuid": "9d79fff9_b152fff7",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "fe1cb393_6b76be81",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 5
@@ -33,6 +51,24 @@
       "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1da4810f_6f1a86da",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1027,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-04T06:37:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "fe1cb393_6b76be81",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "3502d2f8_9f642015",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1099,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-04T06:37:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "a77e631b_1ca04b25",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fe924b67_bc2f801d",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 5
@@ -70,6 +124,24 @@
     },
     {
       "key": {
+        "uuid": "e44c790a_df5fcee4",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1387,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-04T06:37:57Z",
+      "side": 1,
+      "message": "Lock at fabric is expensive one as it\u0027ll hold all modifications at fabric level. so i wanted to minimize the amount of time fabric lock is put on hold.",
+      "parentUuid": "fe924b67_bc2f801d",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "4ad95a77_9c12bb9c",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 5
@@ -81,6 +153,24 @@
       "writtenOn": "2020-05-04T03:17:56Z",
       "side": 1,
       "message": "Where are we updating fabric annotations ?",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e2c489a8_00eb3424",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1390,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-04T06:37:57Z",
+      "side": 1,
+      "message": "No. All annotations are added to VPGs only. Fabric level lock exists to prevent updates to any VPGs during this validation.",
+      "parentUuid": "4ad95a77_9c12bb9c",
       "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
