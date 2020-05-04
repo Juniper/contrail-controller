@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "220fc5b4_2af50eb6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1027,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T06:42:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1da4810f_6f1a86da",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a77e631b_1ca04b25",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 5
@@ -142,6 +160,24 @@
     },
     {
       "key": {
+        "uuid": "1afb0ca3_2ce1f5a0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1387,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T06:42:20Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "e44c790a_df5fcee4",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4ad95a77_9c12bb9c",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 5
@@ -174,6 +210,24 @@
       "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bdce8ea4_d3631d1d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1390,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T06:42:20Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "e2c489a8_00eb3424",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
