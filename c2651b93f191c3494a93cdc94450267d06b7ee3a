@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9d79fff9_b152fff7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1769,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T03:17:56Z",
+      "side": 1,
+      "message": "Can you do the exception handling for uuid not present in db ?",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe1cb393_6b76be81",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1027,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T03:17:56Z",
+      "side": 1,
+      "message": "None check for result",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a77e631b_1ca04b25",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1099,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T03:17:56Z",
+      "side": 1,
+      "message": "None check for result",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe924b67_bc2f801d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1387,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T03:17:56Z",
+      "side": 1,
+      "message": "Do we need to hold both locks together here ? Can we do this before getting VPG lock ?",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4ad95a77_9c12bb9c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1390,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-04T03:17:56Z",
+      "side": 1,
+      "message": "Where are we updating fabric annotations ?",
+      "revId": "c2651b93f191c3494a93cdc94450267d06b7ee3a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
