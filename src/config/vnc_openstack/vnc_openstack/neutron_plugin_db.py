@@ -71,6 +71,9 @@ _NEUTRON_FWAAS_TAG_TYPE = TagTypeIdToName[5]
 _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME = 'default'
 _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME = 'default ipv4'
 _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME = 'default ipv6'
+# Subnet tags kv keys
+_SUBNET_TO_NEUTRON_TAGS = 'subnet_to_neutron_tags'
+_NEUTRON_TAG_TO_SUBNETS = 'neutron_tag_to_subnets'
 
 
 class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
@@ -686,14 +689,16 @@ class DBInterface(object):
         :param tag: :class:`str` with tag FQName
         :return: List of :class:`str` UUIDs
         """
+        tag_to_sub_key = _NEUTRON_TAG_TO_SUBNETS
         try:
-            tag_info = self._vnc_lib.kv_retrieve(tag)
+            neutron_tag_to_subnets = self._vnc_lib.kv_retrieve(tag_to_sub_key)
+            neutron_tag_to_subnets = json.loads(neutron_tag_to_subnets)
         except vnc_exc.NoIdError:
-            tag_info = None
+            neutron_tag_to_subnets = {}
 
-        if tag_info:
-            return tag_info.split(',')
-        return []
+        if tag not in neutron_tag_to_subnets:
+            return []
+        return neutron_tag_to_subnets[tag]
     #end _subnet_read_by_tag
 
     def _resource_add_tags(self, obj, tags):
@@ -730,17 +735,40 @@ class DBInterface(object):
         :param subnet_id: String with subnet UUID
         :param tags: List of :class:`str` with tag names (NOT FQNames).
         """
+        # prepare neutron tag fq_names
+        tag_names = set()
         for tag in tags:
-            # get tag name
             tag_obj = self._tag_get_or_create(tag)
-            tag_name = tag_obj.fq_name[0]
+            tag_names.add(tag_obj.fq_name[0])
 
-            # retrieve subnet ids under tag if exist
-            subnet_ids = set(self._subnet_read_by_tag(tag))
+        # add tags to subnet to tags map
+        try:
+            subnet_to_neutron_tags = self._vnc_lib.kv_retrieve(
+                _SUBNET_TO_NEUTRON_TAGS)
+            subnet_to_neutron_tags = json.loads(subnet_to_neutron_tags)
+        except vnc_exc.NoIdError:
+            subnet_to_neutron_tags = {}
+        else:
+            subnet_to_neutron_tags[subnet_id] = list(tag_names)
 
-            # add new tag to the list and save back
-            subnet_ids.add(subnet_id)
-            self._vnc_lib.kv_store(tag_name, ','.join(subnet_ids))
+        # add subnet to tag to subnets map
+        try:
+            neutron_tag_to_subnets = self._vnc_lib.kv_retrieve(
+                _NEUTRON_TAG_TO_SUBNETS)
+            neutron_tag_to_subnets = json.loads(neutron_tag_to_subnets)
+        except vnc_exc.NoIdError:
+            neutron_tag_to_subnets = {}
+        else:
+            for tag_name in tag_names:
+                if tag_name not in neutron_tag_to_subnets:
+                    neutron_tag_to_subnets[tag_name] = []
+                neutron_tag_to_subnets[tag_name].append(subnet_id)
+
+        # store both maps in kv_store
+        self._vnc_lib.kv_store(_SUBNET_TO_NEUTRON_TAGS,
+                               json.dumps(subnet_to_neutron_tags))
+        self._vnc_lib.kv_store(_NEUTRON_TAG_TO_SUBNETS,
+                               json.dumps(neutron_tag_to_subnets))
     #end _subnet_add_tags
 
     def _subnet_del_tags(self, subnet_id, tags):
@@ -759,17 +787,18 @@ class DBInterface(object):
         :param subnet_id: String with subnet UUID
         :return: List of :class:`str` with tag names (NOT FQNAmes).
         """
-        all_tags = self._vnc_lib.tags_list(fields=['fq_name'])
-        tags_names = []
-        for tag in all_tags['tags']:
-            fq_name = tag['fq_name'][0]
-            try:
-                tag_info = self._vnc_lib.kv_retrieve(fq_name)
-            except vnc_exc.NoIdError:
-                tag_info = None
-            if tag_info and subnet_id in tag_info:
-                tags_names.append(fq_name.split('=')[1])
-        return tags_names
+        sub_to_tag_key = _SUBNET_TO_NEUTRON_TAGS
+        try:
+            subnet_to_neutron_tags = self._vnc_lib.kv_retrieve(sub_to_tag_key)
+            subnet_to_neutron_tags = json.loads(subnet_to_neutron_tags)
+        except vnc_exc.NoIdError:
+            subnet_to_neutron_tags = {}
+
+        if subnet_id not in subnet_to_neutron_tags:
+            return []
+
+        tag_names = subnet_to_neutron_tags[subnet_id]
+        return [tag_name.split('=')[1] for tag_name in tag_names]
 
     def tag_get(self, context, parent_id, tag):
         tag_fq_name = ['neutron_tag={}'.format(tag)]
@@ -1503,7 +1532,8 @@ class DBInterface(object):
 
         tags = sg_obj.get_tag_refs()
         if tags:
-            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+            sg_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags
+                                 if 'neutron_tag' in t['to'][0]]
 
         if self._contrail_extensions_enabled:
             sg_q_dict.update(extra_dict)
@@ -1863,7 +1893,8 @@ class DBInterface(object):
 
         tags = net_obj.get_tag_refs()
         if tags:
-            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+            net_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags
+                                  if 'neutron_tag' in t['to'][0]]
 
         rt_refs = net_obj.get_route_table_refs()
         if rt_refs:
@@ -2156,7 +2187,8 @@ class DBInterface(object):
 
         tags = policy_obj.get_tag_refs()
         if tags:
-            policy_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+            policy_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags
+                                     if 'neutron_tag' in t['to'][0]]
 
         return policy_q_dict
     #end _policy_vnc_to_neutron
@@ -2225,7 +2257,8 @@ class DBInterface(object):
 
         tags = rtr_obj.get_tag_refs()
         if tags:
-            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+            rtr_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags
+                                  if 'neutron_tag' in t['to'][0]]
 
         if self._contrail_extensions_enabled:
             rtr_q_dict.update(extra_dict)
@@ -2510,7 +2543,8 @@ class DBInterface(object):
 
         tags = fip_obj.get_tag_refs()
         if tags:
-            fip_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+            fip_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags
+                                  if 'neutron_tag' in t['to'][0]]
 
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
@@ -3112,7 +3146,8 @@ class DBInterface(object):
             port_q_dict['status'] = self._port_get_interface_status(port_obj)
         tags = port_obj.get_tag_refs()
         if tags:
-            extra_dict['tags'] = [t['to'][0].split('=')[1] for t in tags]
+            port_q_dict['tags'] = [t['to'][0].split('=')[1] for t in tags
+                                   if 'neutron_tag' in t['to'][0]]
         if self._contrail_extensions_enabled:
             port_q_dict.update(extra_dict)
         port_q_dict['port_security_enabled'] = port_obj.get_port_security_enabled()

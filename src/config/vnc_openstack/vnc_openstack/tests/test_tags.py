@@ -16,6 +16,10 @@ from vnc_api.vnc_api import Tag
 from vnc_api.vnc_api import VirtualMachineInterface
 from vnc_api.vnc_api import VirtualNetwork
 from vnc_api.vnc_api import VirtualPortGroup
+from vnc_openstack.neutron_plugin_db import (
+    _SUBNET_TO_NEUTRON_TAGS,
+    _NEUTRON_TAG_TO_SUBNETS,
+)
 
 from tests import test_case
 
@@ -1294,6 +1298,8 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
 
     def _pre_create_kv_subnet_tags(self):
         self.sns = {}
+        subnet_to_neutron_tags = {}
+        neutron_tag_to_subnets = {}
         for tag in ALL_TAGS:
             # get subnet
             ipam_refs = self.vns[tag].get_network_ipam_refs()
@@ -1302,12 +1308,18 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
             self.sns[tag] = subnet
             # create kv
             neutron_tag = 'neutron_tag={}'.format(tag)
-            self.api.kv_store(neutron_tag, subnet.subnet_uuid)
+            subnet_to_neutron_tags[subnet.uuid] = [neutron_tag]
+            neutron_tag_to_subnets[neutron_tag] = [subnet.uuid]
+
+        # set kv
+        self.api.kv_store(_SUBNET_TO_NEUTRON_TAGS,
+                          json.dumps(subnet_to_neutron_tags))
+        self.api.kv_store(_NEUTRON_TAG_TO_SUBNETS,
+                          json.dumps(neutron_tag_to_subnets))
 
     def _post_delete_kv_subnet_tags(self):
-        for tag in self.sns.keys():
-            neutron_tag = 'neutron_tag={}'.format(tag)
-            self.api.kv_delete(neutron_tag)
+        self.api.kv_delete(_SUBNET_TO_NEUTRON_TAGS)
+        self.api.kv_delete(_NEUTRON_TAG_TO_SUBNETS)
 
     def test_query_subnet_with_one_tag(self):
         """Query one by one, subnets filtering by tag."""
@@ -1332,21 +1344,23 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
         subnet.uuid = subnet.subnet_uuid  # only for testing purposes
 
         # add subnet to kv neutron tags
+        subnet_to_neutron_tags = {subnet.uuid: []}
+        neutron_tag_to_subnets = {}
         for tag in [TAG_BLUE, TAG_WHITE]:
             neutron_tag = 'neutron_tag={}'.format(tag)
-            subnets_ids = self.api.kv_retrieve(neutron_tag).split(',')
-            subnets_ids.append(subnet.subnet_uuid)
-            subnets_ids = ','.join(subnets_ids)
-            self.api.kv_store(neutron_tag, subnets_ids)
+            neutron_tag_to_subnets[neutron_tag] = [subnet.uuid]
+            subnet_to_neutron_tags[subnet.uuid].append(neutron_tag)
+        # set kv
+        self.api.kv_store(_SUBNET_TO_NEUTRON_TAGS,
+                          json.dumps(subnet_to_neutron_tags))
+        self.api.kv_store(_NEUTRON_TAG_TO_SUBNETS,
+                          json.dumps(neutron_tag_to_subnets))
 
         self.assert_multiple_tags_full_match(resource_name='subnet',
                                              resource=subnet,
                                              tags=[TAG_BLUE, TAG_WHITE])
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
-        for tag in [TAG_BLUE, TAG_WHITE]:
-            neutron_tag = 'neutron_tag={}'.format(tag)
-            self.api.kv_delete(neutron_tag)
 
     def test_query_all_subnet_with_match_any(self):
         """Query subnets filtering by any tags."""
@@ -1382,9 +1396,12 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
                     'ip_version': 4,
                 })
 
+            tag_to_subnets = self.api.kv_retrieve(_NEUTRON_TAG_TO_SUBNETS)
+            tag_to_subnets = json.loads(tag_to_subnets)
             for tag in tags:
-                kv_tag = self.api.kv_retrieve('neutron_tag={}'.format(tag))
-                self.assertTrue(sn_dict['id'] in kv_tag)
+                tag_name = 'neutron_tag={}'.format(tag)
+                subnets = tag_to_subnets[tag_name]
+                self.assertTrue(sn_dict['id'] in subnets)
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
@@ -1407,9 +1424,12 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
                 'ip_version': 4,
             })
 
+        tag_to_subnets = self.api.kv_retrieve(_NEUTRON_TAG_TO_SUBNETS)
+        tag_to_subnets = json.loads(tag_to_subnets)
         for tag in tags:
-            kv_tag = self.api.kv_retrieve('neutron_tag={}'.format(tag))
-            self.assertTrue(sn_dict['id'] in kv_tag)
+            tag_name = 'neutron_tag={}'.format(tag)
+            subnets = tag_to_subnets[tag_name]
+            self.assertTrue(sn_dict['id'] in subnets)
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
@@ -1491,7 +1511,7 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
         self.assertEqual(expected_length, len(fetch_result))
         for fetched_subnet in fetch_result:
             if fetched_subnet['id'] == subnet.uuid:
-                self.assertEqual(fetched_subnet['tags'], [tag])
+                self.assertEqual(fetched_subnet['tags'][0], tag)
                 break
         else:
             self.assertTrue(False, 'subnet not fetchable')
