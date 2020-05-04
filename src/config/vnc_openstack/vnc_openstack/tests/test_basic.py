@@ -2264,7 +2264,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             port_dict['binding:vif_details'].get('vhostuser_mode'),
             "server")
         self.assertEqual(
-            port_dict['binding:vif_type'], 'vhostuser')
+            port_dict['binding:vif_type'], 'ethernet')
 
         # disable dpdk on compute and we should observe the vif
         # details deleted from port bindings
