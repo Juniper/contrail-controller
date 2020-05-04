@@ -26,6 +26,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     portbindings = {}
     portbindings['VIF_TYPE_VROUTER'] = 'vrouter'
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
+    portbindings['VIF_TYPE_ETHERNET'] = 'ethernet'
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
     portbindings['VNIC_TYPE_BAREMETAL'] = 'baremetal'
@@ -501,7 +502,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 elif result:
                     vif_type = {
                         'key': 'vif_type',
-                        'value': cls.portbindings['VIF_TYPE_VHOST_USER'],
+                        'value': cls.portbindings['VIF_TYPE_ETHERNET'],
                     }
                     vif_params = {
                         cls.portbindings['VHOST_USER_MODE']:
@@ -517,7 +518,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     cls._kvps_update(kvps, vif_type)
                     cls._kvps_update(kvps, vif_details)
                 else:
-                    vif_type = {'key': 'vif_type', 'value': None}
+                    vif_type = {
+                        'key': 'vif_type',
+                        'value': cls.portbindings['VIF_TYPE_VHOST_USER'],
+                    }
                     cls._kvps_update(kvps, vif_type)
 
         (ok, result) = cls._check_port_security_and_address_pairs(obj_dict)
@@ -763,7 +767,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 elif result:
                     vif_type = {
                         'key': 'vif_type',
-                        'value': cls.portbindings['VIF_TYPE_VHOST_USER'],
+                        'value': cls.portbindings['VIF_TYPE_ETHERNET'],
                     }
                     vif_params = {
                         cls.portbindings['VHOST_USER_MODE']:
@@ -784,7 +788,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vif_details,
                         True)
                 else:
-                    vif_type = {'key': 'vif_type', 'value': None}
+                    vif_type = {
+                        'key': 'vif_type',
+                        'value': cls.portbindings['VIF_TYPE_VHOST_USER'],
+                    }
                     vif_details = {'key': 'vif_details', 'value': None}
                     cls._kvps_prop_update(
                         obj_dict,
