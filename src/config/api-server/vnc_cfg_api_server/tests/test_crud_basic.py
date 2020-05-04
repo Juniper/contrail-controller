@@ -3705,7 +3705,8 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
         self.assertNotIn(fname, vmis['virtual-machine-interfaces'][0])
 
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
-        kv_pairs = KeyValuePairs([KeyValuePair(key='k', value='v')])
+        kv_pairs = KeyValuePairs([KeyValuePair(key='vif_type',
+                                               value='vhostuser')])
         vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
