@@ -418,7 +418,8 @@ class FilterModule(object):
                 'fabric_uuid': fabric_obj.uuid,
                 'manage_underlay':
                     job_ctx.get('job_input').get('manage_underlay', True),
-                'onboard_log': FilterLog.instance().dump()
+                'onboard_log': FilterLog.instance().dump(),
+                'device_to_ztp': fabric_info.get('device_to_ztp', [])
             }
         except Exception as ex:
             errmsg = "Unexpected error: %s\n%s" % (
@@ -1942,25 +1943,38 @@ class FilterModule(object):
 
     # end _validate_fabric_device_deletion
 
-    def _assign_lb_li_bgpr(self, vnc_api, role_assignments,
-                           fabric_fq_name, devicefqname2_phy_role_map,
-                           assign_static=False):
-        static_ips = {}
+    def _read_device_obj(self, vnc_api, dev_name):
+        device_fq_name = ['default-global-system-config', dev_name]
+        try:
+            device_obj = vnc_api.physical_router_read(
+                fq_name=device_fq_name,
+                fields=[
+                    'physical_router_vendor_name',
+                    'physical_router_product_name',
+                    'physical_interfaces',
+                    'fabric_refs',
+                    'node_profile_refs',
+                    'physical_role_refs',
+                    'device_functional_group_refs',
+                    'physical_router_loopback_ip',
+                    'physical_router_management_ip',
+                    'physical_router_os_version',
+                    'physical_router_underlay_managed',
+                    'display_name',
+                    'annotations',
+                    'physical_router_role'
+                ]
+            )
+            return device_obj
+        except Exception as ex:
+            errmsg = str(ex)
+            _task_error_log('%s\n%s' % (errmsg, traceback.format_exc()))
+        return None
 
-        if assign_static:
-            # read device_to_ztp, get all static loopback IP assignments
-            fabric_uuid = vnc_api.fq_name_to_id('fabric', fabric_fq_name)
-            job_input = JobAnnotations(vnc_api).fetch_job_input(
-                fabric_uuid, 'fabric_onboard_template')
-            device_to_ztp = job_input.get('device_to_ztp', [])
-            for dev in device_to_ztp:
-                ip_addr = dev.get('loopback_ip')
-                if ip_addr:
-                    dev_name = dev.get('hostname')
-                    if dev_name:
-                        static_ips[dev_name] = ip_addr
+    def _assign_lb_li_bgpr(self, vnc_api, dev_role_map,
+                            fabric_fq_name, devicefqname2_phy_role_map):
 
-        for device_roles in role_assignments:
+        for dev_name, device_roles in list(dev_role_map.items()):
             ar_flag = False
             # this check ensures that roles are assigned
             # to the device only if node_profile_refs are present
@@ -1984,16 +1998,49 @@ class FilterModule(object):
                                        intent_map_fq_name), None, 'ADD')
             if device_roles.get('supported_roles'):
                 device_obj = device_roles.get('device_obj')
-                dev_name = device_obj.name
-                ip_addr = None
-                if dev_name in static_ips:
-                    ip_addr = static_ips[dev_name]
+                ip_addr = device_roles.get('ip_addr')
                 self._add_loopback_interface(vnc_api, device_obj,
                                              ar_flag, ip_addr=ip_addr)
                 self._add_logical_interfaces_for_fabric_links(
                     vnc_api, device_obj, devicefqname2_phy_role_map
                 )
                 self._add_bgp_router(vnc_api, device_roles)
+
+    def _process_lb_li_bgpr(self, vnc_api, dev_role_map,
+                           fabric_fq_name, devicefqname2_phy_role_map):
+        static_role_map = {}
+
+        # read device_to_ztp, get all static loopback IP assignments
+        fabric_uuid = vnc_api.fq_name_to_id('fabric', fabric_fq_name)
+        job_input = JobAnnotations(vnc_api).fetch_job_input(
+            fabric_uuid, 'fabric_onboard_template')
+        device_to_ztp = job_input.get('device_to_ztp', [])
+        for dev in device_to_ztp:
+            ip_addr = dev.get('loopback_ip')
+            if ip_addr:
+                dev_name = dev.get('hostname')
+                if dev_name:
+                    if dev_name in dev_role_map:
+                        device_roles = dev_role_map.pop(dev_name)
+                        device_roles['ip_addr'] = ip_addr
+                        static_role_map[dev_name] = device_roles
+                    elif dev.get('to_ztp') != False:
+                        # Devices with static loopback IP assigned,
+                        # but roles not assigned must only add
+                        # loopback interface
+                        device_obj = self._read_device_obj(vnc_api, dev_name)
+                        if device_obj:
+                            self._add_loopback_interface(
+                                vnc_api, device_obj, False, ip_addr=ip_addr)
+                            vnc_api.physical_router_update(device_obj)
+
+        # Assign roles with static loopback IPs
+        self._assign_lb_li_bgpr(vnc_api, static_role_map,
+                                 fabric_fq_name, devicefqname2_phy_role_map)
+
+        # Now assign roles with dynamic loopback IPs
+        self._assign_lb_li_bgpr(vnc_api, dev_role_map,
+                                fabric_fq_name, devicefqname2_phy_role_map)
 
     # ***************** assign_roles filter ***********************************
     def assign_roles(self, job_ctx):
@@ -2041,6 +2088,7 @@ class FilterModule(object):
 
             device2roles_mappings = {}
             devicefqname2_phy_role_map = {}
+            dev_role_map = {}
 
             for device_roles in role_assignments:
                 device_fq_name = device_roles.get('device_fq_name')
@@ -2068,6 +2116,7 @@ class FilterModule(object):
                 device2roles_mappings[device_obj] = device_roles
                 devicefqname2_phy_role_map[':'.join(device_fq_name)] = \
                     device_roles.get('physical_role')
+                dev_role_map[device_fq_name[-1]] = device_roles
 
             # disable ibgp auto mesh to avoid O(n2) issue in schema transformer
             self._enable_ibgp_auto_mesh(vnc_api, False)
@@ -2103,19 +2152,9 @@ class FilterModule(object):
 
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
-
-            # First handle static loopback IP assignments to reserve those
-            # addresses before assigning dynamic IPs
-            self._assign_lb_li_bgpr(vnc_api, role_assignments,
+            self._process_lb_li_bgpr(vnc_api, dev_role_map,
                                     fabric_fq_name,
-                                    devicefqname2_phy_role_map,
-                                    assign_static=True)
-
-            # Now handle dynamic loopback IP assignments
-            self._assign_lb_li_bgpr(vnc_api, role_assignments,
-                                    fabric_fq_name,
-                                    devicefqname2_phy_role_map,
-                                    assign_static=False)
+                                    devicefqname2_phy_role_map)
 
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
