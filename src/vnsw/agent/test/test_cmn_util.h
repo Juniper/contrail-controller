@@ -547,6 +547,8 @@ void GlobalForwardingMode(std::string mode);
 void AddFlowExportRate(int cfg_flow_export_rate);
 void AddBgpaasPortRange(const int port_start, const int port_end);
 void DelBgpaasPortRange();
+void AddFastConvergenceParameters(bool enable, const int toutt);
+void DelFastConvergenceParameters();
 int MplsToVrfId(int label);
 const NextHop* MplsToNextHop(uint32_t label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,

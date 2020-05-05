@@ -71,6 +71,7 @@ public:
 
     bool ClearConnection(const std::string &hostname);
     void ClearAllConnections();
+    void UpdateAllConnections(uint8_t time_out);
 
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionCount() const;

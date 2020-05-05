@@ -50,6 +50,13 @@ private:
     bool config_seen_;
 };
 
+struct FastConvergenceParameters {
+    void Reset();
+
+    uint8_t xmpp_hold_time;
+    bool enable;
+};
+
 class GlobalSystemConfig : public OperIFMapTable {
 public:
     GlobalSystemConfig(Agent *agent);
@@ -64,12 +71,14 @@ public:
     }
     void Reset();
     GracefulRestartParameters &gres_parameters();
+    FastConvergenceParameters &fc_params() { return fc_params_; }
     bool cfg_igmp_enable() const;
     void FillSandeshInfo(GlobalSystemConfigResp *resp);
 
 private:
     BGPaaServiceParameters bgpaas_parameters_;
     GracefulRestartParameters gres_parameters_;
+    FastConvergenceParameters fc_params_;
     bool cfg_igmp_enable_;
     DISALLOW_COPY_AND_ASSIGN(GlobalSystemConfig);
 };
