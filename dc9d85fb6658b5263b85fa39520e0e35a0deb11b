@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2bf51a32_380a4d4c",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/rollback_compare/tasks/main.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-05-05T22:05:16Z",
+      "side": 1,
+      "message": "Do we need to exclude \"final_config.conf\" here too ?",
+      "revId": "dc9d85fb6658b5263b85fa39520e0e35a0deb11b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
