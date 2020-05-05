@@ -1,12 +1,10 @@
-python-subunit
-testrepository
-flexmock
-coverage
-pyaml
-fabric_ansible
-contrail-api-client
-sandesh
-sandesh_common
-junitxml
-timeout-decorator
-requests
+python-subunit==1.4.0
+testrepository==0.0.20
+flexmock==0.10.4
+coverage==5.0.4
+pyaml==20.4.0; python_version=='2.7'
+pyYAML==5.3.1; python_version > '2.7'
+fabric-ansible==0.1.dev0
+junitxml==0.7
+timeout-decorator==0.4.1
+requests==2.23.0
