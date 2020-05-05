@@ -65,6 +65,17 @@ TEST_F(BgpCfgTest, Test_1) {
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 1);
 
+    // Add fast convergence parameters
+    AddFastConvergenceParameters(true, 10);
+    task_util::WaitForIdle(30, true);
+    FastConvergenceParameters fc_params =
+                agent_->oper_db()->global_system_config()->fc_params();
+    EXPECT_TRUE(fc_params.enable);
+    EXPECT_TRUE(fc_params.xmpp_hold_time == 10);
+    EXPECT_TRUE(agent_->controller()->VerifyXmppServerTimeout(10));
+    DelFastConvergenceParameters();
+    task_util::WaitForIdle(30, true);
+
     DeleteBgpServiceConfig("1.1.1.10", 50000, "vnet1", "vrf1");
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();

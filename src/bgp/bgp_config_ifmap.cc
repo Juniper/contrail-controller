@@ -2079,6 +2079,13 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    if (data_.xmpp_hold_time() !=
+            system->fast_convergence_parameters().xmpp_hold_time) {
+        data_.set_xmpp_hold_time(
+            system->fast_convergence_parameters().xmpp_hold_time);
+        changed |= true;
+    }
+
     if (data_.bgpaas_port_start() != system->bgpaas_parameters().port_start) {
         data_.set_bgpaas_port_start(system->bgpaas_parameters().port_start);
         changed |= true;

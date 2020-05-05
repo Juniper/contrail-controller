@@ -473,6 +473,12 @@ void XmppConnection::StopKeepAliveTimer() {
     keepalive_timer_->Cancel();
 }
 
+void XmppConnection::UpdateKeepAliveTimer(uint8_t time_out) {
+    state_machine_->set_hold_time(time_out);
+    StopKeepAliveTimer();
+    StartKeepAliveTimer();
+}
+
 XmppStateMachine *XmppConnection::state_machine() {
     return state_machine_.get();
 }

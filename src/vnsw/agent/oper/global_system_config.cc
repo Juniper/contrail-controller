@@ -7,6 +7,7 @@
 #include <bind/bind_resolver.h>
 #include <vnc_cfg_types.h>
 #include <oper_db.h>
+#include <controller/controller_init.h>
 #include <forwarding_class.h>
 #include <global_system_config.h>
 #include <config_manager.h>
@@ -24,6 +25,11 @@ void GracefulRestartParameters::Reset() {
     long_lived_restart_time_ = 0;
     xmpp_helper_enable_ = true;
     config_seen_ = false;
+}
+
+void FastConvergenceParameters::Reset() {
+    enable = false;
+    xmpp_hold_time = 90;
 }
 
 void GracefulRestartParameters::Update(autogen::GlobalSystemConfig *cfg) {
@@ -89,6 +95,7 @@ void GlobalSystemConfig::ConfigDelete(IFMapNode *node) {
 void GlobalSystemConfig::Reset() {
     bgpaas_parameters_.Reset();
     gres_parameters_.Reset();
+    fc_params_.Reset();
     cfg_igmp_enable_ = false;
 }
 
@@ -111,6 +118,18 @@ void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
         // update BgpaaS session info
         agent()->oper_db()->bgp_as_a_service()->
                                 UpdateBgpAsAServiceSessionInfo();
+    }
+
+    //Populate fast convergence params
+    if ((fc_params_.enable !=
+                    cfg->fast_convergence_parameters().enable) ||
+        (fc_params_.xmpp_hold_time !=
+                    cfg->fast_convergence_parameters().xmpp_hold_time)) {
+        fc_params_.enable = cfg->fast_convergence_parameters().enable;
+        fc_params_.xmpp_hold_time =
+                    cfg->fast_convergence_parameters().xmpp_hold_time;
+        // update hold time in existing xmpp sessions
+        agent()->controller()->XmppServerUpdate(fc_params_.xmpp_hold_time);
     }
 
     if (cfg_igmp_enable_ != cfg->igmp_enable()) {

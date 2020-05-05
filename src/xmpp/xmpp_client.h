@@ -52,6 +52,8 @@ public:
     LifetimeManager *lifetime_manager();
     virtual LifetimeActor *deleter();
     int SetDscpValue(uint8_t value, const char *conn_id);
+    uint32_t XmppTimeOut(const char *conn_id);
+    void UpdateTimeOut(uint8_t time_out, const char *conn_id);
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);

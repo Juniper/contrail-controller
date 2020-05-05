@@ -760,6 +760,18 @@ bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
                     "enable-4byte-as", requests);
             }
         }
+        if (strcmp(child.name(), "fast-convergence-parameters") == 0) {
+            auto_ptr<autogen::FastConvergenceParametersType> property(
+                    new autogen::FastConvergenceParametersType());
+            assert(property->XmlParse(child));
+            if (add_change) {
+                MapObjectSetProperty("global-system-config", "",
+                    "fast-convergence-parameters", property.release(), requests);
+            } else {
+                MapObjectClearProperty("global-system-config", "",
+                    "fast-convergence-parameters", requests);
+            }
+        }
         if (strcmp(child.name(), "rd-cluster-seed") == 0) {
             auto_ptr<autogen::GlobalSystemConfig::NtProperty> property(
                 new autogen::GlobalSystemConfig::NtProperty);

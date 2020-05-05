@@ -183,6 +183,11 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
+            FastConvergenceParameters fc_params =
+                agent_->oper_db()->global_system_config()->fc_params();
+            if (fc_params.enable) {
+                xmpp_cfg->xmpp_hold_time = fc_params.xmpp_hold_time;
+            }
             /*
              * Since TcpServer asserts in bind failure,
              * dont need to assert in failure.
@@ -395,6 +400,31 @@ void VNController::XmppServerDisConnect() {
     }
 }
 
+// Test-only code to verify that xmpp timeout has been updated correctly.
+bool VNController::VerifyXmppServerTimeout(uint32_t to) {
+    XmppClient *cl;
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        if ((cl = agent_->controller_ifmap_xmpp_client(count)) != NULL) {
+            if (to != cl->XmppTimeOut(XmppInit::kControlNodeJID))
+                return false;
+        }
+        count++;
+    }
+    return true;
+}
+
+// Update agent-controller xmpp connection witth new timeout value.
+void VNController::XmppServerUpdate(uint8_t xmpp_hold_time) {
+    XmppClient *cl;
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        if ((cl = agent_->controller_ifmap_xmpp_client(count)) != NULL) {
+            cl->UpdateTimeOut(xmpp_hold_time, XmppInit::kControlNodeJID);
+        }
+        count ++;
+    }
+}
 
 void VNController::DnsXmppServerDisConnect() {
     XmppClient *cl;

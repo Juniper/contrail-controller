@@ -152,11 +152,18 @@ public:
             BgpConfigManager::EventType event) {
         // Clear peers only if GR is or was enabled.
         bool clear_peers = config_.gr_enable() || system->gr_enable();
+        bool update_peers = false;
         config_.set_gr_enable(system->gr_enable());
         config_.set_gr_time(system->gr_time());
         config_.set_llgr_time(system->llgr_time());
         config_.set_end_of_rib_timeout(system->end_of_rib_timeout());
         config_.set_gr_xmpp_helper(system->gr_xmpp_helper());
+
+        // Process any change in xmpp-hold-time
+        if (config_.xmpp_hold_time() != system->xmpp_hold_time()) {
+            config_.set_xmpp_hold_time(system->xmpp_hold_time());
+            update_peers = true;
+        }
 
         // Process any change in rd-cluster-seed knob
         if (config_.rd_cluster_seed() != system->rd_cluster_seed()) {
@@ -164,14 +171,20 @@ public:
             clear_peers = true;
         }
 
-        if (!clear_peers)
-            return;
-        server_->ClearAllConnections();
+        if (clear_peers)
+            server_->ClearAllConnections();
+        else if (update_peers)
+            server_->UpdateAllConnections(config_.xmpp_hold_time());
     }
 
     const string subcluster_name() const { return server_->subcluster_name(); }
     void set_subcluster_name(const string& name) {
         server_->set_subcluster_name(name);
+    }
+
+    uint8_t xmpp_hold_time() const { return config_.xmpp_hold_time(); }
+    void set_xmpp_hold_time(int hold_time) {
+        config_.set_xmpp_hold_time(hold_time);
     }
 
 private:
@@ -424,6 +437,13 @@ bool XmppServer::ClearConnection(const string &hostname) {
     return false;
 }
 
+void XmppServer::UpdateAllConnections(uint8_t time_out) {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
+    BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
+        value.second->UpdateKeepAliveTimer(time_out);
+    }
+}
+
 void XmppServer::ClearAllConnections() {
     tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
@@ -477,6 +497,8 @@ bool XmppServer::AcceptSession(TcpSession *tcp_session) {
     XmppSession *session = dynamic_cast<XmppSession *>(tcp_session);
     XmppServerConnection *connection = CreateConnection(session);
 
+    connection->state_machine()->set_hold_time(
+                xmpp_config_updater_->xmpp_hold_time());
     // Register event handler.
     tcp_session->set_observer(boost::bind(&XmppStateMachine::OnSessionEvent,
                                           connection->state_machine(), _1, _2));
