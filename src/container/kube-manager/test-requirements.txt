@@ -1,3 +1,4 @@
+attrdict
 gevent<1.5.0
 netaddr>=0.7.5
 bitarray>=0.8.0
@@ -24,6 +25,6 @@ pyaml
 keystonemiddleware!=4.19.0
 pyOpenSSL
 vine==1.1.3
-../../config/schema-transformer
-../../../noarch/config/svc-monitor
+schema-transformer==0.1dev
+svc-monitor==0.1dev
 pycrypto

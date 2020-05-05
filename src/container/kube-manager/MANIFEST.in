@@ -1,2 +1,5 @@
 recursive-include kube_manager/uve *.html *.xml *.css
 recursive-include kube_manager/sandesh *.html *.xml *.css
+include requirements.txt
+include test-requirements.txt
+include tox.ini
