@@ -44,10 +44,17 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}} signaling
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} import REJECT-MAINTENANCE-MODE
 {%                 endif %}
+{%                 if ('Route-Reflector' in sys_roles) and fam.startswith('inet') %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}} unicast
+set groups {{cfg_group}} routing-options resolution rib bgp.l3vpn.0 resolution-ribs [inet.3 inet.0]
+{%                 endif %}
 {%                 if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop no-nexthop-change
 {%                     if fam.startswith('inet') %}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ebgp_export_policy term {{fam}} from family {{fam}}
+{%                         if 'Route-Reflector' in sys_roles %}
+set groups {{cfg_group}} policy-options policy-statement _contrail_ebgp_export_policy term {{fam}} from route-type external
+{%                         endif %}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ebgp_export_policy term {{fam}} then next-hop self
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail_ebgp_export_policy
 {%                     endif %}
@@ -55,6 +62,9 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail
 {%                 if bgp_group_type == 'internal' %}
 {%                     if fam.startswith('inet') %}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from family {{fam}}
+{%                         if 'Route-Reflector' in sys_roles %}
+set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from route-type external
+{%                         endif %}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} then next-hop self
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
 {%                         if device_product_name.startswith('qfx10') and encap_priorities|length > 0 and encap_priorities[0] == 'MPLSoUDP' %}
