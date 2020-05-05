@@ -1742,6 +1742,48 @@ class VncApiServer(object):
             set_context(orig_context)
     # end internal_request_ref_update
 
+    def internal_request_prop_collection_get(self, resource_type,
+        obj_uuid, fields, position=None):
+        """Retrieves fields of the object specified at position.
+
+        :Args
+        :  resource_type: str
+        :    resource type of the object
+        :  obj_uuid: UUID of the object
+        :  fields: comma seperated string
+        :    list of fields in the object to retrieve
+        :  position: str
+        :     key to be retrieved
+        :Returns
+        :  fields found for the given key specified in
+        :  the pointer
+        """
+        r_class = self.get_resource_class(resource_type)
+        req_dict = ("uuid=%s" % obj_uuid + '&' +
+                    "fields=%s" % fields)
+        query_dict = {
+            'uuid': obj_uuid,
+        }
+        if position:
+            req_dict += ('&' + "position=%s" % position)
+        obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/%ss' % r_class.resource_type,
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'QUERY_STRING': req_dict,
+                 'HTTP_X_ROLE': self.cloud_admin_role})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ,
+                b_req.headers, req_dict, b_req.query)
+            set_context(context.ApiContext(internal_req=i_req))
+            return self.prop_collection_http_get()
+        finally:
+            set_context(orig_context)
+
     def internal_request_prop_collection(self, obj_uuid, updates=None):
         req_dict = {
             'uuid': obj_uuid,
@@ -1899,9 +1941,12 @@ class VncApiServer(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
-        self.lock_path_prefix = '%s/%s' % (self._args.cluster_id,
-                                           _DEFAULT_ZK_LOCK_PATH_PREFIX)
-        self.security_lock_prefix = '%s/security' % self.lock_path_prefix
+        self.lock_path_prefix = os.path.join(self._args.cluster_id,
+            _DEFAULT_ZK_LOCK_PATH_PREFIX)
+        self.security_lock_prefix = os.path.join(
+            self.lock_path_prefix, 'security')
+        self.fabric_validation_lock_prefix = os.path.join(
+            self.lock_path_prefix, 'fabric-validation')
 
         # set the max size of the api requests
         bottle.BaseRequest.MEMFILE_MAX = self._args.max_request_size
@@ -1915,7 +1960,7 @@ class VncApiServer(object):
             self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
         else:
             self.aaa_mode = "cloud-admin"
-        
+
         api_proto = 'https' if self._args.config_api_ssl_enable else 'http'
         api_host_name = socket.getfqdn(self._args.listen_ip_addr)
         self._base_url = "%s://%s:%s" % (api_proto, api_host_name,
@@ -2090,7 +2135,7 @@ class VncApiServer(object):
             if version:
                 version = version.split()
             if not version or len(version) != 3:
-                # In case of setup from source there is no RPM and version is available in env     
+                # In case of setup from source there is no RPM and version is available in env
                 version_str = os.environ.get('CONTRAIL_VERSION', 'tf-master-latest')
                 version = re.split('\.|-', version_str)[-3:]
                 if len(version) != 3:
@@ -2235,7 +2280,7 @@ class VncApiServer(object):
     @enable_4byte_as.setter
     def enable_4byte_as(self, enable_4byte_as):
         self._enable_4byte_as = enable_4byte_as
- 
+
     @property
     def default_domain(self):
         if not self._default_domain:
@@ -3209,12 +3254,12 @@ class VncApiServer(object):
     # end list_bulk_collection_http_post
 
 
-    # Get hbs 
+    # Get hbs
     def hbs_get(self):
         self._post_common(None, {})
         # Get hbs fq_name from request
         req_json = get_request().json
-        
+
         # valid json data required
         if not req_json:
             raise cfgm_common.exceptions.HttpError(

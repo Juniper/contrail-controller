@@ -15,13 +15,17 @@ import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
+from kazoo.exceptions import LockTimeout
 from kazoo.client import KazooState
 from kazoo.retry import KazooRetry, ForceRetryError
 from kazoo.recipe.counter import Counter
 
 from bitarray import bitarray
-from cfgm_common.exceptions import ResourceExhaustionError,\
-     ResourceExistsError, OverQuota
+from cfgm_common.exceptions import (
+    HttpError,
+    OverQuota,
+    ResourceExhaustionError,
+    ResourceExistsError)
 from gevent.lock import BoundedSemaphore
 
 import datetime
@@ -30,6 +34,32 @@ import sys
 import socket
 
 LOG_DIR = os.getenv('CONTAINER_LOG_DIR', '/var/log/contrail/')
+
+
+class ZookeeperLock(object):
+    """Generic Zookeeper lock with timeout as context manager."""
+
+    def __init__(self, zookeeper_client, path, name, timeout=1):
+        self.lock = zookeeper_client.lock(path, name)
+        self.timeout = timeout
+
+    def __enter__(self):
+        try:
+            acquired_lock = self.lock.acquire(timeout=self.timeout)
+        except LockTimeout:
+            contenders = self.lock.contenders()
+            action_in_progress = '<unknown action>'
+            if len(contenders) > 0 and contenders[0]:
+                _, _, action_in_progress = contenders[0].partition(' ')
+            msg = ("%s ZK Lock Creation Failed for lock name (%s)"
+                   "Server Busy, Try again Later" % (
+                   action_in_progress, name))
+            raise HttpError(408, msg)
+        return acquired_lock
+
+    def __exit__(self, type, value, traceback):
+        self.lock.release()
+
 
 class IndexAllocator(object):
 

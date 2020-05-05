@@ -1391,7 +1391,83 @@ class VncDbClient(object):
                     # move PP refs to VPG from VMI's attached to VPG.
                     # move SG refs to VPG from VMI's attached to VPG, if fabric
                     # associated with VPG is enterprise style.
-                    vmi_refs = obj_dict.get('virtual_machine_interface_refs', [])
+                    vmi_refs = obj_dict.get('virtual_machine_interface_refs',
+                                            [])
+
+                    # check if annotations needs to be added to VPG
+                    add_annotations_to_vpg = False
+                    vpg_annotations = obj_dict.get('annotations') or {}
+                    vpg_kvps = vpg_annotations.get('key_value_pair') or []
+                    vpg_parent = obj_dict.get('parent_type')
+                    if (len(vmi_refs) and
+                        len(vmi_refs) != len(vpg_kvps) and
+                            vpg_parent == 'fabric'):
+                        add_annotations_to_vpg = True
+
+                    # populate annotations in VPG for each VMI
+                    if add_annotations_to_vpg:
+                        (ok, fabrics) = self._object_db.object_read(
+                            'fabric', [obj_dict['parent_uuid']],
+                            field_names=['fabric_enterprise_style'])
+                        if not ok:
+                            return ok, fabrics
+                        for fabric in fabrics:
+                            fabric_uuid = fabric.get('uuid')
+                            validation = (
+                                'enterprise' if
+                                fabric.get('fabric_enterprise_style') else
+                                'serviceprovider')
+                            vmi_uuids = [vmi_ref.get('uuid') for
+                                         vmi_ref in vmi_refs]
+                            ok, vmi_infos = self._object_db.object_read(
+                                'virtual-machine-interface', vmi_uuids,
+                                field_names=[
+                                    'virtual_machine_interface_properties',
+                                    'virtual_network_refs'])
+                            if not ok:
+                                return ok, vmi_infos
+                            annotations = []
+                            for vmi_info in vmi_infos:
+                                vmi_props = (vmi_info.get(
+                                    'virtual_machine_interface_properties') or
+                                    {})
+                                vmi_uuid = vmi_info.get('uuid')
+                                vmi_vlan = vmi_props.get(
+                                    'sub_interface_vlan_tag')
+                                vn_refs = vmi_info.get(
+                                    'virtual_network_refs') or []
+                                vn_uuids = [
+                                    vn.get('uuid') for vn in vn_refs]
+                                # enterprise style can not have more than
+                                # one VN
+                                if (len(vn_uuids) > 1 and
+                                        validation == 'enterprise'):
+                                    err_msg = ("In an Enterprise Style "
+                                               "Fabric (%s) more than one "
+                                               "VN (%s) for VMI (%s) with"
+                                               "VLAN (%s) is unacceptable" % (
+                                                   fabric_uuid, vn_uuids,
+                                                   vmi_uuid, vmi_vlan))
+                                    return (False, (400, err_msg))
+                                this_kvps = [
+                                    {'key':
+                                        'validation:%s/vn:%s/vlan_id:%s' % (
+                                            validation, vn_uuid, vmi_vlan),
+                                     'value': vmi_uuid} for vn_uuid in vn_uuids
+                                ]
+                                annotations += this_kvps
+                            # update VPG object with annotations
+                            if annotations:
+                                curr_annotations = (
+                                    obj_dict.get('annotations') or {})
+                                if not curr_annotations:
+                                    obj_dict['annotations'] = {
+                                        'key_value_pair': []}
+                                obj_dict['annotations']['key_value_pair'] += (
+                                    annotations)
+                                self._object_db.object_update(
+                                    'virtual_port_group', obj_uuid, obj_dict)
+
                     port_profile_refs = obj_dict.get('port_profile_refs', [])
                     security_group_refs = obj_dict.get('security_group_refs', [])
                     if vmi_refs and not port_profile_refs and not security_group_refs:
