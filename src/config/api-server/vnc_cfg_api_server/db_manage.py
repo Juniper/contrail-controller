@@ -997,6 +997,14 @@ class DatabaseManager(object):
             set_reserved_addrs_in_cassandra(vn_id, fq_name_str)
         # end for all VNs
 
+        def get_vn_ref(obj_cols):
+            for col_name in list(obj_cols.keys()):
+                mch = re.match('ref:virtual_network:(.*)', col_name)
+                if mch:
+                    vn_uuid = mch.group(1)
+                    return vn_uuid
+        # get_vn_ref
+
         for ip_id in ip_uuids:
 
             # get addr
@@ -1017,18 +1025,24 @@ class DatabaseManager(object):
             # get vn uuid
             vn_id = None
             if vn_is_ref:
-                for col_name in list(ip_cols.keys()):
-                    mch = re.match('ref:virtual_network:(.*)', col_name)
-                    if not mch:
-                        continue
-                    vn_id = mch.group(1)
+                vn_id = get_vn_ref(obj_cols=ip_cols)
             else:
                 vn_fq_name_str = ':'.join(json.loads(ip_cols['fq_name'])[:-2])
-                vn_cols = obj_fq_name_table.get(
-                    'virtual_network',
-                    column_start='%s:' % (vn_fq_name_str),
-                    column_finish='%s;' % (vn_fq_name_str))
-                vn_id = list(vn_cols.keys())[0].split(':')[-1]
+                if vn_fq_name_str:
+                    vn_cols = obj_fq_name_table.get(
+                        'virtual_network',
+                        column_start='%s:' % (vn_fq_name_str),
+                        column_finish='%s;' % (vn_fq_name_str))
+                    vn_id = list(vn_cols.keys())[0].split(':')[-1]
+                else:
+                    # short fq_name case, get vn_id from parent object
+                    parent_type = json.loads(ip_cols.get('parent_type'))
+                    for key in ip_cols.keys():
+                        if 'parent:%s' % parent_type in key:
+                            parent_id = key.split(':')[-1]
+                            parent_cols = dict(obj_uuid_table.xget(parent_id))
+                            vn_id = get_vn_ref(obj_cols=parent_cols)
+                            break
 
             if not vn_id:
                 ret_errors.append(VirtualNetworkMissingError(
