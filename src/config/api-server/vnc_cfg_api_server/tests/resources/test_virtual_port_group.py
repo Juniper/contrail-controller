@@ -217,6 +217,382 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
         self.api.virtual_port_group_delete(id=vpg_obj.uuid)
 
+    def test_reinit_adds_enterprise_annotations(self):
+        """Verify annotations are added in the enterprise VPG."""
+        proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        vlan_1 = 42
+        validation = 'enterprise'
+
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        vlan_1 = 42
+        vlan_2 = '4094'
+        vlan_3 = 4093
+        validation = 'enterprise'
+        pi_name = self.id() + '_physical_interface1'
+        pi = PhysicalInterface(name=pi_name,
+                               parent_obj=pr_obj,
+                               ethernet_segment_identifier=esi_id)
+        pi_uuid = self._vnc_lib.physical_interface_create(pi)
+        pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi_fq_name = pi_obj.get_fq_name()
+
+        # Create VPG
+        vpg_name = "vpg-1"
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name = vpg_obj.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj_1 = VirtualMachineInterface(self.id() + "1",
+                                            parent_obj=proj_obj)
+        vmi_obj_1.set_virtual_network(vn1)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj_1.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj_1.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(
+                sub_interface_vlan_tag=vlan_1))
+        vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj_1)
+        vpg_obj.add_virtual_machine_interface(vmi_obj_1)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        # Attach Second VMI with untagged vlan
+        vn2 = VirtualNetwork('vn2-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn2)
+
+        # Create first untagged VMI and attach it to Virtual Port Group
+        vmi_obj_2 = VirtualMachineInterface(self.id() + "2",
+                                            parent_obj=proj_obj)
+        vmi_obj_2.set_virtual_network(vn2)
+
+        # Create KV_Pairs for this VMI with an untagged VLAN
+        # If tor_port_vlan_id is set, then it signifies a untagged VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name,
+                                         tor_port_vlan_id=vlan_2)
+
+        vmi_obj_2.set_virtual_machine_interface_bindings(kv_pairs)
+        vmi_uuid_2 = self.api.virtual_machine_interface_create(vmi_obj_2)
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_obj.add_virtual_machine_interface(vmi_obj_2)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        # Create another third VN with second tagged VMI
+        vn3 = VirtualNetwork('vn3-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn3)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn3
+        vmi_obj_3 = VirtualMachineInterface(self.id() + "3",
+                                            parent_obj=proj_obj)
+        vmi_obj_3.set_virtual_network(vn3)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj_3.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj_3.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(
+                sub_interface_vlan_tag=vlan_3))
+        vmi_uuid_3 = self.api.virtual_machine_interface_create(vmi_obj_3)
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_obj.add_virtual_machine_interface(vmi_obj_3)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+
+        # fomat annotations to look for in VPG
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        vmi1_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%d' % (
+                validation, vn1.uuid, vlan_1),
+            value=vmi_uuid_1)
+        vmi2_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%s' % (
+                validation, vn2.uuid, vlan_2),
+            value=vmi_uuid_2)
+        vmi2_untagged_kvp = KeyValuePair(
+            key='validation:%s/untagged_vlan_id' % validation,
+            value=vlan_2)
+        vmi3_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%d' % (
+                validation, vn3.uuid, vlan_3),
+            value=vmi_uuid_3)
+
+        # verify annotations are added
+        assert vmi1_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+
+        # annotations to remove
+        updates = [{'field': 'annotations',
+                    'operation': 'delete',
+                    'position': kvp.key} for kvp in vpg_kvps]
+        # remote annotations at DB
+        self._api_server._db_conn._object_db.prop_collection_update(
+            'virtual_port_group', vpg_obj.uuid, updates)
+
+        # verify that annotations are removed from VPG
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        assert vmi1_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+        assert vmi3_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+
+        # API server DB reinit
+        self._api_server._db_init_entries()
+
+        # verify that annoations are added back
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        assert vmi1_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+
+        # Delete VMIs from VPG
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_2)
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_3)
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        self.api.physical_interface_delete(id=pi_uuid)
+        self.api.physical_router_delete(id=pr_obj.uuid)
+        self.api.fabric_delete(id=fabric_obj.uuid)
+
+    def test_reinit_adds_sp_annotations(self):
+        """Verify annotations are added in the service provider VPG."""
+        proj_obj, fabric_obj, pr_obj = self._create_prerequisites(
+            enterprise_style_flag=False)
+
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        vlan_1 = 42
+        vlan_2 = '4094'
+        vlan_3 = 4093
+        validation = 'serviceprovider'
+        pi_name = self.id() + '_physical_interface1'
+        pi = PhysicalInterface(name=pi_name,
+                               parent_obj=pr_obj,
+                               ethernet_segment_identifier=esi_id)
+        pi_uuid = self._vnc_lib.physical_interface_create(pi)
+        pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi_fq_name = pi_obj.get_fq_name()
+
+        # Create VPG
+        vpg_name = "vpg-1"
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name = vpg_obj.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj_1 = VirtualMachineInterface(self.id() + "1",
+                                            parent_obj=proj_obj)
+        vmi_obj_1.set_virtual_network(vn1)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj_1.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj_1.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(
+                sub_interface_vlan_tag=vlan_1))
+        vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj_1)
+        vpg_obj.add_virtual_machine_interface(vmi_obj_1)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        # Attach Second VMI with untagged vlan
+        vn2 = VirtualNetwork('vn2-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn2)
+
+        # Create first untagged VMI and attach it to Virtual Port Group
+        vmi_obj_2 = VirtualMachineInterface(self.id() + "2",
+                                            parent_obj=proj_obj)
+        vmi_obj_2.set_virtual_network(vn2)
+
+        # Create KV_Pairs for this VMI with an untagged VLAN
+        # If tor_port_vlan_id is set, then it signifies a untagged VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name,
+                                         tor_port_vlan_id=vlan_2)
+
+        vmi_obj_2.set_virtual_machine_interface_bindings(kv_pairs)
+        vmi_uuid_2 = self.api.virtual_machine_interface_create(vmi_obj_2)
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_obj.add_virtual_machine_interface(vmi_obj_2)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        # Create another third VN with second tagged VMI
+        vn3 = VirtualNetwork('vn3-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn3)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn3
+        vmi_obj_3 = VirtualMachineInterface(self.id() + "3",
+                                            parent_obj=proj_obj)
+        vmi_obj_3.set_virtual_network(vn3)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj_3.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj_3.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(
+                sub_interface_vlan_tag=vlan_3))
+        vmi_uuid_3 = self.api.virtual_machine_interface_create(vmi_obj_3)
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_obj.add_virtual_machine_interface(vmi_obj_3)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+
+        # fomat annotations to look for in VPG
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        vmi1_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%d' % (
+                validation, vn1.uuid, vlan_1),
+            value=vmi_uuid_1)
+        vmi2_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%s' % (
+                validation, vn2.uuid, vlan_2),
+            value=vmi_uuid_2)
+        vmi2_untagged_kvp = KeyValuePair(
+            key='validation:%s/untagged_vlan_id' % validation,
+            value=vlan_2)
+        vmi3_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%d' % (
+                validation, vn3.uuid, vlan_3),
+            value=vmi_uuid_3)
+
+        # verify annotations are added
+        assert vmi1_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+
+        # annotations to remove
+        updates = [{'field': 'annotations',
+                    'operation': 'delete',
+                    'position': kvp.key} for kvp in vpg_kvps]
+        # remote annotations at DB
+        self._api_server._db_conn._object_db.prop_collection_update(
+            'virtual_port_group', vpg_obj.uuid, updates)
+
+        # verify that annotations are removed from VPG
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        assert vmi1_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+        assert vmi3_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+
+        # API server DB reinit
+        self._api_server._db_init_entries()
+
+        # verify that annoations are added back
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        assert vmi1_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+
+        # Delete VMIs from VPG
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_2)
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_3)
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        self.api.physical_interface_delete(id=pi_uuid)
+        self.api.physical_router_delete(id=pr_obj.uuid)
+        self.api.fabric_delete(id=fabric_obj.uuid)
+
     def test_enterprise_vpg_annotations(self):
         """Verify annotations are added in the enterprise VPG."""
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
