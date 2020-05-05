@@ -73,6 +73,9 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-det
 {%                   set mode='' %}
 {%             endif %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{family}} {{mode}}
+{%             if ('Route-Reflector' in sys_roles) and family.startswith('inet') %}
+set groups {{cfg_group}} routing-options resolution rib bgp.l3vpn.0 resolution-ribs [inet.3 inet.0]
+{%             endif %}
 {%         endfor %}
 {%         if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop no-nexthop-change
@@ -90,6 +93,9 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop no-next
 {%                         set family_input='inet' %}
 {%                     endif %}
 set groups {{cfg_group}} policy-options policy-statement {{ policy_name }} term {{family}} from family {{family_input}}
+{%                     if 'Route-Reflector' in sys_roles %}
+set groups {{cfg_group}} policy-options policy-statement {{ policy_name }} term {{family}} from route-type external
+{%                     endif %}
 set groups {{cfg_group}} policy-options policy-statement {{ policy_name }} term {{family}} then next-hop self
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{ policy_name }}
 {%                 endif %}
