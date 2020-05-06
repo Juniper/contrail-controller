@@ -81,9 +81,9 @@ class VrouterPortControl(object):
                     ret_code = 0
                 if ret_code == 0 and self._args.vif_type == "VhostUser" and \
                         self._args.vhostuser_mode == 0:
-                    #In DPDK mode we should wait until socket is created by
-                    #vrouter module
-                    ret_code  = self.WaitForSocketFile()
+                    # In DPDK mode we should wait until socket is created by
+                    # vrouter module
+                    ret_code = self.WaitForSocketFile()
 
             except ConnectionError:
                 '''In DPDK mode return failure when we are not able to connect
@@ -186,40 +186,51 @@ class VrouterPortControl(object):
         parser.add_argument('--vm_name', help="VM Name")
         parser.add_argument('--mac', help="MAC address")
         parser.add_argument('--tap_name', help="System name of interface")
-        parser.add_argument("--port_type", help="Port type", default="NovaVMPort")
+        parser.add_argument("--port_type", help="Port type",
+                            default="NovaVMPort")
         parser.add_argument("--tx_vlan_id", help="Transmit VLAN ID")
         parser.add_argument("--rx_vlan_id", help="Receive VLAN ID")
         parser.add_argument("--no_persist", type=bool,
                             help="Dont't store port information in files",
                             default=False)
         parser.add_argument("--vif_type", help="VIF type", default="Vrouter")
-        parser.add_argument("--vhostuser_socket", help="Path of vhostuser socket file")
+        parser.add_argument("--vhostuser_socket",
+                            help="Path of vhostuser socket file")
         parser.add_argument("--vhostuser_mode",
-                            help = "mode of operation of vhostuser socket",
+                            help="mode of operation of vhostuser socket",
                             default="0")
-        parser.add_argument("--agent_port", help="vrouter-agent port to which the http request will be sent (usually 9091)", required=False, default="9091")
-        parser.add_argument("--port_json_path", help="path of the directory where the json request is written", required=False, default="/var/lib/contrail/ports/")
+        parser.add_argument("--agent_port",
+                            help="vrouter-agent port for http request",
+                            required=False, default=9091)
+        parser.add_argument("--port_json_path",
+                            help="path where the json request is written",
+                            required=False, default="/var/lib/contrail/ports/")
         self._args = parser.parse_args(remaining_argv)
 
         if strip_quotes:
             self._args.oper = self.StripQuotes(self._args.oper)
             self._args.uuid = self.StripQuotes(self._args.uuid)
-            self._args.instance_uuid = self.StripQuotes(self._args.instance_uuid)
+            self._args.instance_uuid = self.StripQuotes(
+                self._args.instance_uuid)
             self._args.ip_address = self.StripQuotes(self._args.ip_address)
             self._args.ipv6_address = self.StripQuotes(self._args.ipv6_address)
             self._args.vn_uuid = self.StripQuotes(self._args.vn_uuid)
             self._args.vm_name = self.StripQuotes(self._args.vm_name)
-            self._args.vm_project_uuid = self.StripQuotes(self._args.vm_project_uuid)
+            self._args.vm_project_uuid = self.StripQuotes(
+                self._args.vm_project_uuid)
             self._args.mac = self.StripQuotes(self._args.mac)
             self._args.tap_name = self.StripQuotes(self._args.tap_name)
             self._args.port_type = self.StripQuotes(self._args.port_type)
             self._args.rx_vlan_id = self.StripQuotes(self._args.rx_vlan_id)
             self._args.tx_vlan_id = self.StripQuotes(self._args.tx_vlan_id)
             self._args.vif_type = self.StripQuotes(self._args.vif_type)
-            self._args.vhostuser_socket = self.StripQuotes(self._args.vhostuser_socket)
-            self._args.vhostuser_mode = self.StripQuotes(self._args.vhostuser_mode)
-            self._args.agent_port = self.StripQuotes(self._args.agent_port)
-            self._args.port_json_path = self.StripQuotes(self._args.port_json_path)
+            self._args.vhostuser_socket = self.StripQuotes(
+                self._args.vhostuser_socket)
+            self._args.vhostuser_mode = self.StripQuotes(
+                self._args.vhostuser_mode)
+            if self._args.port_json_path:
+                self._args.port_json_path = self.StripQuotes(
+                    self._args.port_json_path)
             if self._args.no_persist:
                 self._args.no_persist = True
 
@@ -235,31 +246,34 @@ class VrouterPortControl(object):
         if self._args.oper == "add":
             port_type_list = ['NovaVMPort', 'NameSpacePort', 'ESXiPort']
             if self._args.port_type not in port_type_list:
-                print "Invalid argument for port_type %s" % (self._args.port_type)
+                print "Invalid argument for port_type %s" % (
+                    self._args.port_type)
                 sys.exit(1)
 
             vif_type_list = ['VhostUser', 'Vrouter']
             if self._args.vif_type not in vif_type_list:
-                print "Invalid argument for vif_type %s" % (self._args.vif_type)
+                print "Invalid argument for vif_type %s" % (
+                    self._args.vif_type)
                 sys.exit(1)
 
             if self._args.rx_vlan_id:
                 if not self.IsNumber(self._args.rx_vlan_id):
-                    print "Invalid argument for rx_vlan_id %s" % (self._args.rx_vlan_id)
+                    print "Invalid argument for rx_vlan_id %s" % (
+                        self._args.rx_vlan_id)
                     sys.exit(1)
                 self._args.rx_vlan_id = int(self._args.rx_vlan_id)
 
             if self._args.tx_vlan_id:
                 if not self.IsNumber(self._args.tx_vlan_id):
-                    print "Invalid argument for tx_vlan_id %s" % (self._args.tx_vlan_id)
+                    print "Invalid argument for tx_vlan_id %s" % (
+                        self._args.tx_vlan_id)
                     sys.exit(1)
                 self._args.tx_vlan_id = int(self._args.tx_vlan_id)
 
             if self._args.vhostuser_mode:
                 self._args.vhostuser_mode = int(self._args.vhostuser_mode)
 
-
-    #end _parse_args
+    # end _parse_args
 
     def CreateDirectoryTree(self, path):
         try:
@@ -285,7 +299,7 @@ class VrouterPortControl(object):
             "type": port_type,
             "rx-vlan-id": self._args.rx_vlan_id,
             "tx-vlan-id": self._args.tx_vlan_id,
-            "vhostuser-mode" : self._args.vhostuser_mode,
+            "vhostuser-mode": self._args.vhostuser_mode,
             "author": __file__,
             "time": str(datetime.datetime.now())
         }
@@ -295,7 +309,6 @@ class VrouterPortControl(object):
     def IsESXiPort(self, port_data):
         return port_data["type"] == ESXI_PORT_TYPE
     # end IsESXiPort
-
 
     def WriteToFile(self, data):
         filename = ("%s%s" % (PORT_PATH, self._args.uuid))
@@ -328,13 +341,13 @@ class VrouterPortControl(object):
     def WaitForNetlinkSocket(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
         sleep_usecs = 1000
-        for i in range(1,(timeout_usecs/sleep_usecs)):
+        for i in range(1, (timeout_usecs/sleep_usecs)):
             if os.path.exists(DPDK_NETLINK_SOCK_PATH):
-                #TODO: need to check if the socket path is opened
+                # TODO: need to check if the socket path is opened
                 return True
             time.sleep(sleep_usecs/1000000.0)
         return False
-    #end WaitForNetlinkSocket
+    # end WaitForNetlinkSocket
 
     def WaitForSocketFile(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
