@@ -5203,6 +5203,300 @@ TEST_F(IntfTest, FatFlowPrefixAggr6) {
     client->Reset();
 }
 
+// test fatflow cfg with multiple cfgs and combinations
+TEST_F(IntfTest, FatFlowPrefixAggr7) {
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    uint16_t port, sport, dport;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("udp", 55, "none", "2001::1", 64, 64, "5000::2", 64, 64);
+    TestFatFlowEntry e2("tcp", 17, "source", "2001::1", 64, 64, "5000::2", 64, 64);
+    TestFatFlowEntry e3("tcp", 22, "destination", "2001::1", 64, 64, "5000::2", 64, 64);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+    list.push_back(e3);
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
+
+    // test sport < dport, with dport = fat-flow port
+    sport = 54;
+    dport = 55;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
+
+    // test sport > dport, with sport = fat-flow port
+    sport = 55;
+    dport = 54;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
+
+    // test sport > dport, with dport = fat-flow port
+    sport = 56;
+    dport = 55;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
+
+    // test sport < dport, with sport = fat-flow port
+    sport = 55;
+    dport = 56;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
+
+    // test sport < dport, with dport = fat-flow port
+    sport = 16;
+    dport = 17;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    // test sport > dport, with sport = fat-flow port
+    sport = 17;
+    dport = 16;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    // test sport > dport, with dport = fat-flow port
+    sport = 18;
+    dport = 17;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    // test sport < dport, with sport = fat-flow port
+    sport = 17;
+    dport = 18;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    // test sport < dport, with dport = fat-flow port
+    sport = 21;
+    dport = 22;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_DESTINATION);
+
+    // test sport > dport, with sport = fat-flow port
+    sport = 22;
+    dport = 21;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_DESTINATION);
+
+    // test sport > dport, with dport = fat-flow port
+    sport = 22;
+    dport = 23;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_DESTINATION);
+
+    // test sport < dport, with sport = fat-flow port
+    sport = 23;
+    dport = 22;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_DESTINATION);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+// test fatflow cfg with multiple cfgs and combinations
+TEST_F(IntfTest, FatFlowPrefixAggr8) {
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    uint16_t port, sport, dport;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("udp", 55, "none", "2000::1", 64, 64, "5000::2", 64, 64);
+    TestFatFlowEntry e2("tcp", 0, "source", "2001::1", 64, 64, "5001::2", 64, 64);
+    TestFatFlowEntry e3("tcp", 0, "destination", "2002::1", 64, 64, "5002::2", 64, 64);
+    TestFatFlowEntry e4("tcp", 0, "none", "2003::1", 64, 64, "5003::2", 64, 64);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+    list.push_back(e3);
+    list.push_back(e4);
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 4);
+
+    // test sport < dport, port not in fat flow config
+    // ignore source case
+    sport = 21;
+    dport = 23;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5001::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    // test sport < dport, port not in fat flow config
+    // ignore destination case
+    sport = 21;
+    dport = 23;
+    SrcIP = IpAddress::from_string("2002::10");
+    DstIP = IpAddress::from_string("5002::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_DESTINATION);
+
+    // test sport < dport, port not in fat flow config
+    // ignore none
+    sport = 21;
+    dport = 23;
+    SrcIP = IpAddress::from_string("2003::10");
+    DstIP = IpAddress::from_string("5003::50");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &sport, &dport,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
 TEST_F(IntfTest, IntfAddDel) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
