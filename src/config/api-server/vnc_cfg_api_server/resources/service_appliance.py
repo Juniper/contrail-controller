@@ -6,6 +6,7 @@ from builtins import str
 
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.resource_common import ServiceAppliance
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
@@ -30,6 +31,33 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                         right_intf_list = value.split(',')
 
         return left_intf_list, right_intf_list
+
+    @classmethod
+    def update_physical_interface_type(cls, pi_uuid_list, op):
+        api_server = cls.server
+        db_conn = cls.db_conn
+
+        for pi_uuid in pi_uuid_list or []:
+            try:
+                if op == 'ADD':
+                    api_server.internal_request_update(
+                        'physical_interface',
+                        pi_uuid,
+                        {'physical_interface_type': 'service'},
+                    )
+                elif op == 'DELETE':
+                    api_server.internal_request_update(
+                        'physical_interface',
+                        pi_uuid,
+                        {'physical_interface_type': None},
+                    )
+            except HttpError as e:
+                db_conn.config_log("PI (%s) update failed (%s)" %
+                                   (pi_uuid, str(e)),
+                                   level=SandeshLevel.SYS_WARN)
+                return False, (400, str(e))
+
+        return True, ''
 
     @classmethod
     def check_phys_intf_belongs_to_pnf(cls, obj_dict):
@@ -86,6 +114,7 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
         # Ref from PNF device interface to service chaining device interface
         virtualization_type = obj_dict.get(
             'service_appliance_virtualization_type')
+        pi_uuid_list = []
         if virtualization_type == 'physical-device':
             api_server = cls.server
             db_conn = cls.db_conn
@@ -100,10 +129,14 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                         return False, (400, str(e))
                 else:
                     pi_uuid = phys_intf_ref['uuid']
+                pi_uuid_list.append(pi_uuid)
 
                 if phys_intf_ref['attr'].get('interface_type') == 'left':
                     for intf in left_intf_list:
                         try:
+                            pi_uuid = db_conn.fq_name_to_uuid(
+                                'physical_interface', intf.split(':'))
+                            pi_uuid_list.append(pi_uuid)
                             api_server.internal_request_ref_update(
                                 'physical-interface', pi_uuid, op,
                                 'physical-interface', None, intf.split(':'))
@@ -112,11 +145,18 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                 elif phys_intf_ref['attr'].get('interface_type') == 'right':
                     for intf in right_intf_list:
                         try:
+                            pi_uuid = db_conn.fq_name_to_uuid(
+                                'physical_interface', intf.split(':'))
+                            pi_uuid_list.append(pi_uuid)
                             api_server.internal_request_ref_update(
                                 'physical-interface', pi_uuid, op,
                                 'physical-interface', None, intf.split(':'))
                         except HttpError as e:
                             return False, (e.status_code, e.content)
+
+        ok, result = cls.update_physical_interface_type(pi_uuid_list, op)
+        if not ok:
+            return ok, result
 
         return True, ''
 
