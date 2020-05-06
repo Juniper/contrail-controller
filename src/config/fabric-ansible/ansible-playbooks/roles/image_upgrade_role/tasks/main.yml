@@ -92,6 +92,17 @@
       include_tasks: percentage_update.yml
       vars:
         jl_message: Image upgrade version validated. The device OS version is now {{device_version}}.
+
+    - name: Push empty config down in order to not detect version change
+      juniper_junos_config:
+        lines: "set groups __contrail_basic__"
+        comment: "Contrail execution ID: {{ job_ctx.job_execution_id }}"
+        ignore_warning: "True"
+        provider:
+          host: "{{ pr_host }}"
+          username: "{{ pr_user }}"
+          password: "{{ pr_password }}"
+          port: 22
+          timeout: "{{ JUNOS_COMMIT_TIMEOUT | int }}"
+      register: junos_response
   when: task_fail is not defined
-
-
