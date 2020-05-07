@@ -2568,7 +2568,7 @@
     },
     {
       "from_type": "role-definition",
-      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "overlay-bgp" ]
     },
