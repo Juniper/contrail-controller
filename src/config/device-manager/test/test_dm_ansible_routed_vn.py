@@ -52,6 +52,81 @@ class BgpRoutedParam:
     # end create_bgp_routed_properties
 # end BgpRoutedParam
 
+
+class OspfRoutedParam:
+    def __init__(self, name, interface, hello_intv, dead_intv, auth_key,
+                 area_id, area_type, adv_loop, orignate_summary_lsa, routed_ip,
+                 bfd_time, bfd_multiplier, rp_params):
+        self.name = name
+        self.interface = interface
+        self.hello_intv = hello_intv
+        self.dead_intv = dead_intv
+        self.auth_key = auth_key
+        self.area_id = area_id
+        self.area_type = area_type
+        self.adv_loop = adv_loop
+        self.orignate_summary_lsa = orignate_summary_lsa
+        self.routed_ip = routed_ip
+        self.bfd_time = bfd_time
+        self.bfd_multiplier = bfd_multiplier
+        self.rp_params = rp_params
+
+    def create_ospf_routed_properties(self, pr_uuid):
+        ospf_params = OspfParameters(
+            name=self.name,
+            authentication_key=AuthenticationData(
+                key_items=[AuthenticationKeyItem(key=self.auth_key)]),
+            hello_interval=self.hello_intv,
+            dead_interval=self.dead_intv,
+            area_id=self.area_id,
+            area_type=self.area_type,
+            advertise_loopback=self.adv_loop,
+            orignate_summary_lsa=self.orignate_summary_lsa)
+
+        return RoutedProperties(
+            physical_router_uuid=pr_uuid,
+            routed_interface_ip_address=self.routed_ip,
+            routing_protocol='ospf',
+            ospf_params=ospf_params,
+            bfd_params=BfdParameters(
+                time_interval=self.bfd_time,
+                detection_time_multiplier=self.bfd_multiplier),
+            static_route_params=None,
+            routing_policy_params=self.rp_params)
+    # end create_ospf_routed_properties
+# end OspfRoutedParam
+
+
+class PimRoutedParam:
+    def __init__(self, interface, routed_ip, rp_address, eoai, mode,
+                 bfd_time, bfd_multiplier):
+        self.interface = interface
+        self.routed_ip = routed_ip
+        self.rp_address = rp_address
+        self.eoai = eoai
+        self.mode = mode
+        self.bfd_time = bfd_time
+        self.bfd_multiplier = bfd_multiplier
+
+    def create_pim_routed_properties(self, pr_uuid):
+        pim_params = PimParameters(
+            rp_ip_address=self.rp_address,
+            mode=self.mode,
+            enable_all_interfaces=self.eoai)
+
+        return RoutedProperties(
+            physical_router_uuid=pr_uuid,
+            routed_interface_ip_address=self.routed_ip,
+            routing_protocol='pim',
+            pim_params=pim_params,
+            bfd_params=BfdParameters(
+                time_interval=self.bfd_time,
+                detection_time_multiplier=self.bfd_multiplier),
+            static_route_params=None)
+    # end create_pim_routed_properties
+# end PimRoutedParam
+
+
 class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
     def setUp(self, extra_config_knobs=None):
@@ -83,6 +158,87 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self.delete_overlay_roles()
         self.delete_physical_roles()
     # end _delete_objects
+
+    @retries(2, hook=retry_exc_handler)
+    def _verify_abstract_config_pim(self, cpr, prnew_name, ri_name, pim_params):
+        cpr.set_physical_router_product_name(prnew_name)
+        self._vnc_lib.physical_router_update(cpr)
+        gevent.sleep(2)
+
+        ac1 = self.check_dm_ansible_config_push()
+        dac = ac1.get('device_abstract_config')
+        ri = self.get_routing_instance_from_description(dac, ri_name)
+        ri_protocols = ri.get('protocols', None)
+        self.assertIsNotNone(ri_protocols)
+        for proto in ri_protocols or []:
+            pim = proto.get('pim')[-1]
+            self.assertIsNotNone(pim)
+            self.assertEqual(pim.get('mode'),
+                             pim_params.mode)
+            interfaces = pim.get('pim_interfaces')[-1]
+            if pim_params.eoai:
+                self.assertEqual(interfaces['interface']['name'],
+                                 'all')
+            else:
+                self.assertEqual(interfaces['interface']['name'],
+                                 pim_params.interface)
+            self.assertEqual(pim.get('enable_on_all_interfaces', False),
+                             pim_params.eoai)
+            rp_list = pim.get('rp', [])
+            for rp in pim_params.rp_address or []:
+                self.assertIn(rp, rp_list)
+            bfdp = pim.get('bfd', None)
+            self.assertIsNotNone(bfdp)
+            self.assertEqual(bfdp.get('rx_tx_interval'),
+                             pim_params.bfd_time)
+            self.assertEqual(bfdp.get('detection_time_multiplier'),
+                             pim_params.bfd_multiplier)
+
+    @retries(2, hook=retry_exc_handler)
+    def _verify_abstract_config_ospf(self, cpr, prnew_name, ri_name,
+                                     import_rp_name, export_rp_name,
+                                     rp_inputdict, ospf_params):
+        cpr.set_physical_router_product_name(prnew_name)
+        self._vnc_lib.physical_router_update(cpr)
+        gevent.sleep(2)
+
+        ac1 = self.check_dm_ansible_config_push()
+        dac = ac1.get('device_abstract_config')
+        ri = self.get_routing_instance_from_description(dac, ri_name)
+        ri_protocols = ri.get('protocols', None)
+        self.assertIsNotNone(ri_protocols)
+        import_rp_name_cpy = import_rp_name[:]
+        export_rp_name_cpy = export_rp_name[:]
+        for proto in ri_protocols or []:
+            ospf = proto.get('ospf', None)[-1]
+            self.assertIsNotNone(ospf)
+            self.assertEqual(ospf.get('hello_interval'),
+                             ospf_params.hello_intv)
+            self.assertEqual(ospf.get('dead_interval'),
+                             ospf_params.dead_intv)
+            self.assertEqual(ospf.get('area_id'),
+                             ospf_params.area_id)
+            self.assertEqual(ospf.get('area_type'),
+                             ospf_params.area_type)
+            self.assertEqual(ospf.get('orignate_summary_lsa'),
+                             ospf_params.orignate_summary_lsa)
+            self.assertEqual(ospf.get('advertise_loopback', False),
+                             ospf_params.adv_loop)
+            bfdp = ospf.get('bfd', None)
+            self.assertIsNotNone(bfdp)
+            self.assertEqual(bfdp.get('rx_tx_interval'),
+                             ospf_params.bfd_time)
+            self.assertEqual(bfdp.get('detection_time_multiplier'),
+                             ospf_params.bfd_multiplier)
+            rp_cfg = ospf.get('routing_policies', None)
+            self.assertIsNotNone(rp_cfg)
+            for v in rp_cfg.get('import_routing_policies'):
+                self.assertIn(v, import_rp_name)
+                import_rp_name_cpy.remove(v)
+            for v in rp_cfg.get('export_routing_policies'):
+                self.assertIn(v, export_rp_name)
+                export_rp_name_cpy.remove(v)
+        self.verify_routing_policy_in_abstract_cfg(dac, rp_inputdict)
 
     @retries(2, hook=retry_exc_handler)
     def _verify_abstract_config_static_routes(self, cpr, prnew_name, ri_name,
@@ -247,7 +403,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
     # end _create_fabrics_two_pr
 
     def _create_and_validate_routed_vn(self, vn_id, two_fabric=False,
-                                      test_static_route=True, test_bgp=True):
+                                       test_static_route=True, test_bgp=True,
+                                       test_ospf=False, test_pim=False):
         _, _, pr1, pr2 = self._create_fabrics_two_pr('lr', two_fabric)
         # create 1 routed VN with Static Routes with interface_route_table
         # for PR1 and bgp with routing policys for PR2
@@ -257,6 +414,20 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         bgp_routed_props = None
         static_routed_props = None
         vn_routed_props = VirtualNetworkRoutedPropertiesType()
+        # Start of Routing Protocol definition
+        if test_pim == True:
+            pim_intf = "irb.10"
+            pim_rp = ["1.2.3.4", "4.3.2.1"]
+            pimParams = PimRoutedParam(interface=pim_intf,
+                                       routed_ip="41.41.41.41",
+                                       rp_address=pim_rp,
+                                       eoai=True,
+                                       mode="sparse-dense",
+                                       bfd_time=30,
+                                       bfd_multiplier=100)
+            pim_routed_props = pimParams.create_pim_routed_properties(pr1.get_uuid())
+            vn_routed_props.add_routed_properties(pim_routed_props)
+
         if test_static_route == True:
             irt_prefix1 = ['41.1.1.0/24', '41.2.2.0/24']
             irt_obj1 = self.create_or_update_irt(vn_id,
@@ -266,65 +437,82 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 [irt_obj1.get_uuid()], irt_next_hopes, pr1, '41.1.1.10')
             vn_routed_props.add_routed_properties(static_routed_props)
 
-        if test_bgp == True:
-            rp_inputdict = {
-                'PR-BGP-ACCEPT-COMMUNITY' : [
-                    RPTerm('PR-BGP-ACCEPT-COMMUNITY', protocols=["bgp"],
-                           prefixs=["0.0.0.0/0"], prefixtypes=["orlonger"],
-                           extcommunity_list=["64112:11114", "origin:64511:3",
-                                              "origin:1.1.1.1:3",
-                                              "target:64511:4",
-                                              "target:1.1.1.1:4",
-                                              "65...:50203"], action="accept",
-                           local_pref=100, asn_list=[65401] ) ],
-                'PR-STATIC-ACCEPT': [
-                    RPTerm('PR-STATIC-ACCEPT', protocols=["static"],
-                           prefixs=["0.0.0.0/0"], prefixtypes=["orlonger"],
-                           extcommunity_list=[], action="accept") ],
-                'PR-BGP-PERMIT-2-TERMS': [
-                    RPTerm('PR-BGP-PERMIT-2-TERMS', protocols=["interface"],
-                           prefixs=["1.1.1.1/24"], prefixtypes=["exact"],
-                           extcommunity_list=[], action="accept"),
-                    RPTerm('PR-BGP-PERMIT-2-TERMS', protocols=["interface"],
-                           prefixs=["2.2.2.2/32"], prefixtypes=["orlonger"],
-                           action="reject") ],
-                'PR-STATIC-REJECT': [
-                    RPTerm('PR-STATIC-REJECT', protocols=["static"],
-                           prefixs=["0.0.0.0/0"], prefixtypes=["longer"],
-                           action="reject") ]
-                }
-            for rp_name, terms in rp_inputdict.items():
-                term_list = []
-                for t in terms:
-                    term_list.append(
-                        self.create_routing_policy_term(
-                            protocols=t.protocols, prefixs=t.prefixs,
-                            prefixtypes=t.prefixtypes,
-                            extcommunity_list=t.extcommunity_list,
-                            extcommunity_match_all=t.extcommunity_match_all,
-                            community_match_all=t.community_match_all,
-                            action=t.action, local_pref=t.local_pref,
-                            med=t.med, asn_list=t.asn_list)
-                    )
-                if len(term_list) == 0:
-                    continue
-                rp_obj_dic[rp_name] = \
-                    self.create_routing_policy(rp_name=rp_name,
-                                               term_list=term_list)
-            i = 0; import_rp = []; export_rp = [];
-            import_rp_name = []; export_rp_name = []
-            for k,v in rp_obj_dic.items():
-                if i < 2:
-                    import_rp.append(v.get_uuid())
-                    import_rp_name.append(k)
-                else:
-                    export_rp.append(v.get_uuid())
-                    export_rp_name.append(k)
-                i += 1
+        rp_inputdict = {
+            'PR-BGP-ACCEPT-COMMUNITY': [
+                RPTerm('PR-BGP-ACCEPT-COMMUNITY', protocols=["bgp"],
+                       prefixs=["0.0.0.0/0"], prefixtypes=["orlonger"],
+                       extcommunity_list=["64112:11114", "origin:64511:3",
+                                          "origin:1.1.1.1:3",
+                                          "target:64511:4",
+                                          "target:1.1.1.1:4",
+                                          "65...:50203"], action="accept",
+                       local_pref=100, asn_list=[65401])],
+            'PR-STATIC-ACCEPT': [
+                RPTerm('PR-STATIC-ACCEPT', protocols=["static"],
+                       prefixs=["0.0.0.0/0"], prefixtypes=["orlonger"],
+                       extcommunity_list=[], action="accept")],
+            'PR-BGP-PERMIT-2-TERMS': [
+                RPTerm('PR-BGP-PERMIT-2-TERMS', protocols=["interface"],
+                       prefixs=["1.1.1.1/24"], prefixtypes=["exact"],
+                       extcommunity_list=[], action="accept"),
+                RPTerm('PR-BGP-PERMIT-2-TERMS', protocols=["interface"],
+                       prefixs=["2.2.2.2/32"], prefixtypes=["orlonger"],
+                       action="reject")],
+            'PR-STATIC-REJECT': [
+                RPTerm('PR-STATIC-REJECT', protocols=["static"],
+                       prefixs=["0.0.0.0/0"], prefixtypes=["longer"],
+                       action="reject")]
+        }
+        for rp_name, terms in rp_inputdict.items():
+            term_list = []
+            for t in terms:
+                term_list.append(
+                    self.create_routing_policy_term(
+                        protocols=t.protocols, prefixs=t.prefixs,
+                        prefixtypes=t.prefixtypes,
+                        extcommunity_list=t.extcommunity_list,
+                        extcommunity_match_all=t.extcommunity_match_all,
+                        community_match_all=t.community_match_all,
+                        action=t.action, local_pref=t.local_pref,
+                        med=t.med, asn_list=t.asn_list)
+                )
+            if len(term_list) == 0:
+                continue
+            rp_obj_dic[rp_name] = \
+                self.create_routing_policy(rp_name=rp_name,
+                                           term_list=term_list)
+        i = 0
+        import_rp = []
+        export_rp = []
+        import_rp_name = []
+        export_rp_name = []
+        for k, v in rp_obj_dic.items():
+            if i < 2:
+                import_rp.append(v.get_uuid())
+                import_rp_name.append(k)
+            else:
+                export_rp.append(v.get_uuid())
+                export_rp_name.append(k)
+            i += 1
 
-            rp_parameters = RoutingPolicyParameters(
-                import_routing_policy_uuid=import_rp,
-                export_routing_policy_uuid=export_rp)
+        rp_parameters = RoutingPolicyParameters(
+            import_routing_policy_uuid=import_rp,
+            export_routing_policy_uuid=export_rp)
+
+        if test_ospf == True:
+            ospfParams = OspfRoutedParam(name="ospf1", interface="irb.10",
+                                         hello_intv=10, dead_intv=40,
+                                         auth_key="999999", area_id="0.0.0.0",
+                                         area_type="backbone", adv_loop=True,
+                                         orignate_summary_lsa=True,
+                                         routed_ip='41.41.41.41',
+                                         bfd_time=30, bfd_multiplier=100,
+                                         rp_params=rp_parameters)
+            ospf_routed_props = ospfParams.create_ospf_routed_properties(
+                pr2.get_uuid())
+            vn_routed_props.add_routed_properties(ospf_routed_props)
+
+        if test_bgp == True:
             bgp_param = BgpRoutedParam(
                 peer_ip="30.30.30.30", peer_asn=7000, local_asn=7001,
                 hold_time=90, auth_type="md5", auth_key="99493939393",
@@ -333,18 +521,18 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             bgp_routed_props = bgp_param.create_bgp_routed_properties(
                 pr2.get_uuid())
             vn_routed_props.add_routed_properties(bgp_routed_props)
+        #  End of Routing Protocol definition
 
         vn_obj1.set_virtual_network_category('routed')
         vn_obj1.set_virtual_network_routed_properties(vn_routed_props)
         self._vnc_lib.virtual_network_update(vn_obj1)
-
         lr_name = 'lr-routed1-' + self.id()
         lr_fq_name1 = ['default-domain', 'default-project', lr_name]
         lr1 = LogicalRouter(fq_name=lr_fq_name1, parent_type='project',
                             logical_router_type='vxlan-routing')
-        if test_static_route == True:
+        if test_static_route == True or test_pim == True:
             lr1.add_physical_router(pr1)
-        if test_bgp == True:
+        if test_bgp == True or test_ospf == True:
             lr1.add_physical_router(pr2)
 
         fq_name1 = ['default-domain', 'default-project',
@@ -364,6 +552,13 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             # for pr1 - verify static routes
             self._verify_abstract_config_static_routes(
                 pr1, 'qfx10008', ri_name, irt_next_hopes, irt_prefix1)
+        if test_pim == True:
+            self._verify_abstract_config_pim(pr1, 'qfx10008', ri_name,
+                                             pimParams)
+        if test_ospf == True:
+            self._verify_abstract_config_ospf(pr2, 'qfx10008', ri_name,
+                                              import_rp_name, export_rp_name,
+                                              rp_inputdict, ospfParams)
         if test_bgp == True:
             # for pr2 - verify ri's bgp and all routing policies
             self._verify_abstract_config_rp_and_bgp(
@@ -401,7 +596,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             rp_inputdict['PR-STATIC-ACCEPT'] = [
                 RPTerm('PR-STATIC-ACCEPT', protocols=["static"],
                        prefixs=["20.0.0.0/27"], prefixtypes=["exact"],
-                       extcommunity_list=[], action="accept") ]
+                       extcommunity_list=[], action="accept")]
             t = rp_inputdict['PR-STATIC-ACCEPT'][0]
             term_list = []
             term_list.append(
@@ -420,7 +615,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             self._vnc_lib.routing_policy_update(tmp_rp_obj)
             rp_obj_dic['PR-STATIC-ACCEPT'] = \
                 self._vnc_lib.routing_policy_read(id=tmp_rp_obj.get_uuid())
-            
+
             self._verify_abstract_config_rp_and_bgp(
                 pr2, 'qfx10002', ri_name, vn_id, import_rp_name,
                 export_rp_name, rp_inputdict, bgp_param)
@@ -468,4 +663,11 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self._create_and_validate_routed_vn(vn_id='11', two_fabric=True)
     # end test_routed_vn_two_fabric
 
+    def test_routed_vn_single_fabric_pim_ospf(self):
+        self._create_and_validate_routed_vn(vn_id='12', two_fabric=False,
+                                            test_static_route=False,
+                                            test_bgp=False,
+                                            test_ospf=True,
+                                            test_pim=True)
+    # end test_routed_vn_single_fabric
 # end TestAnsibleDM
