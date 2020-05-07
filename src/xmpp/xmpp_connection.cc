@@ -380,7 +380,6 @@ void XmppConnection::ProcessSslHandShakeResponse(SslSessionPtr session,
 
     if (error) {
         inc_handshake_failure();
-        state_machine()->OnEvent(session.get(), xmsm::EvTLSHANDSHAKE_FAILURE);
 
         if (error.category() == boost::asio::error::get_ssl_category()) {
             string err = error.message();
@@ -395,6 +394,8 @@ void XmppConnection::ProcessSslHandShakeResponse(SslSessionPtr session,
              XMPP_ALERT(XmppSslHandShakeFailure, ToUVEKey(), XMPP_PEER_DIR_IN,
                         "failure", err);
         }
+
+        state_machine()->OnEvent(session.get(), xmsm::EvTLSHANDSHAKE_FAILURE);
 
     } else {
         XMPP_DEBUG(XmppSslHandShakeMessage, session->ToUVEKey(),
