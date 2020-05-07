@@ -1596,6 +1596,45 @@ class FilterModule(object):
             _task_done()
     # end _delete_fabric
 
+    def _del_peer_instance_ip(self, pi_obj, vnc_api):
+        remote_pi_refs = pi_obj.get_physical_interface_refs()
+        for remote_pi_ref in remote_pi_refs or []:
+            try:
+                remote_pi_uuid = remote_pi_ref.get(
+                    'uuid',
+                    vnc_api.fq_name_to_id(
+                        'physical_interface',
+                        remote_pi_ref.get('to')
+                    )
+                )
+                remote_pi_obj = vnc_api.physical_interface_read(
+                    id=remote_pi_uuid)
+
+                remote_pi_mac = self._get_pi_mac(remote_pi_obj)
+                if remote_pi_mac:
+                    remote_iip_fq_name = [self._get_pi_mac(
+                        remote_pi_obj).replace(':', '')]
+                    try:
+                        _task_log(
+                            "Deleting remote instance-ip %s "
+                            "on remote fabric interface %s"
+                            % (remote_iip_fq_name, remote_pi_obj.fq_name)
+                        )
+                        vnc_api.instance_ip_delete(
+                            fq_name=remote_iip_fq_name)
+                        _task_done()
+                    except NoIdError:
+                        _task_done(
+                            "No instance_ip found for remote "
+                            "physical interface %s" %
+                            remote_pi_obj.fq_name
+                        )
+            except NoIdError:
+                _task_done(
+                    "UUID not found for physical interface %s" %
+                    remote_pi_ref.get('to')
+                )
+
     def _delete_fabric_device(self, vnc_api, device_uuid=None,
                               device_fq_name=None, job_transaction_info=None):
         """Delete fabric device.
@@ -1654,7 +1693,16 @@ class FilterModule(object):
             pi_uuid = str(pi_ref.get('uuid'))
             pi_obj = vnc_api.physical_interface_read(id=pi_uuid, fields=[
                 'fq_name', 'physical_interface_mac_addresses',
-                'logical_interfaces'])
+                'logical_interfaces', 'physical_interface_type',
+                'physical_interface_refs'
+            ])
+
+            # delete all the peer-instance-ips for this interface
+            # if it is of type fabric
+
+            pi_type = pi_obj.get_physical_interface_type()
+            if pi_type == 'fabric':
+                self._del_peer_instance_ip(pi_obj, vnc_api)
 
             # delete all the instance-ips for the fabric interfaces
             pi_mac = self._get_pi_mac(pi_obj)
