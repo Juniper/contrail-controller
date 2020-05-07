@@ -810,8 +810,14 @@ class DBInterface(object):
         try:
             self._vnc_lib.fq_name_to_id('tag', tag_fq_name)
         except vnc_exc.NoIdError:
-            self._vnc_lib.tag_create(Tag(tag_type_name='neutron_tag',
-                                         tag_value=tag))
+            self._vnc_lib.tag_create(
+                Tag(tag_type_name='neutron_tag',
+                    tag_value=tag,
+                    perms2=PermType2(
+                        'cloud-admin', PERMS_RWX,   # tenant, tenant-access
+                        PERMS_RX,                   # global-access
+                        [])                         # share list
+                    ))
         tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
         return tag_obj
     # end _tag_get_or_create
