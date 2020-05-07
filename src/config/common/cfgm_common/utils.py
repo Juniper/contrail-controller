@@ -58,7 +58,7 @@ def detailed_traceback():
 # end detailed_traceback
 
 
-def encode_string(string, encoding='utf-8', safe=': '):
+def encode_string(string, encoding='utf-8', safe=': ='):
     """Encode the string using urllib.quote_plus.
 
     Eg. @input:

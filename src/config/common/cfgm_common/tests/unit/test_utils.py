@@ -54,6 +54,7 @@ class TestFqNameEncode(unittest.TestCase):
             ('non ascii with space é', 'non+ascii+with+space+%C3%A9'),
             ('non-ascii-encoded-\xe9', 'non-ascii-encoded-%C3%A9'),
             (b'binary', TypeError),
+            ('foo=bar', 'foo=bar'),
             # (, ),
         ]
         for string, expected_result in test_suite:
