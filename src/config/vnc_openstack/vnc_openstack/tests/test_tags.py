@@ -1607,3 +1607,39 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
         avg_execution_time = (end - start) / PERFORMANCE_REPEAT
         expected_avg_execution_time = 60  # milliseconds
         self.assertLessEqual(avg_execution_time, expected_avg_execution_time)
+
+
+class TestNeutronTagsPerms(NeutronTagsTestCase):
+    def setUp(self, *args, **kwargs):
+        super(TestNeutronTagsPerms, self).setUp(*args, **kwargs)
+
+    def tearDown(self):
+        super(TestNeutronTagsPerms, self).tearDown()
+
+    def test_tag_default_perms(self):
+        PERMS_RX = 5
+        tag = 'orange'
+
+        vn = VirtualNetwork('vn-{}_{}'.format(tag, self.id()),
+                            parent_obj=self.project)
+        vn.uuid = self.api.virtual_network_create(vn)
+        result = self.create_resource(
+            'tags',
+            self.project.uuid,
+            extra_res_fields={
+                'resource': {
+                    'parent_id': vn.uuid,
+                    'tags': [tag],
+                },
+            },
+        )
+
+        tag_fq_name = ['neutron_tag={}'.format(tag)]
+        tag_obj = self.api.tag_read(fq_name=tag_fq_name)
+        self.assertEqual(tag_obj.perms2.global_access, PERMS_RX)
+        self.assertEqual(tag_obj.perms2.owner, 'cloud-admin')
+
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
+        self.api.tag_delete(id=tag_obj.uuid)
+
