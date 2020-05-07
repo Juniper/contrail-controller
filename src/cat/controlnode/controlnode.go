@@ -31,12 +31,12 @@ type ControlNode struct {
 
 const controlNodeName = "control-node"
 const controlNodeBinary = "../../../../build/debug/bgp/test/bgp_ifmap_xmpp_integration_test"
-const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/bulk_sync.json"
+const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/exmp_gen_config.json"
 
 // New creates a ControlNode object and starts the process to run in background.
 // This routine shall not return until the launched control-node's server ports
 // are retrieved (BGP, XMPP and HTTP/Introspect)
-func New(m sut.Manager, name, ipAddress, confFile, test string, httpPort int) (*ControlNode, error) {
+func New(m sut.Manager, name, ipAddress, confFile, test string, bgpPort int) (*ControlNode, error) {
 	// Attach IP to loopback.
 	if !strings.HasPrefix(ipAddress, "127.") {
 		cmd := exec.Command("sudo", "--non-interactive", "ip", "address", "add", ipAddress+"/24", "dev", "lo")
@@ -53,8 +53,8 @@ func New(m sut.Manager, name, ipAddress, confFile, test string, httpPort int) (*
 			LogDir:    filepath.Join(m.RootDir, test, controlNodeName, name, "log"),
 			ConfDir:   filepath.Join(m.RootDir, test, controlNodeName, name, "conf"),
 			Config: sut.Config{
-				BGPPort:  httpPort,
-				HTTPPort: httpPort,
+				BGPPort:  bgpPort,
+				HTTPPort: 0,
 				XMPPPort: 0,
 			},
 			ConfFile: confFile,
@@ -85,6 +85,12 @@ func (c *ControlNode) start() error {
 		c.ConfFile = controlNodeConfFile
 	}
 
+	output, err := os.Create(c.Component.LogDir + "/log")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer output.Close()
+
 	c.Cmd = exec.Command(controlNodeBinary, "--config_file="+c.Component.ConfFile)
 	env := sut.EnvMap{
 		"USER": os.Getenv("USER"),
@@ -94,15 +100,17 @@ func (c *ControlNode) start() error {
 		"CAT_XMPP_PORT":                              strconv.Itoa(c.Config.XMPPPort),
 		"BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT": strconv.Itoa(c.Config.HTTPPort),
 		"BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE":      "1",
-		//      "LOG_DISABLE" : strconv.FormatBool(c.Verbose),
+		//"LOG_DISABLE" : strconv.FormatBool(c.Verbose),
 		"BGP_IFMAP_XMPP_INTEGRATION_TEST_DATA_FILE": c.ConfFile,
 		"LD_LIBRARY_PATH":                           "../../../../build/lib",
 		"CONTRAIL_CAT_FRAMEWORK":                    "1",
 		"USER_DIR":                                  c.ConfDir + "/..",
 	}
+
+	c.Cmd.Stdout = output
 	c.Cmd.Env = c.Env(env)
 	if err := c.Cmd.Start(); err != nil {
-		return fmt.Errorf("Failed to start agent: %v", err)
+		return fmt.Errorf("Failed to start Control-node: %v", err)
 	}
 	return nil
 }
@@ -261,4 +269,8 @@ func UpdateConfigDB(rootdir string, controlNodes []*ControlNode, fqNameTable *co
 		}
 	}
 	return nil
+}
+
+func GetConfFile() (string) {
+	return controlNodeConfFile
 }

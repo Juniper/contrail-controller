@@ -5,11 +5,15 @@
 package cat
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -141,8 +145,8 @@ func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.Co
 
 // AddControlNode creates a contrail-control object and starts the mock
 // control-node process in the background.
-func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, http_port int) (*controlnode.ControlNode, error) {
-	cn, err := controlnode.New(c.SUT.Manager, name, ip_address, conf_file, test, http_port)
+func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, bgp_port int) (*controlnode.ControlNode, error) {
+	cn, err := controlnode.New(c.SUT.Manager, name, ip_address, conf_file, test, bgp_port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create control-node: %v", err)
 	}
@@ -161,4 +165,125 @@ func (c *CAT) AddCRPD(test, name string) (*crpd.CRPD, error) {
 	}
 	c.CRPDs = append(c.CRPDs, cr)
 	return cr, nil
+}
+
+func GetFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+func ReplacePortNumbers(input string, port int) (out string) {
+	p := fmt.Sprintf("\"port\":%d", port)
+
+	re1 := regexp.MustCompile("\"port\":null")
+	val1 := re1.ReplaceAllString(input, p)
+	re2 := regexp.MustCompile("\"port\":[[:digit:]]{3,5}")
+	val2 := re2.ReplaceAllString(val1, p)
+
+	re3 := regexp.MustCompile("\"port\": null")
+	val3 := re3.ReplaceAllString(val2, p)
+	re4 := regexp.MustCompile("\"port\": [[:digit:]]{3,5}")
+	val4 := re4.ReplaceAllString(val3, p)
+
+	return val4
+}
+
+func ReplaceAddress(input string, address string) (out string) {
+
+	a := fmt.Sprintf("\"address\":\"%s\"", address)
+	id := fmt.Sprintf("\"identifier\":\"%s\"", address)
+
+	re3 := regexp.MustCompile(`(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}`)
+	val3 := re3.ReplaceAllString(input, address)
+
+	re1 := regexp.MustCompile("\"address\":null")
+	val1 := re1.ReplaceAllString(val3, a)
+	re2 := regexp.MustCompile("\"address\": null")
+	val2 := re2.ReplaceAllString(val1, a)
+
+	re4 := regexp.MustCompile("\"identifier\":null")
+	val4 := re4.ReplaceAllString(val2, id)
+	re5 := regexp.MustCompile("\"identifier\": null")
+	val5 := re5.ReplaceAllString(val4, id)
+
+	return val5
+}
+
+// Parses the config file and changes the BGP port number and ip-address 
+// of the control-nodes
+// Returns a list of control-nodes with new BGP port-number and ip-address
+func GetNumOfControlNodes() (ConNodesDS map[string]interface{}, err error) {
+	var confile string
+	confile = controlnode.GetConfFile()
+	jsonFile, err := os.Open(confile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open ConfFile: %v", err)
+	}
+
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	//var result map[string]interface{}
+	var result interface{}
+	json.Unmarshal([]byte(byteValue), &result)
+
+	ConNodesDS = make(map[string]interface{})
+
+	//res := result["cassandra"].(map[string]interface{})
+	res := result.([]interface{})
+	res1 := res[0].(map[string]interface{})
+	res2 := res1["OBJ_FQ_NAME_TABLE"].(map[string]interface{})
+	//res1 := res["config_db_uuid"].(map[string]interface{})
+	//res2 := res1["obj_fq_name_table"].(map[string]interface{})
+	res3 := res2["bgp_router"].(map[string]interface{})
+	//res4 := res1["obj_uuid_table"].(map[string]interface{})
+	res4 := res1["db"].(map[string]interface{})
+	i := 1
+	ipoctet := 127
+	for key := range res3 {
+		re := regexp.MustCompile(":")
+		val := re.Split(key, -1)
+		res5 := res4[val[5]].(map[string]interface{})
+		//res6 := res5["prop:bgp_router_parameters"].([]interface{})
+		res6 := res5["prop:bgp_router_parameters"]
+		//res7 := fmt.Sprintf("%v", res6[0])
+		res7 := fmt.Sprintf("%v", res6)
+		port, _ := GetFreePort()
+		address := fmt.Sprintf("%d.0.0.%d", ipoctet, i)
+
+		//Replace Port Numbers
+		val2 := ReplacePortNumbers(res7, port)
+
+		//Replace address and identifier
+		val3 := ReplaceAddress(val2, address)
+
+		res6 = val3
+		//res6[0] = val2
+		res5["prop:bgp_router_parameters"] = res6
+		res4[val[5]] = res5
+		m := make(map[string]interface{})
+		m["port"] = port
+		m["address"] = address
+		ConNodesDS[val[4]] = m
+		i++
+	}
+	res1["db"] = res4
+	//res1["obj_uuid_table"] = res4
+	res[0] = res1
+	//res["config_db_uuid"] = res1
+	//result["cassandra"] = res
+	result = res
+
+	write, _ := json.Marshal(result)
+	err = ioutil.WriteFile(confile, write, os.ModePerm)
+	jsonFile.Sync()
+	return ConNodesDS, nil
 }
