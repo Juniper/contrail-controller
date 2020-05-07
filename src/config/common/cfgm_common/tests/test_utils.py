@@ -26,6 +26,9 @@ import re
 import copy
 import uuid
 import six
+import fcntl
+import tempfile
+import threading
 import contextlib
 try:
     from collections import OrderedDict, defaultdict
@@ -775,56 +778,32 @@ def get_keystone_client(*args, **kwargs):
 
 
 #
-# Find two consecutive free ports such that even port is greater than odd port
-# Return the even port and socket locked to the odd port
+# Finds and reserves a free tcp port
 #
+free_port_guard = threading.Lock()
 def get_free_port(allocated_sockets):
-    single_port_list = []
-    tmp_sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while (1):
-        tmp_sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            tmp_sock1.bind(('', 0))
-        except:
-            #Bail out as all ports exhausted.
-            for tmp_sock in single_port_list:
-                tmp_sock.close()
-            raise
-            return None, 0
+    output = 0
+    P = '/proc/sys/net/ipv4/ip_local_reserved_ports'
+    with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind(('', 0))
+        output = s.getsockname()[1]
+        with free_port_guard:
+            with open(P, 'w+') as f:
+                fcntl.lockf(f, fcntl.LOCK_EX)
+                t = str(f.read(2**20)).strip()
+                if 0 < len(t):
+                    t += ','
+                t += str(output)
+                print('TO WRITE: "{0}"'.format(t))
+                F, p = tempfile.mkstemp()
+                with os.fdopen(F, 'w') as T:
+                    T.write(t)
 
-        free_port1 = tmp_sock1.getsockname()[1]
-        if free_port1 % 2:
-            #We have odd port, check whether next even port free
-            try:
-                tmp_sock2.bind(('', free_port1 + 1))
-            except:
-                single_port_list.append(tmp_sock1)
-                continue
-        else:
-            #We have even port, check whether next odd port free
-            try:
-                tmp_sock2.bind(('', free_port1 - 1))
-            except:
-                single_port_list.append(tmp_sock1)
-                continue
-        free_port2 = tmp_sock2.getsockname()[1]
-        break
+                os.system('cat {0} > {1}'.format(p, P))
+                os.remove(p)
 
-    #we have found our twin ports, release the singles now
-    for tmp_sock in single_port_list:
-        tmp_sock.close()
+    return output
 
-    #keep the odd port locked and return free port
-    if free_port1 % 2:
-        odd_port, odd_sock = free_port1, tmp_sock1
-        even_port, even_sock = free_port2, tmp_sock2
-    else:
-        odd_port, odd_sock = free_port2, tmp_sock2
-        even_port, even_sock = free_port1, tmp_sock1
-
-    even_sock.close()
-    allocated_sockets.append(odd_sock)
-    return even_port
 # end get_free_port
 
 def block_till_port_listened(server_ip, server_port, retries=3):
