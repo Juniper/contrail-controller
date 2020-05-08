@@ -66,6 +66,8 @@ class PortTupleAgent(Agent):
 
         if create_iip:
             iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
+            iip_id_perms = IdPermsType(enable=True, user_visible=False)
+            iip_obj.set_id_perms(iip_id_perms)
             iip_obj.set_service_instance_ip(True)
             iip_obj.set_instance_ip_secondary(True)
             iip_obj.set_instance_ip_mode('active-active')
