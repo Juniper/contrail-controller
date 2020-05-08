@@ -783,24 +783,32 @@ def get_keystone_client(*args, **kwargs):
 free_port_guard = threading.Lock()
 def get_free_port(allocated_sockets):
     output = 0
-    P = '/proc/sys/net/ipv4/ip_local_reserved_ports'
+    x = 'ip_local_reserved_ports'
+    P = '/proc/sys/net/ipv4/{0}'.format(x)
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind(('', 0))
         output = s.getsockname()[1]
         with free_port_guard:
-            with open(P, 'w+') as f:
-                fcntl.lockf(f, fcntl.LOCK_EX)
-                t = str(f.read(2**20)).strip()
-                if 0 < len(t):
-                    t += ','
-                t += str(output)
-                print('TO WRITE: "{0}"'.format(t))
-                F, p = tempfile.mkstemp()
-                with os.fdopen(F, 'w') as T:
-                    T.write(t)
+            F, p = tempfile.mkstemp()
+            with os.fdopen(F, 'w') as T:
+                g = '{0}/{1}.lck'.format(os.path.dirname(p), x)
+                with open(g, 'w+') as G:
+                    fcntl.lockf(G, fcntl.LOCK_EX)
+                    with open(P, 'r') as f:
+                        t = str(f.read(2**20)).strip()
 
-                os.system('cat {0} > {1}'.format(p, P))
-                os.remove(p)
+                    if 0 < len(t):
+                        t += ','
+
+                    t += str(output)
+                    print('TO WRITE: "{0}"'.format(t))
+                    T.write(t)
+                    T.close()
+
+                    e = os.system("sudo -n sh -c 'cat {0} > {1}'".format(p, P))
+                    os.remove(p)
+                    if 0 != e:
+                        raise Exception("Cannot write to %s: %d" % (P, e))
 
     return output
 
