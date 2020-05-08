@@ -39,14 +39,18 @@ set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('descriptio
 {%         for intf in vlan.get('interfaces', []) %}
 {%             set int_name = intf.get('name') %}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
+{%             set ns_vlan = namespace(is_none=true) %}
 {%             for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
 {%                 set master = ri.get('is_master', false) %}
 {%                 for int in ri.get('routing_interfaces', []) %}
-{%                     if (master != true) and int.get('name') == int_name %}{# /* skipp if vlan=routing_instace irb belong to master LR */ #}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
-set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%                     if (master == true) and int.get('name') == int_name %}{# /* skipp if vlan=routing_instace irb belong to master LR */ #}
+{%                         set ns_vlan.is_none = false %}
 {%                     endif %}
 {%                 endfor %}
 {%             endfor %}
+{%             if ns_vlan.is_none == true %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%             endif %}
 {%         endfor %}
 {%     endfor %}
