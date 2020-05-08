@@ -1310,8 +1310,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         # Zookeeper lock params
         zk_vpg_args = {'zookeeper_client': db_conn._zk_db._zk_client,
-                       'path': zk_vpg_lock_path, 'name': vpg_uuid,
-                       'timeout': 60}
+                       'path': os.path.join(zk_vpg_lock_path, vpg_uuid),
+                       'name': vpg_uuid, 'timeout': 60}
         validation = 'serviceprovider'
         # VPG ZK Lock
         with ZookeeperLock(**zk_vpg_args):
@@ -1363,11 +1363,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         # Zookeeper lock params
         zk_vpg_args = {'zookeeper_client': db_conn._zk_db._zk_client,
-                       'path': zk_vpg_lock_path, 'name': vpg_uuid,
-                       'timeout': 60}
+                       'path': os.path.join(zk_vpg_lock_path, vpg_uuid),
+                       'name': vpg_uuid, 'timeout': 60}
         zk_fab_args = {'zookeeper_client': db_conn._zk_db._zk_client,
-                       'path': zk_fabric_lock_path, 'name': fabric_uuid,
-                       'timeout': 60}
+                       'path': os.path.join(zk_fabric_lock_path, fabric_uuid),
+                       'name': fabric_uuid, 'timeout': 60}
         validation = 'enterprise'
         # VPG ZK Lock
         with ZookeeperLock(**zk_vpg_args):
