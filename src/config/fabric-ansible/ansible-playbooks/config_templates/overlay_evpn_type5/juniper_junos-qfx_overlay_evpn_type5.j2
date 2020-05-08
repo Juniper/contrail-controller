@@ -174,7 +174,7 @@ set groups {{cfg_group}} protocols ospf area {{area_id}} interface {{intf}} bfd-
 {%             set router_external = ri.get('is_public_network', '') %}
 {%             for lo_int in ri.get('loopback_interfaces', []) %}
 {%                 set loopback_intf_name = lo_int.get('name', '') %}
-{%                 for pi in ri.get('physical_interfaces', []) %}
+{%                 for pi in device_abstract_config.features.get('vn-interconnect').get('physical_interfaces', []) %}
 {%                     if pi.get('interface_type', '') == 'loopback' %}
 {%                         for li in pi.get('logical_interfaces', []) %}
 {%                             set int_name = li.get('name', '') %}
