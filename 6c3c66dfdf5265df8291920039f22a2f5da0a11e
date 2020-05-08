@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7cdef769_e0a73fd8",
+        "filename": "src/config/utils/provision_encap.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 48,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-08T13:11:01Z",
+      "side": 1,
+      "message": "before confg_obj was created like conf_obj \u003d GlobalVrouterConfig(**vrouter_args)\nwhere is comes from now?",
+      "range": {
+        "startLine": 48,
+        "startChar": 68,
+        "endLine": 48,
+        "endChar": 76
+      },
+      "revId": "6c3c66dfdf5265df8291920039f22a2f5da0a11e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
