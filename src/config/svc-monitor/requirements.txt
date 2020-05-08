@@ -1,9 +1,10 @@
-# kazoo <-- putting deps on zope.interface >= 3.8.0
-requests >= 2.20.0
-psutil>=0.6.0
-bottle
-kazoo
-pyyaml
+bitarray
+contrail-api-client
 contrail-config-common
 future
-six
+kazoo
+kombu
+requests >= 2.20.0
+sandesh==0.1dev
+sandesh-common
+six==1.14.0

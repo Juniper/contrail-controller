@@ -10,6 +10,18 @@ setuptools.setup(
     version='0.1dev',
     packages=setuptools.find_packages(),
     package_data={'': ['*.html', '*.css', '*.xml', '*.yml']},
+    install_requires=[
+        'bitarray',
+        'contrail-api-client',
+        'contrail-config-common',
+        'future',
+        'kazoo',
+        'kombu',
+        'requests >= 2.20.0',
+        'sandesh==0.1dev',
+        'sandesh-common',
+        'six'
+    ],
 
     # metadata
     author="OpenContrail",
@@ -21,7 +33,6 @@ setuptools.setup(
 
     test_suite='svc_monitor.tests',
 
-    install_requires=['future', 'six'],
 
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
