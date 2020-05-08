@@ -142,12 +142,19 @@ class VncAmqpHandle(object):
             return ':'.join(self.oper_info['fq_name'])
         return self.oper_info['uuid']
 
+    def _set_meta(self):
+        self.db_cls.set_meta({
+            'request_id': self.oper_info['request-id'],
+            'oper': self.oper_info['oper']
+        })
+
     def handle_create(self):
         obj_key = self._get_key_from_oper_info()
         obj_id = self.oper_info['uuid']
         obj_fq_name = self.oper_info['fq_name']
         self.db_cls._object_db.cache_uuid_to_fq_name_add(
                 obj_id, obj_fq_name, self.obj_type)
+        self._set_meta()
         self.obj = self.obj_class.locate(obj_key)
         if self.obj is None:
             self.logger.info('%s id %s fq_name %s not found' % (
@@ -171,6 +178,7 @@ class VncAmqpHandle(object):
             return
 
         try:
+            self._set_meta()
             ret = self.obj.update()
             if ret is not None and not ret:
                 # If update returns None, the function may not support a
@@ -207,6 +215,7 @@ class VncAmqpHandle(object):
             self.db_cls.get_obj_type_map(), self.reaction_map)
         self.dependency_tracker.evaluate(self.obj_type, self.obj)
         obj_key = self._get_key_from_oper_info()
+        self._set_meta()
         self.obj_class.delete(obj_key)
 
     def handle_unknown(self):
