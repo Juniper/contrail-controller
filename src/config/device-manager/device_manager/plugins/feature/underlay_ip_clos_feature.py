@@ -58,7 +58,8 @@ class UnderlayIpClosFeature(FeatureBase):
         pi_map = OrderedDict()
         for pi_obj, li_obj, iip_obj in self.\
                 _fetch_pi_li_iip(self._physical_router.physical_interfaces):
-            if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
+            if pi_obj and pi_obj.interface_type != 'service' and li_obj and \
+               iip_obj and iip_obj.instance_ip_address:
                 pi, li_map = self._add_or_lookup_pi(
                     pi_map, pi_obj.name, 'regular')
 
