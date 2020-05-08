@@ -7,7 +7,7 @@
     - Juniper.junos
 
   vars:
-    pr_fq_name: "{{playbook_input.device_fqname[-1]}}"
+    prouter_name: "{{playbook_input.device_fqname[-1]}}"
     pr_vendor_name: "{{playbook_input.vendor | lower}}"
     prouter_uuid: "{{playbook_input.device_id}}"
     dfg_os_version: ""
@@ -33,7 +33,7 @@
 
     - name: Lookup device functional group if defined
       set_fact:
-        dfg_dict : "{{job_ctx | validate_device_functional_group(pr_fq_name, prouter_uuid, device_to_ztp)}}"
+        dfg_dict : "{{job_ctx | validate_device_functional_group(prouter_name, prouter_uuid, device_to_ztp)}}"
       when: device_to_ztp is defined
 
     - name: Set fields
@@ -99,7 +99,7 @@
         - block:
             - name: Handle case if no image is found
               set_fact:
-                err_message: "No image with os version {{ztp_os_version}} that is compatible with the device {{pr_fq_name}} was found"
+                err_message: "No image with os version {{ztp_os_version}} that is compatible with the device {{prouter_name}} was found"
 
             - name: Set variable
               set_fact:
@@ -114,10 +114,10 @@
             - set_fact:
                 output: {
                       "status": "Success",
-                      "message": "Image upgrade for device: {{pr_fq_name}} successful",
+                      "message": "Image upgrade for device: {{prouter_name}} successful",
                       "results":
                           {
-                            "msg": "Device {{pr_fq_name}} is upgraded with new image with os version {{ztp_os_version}}"
+                            "msg": "Device {{prouter_name}} is upgraded with new image with os version {{ztp_os_version}}"
                           }
                   }
               when: task_fail is not defined
@@ -125,10 +125,10 @@
             - set_fact:
                 output: {
                       "status": "Success",
-                      "message": "Image upgrade for device: {{pr_fq_name}} unsuccessful",
+                      "message": "Image upgrade for device: {{prouter_name}} unsuccessful",
                       "results":
                           {
-                            "msg": "Unable to upgrade image on the device {{pr_fq_name}}"
+                            "msg": "Unable to upgrade image on the device {{prouter_name}}"
                           }
                   }
               when: task_fail is defined and task_fail
@@ -149,7 +149,7 @@
             job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
 
         - set_fact:
-            skip_msg: "Skippping image upgrade for device {{pr_fq_name}}"
+            skip_msg: "Skippping image upgrade for device {{prouter_name}}"
 
         - set_fact:
             skip_msg: "{{err_message}}"

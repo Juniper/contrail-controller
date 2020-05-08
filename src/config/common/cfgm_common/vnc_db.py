@@ -56,6 +56,7 @@ class DBBase(object, with_metaclass(DBBaseMeta)):
         cls._logger = logger
         cls._object_db = object_db
         cls._manager = manager
+        cls._meta_data = None
     # end init
 
     @classmethod
@@ -442,6 +443,15 @@ class DBBase(object, with_metaclass(DBBaseMeta)):
     def skip_evaluate(self, from_type):
         return False
     #end skip_evaluate
+
+    @classmethod
+    def set_meta(cls, data):
+        cls._meta_data = data
+
+    @classmethod
+    def get_meta(cls):
+        return cls._meta_data
+
 # end class DBBase
 
 
