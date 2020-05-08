@@ -41,6 +41,7 @@ class ZookeeperLock(object):
 
     def __init__(self, zookeeper_client, path, name, timeout=1):
         self.lock = zookeeper_client.lock(path, name)
+        self.name = name
         self.timeout = timeout
 
     def __enter__(self):
@@ -51,9 +52,14 @@ class ZookeeperLock(object):
             action_in_progress = '<unknown action>'
             if len(contenders) > 0 and contenders[0]:
                 _, _, action_in_progress = contenders[0].partition(' ')
+            # try releasing safely
+            try:
+                self.lock.release()
+            except:
+                pass
             msg = ("%s ZK Lock Creation Failed for lock name (%s)"
                    "Server Busy, Try again Later" % (
-                   action_in_progress, name))
+                   action_in_progress, self.name))
             raise HttpError(408, msg)
         return acquired_lock
 
