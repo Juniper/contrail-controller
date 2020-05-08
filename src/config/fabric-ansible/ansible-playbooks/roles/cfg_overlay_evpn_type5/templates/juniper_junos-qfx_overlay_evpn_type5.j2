@@ -129,14 +129,14 @@ set groups {{cfg_group}} protocols ospf export {{export_rp}}
 {%                             endif %}
 {%                         endfor %}
 {%                     endif %}{# /* ospf routing policies */ #}
-{%                     if area_id != '0.0.0.0' %}
+{%                     if area_id != '0.0.0.0' and area_id != 0 %}
 {%                         if area_type == 'nssa' %}
 {%                             if ospf.get('orignate_summary_lsa', false) == true %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} nssa default-lsa default-metric 10
 {%                             else %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} nssa no-summaries
 {%                             endif %}
-{%                         else %}
+{%                         elif area_type == 'stub' %}
 {%                             if ospf.get('orignate_summary_lsa', false) == true %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} stub default-metric 10
 {%                             else %}
@@ -145,11 +145,7 @@ set groups {{cfg_group}} protocols ospf area {{area_id}} stub default-metric 10 
 {%                         endif %}
 {%                     endif %} {# /* end of ospf area id */ #}
 {%                     if advertise_loop == true %}
-{%             set loopback_intfs = ri.get('loopback_interfaces', []) %}
-{%                         set lo_intf = loopback_intfs[-1].get('name','') %}
-{%                         if lo_intf != '' %}
-set groups {{cfg_group}} protocols ospf area {{area_id}} interface {{lo_intf}} passive
-{%                         endif %}
+set groups {{cfg_group}} protocols ospf area {{area_id}} interface lo0.0 passive
 {%                     endif %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} interface {{intf}} interface-type p2p
 {%                     set ospf_auth_key = ospf.get('authentication_key', '') %}
@@ -344,14 +340,14 @@ set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-rou
 set groups {{cfg_group}} policy-options policy-statement OSPF_ROUTES term DEFAULT_OSPF from protocol ospf
 set groups {{cfg_group}} policy-options policy-statement OSPF_ROUTES term DEFAULT_OSPF then accept
 set groups {{cfg_group}} policy-options policy-statement OSPF_ROUTES then reject
-{%                         if area_id != '0.0.0.0' %}
+{%                         if area_id != '0.0.0.0' and area_id != '0' %}
 {%                             if area_type == 'nssa' %}
 {%                                 if ospf.get('orignate_summary_lsa', false) == true %}
 set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} nssa default-lsa default-metric 10
 {%                                 else %}
 set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} nssa no-summaries
 {%                                 endif %}
-{%                             else %}
+{%                             elif area_type == 'stub' %}
 {%                                 if ospf.get('orignate_summary_lsa', false) == true %}
 set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} stub default-metric 10
 {%                                 else %}
