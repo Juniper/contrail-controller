@@ -1441,14 +1441,16 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             ok, phy_interface_dict = db_conn.dbe_read(
                 obj_type='physical-interface',
                 obj_id=uuid,
-                obj_fields=['virtual_port_group_back_refs'])
+                obj_fields=['name', 'virtual_port_group_back_refs'])
             if not ok:
                 return (ok, 400, phy_interface_dict)
 
             vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
-            if vpg_refs and vpg_name and vpg_refs[0]['to'][-1] != vpg_name:
+            if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
                 msg = 'Physical interface %s already belong to the vpg %s' %\
-                      (phy_interface_dict.get('name'), vpg_refs[0]['to'][-1])
+                      (phy_interface_dict.get(
+                          'name', phy_interface_dict['fq_name']),
+                       vpg_refs[0]['to'][-1])
                 return (False, (400, msg))
 
         if vpg_name:  # read the vpg object
