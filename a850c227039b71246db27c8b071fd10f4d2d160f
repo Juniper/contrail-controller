@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "abcd0e43_93b1d7f0",
+        "filename": "src/config/common/cfgm_common/zkclient.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-09T02:31:10Z",
+      "side": 1,
+      "message": "Why do we need to release the lock if it is not acquired ?",
+      "revId": "a850c227039b71246db27c8b071fd10f4d2d160f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
