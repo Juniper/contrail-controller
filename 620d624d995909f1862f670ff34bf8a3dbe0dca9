@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "53d72241_650a53ab",
+        "filename": "src/config/svc-monitor/test-requirements.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-05-09T18:39:57Z",
+      "side": 0,
+      "message": "Except python-subunit, junitxml, testrepository, mock and there recursive dependencies all other should be moved to setup.py(install_requires). Because they are software dependencies.  \n\nOnce it is done, I would recommend to have a test-requirements.in and generate test-requirements.txt manually. So that in Future, engineers can add/remove dependencies in test-requrements.in and generate test-requirements.txt using pip-compile tool(auto generated .txt will have instructions to use pip-compile)\n\npip-compile is just a suggestion",
+      "revId": "620d624d995909f1862f670ff34bf8a3dbe0dca9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
