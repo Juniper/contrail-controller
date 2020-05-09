@@ -434,7 +434,7 @@ set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tnam
 {%                         endfor %}{# /* protocol */ #}
 {%                         for extcom in tcond.get('extcommunity_list', []) %}
 {%                             set cname = rp_name + '-' + tname + '-C' + loop.index|string %}
-set groups {{cfg_group}} policy-options community {{cname}} members {{extcom}}
+set groups {{cfg_group}} policy-options community {{cname}} members {{extcom | rtfilter}}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from community {{cname}}
 {%                         endfor %}{# /* extcommunity_list */ #}
 {%                         set fprefixs = [] %}
@@ -453,7 +453,7 @@ set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tnam
 {%                         if fcommunity != '' %}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from community {{fcommunity}}
 {%                             for fcom_member in fcommunity_list %}
-set groups {{cfg_group}} policy-options community {{fcommunity}} members {{fcom_member}}
+set groups {{cfg_group}} policy-options community {{fcommunity}} members {{fcom_member | rtfilter}}
 {%                             endfor %}
 {%                         endif %}
 {%                         if (fnlri_route_types|length > 0) and (ffamily != 'evpn') %}
@@ -514,7 +514,7 @@ set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tnam
 {%                         if tcommunity != '' %}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then community add {{tcommunity}}
 {%                             for tcom_member in tcommunity_list %}
-set groups {{cfg_group}} policy-options community {{tcommunity}} members {{tcom_member}}
+set groups {{cfg_group}} policy-options community {{tcommunity}} members {{tcom_member | rtfilter}}
 {%                             endfor %}
 {%                         endif %}
 {%                         if tupdate != '' %}
@@ -525,7 +525,7 @@ set groups {{cfg_group}} policy-options community {{tcommunity}} members {{tcom_
 {%                                     if tverb != None %}
 {%                                         for tcom_value in tverb.get('community', []) %}
 {%                                             set cname = rp_name + '-' + tname + '-C' + verb + loop.index|string %}
-set groups {{cfg_group}} policy-options community {{cname}} members {{tcom_value}}
+set groups {{cfg_group}} policy-options community {{cname}} members {{tcom_value | rtfilter}}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then community {{verb}} {{cname}}
 {%                                         endfor %}
 {%                                     endif %}
@@ -538,7 +538,7 @@ set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tnam
 {%                                     if tverb != None %}
 {%                                         for tcom_value in tverb.get('community', []) %}
 {%                                             set cname = rp_name + '-' + tname + '-EXTC' + verb + loop.index|string %}
-set groups {{cfg_group}} policy-options community {{cname}} members {{tcom_value}}
+set groups {{cfg_group}} policy-options community {{cname}} members {{tcom_value | rtfilter}}
 set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then community {{verb}} {{cname}}
 {%                                         endfor %}
 {%                                     endif %}
