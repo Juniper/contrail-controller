@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fe22e29e_754aad5d",
+        "filename": "src/config/vnc_openstack/vnc_openstack/tests/test_tags.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1626,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-09T01:29:28Z",
+      "side": 1,
+      "message": "Is that not possible to create neutron api to create tag?",
+      "revId": "7a8f040f6c02e9de78a530618cc29d0c8203b8a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
