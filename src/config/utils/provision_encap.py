@@ -45,22 +45,8 @@ class EncapsulationProvision(object):
                 print('Created.UUID is %s' % result)
             except RefsExistError:
                 print ("GlobalVrouterConfig Exists Already!")
-                vrouter_conf_obj = self._vnc_lib.global_vrouter_config_read(
-                    fq_name=global_vrouter_fq_name)
-                curr_encap_obj = vrouter_conf_obj.get_encapsulation_priorities()
-                print ("Current Encap priority:", curr_encap_obj)
-                curr_vxlan_vn_id_mode = vrouter_conf_obj.get_vxlan_network_identifier_mode()
-                print ("Current curr_vxlan_vn_id_mode priority:", curr_vxlan_vn_id_mode)
-                vrouter_args = {}
-                if not curr_encap_obj:
-                    vrouter_args['encapsulation_priorities'] = encap_obj
-                if not curr_vxlan_vn_id_mode:
-                    vrouter_args['vxlan_network_identifier_mode'] = self._args.vxlan_vn_id_mode
-                if vrouter_args:
-                    vrouter_args['fq_name'] = global_vrouter_fq_name
-                    conf_obj = GlobalVrouterConfig(**vrouter_args)
-                    result = self._vnc_lib.global_vrouter_config_update(conf_obj)
-                    print('Updated.%s' % result)
+                result = self._vnc_lib.global_vrouter_config_update(conf_obj)
+                print('Updated.%s' % result)
             return
         elif self._args.oper != "add":
             encap_obj = EncapsulationPrioritiesType(encapsulation=[])
