@@ -1747,6 +1747,10 @@
               {
                 "physical_role": "leaf",
                 "rb_roles": ["CRB-Access","Route-Reflector","AR-Client","ERB-UCAST-Gateway"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "CRB-Gateway", "Route-Reflector", "AR-Client"]
               }
             ]
           }
