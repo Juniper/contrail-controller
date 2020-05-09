@@ -996,7 +996,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_unique_vn_vlan_in_vpg(
         cls, db_conn, api_server,
-        vpg_uuid, vn_uuid,
+        vpg_uuid, vn_uuid, vmi_uuid,
             vlan_id, validation):
         """Verify given vn:vlan is unique in the VPG.
 
@@ -1016,7 +1016,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         # annotation key for current object
         ann_key = 'validation:%s/vn:%s/vlan_id:%s' % (
             validation, vn_uuid, vlan_id)
-        ann_value = None
+        ann_value = vmi_uuid
         # ensure that it do not exists already
         ok, result = cls._check_annotations(
             api_server, vpg_uuid, 'virtual_port_group', ann_key,
@@ -1025,12 +1025,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             result = result or {}
             annotations = result.get('annotations') or []
             for key_d, key in annotations:
-                vtype, vn, vlan = key.split('/', 2)
-                msg = ("VN(%s):VLAN(%s) already exists "
-                       "at VPG(%s). No more than one "
-                       "Allowed in Fabric %s" % (
-                           vn_uuid, vlan_id, vpg_uuid, vtype))
-                return (False, (400, msg))
+                if key_d.get('value') != vmi_uuid:
+                    vtype, vn, vlan = key.split('/', 2)
+                    msg = ("VN(%s):VLAN(%s) already exists "
+                           "at VPG(%s). No more than one "
+                           "Allowed in Fabric %s" % (
+                               vn_uuid, vlan_id, vpg_uuid, vtype))
+                    return (False, (400, msg))
         return True, ''
 
     @classmethod
@@ -1316,7 +1317,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         with ZookeeperLock(**zk_vpg_args):
             ok, result = cls._check_unique_vn_vlan_in_vpg(
                 db_conn, api_server, vpg_uuid, vn_uuid,
-                vlan_id, validation)
+                vmi_uuid, vlan_id, validation)
             if not ok:
                 return ok, result
             ok, result = cls._check_add_one_untagged_vlan(
@@ -1372,7 +1373,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         with ZookeeperLock(**zk_vpg_args):
             ok, result = cls._check_unique_vn_vlan_in_vpg(
                 db_conn, api_server, vpg_uuid, vn_uuid,
-                vlan_id, validation)
+                vmi_uuid, vlan_id, validation)
             if not ok:
                 return ok, result
             ok, result = cls._check_add_one_untagged_vlan(
