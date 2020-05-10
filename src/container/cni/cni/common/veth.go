@@ -28,6 +28,19 @@ type VEth struct {
 	TmpHostIfName string
 }
 
+// Update Proc settings
+func (intf *VEth) updateProc() error {
+	// Update ipv6 route advertisement
+	procFile := "/proc/sys/net/ipv6/conf/" + intf.HostIfName + "/accept_ra"
+	err := ioutil.WriteFile(procFile, []byte("0"), 0600)
+	if err != nil {
+		log.Errorf("Error Updating Proc file %s. " +
+			"Error : %s", procFile, err)
+		return err
+	}
+	return nil
+}
+
 // Remove veth interface
 // Deletes the tap interface from host-os. It will automatically
 // remove the corresponding interface from container namespace also
@@ -154,6 +167,8 @@ func (intf VEth) Create() error {
 		log.Errorf("Error creating VEth interface")
 		return err
 	}
+
+	intf.updateProc()
 
 	log.Infof("VEth interface created")
 	return nil
