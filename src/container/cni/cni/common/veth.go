@@ -11,6 +11,7 @@ package cniIntf
 import (
 	"fmt"
 	"net"
+	"io/ioutil"
 
 	log "../logging"
 	"github.com/containernetworking/cni/pkg/ip"
@@ -26,6 +27,19 @@ type VEth struct {
 	// initially created in host-namespace with a temporary name. The temporary
 	// interface is then moved to container-namespace with containerIfName
 	TmpHostIfName string
+}
+
+// Update Proc settings
+func (intf *VEth) updateProc() error {
+	// Update ipv6 route advertisement
+	procFile := "/proc/sys/net/ipv6/conf/" + intf.HostIfName + "/accept_ra"
+	err := ioutil.WriteFile(procFile, []byte("0"), 0600)
+	if err != nil {
+		log.Errorf("Error Updating Proc file %s. " +
+			"Error : %s", procFile, err)
+		return err
+	}
+	return nil
 }
 
 // Remove veth interface
@@ -154,6 +168,8 @@ func (intf VEth) Create() error {
 		log.Errorf("Error creating VEth interface")
 		return err
 	}
+
+	intf.updateProc()
 
 	log.Infof("VEth interface created")
 	return nil
