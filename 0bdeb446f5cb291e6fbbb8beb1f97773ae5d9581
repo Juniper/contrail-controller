@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "116a3ce8_14dc2f86",
+        "filename": "src/cat/get-binaries.sh",
+        "patchSetId": 4
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 679
+      },
+      "writtenOn": "2020-05-11T11:26:41Z",
+      "side": 1,
+      "message": "get rid of empty spaces.",
+      "range": {
+        "startLine": 14,
+        "startChar": 0,
+        "endLine": 14,
+        "endChar": 8
+      },
+      "revId": "0bdeb446f5cb291e6fbbb8beb1f97773ae5d9581",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
