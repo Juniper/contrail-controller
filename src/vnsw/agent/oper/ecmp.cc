@@ -175,7 +175,7 @@ bool EcmpData::EcmpAddPath(AgentRoute *rt) {
 // Creates a new MPLS Label for the ECMP path
 void EcmpData::AllocateEcmpPath(AgentRoute *rt, const AgentPath *path2) {
     // Allocate and insert a path
-    ecmp_path_ = new AgentPath(agent_->ecmp_peer(), NULL);
+    ecmp_path_ = new AgentPath(agent_->ecmp_peer(), rt);
     rt->InsertPath(ecmp_path_);
 
     const NextHop* path1_nh = path_->ComputeNextHop(agent_);
@@ -327,6 +327,11 @@ bool EcmpData::UpdateNh() {
         assert(0);
     }
 
+    MplsLabel *mpls = agent_->mpls_table()->
+             FindMplsLabel(label_);
+    if (mpls && (ecmp_path_->local_ecmp_mpls_label() == NULL)) {
+        ecmp_path_->set_local_ecmp_mpls_label(mpls);
+    }
     if (ecmp_path_->ChangeNH(agent_, nh) == true)
         ret = true;
 
