@@ -253,6 +253,8 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
 
         uint32_t label = item->entry.next_hops.next_hop[i].label;
         if (agent_->router_id() == addr.to_v4()) {
+            encap = agent_->controller()->GetTypeBitmap
+              (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
             //Get local list of interface and append to the list
             MplsLabel *mpls =
                 agent_->mpls_table()->FindMplsLabel(label);
@@ -677,6 +679,7 @@ bool ClonedLocalPath::AddChangePathExtended(Agent *agent, AgentPath *path,
         if (local_path == NULL) {
             local_path = rt->FindLocalVmPortPath();
         }
+        path->set_copy_local_path(true);
     } else {
         MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(mpls_label_);
         if (!mpls) {
@@ -747,6 +750,10 @@ bool ClonedLocalPath::AddChangePathExtended(Agent *agent, AgentPath *path,
     if (path->ChangeNH(agent, nh) == true) {
         ret = true;
     }
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    CompositeNHKey *nh_key = dynamic_cast<CompositeNHKey *>(key.release());
+    path->set_composite_nh_key(nh_key);
+
     return ret;
 }
 
