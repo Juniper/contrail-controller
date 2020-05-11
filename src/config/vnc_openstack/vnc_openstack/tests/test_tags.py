@@ -1616,30 +1616,48 @@ class TestNeutronTagsPerms(NeutronTagsTestCase):
     def tearDown(self):
         super(TestNeutronTagsPerms, self).tearDown()
 
+    def get_tag_obj(self, name):
+        tag_fq_name = ['neutron_tag={}'.format(name)]
+        tag_obj = self.api.tag_read(fq_name=tag_fq_name)
+        return tag_obj
+
     def test_tag_default_perms(self):
         PERMS_RX = 5
-        tag = 'orange'
 
-        vn = VirtualNetwork('vn-{}_{}'.format(tag, self.id()),
+        # create VN
+        vn = VirtualNetwork('vn-{}'.format(self.id()),
                             parent_obj=self.project)
         vn.uuid = self.api.virtual_network_create(vn)
+
+        # create tag with neutron api
+        tag_name1 = 'neutron'
         result = self.create_resource(
             'tags',
             self.project.uuid,
             extra_res_fields={
                 'resource': {
                     'parent_id': vn.uuid,
-                    'tags': [tag],
+                    'tags': [tag_name1],
                 },
             },
         )
 
-        tag_fq_name = ['neutron_tag={}'.format(tag)]
-        tag_obj = self.api.tag_read(fq_name=tag_fq_name)
-        self.assertEqual(tag_obj.perms2.global_access, PERMS_RX)
-        self.assertEqual(tag_obj.perms2.owner, 'cloud-admin')
+        tag_obj1 = self.get_tag_obj(name=tag_name1)
+        self.assertEqual(tag_obj1.perms2.global_access, PERMS_RX)
+        self.assertEqual(tag_obj1.perms2.owner, 'cloud-admin')
+
+        # create tag with contrail api
+        tag_name2 = 'contrail'
+        self.api.tag_create(Tag(tag_type_name='neutron_tag',
+                                tag_value=tag_name2))
+        tag_obj2 = self.get_tag_obj(name=tag_name2)
+        vn.add_tag(tag_obj2)
+        self.assertEqual(tag_obj2.perms2.global_access, PERMS_RX)
+        self.assertEqual(tag_obj2.perms2.owner, 'cloud-admin')
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
-        self.api.tag_delete(id=tag_obj.uuid)
-
+        gevent.sleep(1)
+        self.api.tag_delete(id=tag_obj1.uuid)
+        self.api.tag_delete(id=tag_obj2.uuid)
+        gevent.sleep(1)
