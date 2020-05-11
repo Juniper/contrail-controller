@@ -13,3 +13,4 @@ kazoo>=2.5.0
 pycrypto==2.6.1
 future
 six
+bitarray>=0.8.0,<=1.2.1
