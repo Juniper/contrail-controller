@@ -42,7 +42,9 @@ set groups {{cfg_group}} protocols sflow sample-rate {{tm_sflow_sample_dr}} {{tm
 set groups {{cfg_group}} protocols sflow sample-rate ingress {{tm_sflow_sample_rt}}
 {%             endif %}
 {%         endif %}
-set groups {{cfg_group}} protocols sflow polling-interval {{tm_sflow_poll_intvl}}
+{# hardcoding polling interval to 0 to make sure default is overwritten to a 0 #}
+{# also, as polling intvl is not being used at present #}
+set groups {{cfg_group}} protocols sflow polling-interval 0
 {%         for tm_phy_intf in tm_phy_intfs %}
 {%             set tm_phy_intf_name = tm_phy_intf.get('name') %}
 {%             if tm_phy_intf_name | regex_search('^fxp|^lo0|^reth|^ae') %}
@@ -56,7 +58,9 @@ set groups {{cfg_group}} protocols sflow interfaces {{tm_phy_intf_name}}
 set groups {{cfg_group}} protocols sflow interfaces {{tm_phy_intf_name}} sample-rate ingress {{intf_sample_rt}}
 {%                 endif %}
 {%                 if intf_poll_intvl %}
-set groups {{cfg_group}} protocols sflow interfaces {{tm_phy_intf_name}} polling-interval {{intf_poll_intvl}}
+{# hardcoding polling interval to 0 to make sure default is overwritten to a 0 #}
+{# also, as polling intvl is not being used at present #}
+set groups {{cfg_group}} protocols sflow interfaces {{tm_phy_intf_name}} polling-interval 0
 {%                 endif %}
 {%             endif %}
 {%         endfor %}
