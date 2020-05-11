@@ -35,7 +35,7 @@ set groups {{cfg_group}} switch-options vrf-import import-evpn
 {%         set name = ri.get('name') %}
 {%         set vxlan_id = ri.get('vxlan_id', '') %}
 {%         for export_target in ri.get('export_targets', []) %}
-set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
+set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target | rtfilter}}
 {%         endfor %}
 {%    endfor %}
 
