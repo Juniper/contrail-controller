@@ -56,6 +56,7 @@
           port: 22
           timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
       register: command_resp_current
+      ignore_errors: true
       when: config_type == "current"
 
     - name: Execute commands on a Juniper Device to get info (rollback)...
@@ -85,7 +86,7 @@
 
     - set_fact:
         command_resp_rollback: "{{ command_resp_rollback | combine({ 'config': 'Rollback configuration not available'}, recursive=true) }}"
-      when: command_resp_rollback is defined and command_resp_rollback.msg is defined and "Unable to load the rollback" in command_resp_rollback.msg
+      when: command_resp_rollback is defined and command_resp_rollback.msg is defined and ( "Unable to load the rollback" in command_resp_rollback.msg or "Unable to retrieve the configuration" in command_resp_rollback.msg)
     - set_fact:
         command_resp: "{{command_resp_rollback}}"
       when: not (command_resp_rollback.skipped is defined and command_resp_rollback.skipped)
@@ -93,12 +94,19 @@
     - name: "Print unmodified result"
       debug:
         var: command_resp
+      when: command_resp is defined
 
     - set_fact:
         format_resp: "{{command_resp.config}}"
+      when: not ("Unable to" in command_resp.msg)
+
     - set_fact:
         format_resp: "{{command_resp.diff.prepared}}"
-      when: compare_configurations and not config_type == "current"
+      when: compare_configurations and not (config_type == "current" or "Unable to" in command_resp.msg)
+
+    - set_fact:
+        format_resp: "{{command_resp.msg }}"
+      when: ("Unable to" in command_resp.msg)
 
     - set_fact:
        command_resp: "{{ format_resp | replace('\n', '\\r\\n') }}"
