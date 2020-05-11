@@ -10,6 +10,8 @@ import logging
 import re
 
 from cfgm_common.exceptions import BadRequest
+from cfgm_common.zkclient import ZookeeperLock
+import mock
 from testtools import ExpectedException
 from vnc_api.gen.resource_xsd import KeyValuePair
 from vnc_api.gen.resource_xsd import KeyValuePairs
@@ -314,6 +316,36 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
             vmi_obj_dict[vmi_name] = self.api.virtual_machine_interface_read(
                 id=vmi_uuid)
         return vmi_obj_dict
+
+    def test_zk_lock_vpg_annotations(self):
+        """Verify ZK path is based on VPG UUID."""
+        backup_zk_init = ZookeeperLock.__init__
+        backup_zk_enter = ZookeeperLock.__enter__
+
+        # mock enter of ZookeeperLock class to get access to configured
+        # zk_path and lock name
+        def mocked_enter(*args, **kwargs):
+            self.assertTrue(
+                hasattr(args[0], 'name'),
+                'ZK Lock object do not have name attr '
+                'Attr present: %s' % args[0].__dict__)
+            return backup_zk_enter(*args, **kwargs)
+
+        # mock init of ZookeeperLock class to get access to configured
+        # zk_path and lock name
+        def mocked_init(*args, **kwargs):
+            zk_path = kwargs.get('path') or ''
+            zk_lock_name = kwargs.get('name')
+            zk_spath = zk_path.split('/') or ['']
+            self.assertEqual(
+                zk_spath[-1], zk_lock_name,
+                'ZK Path (%s) do not include VPG UUID (%s)' % (
+                    zk_path, zk_lock_name))
+            return backup_zk_init(*args, **kwargs)
+
+        with mock.patch.object(ZookeeperLock, '__init__', mocked_init):
+            with mock.patch.object(ZookeeperLock, '__enter__', mocked_enter):
+                self.test_reinit_adds_enterprise_annotations()
 
     def _test_add_new_pi_to_vmi(
             self, proj_obj, fabric_obj, pr_obj, validation):
