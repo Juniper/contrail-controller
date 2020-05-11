@@ -3,6 +3,7 @@
 #
 
 from cfgm_common.exceptions import HttpError
+from cfgm_common import PERMS_RWX
 from sandesh_common.vns.constants import TagTypeNameToId
 from vnc_api.gen.resource_common import Tag
 from vnc_api.gen.resource_xsd import IdPermsType
@@ -75,6 +76,10 @@ class TagServer(ResourceMixin, Tag):
         # Compose Tag ID with the type ID and value ID
         obj_dict['tag_id'] = "{}{:04x}".format(tag_type['tag_type_id'],
                                                value_id)
+
+        # set default Perms2
+        obj_dict['perms2']['global_access'] = PERMS_RWX
+        obj_dict['perms2']['owner'] = 'cloud-admin'
 
         return True, ""
 
