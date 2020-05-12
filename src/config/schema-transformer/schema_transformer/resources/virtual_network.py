@@ -13,6 +13,7 @@ from builtins import str
 import copy
 import itertools
 import sys
+from time import time as TIME
 
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, RefsExistError
@@ -991,7 +992,7 @@ class VirtualNetworkST(ResourceBaseST):
     # end update_pnf_presence
 
     def evaluate(self, **kwargs):
-        self.timer = kwargs.get('timer')
+        start_time = TIME()
         self.set_route_target_list(self.obj)
 
         old_virtual_network_connections = self.expand_connections()
@@ -1289,6 +1290,11 @@ class VirtualNetworkST(ResourceBaseST):
             if ri:
                 ri.update_routing_policy_and_aggregates()
         self.uve_send()
+        duration = TIME() - start_time
+        msg = ('Virtual-Network Evaluate Complete: '
+               'VN Name (%s): Duration (%.3f) sec' % (
+            self.name, duration))
+        ResourceBaseST._logger.debug(msg)
     # end evaluate
 
     def get_prefixes(self, ip_version):
