@@ -9,6 +9,7 @@ env = CfgmEnv.Clone()
 sources = [
     'setup.py',
     'requirements.txt',
+    'test-requirements.in',
     'test-requirements.txt',
     '.stestr.conf',
     'tox.ini',

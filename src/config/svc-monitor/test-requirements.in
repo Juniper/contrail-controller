@@ -1,0 +1,5 @@
+coverage
+junitxml
+mock
+python-subunit
+testrepository
