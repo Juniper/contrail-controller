@@ -74,6 +74,8 @@ _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME = 'default ipv6'
 # Subnet tags kv keys
 _SUBNET_TO_NEUTRON_TAGS = 'subnet_to_neutron_tags'
 _NEUTRON_TAG_TO_SUBNETS = 'neutron_tag_to_subnets'
+# Subnet default route
+_SUBNET_DEFAULT_ROUTE = '0.0.0.0/0'
 
 
 class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
@@ -1978,6 +1980,11 @@ class DBInterface(object):
             for host_route in subnet_q['host_routes']:
                 host_routes.append(RouteType(prefix=host_route['destination'],
                                              next_hop=host_route['nexthop']))
+            # add default route 0.0.0.0/0 to gateway
+            if 'gateway_ip' in subnet_q:
+                if subnet_q['gateway_ip'] != None:
+                    host_routes.append(RouteType(prefix=_SUBNET_DEFAULT_ROUTE,
+                                                 next_hop=subnet_q['gateway_ip']))
             if host_routes:
                 host_route_list = RouteTableType(host_routes)
 
@@ -3752,12 +3759,6 @@ class DBInterface(object):
     @wait_for_api_server_connection
     @with_zookeper_vn_lock
     def _subnet_update(self,net_id,subnet_id, subnet_q):
-        if 'gateway_ip' in subnet_q:
-            if subnet_q['gateway_ip'] != None:
-                self._raise_contrail_exception(
-                    'BadRequest', resource='subnet',
-                    msg="update of gateway is not supported")
-
         if 'allocation_pools' in subnet_q:
             if subnet_q['allocation_pools'] != None:
                 self._raise_contrail_exception(
@@ -3804,6 +3805,11 @@ class DBInterface(object):
                             for host_route in subnet_q['host_routes']:
                                 host_routes.append(RouteType(prefix=host_route['destination'],
                                                              next_hop=host_route['nexthop']))
+                            # add default route 0.0.0.0/0 to gateway
+                            if 'gateway_ip' in subnet_q:
+                                if subnet_q['gateway_ip'] != None:
+                                    host_routes.append(RouteType(prefix=_SUBNET_DEFAULT_ROUTE,
+                                                                 next_hop=subnet_q['gateway_ip']))
                             if self._apply_subnet_host_routes:
                                 old_host_routes = subnet_vnc.get_host_routes()
                                 subnet_cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
