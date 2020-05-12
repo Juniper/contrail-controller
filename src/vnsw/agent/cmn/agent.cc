@@ -183,6 +183,7 @@ void Agent::SetAgentTaskPolicy() {
     initialized = true;
 
     const char *db_exclude_list[] = {
+        kTaskFlowMgmt,
         kTaskFlowEvent,
         kTaskFlowKSync,
         kTaskFlowUpdate,
@@ -418,7 +419,6 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne(kTaskHealthCheck, health_check_exclude_list,
                      sizeof(health_check_exclude_list) / sizeof(char *));
-
 }
 
 void Agent::CreateLifetimeManager() {
