@@ -21,9 +21,10 @@ protected:
 
 void BgpCatTest::run(const string &path) {
     pid_t child = 0;
-    char *const argv[4] = {
+    char *const argv[5] = {
         (char *) "go",
         (char *) "test",
+        (char *) "--timeout 20m",
         (char *) "-cover",
         NULL
     };
