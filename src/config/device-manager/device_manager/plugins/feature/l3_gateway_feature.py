@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 
-from .db import LogicalRouterDM, VirtualNetworkDM
+from .db import LogicalRouterDM, VirtualMachineInterfaceDM, VirtualNetworkDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
 
@@ -34,7 +34,8 @@ class L3GatewayFeature(FeatureBase):
     # end _get_connected_vn_ids
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
-                         import_targets, feature_config, irb_ips):
+                         import_targets, feature_config, irb_ips,
+                         erb_pr_role):
         gevent.idle()
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni()
@@ -74,9 +75,24 @@ class L3GatewayFeature(FeatureBase):
         feature_config.add_vlans(vlan)
         if irb:
             self._add_ref_to_list(vlan.get_interfaces(), irb.get_name())
-
+        if erb_pr_role:
+            # for ERB_xxx_gateway PR role, set vlan id for current vn
+            self._set_vn_vlanid(vlan, vn)
         return ri
     # end _build_ri_config
+
+    def _set_vn_vlanid(self, vlan, vn):
+        for vmi_uuid in vn.virtual_machine_interfaces or []:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi is None or vmi.is_device_owner_bms() is False:
+                continue
+            if int(vmi.vlan_tag) == 0:
+                vlan_tag = str(vmi.port_vlan_tag)
+            else:
+                vlan_tag = str(vmi.vlan_tag)
+            if int(vlan_tag) > 0:
+                vlan.set_vlan_id(int(vlan_tag))
+    # end _set_vn_vlanid
 
     def feature_config(self, **kwargs):
         self.pi_map = OrderedDict()
@@ -88,7 +104,7 @@ class L3GatewayFeature(FeatureBase):
         if vns:
             irb_ip_map = self._physical_router.allocate_irb_ips_for(
                 vns, use_gateway_ip)
-
+        erb_pr_role = self._physical_router.is_erb_only()
         for vn_uuid in vns:
             vn_obj = VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)
@@ -100,7 +116,8 @@ class L3GatewayFeature(FeatureBase):
                 vn_obj, ri_obj)
             ri = self._build_ri_config(
                 vn_obj, ri_name, ri_obj, export_targets,
-                import_targets, feature_config, irb_ip_map.get(vn_uuid, []))
+                import_targets, feature_config, irb_ip_map.get(vn_uuid, []),
+                erb_pr_role)
             feature_config.add_routing_instances(ri)
 
         for pi, li_map in list(self.pi_map.values()):

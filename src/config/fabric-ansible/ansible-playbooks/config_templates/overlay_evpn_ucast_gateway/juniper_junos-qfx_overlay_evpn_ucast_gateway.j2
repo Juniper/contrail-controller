@@ -35,6 +35,7 @@ set groups {{cfg_group}} protocols router-advertisement interface irb.{{unit}} v
 {%     for vlan in device_abstract_config.features.get('l3-gateway').get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
+{%         set vlanid = vlan.get('vlan_id', 'none') %}
 set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
 {%         for intf in vlan.get('interfaces', []) %}
 {%             set int_name = intf.get('name') %}
@@ -49,7 +50,7 @@ set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
 {%                 endfor %}
 {%             endfor %}
 {%             if ns_vlan.is_none == true %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlanid}}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%             endif %}
 {%         endfor %}
