@@ -1336,8 +1336,11 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     KSyncEntry::KSyncState from_state = entry->GetState();
 
     if (DoEventTrace()) {
-        KSYNC_TRACE(Event, this, entry->ToString(), entry->StateString(),
-                    entry->EventString(event));
+        std::string obj_string = entry->ToString();
+        std::string state_string = entry->StateString();
+        std::string event_string = entry->EventString(event);
+        KSYNC_TRACE(Event, this, obj_string, state_string,
+                    event_string);
     }
     switch (entry->GetState()) {
         case KSyncEntry::INIT:
