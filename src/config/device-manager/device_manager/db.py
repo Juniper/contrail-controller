@@ -615,7 +615,8 @@ class PhysicalRouterDM(DBBaseDM):
     def get_dci_bgp_neighbours(self):
         if not self.has_rb_role('DCI-Gateway'):
             return set()
-        pr_set = DataCenterInterconnectDM.get_dci_peers(self.uuid)
+        pr_set = DataCenterInterconnectDM.get_dci_peers(self.uuid,
+                                                        self.fabric)
         neigh = set()
         for pr in pr_set:
             if self.uuid == pr.uuid:
@@ -3128,13 +3129,13 @@ class DataCenterInterconnectDM(DBBaseDM):
     # end update
 
     @classmethod
-    def get_dci_peers(cls, pr_uuid):
+    def get_dci_peers(cls, pr_uuid, fabric_uuid):
         dci_list = list(cls._dict.values())
         pr_list = []
         for dci in dci_list or []:
             if dci.is_this_inter_fabric() == False:
                 continue
-            prs = dci.get_connected_physical_routers()
+            prs = dci.get_connected_physical_routers(pr_uuid, fabric_uuid)
             for pr in prs or []:
                 if pr.uuid == pr_uuid:
                     pr_list += prs
@@ -3157,7 +3158,8 @@ class DataCenterInterconnectDM(DBBaseDM):
         return vn_list
     # end get_connected_lr_internal_vns
 
-    def get_connected_physical_routers(self):
+    def get_connected_physical_routers(self, local_pr_uuid,
+                                       local_fabric_uuid):
         if not self.logical_routers or self.is_this_inter_fabric() == False:
             return []
         pr_list = []
@@ -3168,7 +3170,9 @@ class DataCenterInterconnectDM(DBBaseDM):
                 for pr_uuid in prs:
                     pr = PhysicalRouterDM.get(pr_uuid)
                     if pr.has_rb_role("DCI-Gateway"):
-                        pr_list.append(pr)
+                        if (pr_uuid == local_pr_uuid) or \
+                                (pr.fabric != local_fabric_uuid):
+                            pr_list.append(pr)
         return pr_list
     # end get_connected_physical_routers
 
