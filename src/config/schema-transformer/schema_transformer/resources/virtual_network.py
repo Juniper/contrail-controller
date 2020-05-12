@@ -13,6 +13,7 @@ from builtins import str
 import copy
 import itertools
 import sys
+from time import time as TIME
 
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, RefsExistError
@@ -992,6 +993,7 @@ class VirtualNetworkST(ResourceBaseST):
 
     def evaluate(self, **kwargs):
         self.timer = kwargs.get('timer')
+        vn_evaluate_start_time = TIME()
         self.set_route_target_list(self.obj)
 
         old_virtual_network_connections = self.expand_connections()
@@ -1010,6 +1012,7 @@ class VirtualNetworkST(ResourceBaseST):
 
         for policy_name in self.network_policys:
             timer = self.network_policys[policy_name].get_timer()
+            policy_evaluate_start_time = TIME()
             if timer is None:
                 if static_acl_entries is None:
                     static_acl_entries = AclEntriesType(dynamic=False)
@@ -1083,6 +1086,11 @@ class VirtualNetworkST(ResourceBaseST):
                     if self.timer:
                         self.timer.timed_yield(is_evaluate_yield=True)
                 # end for acl_rule_list
+                policy_duration = TIME() - policy_evaluate_start_time
+                msg = ('Network Policy Evaluate Complete: '
+                       'VN Name (%s), Policy Name (%s): Duration (%.3f) sec'
+                       % (self.name, policy_name, policy_duration))
+                ResourceBaseST._logger.notice(msg)
                 if self.timer:
                     self.timer.timed_yield(is_evaluate_yield=True)
             # end for policy_rule_entries.policy_rule
@@ -1289,6 +1297,11 @@ class VirtualNetworkST(ResourceBaseST):
             if ri:
                 ri.update_routing_policy_and_aggregates()
         self.uve_send()
+        vn_duration = TIME() - vn_evaluate_start_time
+        msg = ('Virtual-Network Evaluate Complete: '
+               'VN Name (%s): Duration (%.3f) sec'
+               % (self.name, vn_duration))
+        ResourceBaseST._logger.notice(msg)
     # end evaluate
 
     def get_prefixes(self, ip_version):
