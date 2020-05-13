@@ -1,0 +1,19 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute "show lldp neighbors detail" command
+  gather_facts: no
+  no_log: true
+  juniper_junos_command:
+    commands:
+      - "show lldp neighbors detail"
+    format: xml
+    provider:
+      host: "{{item.host}}"
+      username: "{{item.username}}"
+      password: "{{item.password}}"
+      port: 22
+      timeout: 3
+  with_items:
+    - "{{ output.leaf_devices }}"
+  register: leaf_devices_command_output

@@ -1,0 +1,99 @@
+{
+  "input_schema": {
+    "type": "object",
+    "definitions": {
+    },
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "minProperties": 1,
+    "maxProperties": 2,
+    "additionalProperties": false,
+    "properties": {
+      "fabric_uuid": {
+        "$id": "/properties/input/properties/fabric_uuid",
+        "format": "uuid",
+        "type": "string",
+        "title": "The Fabric_uuid Schema",
+        "description": "UUID of the fabric object created",
+        "default": "",
+        "examples": [
+          "123456789"
+        ]
+      },
+      "fabric_fq_name": {
+        "$id": "/properties/input/properties/fabric_fq_name",
+        "type": "array",
+        "items": {
+          "$id": "/properties/input/properties/fabric_fq_name/items",
+          "type": "string",
+          "title": "The Fabric_fq_name Schema",
+          "description": "FQNAME of the fabric object created",
+          "default": "",
+          "examples": [
+            "default-global-system-config",
+            "fabric01"
+          ]
+        }
+      },
+      "manage_underlay": {
+        "type": "boolean",
+        "title": "Manage underlay networking",
+        "description": "Set to true if need to configure device underlay networking"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "definitions": {
+    },
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "properties": {
+      "output": {
+        "$id": "/properties/output",
+        "type": "object",
+        "properties": {
+          "status": {
+            "$id": "/properties/output/properties/status",
+            "type": "string",
+            "title": "The Status Schema",
+            "description": "Status of the plabybook run",
+            "default": "",
+            "examples": [
+              "SUCCESS"
+            ]
+          },
+          "message": {
+            "$id": "/properties/output/properties/message",
+            "type": "string",
+            "title": "The Message Schema",
+            "description": "success/failure message about the playbook run",
+            "default": "",
+            "examples": [
+              "Successfully ran playbook"
+            ]
+          },
+          "results": {
+            "$id": "/properties/output/properties/results",
+            "type": "object",
+            "properties": {
+              "device_uuid": {
+                "$id": "/properties/output/properties/results/properties/device_uuid",
+                "type": "array",
+                "items": {
+                  "$id": "/properties/output/properties/results/properties/device_uuid/items",
+                  "format": "uuid",
+                  "type": "string",
+                  "title": "The Results Schema",
+                  "description": "objects returned from  the playbook to the job_manager",
+                  "default": "",
+                  "examples": [
+                    "1234"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

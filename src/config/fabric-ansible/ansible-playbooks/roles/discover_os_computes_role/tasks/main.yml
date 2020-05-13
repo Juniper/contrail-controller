@@ -1,0 +1,24 @@
+---
+- name: Finding all Leaf devices in fabric network
+  set_fact:
+    output: "{{ playbook_input | find_leaf_devices_filter }}"
+- debug:
+    msg: "OUTPUT {{ output }}"
+    verbosity: 2
+
+- include_tasks: "juniper.yml"
+
+- name: Creating OS compute nodes
+  set_fact:
+    output: "{{ playbook_input | create_os_node_filter(leaf_devices_command_output) }}"
+- debug:
+    msg: "OUTPUT {{ output }}"
+    verbosity: 2
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 1
+    jl_message: "Successfully created OS nodes: '{{ output }}'"
+
+

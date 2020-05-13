@@ -161,13 +161,34 @@
           "display_name": "Discover Device",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
-          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
                 "multi_device_playbook": false,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
+                "vendor": ""
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "discover_os_computes_template"
+          ],
+          "name": "discover_os_computes_template",
+          "display_name": "Discover OS Computes",
+          "parent_type": "global-system-config",
+          "job_template_concurrency_level": "fabric",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "multi_device_playbook": false,
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_os_computes_template.yml",
                 "vendor": ""
               }
             ]
@@ -753,7 +774,7 @@
             "playbook_info": [
               {
                 "device_family": "",
-                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/server_import.yml",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
                 "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "job_completion_weightage": 100
