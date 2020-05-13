@@ -1,0 +1,49 @@
+- name: Autodiscover OS compute nodes
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+     output: {"status":"",  "errmsg":""}
+
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
+    - set_fact:
+        fabric_fq_name: "{{ playbook_input.input.fabric_fq_name }}"
+      when: playbook_input.input.fabric_fq_name is defined
+
+    - set_fact:
+        fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+      when: playbook_input.input.fabric_uuid is defined
+
+    - set_fact:
+        contrail_command_host: "{{ playbook_input.input.contrail_command_host }}"
+      when: playbook_input.input.contrail_command_host is defined
+
+    - set_fact:
+        cc_username: "{{ playbook_input.input.cc_username }}"
+      when: playbook_input.input.cc_username is defined
+
+    - set_fact:
+        cc_password: "{{ playbook_input.input.cc_password }}"
+      when: playbook_input.input.cc_password is defined
+
+
+  roles:
+    - discover_os_computes_role
+
+  post_tasks:
+    - name: set output warning message
+      set_fact:
+        output: "{{ output|combine({'status': 'Warning', 'message': errmsg})}}"
+      when: output.errmsg is defined and output.errmsg|length > 0
+
+    - name: set output success message
+      set_fact:
+         output: "{{ output|combine({'status':'SUCCESS', 'message':'Completed device discovery'})}}"
+      when: output.errmsg is defined and output.errmsg|length == 0
+
+    - name: print output
+      debug: var=output verbosity=1
