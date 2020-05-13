@@ -31,10 +31,12 @@ from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common import utils
 import os
 try:
-    from nodemgr.common.docker_process_manager import DockerProcessInfoManager
+    from nodemgr.common.docker_containers import DockerContainersInterface
+    from nodemgr.common.podman_containers import PodmanContainersInterface
+    from nodemgr.common.container_process_manager import ContainerProcessInfoManager
 except Exception:
-    # there is no docker library. assumes that code runs not for microservices
-    DockerProcessInfoManager = None
+    # there is no container library. assumes that code runs not for microservices
+    ContainerProcessInfoManager = None
 from nodemgr.common.linux_sys_data import LinuxSysData
 
 
@@ -113,12 +115,17 @@ class EventManager(object):
         event_handlers['PROCESS_LIST_UPDATE'] = self._update_current_processes
         gevent.signal(signal.SIGHUP, self.nodemgr_sighup_handler)
         self.system_data = LinuxSysData(self.msg_log, self.config.corefile_path)
-        if DockerProcessInfoManager and (utils.is_running_in_docker()
-                                         or utils.is_running_in_kubepod()):
-            self.process_info_manager = DockerProcessInfoManager(
-            type_info._module_type, unit_names, event_handlers,
-            update_process_list)
-        else:
+        if ContainerProcessInfoManager:
+            if utils.is_running_in_docker() or utils.is_running_in_kubepod():
+                self.process_info_manager = ContainerProcessInfoManager(
+                    type_info._module_type, unit_names, event_handlers,
+                    update_process_list, DockerContainersInterface())
+            elif utils.is_running_in_podman():
+                self.process_info_manager = ContainerProcessInfoManager(
+                    type_info._module_type, unit_names, event_handlers,
+                    update_process_list, PodmanContainersInterface())
+
+        if not self.process_info_manager:
             self.msg_log('Node manager could not detect process manager',
                           SandeshLevel.SYS_ERR)
             exit(-1)

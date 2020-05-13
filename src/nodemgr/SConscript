@@ -101,11 +101,13 @@ common_sources = [
            'common/common_process_manager.py',
            'common/common_sys_cpu.py',
            'common/docker_mem_cpu.py',
-           'common/docker_process_manager.py',
+           'common/container_process_manager.py',
            'common/event_manager.py',
            'common/linux_sys_data.py',
            'common/process_stat.py',
            'common/utils.py',
+           'common/podman_containers.py',
+           'common/docker_containers.py',
           ]
 common_sources_rules = []
 for file in common_sources:
