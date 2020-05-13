@@ -16,6 +16,24 @@
       "revId": "714bbf8bc03f9d386b16c2684a81bc4e476a1e8c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "72aba052_bbc0de0f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 885,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-05-13T16:47:39Z",
+      "side": 1,
+      "message": "Another parameter would help but that needs to be added every where, i just wanted to localize changes and since last api _create_net_subnet_objs can have vn_dict as delta or complete dictionary according to code flow. Below are places its being called from.\n \nnet_update_notify\nnet_create_req\nnet_create_notify\nnet_update_req\nnet_update_notify",
+      "parentUuid": "35dd5ec8_243df0fc",
+      "revId": "714bbf8bc03f9d386b16c2684a81bc4e476a1e8c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
