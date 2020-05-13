@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b0a38d92_0d78d0aa",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-05-13T17:17:17Z",
+      "side": 1,
+      "message": "This is returning False because \u0027items()\u0027 in Python3 is returning an iterator right? so basically you are comparing iterators pointers that have different addresses.\n\nIn base code, it seems that we well convert to a list which is a reasonable way to fix the problem.\n\u003e\u003e\u003e list(a.items()) \u003c\u003d list(b.items())\nTrue\n\nAre you sure of the root cause of the issue?",
+      "revId": "9b390602b18dacce46e62e81962375c1d6473959",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
