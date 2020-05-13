@@ -34,6 +34,24 @@
       "revId": "714bbf8bc03f9d386b16c2684a81bc4e476a1e8c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cc40dc9a_7aa68faa",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 885,
+      "author": {
+        "id": 35
+      },
+      "writtenOn": "2020-05-13T21:13:46Z",
+      "side": 1,
+      "message": "Since it is very localized and read is only for single field, we are ok to have reading VN from database.",
+      "parentUuid": "72aba052_bbc0de0f",
+      "revId": "714bbf8bc03f9d386b16c2684a81bc4e476a1e8c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
