@@ -10,6 +10,7 @@ from builtins import str
 from builtins import range
 from builtins import object
 import copy
+import sys
 
 import gevent
 from pprint import pformat
@@ -832,6 +833,7 @@ class VncCassandraClient(object):
             if not coll_infos or not filters:
                 return coll_infos
 
+            pyver = sys.version_info
             filtered_infos = {}
             columns = ['prop:%s' % filter_key for filter_key in filters if
                        filter_key in obj_class.prop_fields]
@@ -857,8 +859,13 @@ class VncCassandraClient(object):
                                 filter_dict = json.loads(filter_value)
                             except ValueError:
                                 continue
-                            if (list(filter_dict.items()) <=
-                                    list(prop_value.items())):
+                            if pyver.major < 3:
+                                filter_in_prop = (filter_dict.viewitems() <=
+                                                  prop_value.viewitems())
+                            else:
+                                filter_in_prop = (filter_dict.items() <=
+                                                  prop_value.items())
+                            if filter_in_prop:
                                 break
                         else:
                             full_match = False
