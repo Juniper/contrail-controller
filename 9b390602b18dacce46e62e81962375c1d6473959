@@ -16,6 +16,24 @@
       "revId": "9b390602b18dacce46e62e81962375c1d6473959",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "04c28034_c1acbfe2",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-13T19:20:50Z",
+      "side": 1,
+      "message": "items() in py3 is returning dict_items which is the same behavior as viewitems in py2, not sure if its an iterator or not.\n\n\nwhy do you want \"list(a.items()) \u003c\u003d list(b.items())\" to return True when they\u0027re two different dicts?",
+      "parentUuid": "b0a38d92_0d78d0aa",
+      "revId": "9b390602b18dacce46e62e81962375c1d6473959",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
