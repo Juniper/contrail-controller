@@ -20,6 +20,7 @@ InstanceTaskExecvp::InstanceTaskExecvp(const std::string &name,
 
 void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
                                   size_t read_bytes) {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (read_bytes) {
         if (!on_data_cb_.empty()) {
             std::string data(rx_buff_, read_bytes);
@@ -45,12 +46,18 @@ void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
 }
 
 void InstanceTaskExecvp::Stop() {
+    tbb::mutex::scoped_lock lock(mutex_);
     assert(pid_);
+    on_data_cb_.clear();
+    on_exit_cb_.clear();
     kill(pid_, SIGTERM);
 }
 
 void InstanceTaskExecvp::Terminate() {
+    tbb::mutex::scoped_lock lock(mutex_);
     assert(pid_);
+    on_data_cb_.clear();
+    on_exit_cb_.clear();
     kill(pid_, SIGKILL);
 }
 

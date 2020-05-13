@@ -45,10 +45,12 @@ class InstanceTask {
     }
 
     void set_on_data_cb(OnDataCallback cb) {
+        tbb::mutex::scoped_lock lock(mutex_);
         on_data_cb_ = cb;
     }
 
     void set_on_exit_cb(OnExitCallback cb) {
+        tbb::mutex::scoped_lock lock(mutex_);
         on_exit_cb_ = cb;
     }
 
@@ -66,6 +68,7 @@ class InstanceTask {
     int reattempts_;
     OnDataCallback on_data_cb_;
     OnExitCallback on_exit_cb_;
+    tbb::mutex mutex_;
 };
 
 class InstanceTaskExecvp : public InstanceTask {
