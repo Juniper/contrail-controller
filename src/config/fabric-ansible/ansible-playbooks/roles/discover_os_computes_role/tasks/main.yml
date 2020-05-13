@@ -1,0 +1,43 @@
+---
+
+- name: Finding and creating OS compute nodes
+  block:
+    - name: Finding all Leaf devices in fabric network
+      set_fact:
+        output: "{{ playbook_input | find_leaf_devices_filter }}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Successfully found device: '{{ item.host }}'"
+      with_items:
+        - "{{ output.leaf_devices }}"
+
+    - include_tasks: "juniper.yml"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 2
+        jl_message: "Successfully Executed command \"show lldp neighbors detail\" on device: '{{ item.host }}'"
+      with_items:
+        - "{{ output.leaf_devices }}"
+
+    - name: Creating OS compute nodes
+      set_fact:
+        output: "{{ playbook_input | create_os_node_filter(devices_command_output) }}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 3
+        jl_message: "Successfully created OS nodes: '{{ output }}'"
+      when: output.os_compute_nodes.nodes|length != 0
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 3
+        jl_message: "No OS nodes found, nothing created"
+      when: output.os_compute_nodes.nodes|length == 0
