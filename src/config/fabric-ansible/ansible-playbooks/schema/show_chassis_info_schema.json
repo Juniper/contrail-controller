@@ -22,14 +22,14 @@
                "chassis environment routing-engine",
                "chassis fpc detail",
                "chassis fan",
-               "chassis chassis firmware",
+               "chassis firmware",
                "chassis mac-addresses",
                "chassis routing-engine",
                "chassis power",
                "chassis hardware",
                "chassis hardware detail",
                "chassis hardware clei-models",
-               "chassis chassis temperature-thresholds"
+               "chassis temperature-thresholds"
              ],
              "default": "chassis hardware"
           }
