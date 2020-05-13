@@ -1,4 +1,6 @@
 attrdict
+bitarray>=0.8.0,<=1.2.1
+bitearray
 contrail-config-common
 contrail-api-client
 sandesh==0.1dev
