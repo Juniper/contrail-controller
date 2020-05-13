@@ -106,6 +106,8 @@ common_sources = [
            'common/linux_sys_data.py',
            'common/process_stat.py',
            'common/utils.py',
+           'common/podman_containers.py',
+           'common/docker_containers.py',
           ]
 common_sources_rules = []
 for file in common_sources:
