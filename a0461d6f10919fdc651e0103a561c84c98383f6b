@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3d58daf7_65c95db7",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/virtual_network.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1012,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-05-13T16:17:04Z",
+      "side": 0,
+      "message": "Can you make this logging per network policy processing and print network policy name  VN name",
+      "revId": "a0461d6f10919fdc651e0103a561c84c98383f6b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
