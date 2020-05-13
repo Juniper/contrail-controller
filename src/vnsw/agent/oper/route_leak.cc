@@ -243,10 +243,14 @@ void RouteLeakState::AddRoute(const AgentRoute *route) {
 
     if (uc_rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL) {
         AddIndirectRoute(route);
+    } else if ((uc_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE)||
+            (route->FindLocalVmPortPath() &&
+             route->FindLocalVmPortPath()->nexthop() &&
+             route->FindLocalVmPortPath()->nexthop()->GetType()
+                            == NextHop::COMPOSITE)) {
+        AddCompositeRoute(route);
     } else if (uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE) {
         AddInterfaceRoute(route, route->FindLocalVmPortPath());
-    } else if (uc_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
-        AddCompositeRoute(route);
     }
 
     bool sync = false;
