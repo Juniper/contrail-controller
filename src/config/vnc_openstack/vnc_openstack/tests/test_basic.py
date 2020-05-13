@@ -2942,6 +2942,26 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
             self.assertIsNot(re.search('Bad Request', str(e)), None)
             self.assertIsNot(re.search('MacAddressInUse', str(e)), None)
 
+        # list a port with mac address that already exist should
+        # list only one
+        port_objs = self.list_resource(
+            'port', proj_obj.uuid,
+            req_filters={'mac_address': ['00:01:00:00:0f:3c']},
+            req_fields={'network_id': vn_obj.uuid})
+        self.assertEqual(
+            len(port_objs), 1,
+            'Retrieved more than one port during list with mac-address filter')
+
+        # list a port with mac address that do not exist should
+        # return no ports
+        port_objs = self.list_resource(
+            'port', proj_obj.uuid,
+            req_filters={'mac_address': ['cc:01:00:00:0f:3c']},
+            req_fields={'network_id': vn_obj.uuid})
+        self.assertEqual(
+            len(port_objs), 0,
+            'No ports expected but retrieved (%s)' % port_objs)
+
         # Cleanup
         self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=vmi2_obj.uuid)
