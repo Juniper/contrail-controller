@@ -21,6 +21,10 @@ def is_running_in_docker():
     with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
         return 'docker' in ifh.read()
 
+def is_running_in_podman():
+    pid = os.getpid()
+    with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
+        return 'libpod' in ifh.read()
 
 def is_running_in_kubepod():
     pid = os.getpid()
