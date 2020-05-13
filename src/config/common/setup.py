@@ -2,15 +2,11 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import re
+try:  # for pip >= 10
+    from pip._internal.req import parse_requirements
+except ImportError:  # for pip <= 9.0.3
+    from pip.req import parse_requirements
 from setuptools import setup, find_packages
-
-
-def requirements(filename):
-    with open(filename) as f:
-        lines = f.read().splitlines()
-    c = re.compile(r'\s*#.*')
-    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
 
 
 setup(
@@ -34,8 +30,8 @@ setup(
     ],
     packages=find_packages(),
     package_data={'': ['*.xml']},
-    install_requires=requirements('requirements.txt'),
-    tests_require=requirements('test-requirements.txt'),
+    install_requires=[str(req.req) for req in parse_requirements('requirements.txt', session='hack')],
+    tests_require=[str(req.req) for req in parse_requirements('test-requirements.txt', session='hack')],
     test_suite='cfgm_common.tests',
     keywords='contrail vnc utils',
 )

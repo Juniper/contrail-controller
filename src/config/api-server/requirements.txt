@@ -1,4 +1,3 @@
-attrdict
 contrail-config-common
 contrail-api-client
 sandesh==0.1dev
