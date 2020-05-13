@@ -2,11 +2,9 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import docker
 import time
 import os
 
-from nodemgr.common.docker_mem_cpu import DockerMemCpuUsageData
 from sandesh_common.vns.ttypes import Module
 import nodemgr.common.common_process_manager as cpm
 
@@ -71,21 +69,16 @@ def _convert_to_process_state(state):
 
 class DockerProcessInfoManager(object):
     def __init__(self, module_type, unit_names, event_handlers,
-                 update_process_list):
+                 update_process_list, strategy_):
         self._module_type = module_type
         self._unit_names = unit_names
         self._event_handlers = event_handlers
         self._update_process_list = update_process_list
         self._process_info_cache = cpm.ProcessInfoCache()
-        self._client = docker.from_env()
-        if hasattr(self._client, 'api'):
-            self._client = self._client.api
+        self._strategy = strategy_
 
     def _get_full_info(self, cid):
-        try:
-            return self._client.inspect_container(cid)
-        except docker.errors.APIError:
-            return None
+        return self._strategy.inspect(cid)
 
     def _get_name_from_labels(self, container):
         labels = container.get('Labels', dict())
@@ -125,7 +118,7 @@ class DockerProcessInfoManager(object):
 
     def _list_containers(self, names):
         containers = dict()
-        all_containers = self._client.containers(all=True)
+        all_containers = self._strategy.list(all_=True)
         for container in all_containers:
             name = self._get_unit_name(container)
             if name is None or name not in names:
@@ -198,38 +191,16 @@ class DockerProcessInfoManager(object):
         self._poll_containers()
 
     def get_mem_cpu_usage_data(self, pid, last_cpu, last_time):
-        return DockerMemCpuUsageData(pid, last_cpu, last_time)
+        return self._strategy.query_usage(pid, last_cpu, last_time)
 
     def exec_cmd(self, unit_name, cmd):
         containers = self._list_containers(names=[unit_name])
         container = containers.get(unit_name)
         if not container:
             raise LookupError(unit_name)
-        exec_op = self._client.exec_create(container['Id'], cmd, tty=True)
-        res = ''
-        try:
-            # string or stream result works unstable
-            # using socket with own read implementation
-            socket = self._client.exec_start(exec_op["Id"], tty=True, socket=True)
-            socket.settimeout(10.0)
-            while True:
-                part = socket.recv(1024)
-                if len(part) == 0:
-                    break
-                res += part
-        finally:
-            if socket:
-                # There is cyclic reference there
-                # https://github.com/docker/docker-py/blob/master/docker/api/client.py#L321
-                # sock => response => socket
-                # https://github.com/docker/docker-py/issues/2137
-                try:
-                    socket._response = None
-                except AttributeError:
-                    pass
-                socket.close()
-        data = self._client.exec_inspect(exec_op["Id"])
-        exit_code = data.get("ExitCode", 0)
-        if exit_code != 0:
-            raise RuntimeError("Result: {}\nExit data: {}".format(res, data))
-        return res
+
+        e, output = self._strategy.execute(container['Id'], cmd)
+        if e != 0:
+            raise RuntimeError("Result: {}".format(e))
+
+        return output

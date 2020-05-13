@@ -31,6 +31,8 @@ from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common import utils
 import os
 try:
+    from nodemgr.common.docker_containers import DockerContainersInterface
+    from nodemgr.common.podman_containers import PodmanContainersInterface
     from nodemgr.common.docker_process_manager import DockerProcessInfoManager
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
@@ -116,8 +118,12 @@ class EventManager(object):
         if DockerProcessInfoManager and (utils.is_running_in_docker()
                                          or utils.is_running_in_kubepod()):
             self.process_info_manager = DockerProcessInfoManager(
-            type_info._module_type, unit_names, event_handlers,
-            update_process_list)
+                type_info._module_type, unit_names, event_handlers,
+                update_process_list, DockerContainersInterface())
+        elif utils.is_running_in_podman():
+            self.process_info_manager = DockerProcessInfoManager(
+                type_info._module_type, unit_names, event_handlers,
+                update_process_list, PodmanContainersInterface())
         else:
             self.msg_log('Node manager could not detect process manager',
                           SandeshLevel.SYS_ERR)
