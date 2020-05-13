@@ -48,6 +48,11 @@
       ignore_errors: true
       set_fact:
         jscript_commit: "{{ commit_list | selectattr('client', 'equalto', 'junoscript') | map(attribute = 'sequence-number') | list | first }}"
+        
+    - name: Check if pre-2003 contrail committed config via Netconf
+      ignore_errors: true
+      set_fact:
+        old_contrail_commit: "{{ commit_list | selectattr('client', 'equalto', 'netconf') | selectattr('log', 'defined') |  selectattr('log', 'search', 'Applied by Ansible') | map(attribute = 'sequence-number') | list | first }}"
 
     - name: Check if contrail committed using commit comment and Netconf, i.e. Netconf via Contrail
       ignore_errors: true
@@ -55,9 +60,14 @@
         contrail_commit: "{{ commit_list | selectattr('client', 'equalto', 'netconf') | selectattr('log', 'defined') |  selectattr('log', 'search', 'Contrail execution ID') | map(attribute = 'sequence-number') | list | first }}"
 
     - name: Check if jscript commit then set contrail commit variable
-      when: contrail_commit is not defined and jscript_commit is defined
+      when: contrail_commit is not defined and old_contrail_commit is not defined and jscript_commit is defined
       set_fact:
         contrail_commit: "{{ jscript_commit }}"
+
+    - name: Check if contrail_commit pre/post 2003 are recent and which
+      when: contrail_commit is defined and old_contrail_commit is defined
+      set_fact:
+        contrail_commit: "{% if contrail_commit|int < old_contrail_commit|int  %}{{ contrail_commit }}{% else %}{{ old_contrail_commit }}{% endif %}"
 
     - name: Check if contrail_commit or jscript_commit is recent
       when: contrail_commit is defined and jscript_commit is defined
@@ -65,7 +75,7 @@
         contrail_commit: "{% if contrail_commit|int < jscript_commit|int  %}{{ contrail_commit }}{% else %}{{ jscript_commit }}{% endif %}"
 
     - name: Check if manual commit has occur
-      when: contrail_commit is not defined and jscript_commit is not defined
+      when: contrail_commit is not defined and jscript_commit is not defined and old_contrail_commit is not defined
       set_fact:
         contrail_commit: "{{ 0 }}"
 
@@ -115,3 +125,4 @@
       loop: "{{ range(contrail_commit|int,0,-1)|list }}"
   when: (latest_cont_commit == false) and (contrail_commit is defined)
   ignore_errors: yes
+
