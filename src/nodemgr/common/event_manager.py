@@ -114,7 +114,8 @@ class EventManager(object):
         gevent.signal(signal.SIGHUP, self.nodemgr_sighup_handler)
         self.system_data = LinuxSysData(self.msg_log, self.config.corefile_path)
         if DockerProcessInfoManager and (utils.is_running_in_docker()
-                                         or utils.is_running_in_kubepod()):
+                                         or utils.is_running_in_kubepod()
+                                         or utils.is_running_in_podman()):
             self.process_info_manager = DockerProcessInfoManager(
             type_info._module_type, unit_names, event_handlers,
             update_process_list)
