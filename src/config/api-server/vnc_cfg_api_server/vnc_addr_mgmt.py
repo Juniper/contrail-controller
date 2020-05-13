@@ -883,7 +883,17 @@ class AddrMgmt(object):
         self._subnet_objs.setdefault(vn_uuid, OrderedDict())
         # create subnet for each new subnet
         refs = vn_dict.get('network_ipam_refs')
-        vn_category = vn_dict.get('virtual_network_category')
+        try:
+            ok, result = self._get_db_conn().dbe_read(
+                obj_type='virtual_network',
+                obj_id=vn_uuid,
+                obj_fields=['fq_name', 'virtual_network_category'],
+            )
+        except cfgm_common.exceptions.NoIdError as e:
+            return False, (404, str(e))
+        if not ok:
+            return False, result
+        vn_category = result.get('virtual_network_category', None)
         routed_vn = False
         if vn_category and vn_category == "routed":
             routed_vn = True
