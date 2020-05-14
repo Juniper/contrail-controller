@@ -75,12 +75,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.29"
+__version__ = "1.30"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.30:
+  - Fix for auditing AE ID while using k8s
 * 1.29:
   - Add error msg to inform when aggregated ethernet ID is not supported
 * 1.28:
@@ -1447,7 +1449,12 @@ class DatabaseManager(object):
         base_path = self.base_ae_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_ae_id = {}
-        for prouter_name in self._zk_client.get_children(base_path) or []:
+        try:
+            prouters_with_ae_id = self._zk_client.get_children(base_path)
+        except kazoo.exceptions.NoNodeError:
+            prouters_with_ae_id = None
+
+        for prouter_name in prouters_with_ae_id or []:
             prouter_path = base_path + '/' + prouter_name
             for ae_id in self._zk_client.get_children(prouter_path) or []:
                 vpg_name = self._zk_client.get(prouter_path + '/' + ae_id)[0]
