@@ -1,5 +1,4 @@
-gevent==1.1a2
-geventhttpclient==1.0a
+gevent<1.5.0
 pycassa>=1.7.2
 netaddr>=0.7.5
 bitarray>=0.8.0
