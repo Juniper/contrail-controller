@@ -1325,9 +1325,9 @@ class VncDbClient(object):
             # check that len of vpg_kvps is just +1 due to
             # untagged vlan
             if len(vmi_refs) + 1 == len(vpg_kvps):
-                untaggedvlan = filter(
+                untaggedvlan = list(filter(
                     lambda x: isinstance(x.get('key'), type('str')) and
-                    x.get('key').endswith('untagged_vlan_id'), vpg_kvps)
+                    x.get('key').endswith('untagged_vlan_id'), vpg_kvps))
                 if untaggedvlan:
                     add_annotations_to_vpg = False
         if not add_annotations_to_vpg:
