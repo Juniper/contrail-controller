@@ -330,6 +330,7 @@ class DeviceManager(object):
         """Physical Router init routine."""
         DeviceManager._instance = self
         self._args = args
+
         self._amqp_client = amqp_client
         self.logger = dm_logger or DeviceManagerLogger(args)
         self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
