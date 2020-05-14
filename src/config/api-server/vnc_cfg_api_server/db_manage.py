@@ -1069,7 +1069,7 @@ class DatabaseManager(object):
                     continue
                 # gateway not locked on zk, we don't need it
                 gw = cassandra_all_vns[fq_name_str][sn_key]['gw']
-                if (gw and (gw is not 'None')) and \
+                if (gw and (gw != 'None')) and \
                     IPAddress(ip_addr) == IPAddress(gw):
                     break
                 addrs = cassandra_all_vns[fq_name_str][sn_key]['addrs']
