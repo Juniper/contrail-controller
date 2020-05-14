@@ -75,12 +75,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.30"
+__version__ = "1.31"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.31:
+  - Fix a string comparision bug for Gateway IP String being "None" String
 * 1.30:
   - Fix for auditing AE ID while using k8s
 * 1.29:
@@ -1071,7 +1073,7 @@ class DatabaseManager(object):
                     continue
                 # gateway not locked on zk, we don't need it
                 gw = cassandra_all_vns[fq_name_str][sn_key]['gw']
-                if (gw and (gw is not 'None')) and \
+                if (gw and (gw != 'None')) and \
                     IPAddress(ip_addr) == IPAddress(gw):
                     break
                 addrs = cassandra_all_vns[fq_name_str][sn_key]['addrs']
