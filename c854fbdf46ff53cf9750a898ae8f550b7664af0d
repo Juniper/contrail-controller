@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "21869d43_c4be4ce8",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l3_gateway_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 93,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-05-14T04:17:22Z",
+      "side": 1,
+      "message": "Scale point of view, after setting the valn, can we add a break?",
+      "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "632d2d08_11b3d2ec",
         "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_ucast_gateway/juniper_junos-qfx_overlay_evpn_ucast_gateway.j2",
         "patchSetId": 1
@@ -16,6 +33,24 @@
       "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b7179f57_eca71c47",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_ucast_gateway/juniper_junos-qfx_overlay_evpn_ucast_gateway.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-05-14T04:17:22Z",
+      "side": 1,
+      "message": "Clarified over the call, we may need similar change on MX as well.",
+      "parentUuid": "632d2d08_11b3d2ec",
+      "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
