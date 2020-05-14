@@ -3362,7 +3362,8 @@ class DataCenterInterconnectDM(DBBaseDM):
         return rp
     # end allocate_new_rp_for_vrf
 
-    def get_rp_for_intrafabric(self, for_ribgrp=True, vrf_srcexport=True):
+    def get_rp_for_intrafabric(self, for_ribgrp=True, vrf_srcexport=True,
+                               abstract_rps={}):
         if self.is_this_inter_fabric():
             return {}
         # use User provided RP for this dci
@@ -3376,6 +3377,16 @@ class DataCenterInterconnectDM(DBBaseDM):
             # user provided rp
             rp_rib_list = {}
             rplist = []
+            # use existing already prepared user provided abstract rp
+            # if it exists
+            for name in list(rp_obj_list.keys()):
+                if name in abstract_rps:
+                    self._logger.debug(
+                        "DCI %s Found existing abtract_rp %s. using it "
+                        "for_ribgrp %s vrf_srcexport %s" %
+                        (self.name, name, for_ribgrp, vrf_srcexport))
+                    rplist.append(abstract_rps[name])
+                    del rp_obj_list[name]
             RoutingPolicyDM.create_abstract_routing_policies(
                 rp_list=rplist, rp_obj_list=rp_obj_list)
             if for_ribgrp == True:
@@ -3510,7 +3521,9 @@ class DataCenterInterconnectDM(DBBaseDM):
                     if curpr_in_srclr:
                         ribname = DMUtils.get_dci_rib_group_name(dci)
                         if ribname not in rib_map:
-                            trplist = dci.get_rp_for_intrafabric()
+                            trplist = dci.get_rp_for_intrafabric(
+                                for_ribgrp=True, vrf_srcexport=False,
+                                abstract_rps=rp_list)
                             static_p, bgp_p = dci.get_src_lr_vns_protocols(
                                 curpr)
                             rib_map[ribname] = AbstractDevXsd.RibGroup(
@@ -3528,7 +3541,8 @@ class DataCenterInterconnectDM(DBBaseDM):
                         # curPr not in srcLR pr list, use option 2 vrf import
                         vrf_dst_dci_list.add(dci.name)
                         tvrflist = dci.get_rp_for_intrafabric(
-                            for_ribgrp=False, vrf_srcexport=False)
+                            for_ribgrp=False, vrf_srcexport=False,
+                            abstract_rps=rp_list)
                         if len(tvrflist) > 0:
                             for k, v in tvrflist.items():
                                 rp_list[k] = v
@@ -3563,7 +3577,8 @@ class DataCenterInterconnectDM(DBBaseDM):
                 if dci.name not in vrf_dst_dci_list:
                     # do vrf-export settings for current src lr
                     tvrflist = dci.get_rp_for_intrafabric(
-                        for_ribgrp=False, vrf_srcexport=True)
+                        for_ribgrp=False, vrf_srcexport=True,
+                        abstract_rps=rp_list)
                     if len(tvrflist) > 0:
                         for k, v in tvrflist.items():
                             rp_list[k] = v
