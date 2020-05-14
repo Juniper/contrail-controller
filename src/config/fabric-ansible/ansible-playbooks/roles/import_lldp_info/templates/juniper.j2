@@ -1,6 +1,6 @@
 {%- set neighbor_info_list = []                                                                                                   %}
 {%- for lldp_neighbor in device_info.get('results', [])                                                                           %}
-{%-     set lldp_neighbor_information = lldp_neighbor['parsed_output']['lldp-neighbors-information']['lldp-neighbor-information'] %}
+{%-     set lldp_neighbor_information = lldp_neighbor['parsed_output']['lldp-neighbors-information'].get('lldp-neighbor-information', []) %}
 {%-     if lldp_neighbor_information is mapping                                                                                   %}
 {%-         set lldp_neighbor_information = [ lldp_neighbor_information]                                                          %}
 {%-     endif                                                                                                                     %}
