@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "94956438_bfa83d6a",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l3_gateway_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 93,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-05-14T13:21:30Z",
+      "side": 1,
+      "message": "ACK",
+      "parentUuid": "21869d43_c4be4ce8",
+      "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3aa7cd37_ef3ed052",
         "filename": "src/config/device-manager/device_manager/plugins/feature/l3_gateway_feature.py",
         "patchSetId": 1
@@ -33,6 +51,24 @@
       "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2795fe0c_2e1ab123",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l3_gateway_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-05-14T13:21:30Z",
+      "side": 1,
+      "message": "I will add break.",
+      "parentUuid": "3aa7cd37_ef3ed052",
+      "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
