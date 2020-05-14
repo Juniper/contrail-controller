@@ -144,7 +144,7 @@ class EtreeToDict(object):
         Returns the element looked for/None.
         """
         xp = path.xpath(self.xpath)
-        f = filter(lambda x: x.text == match, xp)
+        f = list(filter(lambda x: x.text == match, xp))
         if len(f):
             return f[0].text
         return None
