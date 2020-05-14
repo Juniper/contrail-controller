@@ -605,7 +605,7 @@ KSyncUds::~KSyncUds() { }
 void KSyncUds::Init(bool create_vhost) {
     UdsInit();
     InitFlowMem();
-    ResetVRouter(true);
+    ResetVRouter(false);
     interface_ksync_obj_.get()->Init();
     for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
         flow_table_ksync_obj_list_[i]->Init();
