@@ -225,11 +225,16 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
             state->Update(route, path);
             VnListType vn_list;
             vn_list.insert(state->vn_);
+            uint32_t label = state->label_;
+            if ((route->vrf()->GetName() == table->agent()->fabric_vrf_name()) &&
+                    (label != MplsTable::kInvalidLabel )&& (label != MplsTable::kImplicitNullLabel )) {
+                label  = 0;
+            }
             state->exported_ =
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer,
                       static_cast<AgentRoute * >(route),
                       path->NexthopIp(table->agent()), vn_list,
-                      state->label_, path->GetTunnelBmap(),
+                      label, path->GetTunnelBmap(),
                       &path->sg_list(), &path->tag_list(), &path->communities(),
                       type, state->path_preference_,
                       state->ecmp_load_balance_,
