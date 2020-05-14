@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "632d2d08_11b3d2ec",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_ucast_gateway/juniper_junos-qfx_overlay_evpn_ucast_gateway.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-05-14T02:50:11Z",
+      "side": 1,
+      "message": "For this QFX, \n1) whether you set the vlan-id from __contrail_overlay_evpn_erb_access__ or __contrail_overlay_evpn_erb_access__ both are same as these are in global level. \n\n2) If we set the vlan-id from L2 VLAN then it should be fine. \n\n3) Any idea that, issue seen with MX? in MX we use different RI\u0027s.\n\nSo I have a question about the fix. Can we talk?",
+      "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
