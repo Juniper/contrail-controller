@@ -801,7 +801,6 @@ def get_free_port(allocated_sockets):
                         t += ','
 
                     t += str(output)
-                    print('TO WRITE: "{0}"'.format(t))
                     T.write(t)
                     T.close()
 
