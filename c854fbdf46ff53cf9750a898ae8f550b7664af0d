@@ -19,6 +19,23 @@
     },
     {
       "key": {
+        "uuid": "3aa7cd37_ef3ed052",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l3_gateway_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-05-14T04:18:02Z",
+      "side": 1,
+      "message": "In Enterprise style config, there is a 1:1 VN-VLAN mapping, so do we still need to loop through all the VMI\u0027s for a VN, we should break at the first VMI when we see a VLAN. ERB only supports enterprise style config for now",
+      "revId": "c854fbdf46ff53cf9750a898ae8f550b7664af0d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "632d2d08_11b3d2ec",
         "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_ucast_gateway/juniper_junos-qfx_overlay_evpn_ucast_gateway.j2",
         "patchSetId": 1
