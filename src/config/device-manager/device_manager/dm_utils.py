@@ -624,7 +624,8 @@ class DMUtils(object):
 
     @classmethod
     def get_dci_rib_group_name(cls, dci):
-        return DMUtils.contrail_prefix() + 'rib_' + dci.name + '_' + dci.uuid
+        return DMUtils.contrail_prefix() + 'rib_' + \
+            dci.name.replace(' ', '_') + '_' + dci.uuid
     # end get_dci_rib_group_name
 
     @classmethod
@@ -635,7 +636,8 @@ class DMUtils(object):
 
     @classmethod
     def get_dci_rib_rp_name(cls, dci):
-        return DMUtils.contrail_prefix() + 'rp_rib_' + dci.name
+        return DMUtils.contrail_prefix() + 'rp_rib_' + \
+            dci.name.replace(' ', '_')
 
     @classmethod
     def get_dci_rib_rp_comment(cls, dci):
@@ -644,7 +646,8 @@ class DMUtils(object):
 
     @classmethod
     def get_dci_vrf_rp_name(cls, dci):
-        return DMUtils.contrail_prefix() + 'rp_vrf_' + dci.name
+        return DMUtils.contrail_prefix() + 'rp_vrf_' + \
+            dci.name.replace(' ', '_')
 
     @classmethod
     def get_dci_vrf_rp_comment(cls, dci):
@@ -652,7 +655,8 @@ class DMUtils(object):
 
     @classmethod
     def get_dci_vrf_community_name(cls, dci):
-        return DMUtils.contrail_prefix() + 'rp_inter_' + dci.name
+        return DMUtils.contrail_prefix() + 'rp_inter_' + \
+            dci.name.replace(' ', '_')
 
     @classmethod
     def get_pr_dci_bgp_group(cls, pr_name, dci_uuid):
