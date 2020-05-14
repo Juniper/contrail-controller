@@ -1,0 +1,119 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cba988f8_c812e5ab",
+        "filename": "src/nodemgr/common/docker_process_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-14T17:02:29Z",
+      "side": 1,
+      "message": "not needed anymore here",
+      "range": {
+        "startLine": 8,
+        "startChar": 0,
+        "endLine": 8,
+        "endChar": 63
+      },
+      "revId": "eb70a0a41a7db5cb7270dac6529b5aace619896c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "afabed73_6780fdd4",
+        "filename": "src/nodemgr/common/docker_process_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 84,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-14T17:02:29Z",
+      "side": 1,
+      "message": "I would pass appropriated instance of strategy from the event_manager.py\nthere is code that already has a checks docker vs podman.",
+      "range": {
+        "startLine": 81,
+        "startChar": 0,
+        "endLine": 84,
+        "endChar": 56
+      },
+      "revId": "eb70a0a41a7db5cb7270dac6529b5aace619896c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "334810cb_bfc747b9",
+        "filename": "src/nodemgr/common/podman_containers.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-14T17:02:29Z",
+      "side": 1,
+      "message": "not needed",
+      "range": {
+        "startLine": 2,
+        "startChar": 1,
+        "endLine": 2,
+        "endChar": 13
+      },
+      "revId": "eb70a0a41a7db5cb7270dac6529b5aace619896c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d74d20d4_df8d0b47",
+        "filename": "src/nodemgr/common/podman_containers.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-14T17:02:29Z",
+      "side": 1,
+      "message": "hm.. is it possible to get phys pages allocated?",
+      "range": {
+        "startLine": 44,
+        "startChar": 15,
+        "endLine": 44,
+        "endChar": 26
+      },
+      "revId": "eb70a0a41a7db5cb7270dac6529b5aace619896c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b0bd2b57_93bbc7c3",
+        "filename": "src/nodemgr/common/podman_containers.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-14T17:02:29Z",
+      "side": 1,
+      "message": "it looks tabs are used instead of spaces for intentation.. please use spaces",
+      "range": {
+        "startLine": 50,
+        "startChar": 0,
+        "endLine": 77,
+        "endChar": 21
+      },
+      "revId": "eb70a0a41a7db5cb7270dac6529b5aace619896c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
