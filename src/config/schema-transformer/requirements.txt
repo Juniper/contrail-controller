@@ -1,5 +1,4 @@
-gevent==1.1.2
-geventhttpclient==1.0a
+gevent==1.2.2
 netaddr>=0.7.5
 contrail-config-common
 jsonpickle
