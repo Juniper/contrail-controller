@@ -34,6 +34,24 @@
       "revId": "9b390602b18dacce46e62e81962375c1d6473959",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "047cac42_e80ad58d",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-05-14T07:10:11Z",
+      "side": 1,
+      "message": "We are comparing lists of tuples",
+      "parentUuid": "04c28034_c1acbfe2",
+      "revId": "9b390602b18dacce46e62e81962375c1d6473959",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
