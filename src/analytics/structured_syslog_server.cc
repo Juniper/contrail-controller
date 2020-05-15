@@ -1047,7 +1047,8 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
     else if (boost::equals(tag, "APPQOE_BEST_PATH_SELECTED")) {
         StructuredSyslogUVESummarizeAppQoeBPS(v, summarize_user);
     }
-    else if (boost::equals(tag, "APPQOE_PASSIVE_SLA_METRIC_REPORT")) {
+    else if (boost::equals(tag, "APPQOE_PASSIVE_SLA_METRIC_REPORT") ||
+             boost::equals(tag, "APPQOE_APP_PASSIVE_SLA_METRIC_REPORT")) {
         StructuredSyslogUVESummarizeAppQoePSMR(v, summarize_user);
     }
     else if (boost::equals(tag, "APPQOE_ACTIVE_SLA_METRIC_REPORT")) {
@@ -1219,6 +1220,43 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
     }
 }
 
+
+/*
+--------------------------
+Structured syslog parsing.
+--------------------------
+For newly received tcp message on port 3514 (structured-syslog port),
+   
+1. Check if there is old buffer from previous message (start ptr = 0)
+    a. If yes, then append newly received tcp message to old buffer, and take forward appended message for further processing,
+        otherwise take forward just the received message
+2. Identifying the start and end of the message, ( Len = received buffer length or the appended buffer + received buffer length)
+    a. Find the first space (" ") from the start, and take up the word from the start (pointer) to the space for parsing prepended syslog message length.
+    b. If message length conversion doesn't turn up to be 0,
+         - then end pointer is pointed to message length + no. of bytes after space and start pointer to first char after space.
+    c. But if message length conversion is 0, determination of start and end of syslog message is done by
+        parsing each byte/char of the message till either the start and end are found or we run our of Len.
+         - The position of char '<' is taken as start pointer and char ']' is taken as end pointer. 
+3. If end char of structured syslog ']' is not found upon parsing the complete received message, the message from the start till the end of received message
+    is put into session buffer anticipating the remaining part of structured syslog in next tcp buffer which will be appended to session buffer as pointed in step 1.
+    The necessary condition here is that the end pointer index should be either greater than the received tcp buffer length (len,
+    in this case we will directly put the message into buffer) or it should point to received tcp buffer length (len),
+    in this case will check for last element to have end delimiter ']'.
+    check for following condition below in code for step 3.  (if (((end > len) || ((end == len) && ((*(p + end - 1) != ']') && (*(p + end - 2) != ']')))) && (sess_buf != NULL))) 
+4. If the above step (step 3) holds true, i.e. complete syslog message remains to be be received, the process follows again from step 1.
+    Else next step (step 5) follows for parsing the identified structured syslog message. 
+5. The identified structured syslog message is first parsed for syslog part of message and then structured part of syslog.
+6. Upon parsing of syslog message in step 5, check for the remaining message in received tcp buffer (multiple syslog messages can be in single buffer)
+    and shift start and end pointers as follows below. 
+    a. Shift the start pointer to 1 + end pointer of previously parsed message, if parsing the syslog in step 5 is unsuccessful.
+    b. Shift the start pointer to previous start pointer + message length of previously parsed message, if parsing the syslog in step 5 is successful.
+7. Check if start pointer index is equal to received tcp buffer length (meaning the complete received tcp buffer is parsed),
+    otherwise flow jumps to step 2 with new (shifted) start pointer till we parse complete received tcp buffer.
+*/
+
+
+
+
 bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
     const boost::asio::ip::address remote_address,
     StatWalker::StatTableInsertFn stat_db_callback, StructuredSyslogConfig *config_obj,
@@ -1238,7 +1276,7 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
     full_log = *sess_buf + std::string(data + start, data + len);
     p = reinterpret_cast<const uint8_t*>(full_log.data());
     len += sess_buf->length();
-    LOG(DEBUG, "structured_syslog sess_buf + new buf: " << full_log);
+    LOG(DEBUG, "structured_syslog sess_buf + new buf: " << full_log << " len: " <<  len);
     sess_buf->clear();
   } else {
     p = data;
@@ -1261,8 +1299,18 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
 
       /* use prepended msg len to find the end of msg, if it exists */
       if (len_end != len) {
-          std::string mlenstr = std::string(p + start, p + len_end);
-          long int mlen = strtol(mlenstr.c_str(), NULL, 10);
+        bool is_msg_len = true;
+        int mlen_idx = start;
+        long int mlen = 0;
+        while (is_msg_len && ((p + mlen_idx) < (p + len_end - 1))) { 
+          if (!(isdigit(*(p + mlen_idx)))) {is_msg_len = false;}
+          mlen_idx++;
+        }
+        if (is_msg_len) {
+          std::string mlenstr  = std::string(p + start, p + len_end);
+          mlen = strtol(mlenstr.c_str(), NULL, 10);
+        }
+        LOG (DEBUG, "prepended message length: " << mlen);
           if (mlen != 0) {
             len_end += mlen;
           } else {
@@ -1278,13 +1326,21 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
       }
       end = len_end;
 
-      // check if message delimiter ']' has arrived,
+      // check if end of tcp buffer is reached and message delimiter ']' has arrived,
       // if not, wait till it comes in next tcp buffer
-      if (((end > len) || ((end == len) && ((*(p + end - 1) != ']') &&
-                           (*(p + end - 2) != ']')))) && (sess_buf != NULL)) {
-       sess_buf->append(std::string(p + start, p + len));
-       LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
-       return true;
+      if (((end > len) ||
+         ((end == len) && (*(p + end - 1) != ']') )) && (sess_buf != NULL)) {
+          /* limiting session buffer to 5KB */
+        if (len-start < 5120) {
+          sess_buf->append(std::string(p + start, p + len));
+          LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf << " len: "<< len-start);
+          return true;
+        } else {
+            LOG(ERROR, "next session buffer length too high, discarding buffer !! [log msg buf truncated to 2048 bytes] next sess_buf: "
+                                                                                                      << std::string(p + start, p + 2048)
+                                                                                                      << " length: "<< len-start);
+            return false;
+          }
       }
       r = SyslogParser::parse_syslog (p + start, p + end, v);
       LOG(DEBUG, "structured_syslog: " << std::string(p + start, p + end) <<
