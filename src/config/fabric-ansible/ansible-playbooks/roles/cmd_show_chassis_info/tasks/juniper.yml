@@ -25,6 +25,7 @@
           port: 22
           timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
       register: command_resp
+      ignore_errors: true
 
     - name: "Print unmodified result"
       debug:
@@ -32,8 +33,15 @@
 
     - set_fact:
        format_resp: "{{command_resp.stdout }}"
+      when: not ("Unable to" in command_resp.msg)
+
+    - set_fact:
+       format_resp: "{{command_resp.msg }}"
+      when: ("Unable to" in command_resp.msg)
+
     - set_fact:
        command_resp: "{{ format_resp | replace('\n', '\\r\\n') }}"
+
     - name: "Print modified result"
       debug:
         var: command_resp
