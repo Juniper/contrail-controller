@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a8712055_2b98d989",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-15T14:44:22Z",
+      "side": 1,
+      "message": "hm.. could you please check what happens in kubernetes on rhel8 (openshift) \nI mean in kebernetes on rhel8 we need podman based setup as well.",
+      "range": {
+        "startLine": 119,
+        "startChar": 50,
+        "endLine": 119,
+        "endChar": 71
+      },
+      "revId": "524634ed8a01a89dc6f165ec019f589afb5b6fed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3bc76fb3_319f6698",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 123,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-15T14:44:22Z",
+      "side": 1,
+      "message": "DockerProcessInfoManager and ...",
+      "range": {
+        "startLine": 123,
+        "startChar": 13,
+        "endLine": 123,
+        "endChar": 18
+      },
+      "revId": "524634ed8a01a89dc6f165ec019f589afb5b6fed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
