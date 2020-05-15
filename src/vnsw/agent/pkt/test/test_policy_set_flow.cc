@@ -147,11 +147,11 @@ public:
         DelFwRuleTagLink("FwaasMatch", src, 3);
         DelFwRuleTagLink("FwaasMatch", dst, 3);
         client->WaitForIdle();
+	    WAIT_FOR(100, 1000, agent_->pkt()->get_flow_proto()->FlowCount() == 0);
     }
 protected:
     Agent *agent_;
 };
-
 TEST_F(TestPolicySet, Allow) {
     AddFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag", "1");
     AddPolicySetFirewallPolicyLink("link1", "aps1", "fw1", "1");
@@ -160,9 +160,9 @@ TEST_F(TestPolicySet, Allow) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
 
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
@@ -190,9 +190,9 @@ TEST_F(TestPolicySet, Deny) {
     TxUdpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 10, 1000, 10);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
 
@@ -222,9 +222,9 @@ TEST_F(TestPolicySet, ChangeOfTag) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
 
@@ -253,9 +253,9 @@ TEST_F(TestPolicySet, NoPolicyOnEgressInterface) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
 
@@ -282,9 +282,9 @@ TEST_F(TestPolicySet, Unidirectional_Forward) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
 
@@ -307,9 +307,9 @@ TEST_F(TestPolicySet, Unidirectional_Reverse) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
 
@@ -325,7 +325,6 @@ TEST_F(TestPolicySet, Unidirectional_Reverse) {
     DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
     client->WaitForIdle();
 }
-
 TEST_F(TestPolicySet, Unidirectional_Reverse_Udp) {
     std::vector<std::string> match;
 
@@ -345,9 +344,9 @@ TEST_F(TestPolicySet, Unidirectional_Reverse_Udp) {
     TxUdpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1000, 10, 10);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               17, 1000, 10, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               17, 1000, 10, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
 
@@ -365,7 +364,6 @@ TEST_F(TestPolicySet, Unidirectional_Reverse_Udp) {
     DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
     client->WaitForIdle();
 }
-
 TEST_F(TestPolicySet, MultiRule) {
     std::vector<std::string> match;
     match.push_back("Application");
@@ -378,9 +376,9 @@ TEST_F(TestPolicySet, MultiRule) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
 
@@ -411,9 +409,9 @@ TEST_F(TestPolicySet, MoreSpecificRule) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 1000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
 
@@ -452,9 +450,10 @@ TEST_F(TestPolicySet, Unidirectional_Fwaas_Forward) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 10000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
+    //EXPECT_TRUE(flow != NULL);
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
 
@@ -486,9 +485,9 @@ TEST_F(TestPolicySet, Unidirectional_Fwaas_Deny) {
     TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
-                               1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(flow != NULL);
+    FlowEntry *flow = NULL;
+	WAIT_FOR(100, 10000, ((flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1))) != NULL));
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
 
@@ -504,11 +503,9 @@ TEST_F(TestPolicySet, Unidirectional_Fwaas_Deny) {
     DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
     client->WaitForIdle();
 }
-
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-
     int ret = RUN_ALL_TESTS();
     TestShutdown();
     delete client;
