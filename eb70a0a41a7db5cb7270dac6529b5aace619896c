@@ -94,6 +94,30 @@
     },
     {
       "key": {
+        "uuid": "3f2b9c5b_28068921",
+        "filename": "src/nodemgr/common/podman_containers.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 929
+      },
+      "writtenOn": "2020-05-15T07:24:56Z",
+      "side": 1,
+      "message": "command line reports not many resources",
+      "parentUuid": "d74d20d4_df8d0b47",
+      "range": {
+        "startLine": 44,
+        "startChar": 15,
+        "endLine": 44,
+        "endChar": 26
+      },
+      "revId": "eb70a0a41a7db5cb7270dac6529b5aace619896c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b0bd2b57_93bbc7c3",
         "filename": "src/nodemgr/common/podman_containers.py",
         "patchSetId": 3
