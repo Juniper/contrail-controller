@@ -1,8 +1,7 @@
 ---
 - name: Parse XML
   set_fact:
-    diff_file_data: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/{{commit_list[item|int -1][\"user\"]}}_{{commit_list_mod[item|int -1]}}.xml xpath=./configuration-information/configuration-output/text()') | replace('; +','; \n+') | replace('+ }','\n+ }') | replace('{ +','{ \n+') | replace('; -','; \n-') | replace('} -','} \n-') | replace('{ -','{ \n-') | replace('} [','}\n[') | replace('] ',']\n') | replace('} ','}\n') | replace(']; [','];\n[') }}"
-
+    diff_file_data: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/{{commit_list[item|int -1][\"user\"]}}_{{commit_list_mod[item|int -1]}}.xml xpath=./configuration-information/configuration-output/text()') | replace('; +','; \n+') | replace('+ }','\n+ }') | replace('{ +','{ \n+') | replace('; -','; \n-') | replace('- }','\n- }') | replace('{ -','{ \n-') | replace('} [','}\n[') | replace('] ',']\n') | replace('} ','}\n') | replace(']; [','];\n[') | replace('; [',';\n[') }}"
 - name: Copy diff output in diff file
   copy:
     content: "{{ diff_file_data }}"
