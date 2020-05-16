@@ -10,6 +10,7 @@ from builtins import str
 from builtins import range
 from builtins import object
 import copy
+import six
 
 import gevent
 from pprint import pformat
@@ -857,8 +858,8 @@ class VncCassandraClient(object):
                                 filter_dict = json.loads(filter_value)
                             except ValueError:
                                 continue
-                            if (list(filter_dict.items()) <=
-                                    list(prop_value.items())):
+                            if (six.viewitems(filter_dict) <=
+                                six.viewitems(prop_value)):
                                 break
                         else:
                             full_match = False
