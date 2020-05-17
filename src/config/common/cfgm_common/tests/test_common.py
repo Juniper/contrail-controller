@@ -17,9 +17,12 @@ from six.moves.configparser import DuplicateSectionError
 import gevent.monkey
 gevent.monkey.patch_all()
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),
-                "./mocked_libs")))
-from pycassa import CassandraCFs
+
+from cfgm_common.tests import cassandra_fake_impl
+from cfgm_common.datastore.drivers import cassandra_fake
+
+# Patch drivers
+sys.modules["cfgm_common.datastore.drivers.cassandra_thrift"] = cassandra_fake
 
 import logging
 import tempfile
@@ -280,7 +283,7 @@ def destroy_api_server_instance(server_info):
         vhost_url = server_info['api_server']._db_conn._msgbus._urls
         FakeKombu.reset(vhost_url)
     FakeNovaClient.reset()
-    CassandraCFs.reset()
+    cassandra_fake_impl.reset()
     FakeKazooClient.reset()
     FakeExtensionManager.reset()
     for sock in server_info['allocated_sockets']:
@@ -682,7 +685,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def get_cf(self, keyspace_name, cf_name):
         ks_name = '%s_%s' %(self._cluster_id, keyspace_name)
-        return CassandraCFs.get_cf(ks_name, cf_name)
+        return cassandra_fake_impl.CassandraFakeServer.__keyspaces__[ks_name].__tables__[cf_name]
     # end get_cf
 
     def vnc_db_has_ident(self, obj=None, id=None, type_fq_name=None):
