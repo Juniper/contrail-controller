@@ -50,6 +50,7 @@ from cfgm_common import rest
 from functools import reduce
 vnc_cgitb.enable(format='text')
 
+from cfgm_common.tests import cassandra_fake_impl
 from cfgm_common.tests import test_common
 from cfgm_common.tests.test_utils import FakeKombu
 from cfgm_common.tests.test_utils import FakeExtensionManager
@@ -3240,8 +3241,7 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
             id=vmi_obj.uuid)
         rd_ff_proto = rd_vmi_obj.virtual_machine_interface_fat_flow_protocols
         self.assertIsNone(rd_ff_proto)
-        import pycassa
-        with ExpectedException(pycassa.NotFoundException) as e:
+        with ExpectedException(cassandra_fake_impl.NotFoundException) as e:
             cols = uuid_cf.get(vmi_obj.uuid,
                     column_start='propl:virtual_machine_interface_fat_flow_protocols:',
                     column_finish='propl:virtual_machine_interface_fat_flow_protocols;')
@@ -3693,8 +3693,7 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
             id=vmi_obj.uuid)
         rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
         self.assertIsNone(rd_bindings)
-        import pycassa
-        with ExpectedException(pycassa.NotFoundException) as e:
+        with ExpectedException(cassandra_fake_impl.NotFoundException) as e:
             cols = uuid_cf.get(vmi_obj.uuid,
                     column_start='propm:virtual_machine_interface_bindings:',
                     column_finish='propm:virtual_machine_interface_bindings;')
@@ -3786,10 +3785,6 @@ class TestDBAudit(test_case.ApiServerTestCase):
 
     @contextlib.contextmanager
     def audit_mocks(self):
-        import pycassa
-        def fake_ks_prop(*args, **kwargs):
-            return {'strategy_options': {'replication_factor': 1}}
-
         with test_common.patch_imports(
             [('schema_transformer.db',
               flexmock(db=flexmock(
@@ -4861,10 +4856,9 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
     # end test_db_exim_args
 
     def test_db_export(self):
-        from pycassa.system_manager import SystemManager
         from cfgm_common import db_json_exim
         with tempfile.NamedTemporaryFile() as export_dump:
-            patch_ks = SystemManager.patch_keyspace
+            patch_ks = cassandra_fake_impl.CassandraFakeServer.patch_keyspace
             with patch_ks(self.to_bgp_ks, {}), \
                  patch_ks(self.svc_mon_ks, {}), \
                  patch_ks(self.dev_mgr_ks, {}):
@@ -4909,10 +4903,9 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
     # end test_db_export_with_omit_keyspaces
 
     def test_db_export_and_import(self):
-        from pycassa.system_manager import SystemManager
         from cfgm_common import db_json_exim
         with tempfile.NamedTemporaryFile() as dump_f:
-            patch_ks = SystemManager.patch_keyspace
+            patch_ks = cassandra_fake_impl.CassandraFakeServer.patch_keyspace
             with patch_ks(self.to_bgp_ks, {}), \
                  patch_ks(self.svc_mon_ks, {}), \
                  patch_ks(self.dev_mgr_ks, {}):
