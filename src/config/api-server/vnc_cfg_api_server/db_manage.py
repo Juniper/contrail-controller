@@ -40,6 +40,7 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
+from cfgm_common.tests.cassandra_fake_impl import NotFoundException
 from future import standard_library
 standard_library.install_aliases()  # noqa
 import kazoo.client
@@ -47,7 +48,6 @@ import kazoo.exceptions
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 from past.builtins import basestring
-import pycassa
 import schema_transformer.db
 
 
@@ -76,12 +76,14 @@ except ImportError:
 SUPPORTED_DRIVERS = ("CassandraDriverThrift",)
 
 
-__version__ = "1.32"
+__version__ = "1.33"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.33:
+  - Remove references to pycassa/thrifts not necessary anymore
 * 1.32:
   - Make db_manage to use VncCassandra to get access to the database
 * 1.31:
@@ -547,7 +549,7 @@ class DatabaseManager(object):
                 subnet_id = cols['value']
                 try:
                     reverse_map = ua_kv_cf.get(subnet_id)
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     errmsg = "Missing id(%s) to key(%s) mapping in useragent"\
                              % (subnet_id, subnet_key)
                     ret_errors.append(SubnetIdToKeyMissingError(errmsg))
@@ -557,7 +559,7 @@ class DatabaseManager(object):
                 ua_subnet_info[subnet_id] = subnet_key
                 try:
                     reverse_map = ua_kv_cf.get(subnet_key)
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     # Since release 3.2, only subnet_id/subnet_key are store in
                     # key/value store, the reverse was removed
                     continue
@@ -648,7 +650,7 @@ class DatabaseManager(object):
             try:
                 cols = uuid_table.xget(uuid, column_start='backref:',
                                        column_finish='backref;')
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
             backref_uuid = None
             for col, _ in cols:
@@ -663,7 +665,7 @@ class DatabaseManager(object):
                 continue
             try:
                 cols = uuid_table.get(backref_uuid, columns=['fq_name'])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 config_set.add((id, no_assoc_msg))
                 continue
             config_set.add((id, ':'.join(json.loads(cols['fq_name']))))
@@ -687,7 +689,7 @@ class DatabaseManager(object):
             for list_name in list_names:
                 try:
                     cols = uuid_table.get(uuid, columns=[list_name])
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     continue
                 rts_col = json.loads(cols[list_name]) or {}
                 for rt in rts_col.get('route_target', []):
@@ -736,7 +738,7 @@ class DatabaseManager(object):
                     column_start='%s:' % res_fq_name_str,
                     column_finish='%s;' % res_fq_name_str,
                 )
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 stale_zk_entry.add((id, res_fq_name_str))
         # in ZK and config but not in schema, schema will fix it, nothing to do
 
@@ -781,7 +783,7 @@ class DatabaseManager(object):
             try:
                 sg_cols = obj_uuid_table.get(
                     sg_uuid, columns=['prop:security_group_id', 'fq_name'])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
             sg_fq_name_str = ':'.join(json.loads(sg_cols['fq_name']))
             if not sg_cols.get('prop:security_group_id'):
@@ -842,7 +844,7 @@ class DatabaseManager(object):
                     columns=['prop:virtual_network_properties', 'fq_name',
                              'prop:virtual_network_network_id'],
                 )
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
             vn_fq_name_str = ':'.join(json.loads(vn_cols['fq_name']))
             try:
@@ -910,7 +912,7 @@ class DatabaseManager(object):
                 network_ipam = obj_uuid_table.get(
                     network_ipam_uuid, columns=['fq_name',
                                                 'prop:ipam_subnet_method'])
-            except pycassa.NotFoundException as e:
+            except NotFoundException as e:
                 msg = ("Exception (%s)\n"
                        "Invalid or non-existing "
                        "UUID (%s)" % (e, network_ipam_uuid))
@@ -1060,7 +1062,7 @@ class DatabaseManager(object):
 
             try:
                 col = obj_uuid_table.get(vn_id, columns=['fq_name'])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
                 continue
@@ -1235,7 +1237,7 @@ class DatabaseManager(object):
                     break
             try:
                 obj_uuid_table.get(parent_uuid)
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 msg = ("%s %s parent does not exists. Should be %s %s" %
                        (obj_type, obj_uuid, parent_type, parent_uuid))
                 errors.append(OrphanResourceError(msg))
@@ -1269,7 +1271,7 @@ class DatabaseManager(object):
             try:
                 cols = uuid_table.xget(uuid, column_start='backref:',
                                        column_finish='backref;')
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
             id_str = "%(#)010d" % {'#': id}
             rt_zk_path = os.path.join(self.base_rtgt_id_zk_path, id_str)
@@ -1305,7 +1307,7 @@ class DatabaseManager(object):
                         column_start='%s:' % zk_fq_name_str,
                         column_finish='%s;' % zk_fq_name_str,
                     )
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     continue
                 zk_ri_fq_name_str, _, zk_ri_uuid = zk_ri_fq_name_uuid_str.\
                     popitem()[0].rpartition(':')
@@ -1324,7 +1326,7 @@ class DatabaseManager(object):
                     try:
                         ri_cols = uuid_table.get(
                             ri_uuid, columns=['fq_name'] + sc_ri_fields)
-                    except pycassa.NotFoundException:
+                    except NotFoundException:
                         msg = ("Cannot read from cassandra RI %s of RT %s(%s)"
                                % (ri_uuid, fq_name_str, uuid))
                         self._logger.warning(msg)
@@ -1345,7 +1347,7 @@ class DatabaseManager(object):
                 # check zookeeper pointed to that LR
                 try:
                     lr_cols = dict(uuid_table.xget(lr_uuid))
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     msg = ("Cannot read from cassandra LR %s back-referenced "
                            "by RT %s(%s) in zookeeper" %
                            (lr_uuid, fq_name_str, uuid))
@@ -1371,7 +1373,7 @@ class DatabaseManager(object):
                         try:
                             si_cols = uuid_table.get(
                                 si_uuid, columns=['fq_name'])
-                        except pycassa.NotFoundException:
+                        except NotFoundException:
                             msg = ("Cannot read from cassandra SI %s of LR "
                                    "%s(%s) of RT %s(%s)" %
                                    (si_uuid, lr_fq_name, lr_uuid, fq_name_str,
@@ -1390,7 +1392,7 @@ class DatabaseManager(object):
                                 column_start='%s:' % snat_ri_fq_name_str,
                                 column_finish='%s;' % snat_ri_fq_name_str,
                             )
-                        except pycassa.NotFoundException:
+                        except NotFoundException:
                             msg = ("Cannot read from cassandra SNAT RI %s of "
                                    "LR %s(%s) of RT %s(%s)" %
                                    (snat_ri_fq_name_str, lr_fq_name, lr_uuid,
@@ -1421,7 +1423,7 @@ class DatabaseManager(object):
                             vmi_uuid,
                             column_start='ref:routing_instance:',
                             column_finish='ref:routing_instance;')
-                    except pycassa.NotFoundException:
+                    except NotFoundException:
                         msg = ("Cannot read from cassandra VMI %s of LR "
                                "%s(%s) of RT %s(%s)" %
                                (vmi_uuid, lr_fq_name, lr_uuid, fq_name_str,
@@ -1487,7 +1489,7 @@ class DatabaseManager(object):
                 _, params = next(cols, (None, None))
                 if params:
                         ae_id = json.loads(params)['attr']['ae_num']
-            except (pycassa.NotFoundException, KeyError, TypeError):
+            except (NotFoundException, KeyError, TypeError):
                 continue
             if pi_name[:2] == 'ae' and pi_name[2:].isdigit() and \
                     int(pi_name[2:]) < AE_MAX_ID:
@@ -1676,7 +1678,7 @@ class DatabaseChecker(DatabaseManager):
                 try:
                     obj_cols = obj_uuid_table.get(obj_uuid,
                                                   columns=['fq_name'])
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     ret_errors.append(FQNStaleIndexError(
                         'Missing object %s %s %s in uuid table'
                         % (obj_uuid, obj_type, fq_name_str)))
@@ -1698,7 +1700,7 @@ class DatabaseChecker(DatabaseManager):
             try:
                 cols = obj_uuid_table.get(
                     obj_uuid, columns=['type', 'fq_name'])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 msg = ("'type' and/or 'fq_name' properties of '%s' missing" %
                        obj_uuid)
                 ret_errors.append(MandatoryFieldsMissingError(msg))
@@ -1750,7 +1752,7 @@ class DatabaseChecker(DatabaseManager):
                         'created', 'unknown')
                     resource_map.setdefault(obj_type, {}).setdefault(
                         fq_name_str, set([])).add((uuid, created_at))
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     stale_fq_names.add(fq_name_str)
         if stale_fq_names:
             logger.info("Found stale fq_name index entry: %s. Use "
@@ -2137,13 +2139,13 @@ class DatabaseCleaner(DatabaseManager):
                     ref_str = 'ref:%s:%s' % (type, uuid)
                     try:
                         uuid_table.remove(backref_uuid, columns=[ref_str])
-                    except pycassa.NotFoundException:
+                    except NotFoundException:
                         continue
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 pass
             try:
                 uuid_table.remove(uuid)
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
 
     @cleaner
@@ -2165,7 +2167,7 @@ class DatabaseCleaner(DatabaseManager):
                 obj_uuid = fq_name_str_uuid.split(':')[-1]
                 try:
                     obj_uuid_table.get(obj_uuid)
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     logger.info("Found stale fq_name index entry: %s",
                                 fq_name_str_uuid)
                     stale_cols.append(fq_name_str_uuid)
@@ -2208,7 +2210,7 @@ class DatabaseCleaner(DatabaseManager):
             try:
                 fq_name_table.get(type,
                                   columns=['%s:%s' % (fq_name_str, uuid)])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 fixups.setdefault(type, {}).setdefault(
                     fq_name_str, set([])).add(uuid)
 
@@ -2223,7 +2225,7 @@ class DatabaseCleaner(DatabaseManager):
                     )
                     fq_name_str, _, uuid = list(fq_name_uuid_str.keys())[0].\
                         rpartition(':')
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     # fq_name index does not exists, need to be healed
                     continue
                 # FQ name already there, check if it's a stale entry
@@ -2245,7 +2247,7 @@ class DatabaseCleaner(DatabaseManager):
                         bch = uuid_table.batch()
                         [bch.remove(uuid) for uuid in uuids]
                         bch.send()
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     msg = ("Stale FQ name entry '%s', please run "
                            "'clean_stale_fq_names' before trying to clean "
                            "objects" % fq_name_str)
@@ -2369,7 +2371,7 @@ class DatabaseCleaner(DatabaseManager):
         for (fq_name_str, uuid, list_name), stale_rts in list(stale_list.items()):
             try:
                 cols = uuid_table.get(uuid, columns=[list_name])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
             rts = set(json.loads(cols[list_name]).get('route_target', []))
             if not rts & stale_rts:
@@ -2412,7 +2414,7 @@ class DatabaseCleaner(DatabaseManager):
                     column_start='%s:' % fq_name_str,
                     column_finish='%s;' % fq_name_str,
                 )
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 continue
             uuid = list(cols.keys())[0].rpartition(':')[-1]
             fq_name_uuid_str = '%s:%s' % (fq_name_str, uuid)
@@ -2562,7 +2564,7 @@ class DatabaseCleaner(DatabaseManager):
                 subnet_id = cols['value']
                 try:
                     ua_kv_cf.get(subnet_id)
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     stale_kv.add(key)
         if stale_kv:
             if not self._args.execute:
@@ -2593,7 +2595,7 @@ class DatabaseCleaner(DatabaseManager):
                 _, _, dangle_check_uuid = col_name.split(':')
                 try:
                     obj_uuid_table.get(dangle_check_uuid)
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     msg = ("Found stale %s index: %s in %s (%s %s)" %
                            (dangle_prefix, col_name, obj_uuid, obj_type,
                             fq_name))
@@ -2765,14 +2767,14 @@ class DatabaseCleaner(DatabaseManager):
                         column_start='%s:%s:' % (ref_type, ref),
                         column_finish='%s:%s;' % (ref_type, ref),
                     )
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     missing_refs.append(True)
                     continue
                 for col in cols:
                     ref_uuid = col.split(':')[-1]
                     try:
                         obj_uuid_table.get(ref_uuid)
-                    except pycassa.NotFoundException:
+                    except NotFoundException:
                         continue
                     break
                 else:
@@ -2926,7 +2928,7 @@ class DatabaseHealer(DatabaseManager):
             try:
                 fq_name_table.get(type,
                                   columns=['%s:%s' % (fq_name_str, uuid)])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 fixups.setdefault(type, {}).setdefault(
                     fq_name_str, set([])).add((uuid, created_at))
         # for all objects in uuid table
@@ -2939,7 +2941,7 @@ class DatabaseHealer(DatabaseManager):
                         column_start='%s:' % fq_name_str,
                         column_finish='%s;' % fq_name_str,
                     )
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     if len(uuids) != 1:
                         msg = ("%s FQ name '%s' is used by %d resources and "
                                "not indexed: %s. Script cannot decide which "
@@ -2976,7 +2978,7 @@ class DatabaseHealer(DatabaseManager):
                                           for u, c in uuids]),
                            ))
                     logger.warning(msg)
-                except pycassa.NotFoundException:
+                except NotFoundException:
                     msg = ("%s stale FQ name entry '%s', please run "
                            "'clean_stale_fq_names' before trying to heal them"
                            % (type.replace('_', ' ').title(), fq_name_str))
@@ -3012,7 +3014,7 @@ class DatabaseHealer(DatabaseManager):
             parent_uuid = list(cols.keys())[0].split(':')[-1]
             try:
                 _ = obj_uuid_table.get(parent_uuid)
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 msg = "Missing parent %s for object %s" \
                     % (parent_uuid, obj_uuid)
                 logger.info(msg)
@@ -3020,7 +3022,7 @@ class DatabaseHealer(DatabaseManager):
 
             try:
                 cols = obj_uuid_table.get(obj_uuid, columns=['type'])
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 logger.info("Missing type for object %s", obj_uuid)
                 continue
             obj_type = json.loads(cols['type'])
@@ -3030,7 +3032,7 @@ class DatabaseHealer(DatabaseManager):
                 _ = obj_uuid_table.get(parent_uuid, columns=[child_col])
                 # found it, this object is indexed by parent fine
                 continue
-            except pycassa.NotFoundException:
+            except NotFoundException:
                 msg = "Found missing children index %s for parent %s" \
                     % (child_col, parent_uuid)
                 logger.info(msg)
