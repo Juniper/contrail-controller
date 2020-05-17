@@ -145,11 +145,20 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="OspfIntfType">
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='p2p'/>
+        <xsd:enumeration value='nbma'/>
+        <xsd:enumeration value='p2mp'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="Ospf">
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="interface" type="xsd:string"/>
+       <xsd:element name='interface-type' type='OspfIntfType'/>
        <xsd:element name="authentication-key" type="xsd:string"/>
        <xsd:element name="authentication-method" type="xsd:string"/>
        <xsd:element name="hello-interval" type="xsd:integer"/>
