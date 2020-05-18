@@ -10,10 +10,11 @@ from builtins import str
 from builtins import range
 from builtins import object
 import copy
-import six
+import os
 
 import gevent
 from pprint import pformat
+import six
 
 from vnc_api import vnc_api
 from .exceptions import NoIdError, VncError
@@ -24,6 +25,7 @@ import datetime
 from operator import itemgetter
 from collections import OrderedDict
 from cfgm_common.datastore.drivers.cassandra_thrift import CassandraDriverThrift
+from cfgm_common.datastore.drivers.cassandra_cql import CassandraDriverCQL
 from cfgm_common.datastore import api as datastore_api
 
 
@@ -93,9 +95,10 @@ class VncCassandraClient(object):
 
     def __init__(self, server_list, **options):
 
-        # TODO: Instantiate this driver based on if it's python2.7 (Thrift)
-        #       python 3 (CQL)
-        self._cassandra_driver = CassandraDriverThrift(server_list, **options)
+        driverClass = CassandraDriverThrift
+        if six.PY3 or int(os.environ.get('CONTRAIL_EXP_CQL_SUPPORT', 0)) == 1:
+            driverClass = CassandraDriverCQL
+        self._cassandra_driver = driverClass(server_list, **options)
 
         self._logger = self._cassandra_driver.options.logger
         self._cache_uuid_to_fq_name = {}
