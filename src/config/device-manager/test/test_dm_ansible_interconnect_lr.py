@@ -450,8 +450,11 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
             export_policy = []
             export_policy_dict = {}
             for rpname in srcrp_names:
-                export_policy.append(rpname)
-                export_policy_dict[rpname] = dict_rps[rpname]
+                # use contrail rp name since it has route filter
+                c_rpname = \
+                    "_contrail_client_rp_%s_%s" % (rpname, dciname)
+                export_policy.append(c_rpname)
+                export_policy_dict[c_rpname] = dict_rps[rpname]
             export_policy.append(vrf_rp_name)
             export_policy_dict[vrf_rp_name] = srcrp_term
             for srcpr in srclrs_pr_map[src_lrname]:
@@ -459,9 +462,12 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                 pr_acfg.set_routing_instances(
                     riname=src_ri, vrf_export=export_policy)
                 for rpname in srcrp_names:
+                    # use contrail rp name since it has route filter
+                    c_rpname = \
+                        "_contrail_client_rp_%s_%s" % (rpname, dciname)
                     pr_acfg.set_routing_policies(
-                        rpname, term_type='network-device',
-                        terms=export_policy_dict[rpname])
+                        c_rpname, term_type='network-device',
+                        terms=export_policy_dict[c_rpname])
                 pr_acfg.set_routing_policies(
                     vrf_rp_name, term_type='network-device',
                     terms=export_policy_dict[vrf_rp_name])
@@ -473,6 +479,14 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                     RPTerm(vrf_rp_name, action='accept',
                            fcommunity_list=community_member,
                            fcommunity=community_name)]
+            vrf_import_names = []
+            if "_VN_" not in dciname:
+                for rpname in srcrp_names:
+                    # use contrail rp name since it has route filter
+                    c_rpname = \
+                        "_contrail_client_rp_%s_%s" % (rpname, dciname)
+                    vrf_import_names.append(c_rpname)
+
             for dstlrname, prnames in dstlrs_pr_names_map.items():
                 dst_ri = self.make_ri_name(dstlrname,
                                            dict_lrs[dstlrname].get_uuid())
@@ -487,10 +501,13 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                             terms=dstr_vn_term)
                     else:
                         pr_acfg.set_routing_instances(
-                            riname=dst_ri, vrf_import=srcrp_names)
+                            riname=dst_ri, vrf_import=vrf_import_names)
                         for rpname in srcrp_names:
+                            c_rpname = \
+                                "_contrail_client_rp_%s_%s" % (rpname,
+                                                               dciname)
                             pr_acfg.set_routing_policies(
-                                name=rpname, term_type='network-device',
+                                name=c_rpname, term_type='network-device',
                                 terms=dict_rps[rpname])
                     dict_pr_acfg[prname].append(pr_acfg)
             # Create vrf_export new policy for src lr
@@ -517,17 +534,22 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
                 if "_VN_" in dciname:
                     vn_rp_name = self.make_rp_rib_vn_name(dciname)
                     import_policy.append(vn_rp_name)
+                    pr_acfg.set_routing_policies(
+                        name=vn_rp_name, term_type='network-device',
+                        terms=dict_rps[vn_rp_name])
                 else:
                     for rpname in srcrp_names:
-                        import_policy.append(rpname)
+                        # use contrail rp name since it has route filter
+                        c_rpname = \
+                            "_contrail_client_rp_%s_%s" % (rpname, dciname)
+                        import_policy.append(c_rpname)
+                        pr_acfg.set_routing_policies(
+                            name=c_rpname, term_type='network-device',
+                            terms=dict_rps[rpname])
                 pr_acfg.set_rib_groups(
                     name=ribgroup_name,
                     import_rib=import_rib, import_policy=import_policy,
                     interface_routes=True)
-                for rpname in import_policy:
-                    pr_acfg.set_routing_policies(
-                        name=rpname, term_type='network-device',
-                        terms=dict_rps[rpname])
                 dict_pr_acfg[srcpr].append(pr_acfg)
         return dci, self._vnc_lib.data_center_interconnect_read(id=dci_uuid)
     # end create_intrafabric_dci

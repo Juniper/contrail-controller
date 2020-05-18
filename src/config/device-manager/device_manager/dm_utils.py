@@ -655,6 +655,11 @@ class DMUtils(object):
             dci.name.replace(' ', '_')
 
     @classmethod
+    def get_dci_client_rp_name(cls, dci, rpname):
+        return DMUtils.contrail_prefix() + 'client_rp_' + \
+            rpname.replace(' ', '_') + '_' + dci.name.replace(' ', '_')
+
+    @classmethod
     def get_dci_vrf_rp_comment(cls, dci):
         return DMUtils.contrail_prefix() + 'rp_vrf_' + dci.name
 
