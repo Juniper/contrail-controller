@@ -611,6 +611,8 @@ public:
             enable_4byte_as_(false),
             bgpaas_port_start_(0),
             bgpaas_port_end_(0),
+            fc_enabled_(false),
+            nh_check_enabled_(false),
             always_compare_med_(false),
             rd_cluster_seed_(0) {
     }
@@ -632,6 +634,18 @@ public:
     void set_gr_enable(bool enable) { gr_enable_ = enable; }
     bool enable_4byte_as() const { return enable_4byte_as_; }
     void set_enable_4byte_as(bool as_4byte) { enable_4byte_as_ = as_4byte; }
+    bool fc_enabled() const {
+        return fc_enabled_;
+    }
+    void set_fc_enabled(bool enable) {
+        fc_enabled_ = enable;
+    }
+    bool nh_check_enabled() const {
+        return nh_check_enabled_;
+    }
+    void set_nh_check_enabled(bool enable) {
+        nh_check_enabled_ = enable;
+    }
     bool always_compare_med() const { return always_compare_med_; }
     void set_always_compare_med(bool always_compare_med) {
         always_compare_med_ = always_compare_med;
@@ -650,7 +664,6 @@ public:
     void set_bgpaas_port_end(uint16_t bgpaas_port_end) {
         bgpaas_port_end_ = bgpaas_port_end;
     }
-
 private:
     mutable uint64_t last_change_at_;
     uint16_t gr_time_;
@@ -662,6 +675,8 @@ private:
     bool enable_4byte_as_;
     uint16_t bgpaas_port_start_;
     uint16_t bgpaas_port_end_;
+    bool fc_enabled_;
+    bool nh_check_enabled_;
     bool always_compare_med_;
     uint16_t rd_cluster_seed_;
 

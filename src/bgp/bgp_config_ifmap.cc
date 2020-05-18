@@ -2089,6 +2089,18 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    if (data_.fc_enabled() != system->fast_convergence_parameters().enable) {
+        data_.set_fc_enabled(system->fast_convergence_parameters().enable);
+        changed |= true;
+    }
+
+    if (data_.nh_check_enabled() !=
+          system->fast_convergence_parameters().nh_reachability_check) {
+        data_.set_nh_check_enabled(
+            system->fast_convergence_parameters().nh_reachability_check);
+        changed |= true;
+    }
+
     return changed;
 }
 
