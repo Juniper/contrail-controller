@@ -105,6 +105,9 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
             keyspace = self.keyspace(keyspace)
         return self.sys_mgr.get_keyspace_column_families(keyspace).keys()
 
+    def _Keyspace_Properties(self, keyspace):
+        return self.sys_mgr.get_keyspace_properties(keyspace)
+
     def _cassandra_system_manager(self):
         # Retry till cassandra is up
         server_idx = 0

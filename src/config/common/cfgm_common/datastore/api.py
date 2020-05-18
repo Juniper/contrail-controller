@@ -159,6 +159,14 @@ class API(Trace):
         return self._Column_Families(keyspace, prefixed)
 
     @abc.abstractmethod
+    def _Keyspace_Properties(self, keyspace):
+        pass
+
+    def keyspace_properties(self, keyspace):
+        """Returns properties of a keyspace."""
+        return self._Keyspace_Properties(keyspace)
+
+    @abc.abstractmethod
     def _Create_Session(self, keyspace, cf_name, **cf_args):
         pass
 

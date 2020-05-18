@@ -37,6 +37,7 @@ try:
 except ImportError:
     import cgitb as vnc_cgitb
 from cfgm_common.utils import cgitb_hook
+from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
 from future import standard_library
@@ -47,11 +48,7 @@ from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 from past.builtins import basestring
 import pycassa
-from pycassa.cassandra.ttypes import ConsistencyLevel
-import pycassa.connection
-from pycassa.connection import default_socket_factory
 import schema_transformer.db
-from thrift.transport import TSSLSocket
 
 
 if sys.version_info[0] < 3:
@@ -74,13 +71,19 @@ try:
 except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
+# TODO(sahid): The calls should not use the sessions stored in
+# _cd_dict.
+SUPPORTED_DRIVERS = ("CassandraDriverThrift",)
 
-__version__ = "1.31"
+
+__version__ = "1.32"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.32:
+  - Make db_manage to use VncCassandra to get access to the database
 * 1.31:
   - Fix a string comparision bug for Gateway IP String being "None" String
 * 1.30:
@@ -460,7 +463,6 @@ class DatabaseManager(object):
         self._cassandra_servers = self._api_args.cassandra_server_list
         self._db_info = VncServerCassandraClient.get_db_info() + \
             schema_transformer.db.SchemaTransformerDB.get_db_info()
-        self._cf_dict = {}
         self.creds = None
         if (self._api_args.cassandra_user is not None and
                 self._api_args.cassandra_password is not None):
@@ -468,27 +470,30 @@ class DatabaseManager(object):
                 'username': self._api_args.cassandra_user,
                 'password': self._api_args.cassandra_password,
             }
-        socket_factory = default_socket_factory
-        if ('cassandra_use_ssl' in self._api_args and
-            self._api_args.cassandra_use_ssl):
-            socket_factory = self._make_ssl_socket_factory(
-                self._api_args.cassandra_ca_certs, validate=False)
-        for ks_name, cf_name_list in self._db_info:
-            if cluster_id:
-                full_ks_name = '%s_%s' % (cluster_id, ks_name)
-            else:
-                full_ks_name = ks_name
-            pool = pycassa.ConnectionPool(
-                keyspace=full_ks_name,
-                server_list=self._cassandra_servers,
-                prefill=False, credentials=self.creds,
-                socket_factory=socket_factory,
-                timeout=self._args.connection_timeout)
-            for cf_name in cf_name_list:
-                self._cf_dict[cf_name] = pycassa.ColumnFamily(
-                    pool, cf_name,
-                    read_consistency_level=ConsistencyLevel.QUORUM,
-                    buffer_size=self._args.buffer_size)
+
+        rw_keyspaces = {}
+        for keyspace, cfs in self._db_info:
+            rw_keyspaces[keyspace] = {}
+            for cf in cfs:
+                rw_keyspaces[keyspace][cf] = {}
+
+        self._cassandra = VncCassandraClient(
+            self._cassandra_servers,
+            db_prefix=self._api_args.cluster_id,
+            rw_keyspaces=rw_keyspaces,
+            ro_keyspaces=None,
+            logger=lambda msg, level: self._logger.debug(msg),
+            reset_config=False,
+            ssl_enabled=self._api_args.cassandra_use_ssl,
+            ca_certs=self._api_args.cassandra_ca_certs,
+            credential=self.creds,
+            walk=False)
+        self.driver = self._cassandra._cassandra_driver
+        if self.driver.__class__.__name__ not in SUPPORTED_DRIVERS:
+            raise Exception("unsupported driver '{}' to run with db_manage. "
+                            "supported: {}".format(
+                                self.driver.__class__.__name__, SUPPORTED_DRIVERS))
+        self._cf_dict = self.driver._cf_dict
 
         # Get the system global autonomous system
         self.global_asn = self.get_autonomous_system()
@@ -1599,17 +1604,26 @@ class DatabaseChecker(DatabaseManager):
         ret_errors = []
         logger = self._logger
 
-        socket_factory = pycassa.connection.default_socket_factory
-        if ('cassandra_use_ssl' in self._api_args and
-            self._api_args.cassandra_use_ssl):
-            socket_factory = self._make_ssl_socket_factory(
-                self._api_args.cassandra_ca_certs, validate=False)
+        rw_keyspaces = {}
+        for keyspace, cfs in self._db_info:
+            rw_keyspaces[keyspace] = {}
+            for cf in cfs:
+                rw_keyspaces[keyspace][cf] = {}
 
         for server in self._cassandra_servers:
             try:
-                sys_mgr = pycassa.SystemManager(server,
-                                                socket_factory=socket_factory,
-                                                credentials=self.creds)
+                cassandra = VncCassandraClient(
+                    self._cassandra_servers,
+                    db_prefix=self._api_args.cluster_id,
+                    rw_keyspaces=rw_keyspaces,
+                    ro_keyspaces=None,
+                    logger=lambda msg, level: self._logger.debug(msg),
+                    reset_config=False,
+                    ssl_enabled=self._api_args.cassandra_use_ssl,
+                    ca_certs=self._api_args.cassandra_ca_certs,
+                    credential=self.creds,
+                    walk=False)
+                driver = cassandra._cassandra_driver
             except Exception as e:
                 msg = "Cannot connect to cassandra node %s: %s" % (server,
                                                                    str(e))
@@ -1624,7 +1638,7 @@ class DatabaseChecker(DatabaseManager):
                     full_ks_name = ks_name
                 logger.debug("Reading keyspace properties for %s on %s: ",
                              ks_name, server)
-                ks_prop = sys_mgr.get_keyspace_properties(full_ks_name)
+                ks_prop = driver.keyspace_properties(full_ks_name)
                 logger.debug("Got %s", ks_prop)
 
                 repl_factor = int(
