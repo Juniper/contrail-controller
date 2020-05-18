@@ -3386,24 +3386,29 @@ class DataCenterInterconnectDM(DBBaseDM):
             return {}
         # use User provided RP for this dci
         rp_obj_list = {}
+        rplist = []
         if len(self.routing_policys) > 0:
             for rp_uuid in self.routing_policys:
                 rpobj = RoutingPolicyDM.get(rp_uuid)
-                if rpobj:
-                    rp_obj_list[rpobj.name] = rpobj
-        if len(rp_obj_list) > 0:
+                if not rpobj:
+                    continue
+                # use existing already prepared user provided abstract rp
+                # if it exists
+                if rpobj.name in abstract_rps:
+                    rplist.append(abstract_rps[rpobj.name])
+                    continue
+                dci_rp_name = DMUtils.get_dci_client_rp_name(self, rpobj.name)
+                if dci_rp_name in abstract_rps:
+                    rplist.append(abstract_rps[dci_rp_name])
+                    continue
+                rp_obj_list[rpobj.name] = rpobj
+        if len(rp_obj_list) > 0 or len(rplist) > 0:
             # user provided rp
-            rp_rib_list = {}
-            rplist = []
-            # use existing already prepared user provided abstract rp
-            # if it exists
-            for name in list(rp_obj_list.keys()):
-                if name in abstract_rps:
-                    rplist.append(abstract_rps[name])
-                    del rp_obj_list[name]
-            RoutingPolicyDM.create_abstract_routing_policies(
-                rp_list=rplist, rp_obj_list=rp_obj_list)
+            if len(rp_obj_list) > 0:
+                RoutingPolicyDM.create_abstract_routing_policies(
+                    rp_list=rplist, rp_obj_list=rp_obj_list, dci_obj=self)
             if for_ribgrp == True:
+                rp_rib_list = {}
                 # add terms named reject_else { then reject } for each RP
                 # with terms having 'from route_filter'
                 for rp in rplist:
@@ -3418,6 +3423,11 @@ class DataCenterInterconnectDM(DBBaseDM):
                         if cond and cond.get_route_filter():
                             add_reject_term = True
                             break
+                    # do not add duplicate reject_else terms at the end
+                    if add_reject_term == True:
+                        l_tname = rp_entries.get_terms()[-1].get_name() or ''
+                        if l_tname == 'reject_else':
+                            add_reject_term = False
                     if add_reject_term == True:
                         tactionlist = AbstractDevXsd.TermActionListType(
                             action="reject")
@@ -3513,6 +3523,8 @@ class DataCenterInterconnectDM(DBBaseDM):
             if not lr:
                 continue
             ri_name = int_ri.get_description()[:127]
+            if lr.is_master == True:
+                ri_name = 'inet.0'
             for dci_uuid in lr.data_center_interconnects:
                 dci = DataCenterInterconnectDM.get(dci_uuid)
                 if not dci or dci.is_this_inter_fabric() == True or \
@@ -3524,6 +3536,8 @@ class DataCenterInterconnectDM(DBBaseDM):
                     continue
                 src_irb_name = "__contrail_%s_%s" % (
                     src_lrobj.name, src_lrobj.uuid)
+                if src_lrobj.is_master == True:
+                    src_irb_name = 'inet.0'
                 src_irb_name = src_irb_name[:127]
                 curlr_in_dstlr = True if (lr_uuid in dci.dst_lr_pr and
                                           curpr in dci.dst_lr_pr[lr_uuid]) \
@@ -4394,10 +4408,37 @@ class RoutingPolicyDM(DBBaseDM):
     # end create_abstract_rpterm
 
     @classmethod
-    def create_abstract_routing_policies(cls, rp_list, rp_obj_list):
+    def get_client_rp_name_for_dci(cls, rpname, rpobj, dci_obj=None):
+        if not dci_obj:
+            return rpname
+        # Check if current Client RP has routeFilter accept term
+        # then use LR interconnect name
+        for o_term in rpobj.routing_policy_entries or []:
+            o_term_match_cond = o_term.get('term_match_condition', None)
+            if not o_term_match_cond or \
+                    not o_term_match_cond.get('route_filter', None):
+                continue
+            o_term_action_list = o_term.get('term_action_list', None)
+            if not o_term_action_list:
+                continue
+            o_action = o_term_action_list.get('action', None)
+            if o_action and o_action == 'accept':
+                name = DMUtils.get_dci_client_rp_name(dci_obj, rpname)
+                cls._logger.debug(
+                    "PARAG: overwriting client RP Name from %s to %s "
+                    "for dci %s" % (rpname, name, dci_obj.name))
+                return name
+        return rpname
+    # end get_client_rp_name_for_dci
+
+    @classmethod
+    def create_abstract_routing_policies(cls, rp_list, rp_obj_list,
+                                         dci_obj=None):
         for name, obj in list(rp_obj_list.items()):
+            a_rpname = RoutingPolicyDM.get_client_rp_name_for_dci(
+                name, obj, dci_obj)
             rp = AbstractDevXsd.RoutingPolicy(
-                name=name, comment=DMUtils.routing_policy_comment(obj),
+                name=a_rpname, comment=DMUtils.routing_policy_comment(obj),
                 term_type=obj.term_type)
             rp_entries = AbstractDevXsd.RoutingPolicyEntry()
             for o_term in obj.routing_policy_entries:
