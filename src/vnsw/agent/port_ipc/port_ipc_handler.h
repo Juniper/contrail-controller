@@ -60,7 +60,8 @@ public:
     bool DeleteVmVnPort(const boost::uuids::uuid &vmi_uuid, string &err_msg);
     bool DeleteVmVnPort(const std::string &json, const std::string &vm,
                         string &err_msg);
-    bool GetVmVnPort(const std::string &vm_uuid, std::string &info) const;
+    bool GetVmVnPort(const std::string &vm_uuid, const std::string &vmi_uuid,
+                     std::string &info) const;
     bool GetVmVnCfgPort(const string &vm, string &info) const;
 
 

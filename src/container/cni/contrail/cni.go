@@ -8,6 +8,8 @@ import (
     "bytes"
     "encoding/json"
     "fmt"
+    "os"
+    "io/ioutil"
     "net/http"
     "strconv"
     "strings"
@@ -19,38 +21,35 @@ import (
     "github.com/containernetworking/cni/pkg/types/current"
 )
 
-// CNIVersion is the version from the network configuration
-var CNIVersion string
-
 /* Example configuration file
 {
     "cniVersion": "0.3.1",
+    "cniName": "contrail-k8s-cni",
     "contrail" : {
+        "mode"          : "k8s/mesos",
+        "meta-plugin"   : "multus"
+        "vif-type"      : "veth/macvlan",
+        "parent-interface" : "eth0",
+        "mtu"           : 1500,
         "vrouter-ip"    : "127.0.0.1",
         "vrouter-port"  : 9092,
         "config-dir"    : "/var/lib/contrail/ports/vm",
         "poll-timeout"  : 15,
         "poll-retries"  : 5,
-        "log-dir"       : "/var/log/contrail/cni",
-        "log-level"     : "2",
-        "mode"          : "k8s/mesos",
-        "vif-type"      : "veth/macvlan",
-        "parent-interface" : "eth0",
-        "mtu"           : 1200,
-        "meta-plugin"   : false
+        "log-level"     : "4",
+        "log-file"      : "/var/log/contrail/cni/opencontrail.log"
     },
-
-    "name": "contrail",
-    "type": "contrail"
+    "type": "contrail-k8s-cni"
 }
 */
 
-const LOG_DIR = "/var/log/contrail/cni"
-const LOG_LEVEL = "2"
+const CONTRAIL_CNI_NAME = "contrail-k8s-cni"
 
 // Container orchestrator modes
 const CNI_MODE_K8S = "k8s"
 const CNI_MODE_MESOS = "mesos"
+
+const META_PLUGIN = "multus"
 
 // Type of virtual interface to be created for container
 const VIF_TYPE_VETH = "veth"
@@ -62,77 +61,216 @@ const VIF_TYPE_ETH = "eth"
 // host network-namespace is defined below
 const CONTRAIL_PARENT_INTERFACE = "eth0"
 
+const LOG_FILE = "/var/log/contrail/cni/opencontrail.log"
+const LOG_LEVEL = "4"
+
+const CNI_CONF_DIR = "/etc/cni/net.d/"
+const CONTRAIL_CONF_FILE = "contrail.conf"
+
 // Definition of Logging arguments in form of json in STDIN
 type ContrailCni struct {
     cniArgs       *skel.CmdArgs
-    Mode          string `json:"mode"`
-    VifType       string `json:"vif-type"`
-    VifParent     string `json:"parent-interface"`
-    LogDir        string `json:"log-dir"`
-    LogFile       string `json:"log-file"`
-    LogLevel      string `json:"log-level"`
-    Mtu           int    `json:"mtu"`
-    MetaPlugin    bool   `json:"meta-plugin"`
-    NetworkName   string `json:"network-name"`
     ContainerUuid string
     ContainerName string
     ContainerVn   string
+    Mode          string `json:"mode"`
+    MetaPlugin    string `json:"meta-plugin"`
+    VifParent     string `json:"parent-interface"`
+    VifType       string `json:"vif-type"`
+    Mtu           int    `json:"mtu"`
+    NetworkName   string `json:"network-name"`
     MesosIP       string `json:"mesos-ip"`
     MesosPort     string `json:"mesos-port"`
+    LogFile       string `json:"log-file"`
+    LogLevel      string `json:"log-level"`
     VRouter       VRouter
 }
 
 type cniJson struct {
     ContrailCni ContrailCni `json:"contrail"`
     CniVersion  string      `json:"cniVersion"`
+    NetworkName string      `json:"name"`
 }
+
+// CNIVersion is the version from the network configuration
+var CNIVersion string
+var MetaPluginCall bool
 
 // Apply logging configuration. We use log packet for logging.
 // log supports log-dir and log-level as arguments only.
 func (cni *ContrailCni) loggingInit() error {
-    log.Init(cni.LogFile, 10, 5)
-    //flag.Parse()
-    //flag.Lookup("log_dir").Value.Set(cni.LogDir)
-    //flag.Lookup("v").Value.Set(cni.LogLevel)
+    log.Init(cni.LogFile, 10, 10)
     return nil
 }
 
-func (cni *ContrailCni) Log() {
-    log.Infof("ContainerID : %s\n", cni.cniArgs.ContainerID)
-    log.Infof("NetNS : %s\n", cni.cniArgs.Netns)
-    log.Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
-    log.Infof("Args : %s\n", cni.cniArgs.Args)
-    log.Infof("CNI VERSION : %s\n", CNIVersion)
-    log.Infof("MTU : %d\n", cni.Mtu)
-    log.Infof("Meta Plugin: %t\n", cni.MetaPlugin)
-    log.Infof("Network Name: %t\n", cni.NetworkName)
-    log.Infof("Config File : %s\n", cni.cniArgs.StdinData)
-    log.Infof("%+v\n", cni)
-    cni.VRouter.Log()
-}
-
-func Init(args *skel.CmdArgs) (*ContrailCni, error) {
-    vrouter, _ := VRouterInit(args.StdinData)
-
-    cni := ContrailCni{cniArgs: args, Mode: CNI_MODE_K8S,
-        VifType: VIF_TYPE_VETH, VifParent: CONTRAIL_PARENT_INTERFACE,
-        LogDir: LOG_DIR, LogLevel: LOG_LEVEL, Mtu: cniIntf.CNI_MTU,
-        MetaPlugin: false, VRouter: *vrouter}
-    json_args := cniJson{ContrailCni: cni}
-
-    if err := json.Unmarshal(args.StdinData, &json_args); err != nil {
-        log.Errorf("Error decoding stdin\n %s \n. Error %+v",
-            string(args.StdinData), err)
+func (cni *ContrailCni) readContrailConf() ([]byte, error) {
+    var dataBytes []byte
+    files, err := ioutil.ReadDir(CNI_CONF_DIR)
+    if err != nil {
+        log.Errorf("Failed to open %s. Error %+v\n", CNI_CONF_DIR, err)
         return nil, err
     }
 
+    for _, f := range files {
+        fname := CNI_CONF_DIR + f.Name();
+        if strings.HasSuffix(fname, CONTRAIL_CONF_FILE) {
+            dataBytes, err = ioutil.ReadFile(fname)
+            if err != nil {
+                log.Errorf("Failed to read %s. Error %+v\n", fname, err)
+                return nil, err
+            }
+            return dataBytes, nil
+        }
+    }
+
+    log.Infof("File *%s is not found in %s\n",
+        CONTRAIL_CONF_FILE, CNI_CONF_DIR)
+    dataBytes, _ = json.Marshal(cniJson{})
+    return dataBytes, nil
+}
+
+func (cni *ContrailCni) Log() {
+    log.Infof("CNI Version : %s\n", CNIVersion)
+    log.Infof("CNI Args : %s\n", cni.cniArgs.Args)
+    log.Infof("CNI Args StdinData : %s\n", cni.cniArgs.StdinData)
+    log.Infof("ContainerID : %s\n", cni.cniArgs.ContainerID)
+    log.Infof("NetNS : %s\n", cni.cniArgs.Netns)
+    log.Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
+    log.Infof("Meta Plugin Call : %t\n", MetaPluginCall)
+    log.Infof("Network Name: %s\n", cni.NetworkName)
+    log.Infof("MTU : %d\n", cni.Mtu)
+    cni.VRouter.Log()
+    log.Infof("%+v\n", cni)
+}
+
+func (cni *ContrailCni) isMetaPlugin() bool {
+    ppid := os.Getppid()
+    commPath := fmt.Sprintf("/proc/%d/comm", ppid)
+    dataBytes, err := ioutil.ReadFile(commPath)
+    if err != nil {
+        log.Errorf("Error in Getting Process Details for pid %d\n. Error %+v",
+            ppid, err)
+        return false
+    }
+    processName := string(dataBytes)
+    processName = processName[:len(processName)-1]
+    log.Infof("Parent Process Name %s\n", processName)
+    if processName != cni.MetaPlugin {
+        return false
+    }
+    return true
+}
+
+func (cni *ContrailCni) readVrouterPollResults() (*[]Result, error) {
+    metaPluginDir := cni.VRouter.Dir + "/" + cni.MetaPlugin
+    if _, err := os.Stat(metaPluginDir); os.IsNotExist(err) {
+        if err := os.Mkdir(metaPluginDir, 0644); err != nil {
+            log.Errorf("Error Creating MetaPlugin directory %s. Error : %s",
+                metaPluginDir, err)
+            return nil, err
+        }
+    }
+    containerFile := metaPluginDir + "/" +
+        cni.ContainerName + "__" + cni.ContainerUuid
+    if _, err := os.Stat(containerFile); os.IsNotExist(err) {
+        return nil, nil
+    }
+    bytes, err := ioutil.ReadFile(containerFile)
+    if err != nil {
+        log.Errorf("Error Reading Vrouter Poll Results from file %s. " +
+            "Error : %s", containerFile, err)
+        return nil, err
+    }
+    results := make([]Result, 0)
+    err = json.Unmarshal(bytes, &results)
+    if err != nil {
+        log.Errorf("Error Decoding Vrouter Poll Results. Error : %+v", err)
+        return nil, err
+    }
+    return &results, nil
+}
+
+func (cni *ContrailCni) writeVrouterPollResults(results *[]Result) error {
+    metaPluginDir := cni.VRouter.Dir + "/" + cni.MetaPlugin
+    containerFile := metaPluginDir + "/" +
+        cni.ContainerName + "__" + cni.ContainerUuid
+    bytes, err := json.Marshal(*results)
+    if err != nil {
+        log.Errorf("Error Encoding Vrouter Poll Results. Error : %+v", err)
+        return err
+    }
+    err = ioutil.WriteFile(containerFile, bytes, 0644)
+    if err != nil {
+        log.Errorf("Error Writing Vrouter Poll Results in file %s. " +
+            "Error : %s", containerFile, err)
+        return err
+    }
+    return nil
+}
+
+func (cni *ContrailCni) DeleteVrouterPollResults() {
+    metaPluginDir := cni.VRouter.Dir + "/" + cni.MetaPlugin
+    containerFile := metaPluginDir + "/" +
+        cni.ContainerName + "__" + cni.ContainerUuid
+    _, err := os.Stat(containerFile)
+    if err != nil {
+        log.Infof("File %s not found. Error : %s", containerFile, err)
+        return
+    }
+    err = os.Remove(containerFile)
+    if err != nil {
+        log.Infof("Failed deleting file %s. Error : %s", containerFile, err)
+        return
+    }
+    log.Infof("File %s is deleted", containerFile)
+    return
+}
+
+func Init(args *skel.CmdArgs) (*ContrailCni, error) {
+    /*
+     * Contrail Config is constructed in the following orders
+     * 1. build with the default Values
+     * 2. override with the contrail cni conf Values
+     * 3. override with the cni args
+     */
+    contrailCni := ContrailCni{Mode: CNI_MODE_K8S, VifType: VIF_TYPE_VETH,
+        VifParent: CONTRAIL_PARENT_INTERFACE, Mtu: cniIntf.CNI_MTU,
+        MetaPlugin: META_PLUGIN, LogLevel: LOG_LEVEL, LogFile: LOG_FILE}
+    json_args := cniJson{ContrailCni: contrailCni}
+    json_args.ContrailCni.loggingInit()
+    var dataBytes []byte
+    var err error
+    dataBytes, err = contrailCni.readContrailConf()
+    if err != nil {
+        return nil, err
+    }
+    if err = json.Unmarshal(dataBytes, &contrailCni); err != nil {
+        log.Errorf("Error decoding dataBytes %s. Error %+v",
+        string(dataBytes), err)
+        return nil, err
+    }
+    if err = json.Unmarshal(args.StdinData, &json_args); err != nil {
+        log.Errorf("Error decoding stdin %s. Error %+v",
+            string(args.StdinData), err)
+        return nil, err
+    }
+    var vrouter *VRouter
+    vrouter, err = VRouterInit(args.StdinData, dataBytes)
+    if err != nil {
+        return nil, err
+    }
+    json_args.ContrailCni.cniArgs = args
+    json_args.ContrailCni.VRouter = *vrouter
+
+    MetaPluginCall = json_args.ContrailCni.isMetaPlugin()
+
     // If CNI version is blank, set to "0.2.0"
     CNIVersion = json_args.CniVersion
+    json_args.ContrailCni.NetworkName = json_args.NetworkName
     if CNIVersion == "" {
         CNIVersion = "0.2.0"
     }
 
-    json_args.ContrailCni.loggingInit()
     return &json_args.ContrailCni, nil
 }
 
@@ -154,8 +292,9 @@ func (cni *ContrailCni) makeInterface(
             cni.cniArgs.Netns, cni.Mtu, vlanId))
     }
 
-    return cniIntf.CniIntfMethods(cniIntf.InitVEth(containerIntfName,
-        cni.cniArgs.ContainerID, cni.ContainerUuid, cni.cniArgs.Netns, cni.Mtu))
+    return cniIntf.CniIntfMethods(cniIntf.InitVEth(
+        containerIntfName, cni.cniArgs.ContainerID,
+        cni.ContainerUuid, cni.cniArgs.Netns, cni.Mtu))
 }
 
 /*
@@ -166,9 +305,11 @@ func (cni *ContrailCni) makeInterface(
  *   the provided IfName arg is returned.
  */
 func (cni *ContrailCni) buildContainerIntfName(
-    index int, isMetaPlugin bool) string {
-    var intfName string
-    if isMetaPlugin == true {
+    intfName string, index int) string {
+    if intfName != "" {
+        return intfName
+    }
+    if MetaPluginCall && cni.cniArgs.IfName != "" {
         intfName = cni.cniArgs.IfName
     } else {
         intfName = VIF_TYPE_ETH + strconv.Itoa(index)
@@ -294,18 +435,40 @@ func (cni *ContrailCni) CmdAdd() error {
         log.Infof("IN CNI MESOS mode - Post to mesos manager success!\n")
     }
 
-    // Pre-fetch initial configuration for the interfaces from vrouter
-    // This will give MAC address for the interface and in case of
-    // VMI sub-interface, we will also get the vlan-tag
-    results, err := cni.VRouter.Poll(cni.ContainerUuid, cni.ContainerVn)
-    if err != nil {
-        log.Errorf("Error polling for configuration of %s and %s",
-            cni.ContainerUuid, cni.ContainerVn)
-        return err
+    var results *[]Result
+    var err error
+    vrouterPoll := true
+    if MetaPluginCall {
+        results, err = cni.readVrouterPollResults()
+        if err != nil {
+            return err
+        }
+        if results != nil {
+            vrouterPoll = false
+        }
+    }
+
+    if vrouterPoll {
+        // Pre-fetch initial configuration for the interfaces from vrouter
+        // This will give MAC address for the interface and in case of
+        // VMI sub-interface, we will also get the vlan-Tag
+        results, err = cni.VRouter.PollVmCfg(cni.ContainerUuid)
+        if err != nil {
+            log.Errorf("Error polling for configuration of %s",
+                cni.ContainerUuid)
+            return err
+        }
+        if MetaPluginCall {
+            err = cni.writeVrouterPollResults(results)
+            if err != nil {
+                return err
+            }
+        }
     }
 
     // For each interface in the result create an interface in the container,
     // persist the configuration and notify the Vrouter agent
+    vmiUuid := ""
     for _, result := range *results {
         // Index annotation is expected in the following format -
         //         <index>/<total num of interfaces>
@@ -315,43 +478,50 @@ func (cni *ContrailCni) CmdAdd() error {
             log.Errorf("Could not retrieve index from result - %+v", result)
             return err
         }
-        var containerIntfName string
-        if result.Annotations.Interface != "" {
-            containerIntfName = result.Annotations.Interface
-        } else {
-            containerIntfName = cni.buildContainerIntfName(index, cni.MetaPlugin)
-        }
 
-        if cni.MetaPlugin {
-            // When invoked by a delegating plugin, work on the vrouter result that
-            // matches the given network name. In the scenario when multiple results
-            // match the nw name, check if a config file exists with the VMI UUID
-            // from the result. If the file exists look for other result.
-            if result.Annotations.Network == cni.NetworkName {
-                // Check if this VMI uuid is already used
+        if MetaPluginCall {
+            // When invoked by a delegating plugin, work on the vrouter result
+            // that matches the given network name. In the scenario when
+            // multiple results match the nw name, check if a config file exists
+            // with the VMI UUID from the result. If the file exists look for
+            // other result.
+            networkName := result.Annotations.Network
+            validateNetwork := false
+            if ((len(cni.NetworkName) > 0) &&
+                (cni.NetworkName != CONTRAIL_CNI_NAME)) {
+                if (networkName == cni.NetworkName) {
+                    validateNetwork = true
+                }
+            } else if (networkName == "default") {
+                    validateNetwork = true
+            }
+            if validateNetwork {
                 fname := cni.VRouter.makeFileName(result.VmiUuid)
                 if checkFileOrDirExists(fname) {
                     continue
                 }
             } else {
-                // TODO: Throw error when nw name not in the list of interfaces
                 continue
             }
         }
+
+        containerIntfName := cni.buildContainerIntfName(
+            result.Annotations.Interface, index)
 
         log.Infof("Creating interface - %s for result - %v",
             containerIntfName, result)
         cni.createInterfaceAndUpdateVrouter(containerIntfName, result)
         containerIntfNames[result.VmiUuid] = containerIntfName
 
-        if cni.MetaPlugin {
-            // When invoked by a delegating plugin, Work only on the given interface
-            // name and ignore the rest of the interfaces
+        if MetaPluginCall {
+            // When invoked by a delegating plugin, Work only on the given
+            // interface name and ignore the rest of the interfaces
+            vmiUuid = result.VmiUuid
             break
         }
     }
 
-    vRouterResults, poll_err := cni.VRouter.PollUrl("/vm")
+    vRouterResults, poll_err := cni.VRouter.PollVm(cni.ContainerUuid, vmiUuid)
     if poll_err != nil {
         log.Errorf("Error in polling VRouter ")
         return poll_err
@@ -367,8 +537,8 @@ func (cni *ContrailCni) CmdAdd() error {
         containerIntfName := containerIntfNames[vmiUuid]
         vRouterResult, ok := vrouterResultMap[vmiUuid]
         if ok == false {
-            msg := fmt.Sprintf("VMI UUID %s does not exist in the Vrouter Result",
-                vmiUuid)
+            msg := fmt.Sprintf("VMI UUID %s does not exist " +
+                "in the Vrouter Result", vmiUuid)
             log.Errorf(msg)
             return fmt.Errorf(msg)
         }
@@ -381,7 +551,7 @@ func (cni *ContrailCni) CmdAdd() error {
             return err
         }
 
-        if cni.MetaPlugin {
+        if MetaPluginCall {
             finalTypesResult = typesResult
         } else {
             if containerIntfName == "eth0" {
@@ -391,6 +561,7 @@ func (cni *ContrailCni) CmdAdd() error {
     }
 
     types.PrintResult(finalTypesResult, CNIVersion)
+    log.Infof("CmdAdd is done")
     return nil
 }
 
@@ -467,8 +638,13 @@ func (cni *ContrailCni) CmdDel() error {
         if err != nil {
             log.Errorf("Error deleting interface from agent")
         }
+
+        if MetaPluginCall {
+            cni.DeleteVrouterPollResults()
+        }
     }
 
-    // Nothing to do
+    // Nothing to Do
+    log.Infof("CmdDel is done")
     return nil
 }

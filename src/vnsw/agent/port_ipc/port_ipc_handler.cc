@@ -1117,10 +1117,20 @@ bool PortIpcHandler::MakeJsonFromVmiConfig(const boost::uuids::uuid &vmi_uuid,
     return true;
 }
 
-bool PortIpcHandler::GetVmVnPort(const string &vm, string &info) const {
+bool PortIpcHandler::GetVmVnPort(const string &vm, const string &vmi,
+                                 string &info) const {
     boost::uuids::uuid vm_uuid = StringToUuid(vm);
     if (vm_uuid == nil_uuid()) {
         return false;
+    }
+
+    if (vmi.size() > 0) {
+        info = '[';
+        boost::uuids::uuid vmi_uuid = StringToUuid(vmi);
+        if (!MakeJsonFromVmi(vmi_uuid, info))
+            return false;
+        info += ']';
+        return true;
     }
 
     std::set<boost::uuids::uuid> vmi_uuid_set;

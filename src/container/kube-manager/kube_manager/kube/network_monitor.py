@@ -68,12 +68,32 @@ class NetworkMonitor(KubeMonitor):
 
         return network_crd_dict
 
+    def key_exists(self, dict, *nested_keys):
+        _dict = dict
+        for key in nested_keys:
+            try:
+                _dict = _dict[key]
+                if not _dict:
+                    return False
+            except KeyError:
+                return False
+        return True
+
     def process_event(self, event):
         nw_data = event['object']
         event_type = event['type']
         kind = event['object'].get('kind')
         namespace = event['object']['metadata'].get('namespace')
         name = event['object']['metadata'].get('name')
+
+        # if network is not designated to contrail-k8s-cni, dont process
+        nested_keys = ['object', 'spec', 'config']
+        if not self.key_exists(event, *nested_keys):
+            return
+        config_json = json.loads(event['object']['spec']['config'])
+        if ('type' not in config_json.keys() or
+            config_json['type'] != 'contrail-k8s-cni'):
+            return
 
         if self.db:
             nw_uuid = self.db.get_uuid(nw_data)

@@ -143,23 +143,29 @@ class PodKM(KubeDBBase):
                 raise Exception(err_msg)
 
         # Parse virtual network annotations.
-        if 'k8s.v1.cni.cncf.io/networks' in annotations:
+        cncf_networks = 'k8s.v1.cni.cncf.io/networks'
+        if cncf_networks in annotations:
             self.networks = []
-            if str(annotations['k8s.v1.cni.cncf.io/networks'])[:1] == '[':
+            if str(annotations[cncf_networks])[:1] == '[':
                 interfaceList = []
-                networks_string_list = json.loads(
-                            str(annotations['k8s.v1.cni.cncf.io/networks']))
+                networks_list = json.loads(str(annotations[cncf_networks]))
                 networkAnnotationWhiteList = {"namespace", "name", "interface"}
                 duplicateInterfaces = False
-                for network in networks_string_list:
-                    if "interface" in network:
-                        interfaceList.append(network["interface"])
-                    network_tmp = {}
+                for network in networks_list:
+                    network_dict = {}
                     for element in network:
                         if element in networkAnnotationWhiteList:
-                            network_tmp[element] = network[element]
-                    network_tmp['network'] = network_tmp.pop('name')
-                    self.networks.append(network_tmp)
+                            network_dict[element] = network[element]
+                    network_dict['network'] = network_dict.pop('name')
+                    ns_name = self.namespace
+                    if 'namespace' in network_dict.keys():
+                        ns_name = network_dict['namespace']
+                    net_name = network_dict['network']
+                    if not NetworkKM.is_contrail_k8s_cni_nw(net_name, ns_name):
+                        continue
+                    if "interface" in network:
+                        interfaceList.append(network["interface"])
+                    self.networks.append(network_dict)
 
                 duplicateInterfaceCount = [i for i,
                     x in enumerate(interfaceList)
@@ -169,14 +175,18 @@ class PodKM(KubeDBBase):
                         interfaceList[duplicateInterfaceCount[0]]
                     raise Exception(err_msg)
             else:
-                networks_list = annotations['k8s.v1.cni.cncf.io/networks'].split(',')
+                networks_list = annotations[cncf_networks].split(',')
                 for network in networks_list:
                     if '/' in network:
-                        network_namespace, network_name = network.split('/')
-                        network_dict = {'network':network_name, 'namespace': network_namespace}
+                        ns_name, net_name = network.split('/')
+                        network_dict = {'network':net_name,
+                                        'namespace':ns_name}
                     else:
-                        network_name = network
-                        network_dict = {'network':network_name}
+                        ns_name = self.namespace
+                        net_name = network
+                        network_dict = {'network':net_name}
+                    if not NetworkKM.is_contrail_k8s_cni_nw(net_name, ns_name):
+                        continue
                     self.networks.append(network_dict)
 
     def get_vn_fq_name(self):
@@ -820,8 +830,16 @@ class NetworkKM(KubeDBBase):
         return True if self.annotated_vn_fq_name else False
 
     @classmethod
+    def is_contrail_k8s_cni_nw(cls, name, namespace):
+        nw = NetworkKM.get_network_fq_name(name, namespace)
+        if nw:
+            return True
+        return False
+
+    @classmethod
     def get_network_fq_name(cls, name, namespace):
         for key, value in cls._dict.items():
             if value.name == name and value.namespace == namespace:
                 return value
         return None
+

@@ -170,11 +170,23 @@ void RESTServer::VmVnPortDeleteHandler(const struct RESTData& data) {
 }
 
 void RESTServer::VmVnPortGetHandler(const struct RESTData& data) {
-    const std::string &vm_uuid = (*data.match)[1];
+    std::string url = (*data.match)[0];
+    bool vmi_uuid_presence = false;
+    std::size_t pos = 4; // skip "/vm/"
+    std::size_t vmi_uuid_pos = url.find("/", pos);
+    if (vmi_uuid_pos != std::string::npos) {
+        vmi_uuid_presence = true;
+    }
+    std::string vm_uuid = url.substr(pos, vmi_uuid_pos);
+    std::string vmi_uuid = "";
+    if (vmi_uuid_presence) {
+        vmi_uuid = url.substr(vmi_uuid_pos+1, std::string::npos);
+    }
+
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
         std::string info;
-        if (pih->GetVmVnPort(vm_uuid, info)) {
+        if (pih->GetVmVnPort(vm_uuid, vmi_uuid, info)) {
             REST::SendResponse(data.session, info);
         } else {
             REST::SendErrorResponse(data.session, "{ Not Found }", 404);
@@ -237,13 +249,13 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         HTTP_POST,
         &RESTServer::VmPortSyncHandler))
     (HandlerSpecifier(
-        regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{12})"),
+        regex("/port/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_DELETE,
         &RESTServer::VmPortDeleteHandler))
     (HandlerSpecifier(
-        regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{12})"),
+        regex("/port/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_GET,
         &RESTServer::VmPortGetHandler))
     (HandlerSpecifier(
@@ -259,28 +271,34 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         HTTP_POST,
         &RESTServer::VmVnPortPostHandler))
     (HandlerSpecifier(
-        regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{12})"),
+        regex("/vm/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_DELETE,
         &RESTServer::VmVnPortDeleteHandler))
     (HandlerSpecifier(
-        regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{12})"),
+        regex("/vm/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_GET,
         &RESTServer::VmVnPortGetHandler))
     (HandlerSpecifier(
-        regex("/vm-cfg/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{12})"),
+        regex("/vm/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
+        HTTP_GET,
+        &RESTServer::VmVnPortGetHandler))
+    (HandlerSpecifier(
+        regex("/vm-cfg/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_GET,
         &RESTServer::VmVnPortCfgGetHandler))
     (HandlerSpecifier(
-        regex("/enable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{4}-[0-9a-f]{12})"),
+        regex("/enable-port/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_PUT,
         &RESTServer::VmPortEnableHandler))
     (HandlerSpecifier(
-        regex("/disable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
-              "[0-9a-f]{4}-[0-9a-f]{12})"),
+        regex("/disable-port/"
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_PUT,
         &RESTServer::VmPortDisableHandler));
 
