@@ -3719,6 +3719,16 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
 
 
 class TestDBAudit(test_case.ApiServerTestCase):
+    def setUp(self):
+        super(TestDBAudit, self).setUp()
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            CassandraDriverName = self._api_server._db_conn._object_db.\
+                _cassandra_driver.__class__.__name__
+            if CassandraDriverName not in db_manage.SUPPORTED_DRIVERS:
+                self.skipTest("Not supported driver {} by db_manage, see: {}".format(
+                    CassandraDriverName, db_manage.SUPPORTED_DRIVERS))
+
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
