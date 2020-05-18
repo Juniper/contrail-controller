@@ -393,8 +393,13 @@ class DMUtils(object):
 
     @staticmethod
     def vn_bd_comment(vn, encap):
-        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */" % (
-            vn.fq_name[-1], vn.uuid, encap)
+        if vn and vn.virtual_network_category == 'routed':
+            return "/* Routed Virtual Network: %s, UUID: %s," \
+                " Encapsulation: %s */" %\
+                (vn.fq_name[-1], vn.uuid, encap)
+        else:
+            return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */" % (
+                vn.fq_name[-1], vn.uuid, encap)
 
     @staticmethod
     def vn_evpn_comment(vn, encap):
