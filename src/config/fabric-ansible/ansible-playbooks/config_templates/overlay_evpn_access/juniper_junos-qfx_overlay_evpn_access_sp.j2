@@ -28,8 +28,13 @@ set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('descriptio
 {%             for phy_intf in device_abstract_config.features.get('l2-gateway',{}).get('physical_interfaces', []) %}
 {%                 for li in phy_intf.get('logical_interfaces', []) %}
 {%                     if li.get('name', '') == int_name %}
+{%                         set vlan_tag = li.get('vlan_tag', '') %}
 {%                         if li.get('is_tagged', false) != false %}
 set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+{%                         else %}
+{%                             if 'Routed Virtual Network' in vlan.get('comment','') and vlan_tag != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_tag}}
+{%                             endif %}
 {%                         endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} interface {{int_name}}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
