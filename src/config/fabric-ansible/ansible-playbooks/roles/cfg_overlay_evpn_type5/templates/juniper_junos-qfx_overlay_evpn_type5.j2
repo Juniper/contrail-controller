@@ -289,7 +289,6 @@ set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_na
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export BGP_ROUTES
 set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT_BGP from protocol bgp
 set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT_BGP then accept
-set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES then reject
 {%                     endif %}
 {%                 endfor %}{# /* end of bgp for loop */ #}
 {%                 set ns = namespace(pim_found=false) %}
@@ -345,7 +344,6 @@ set groups {{cfg_group}} routing-instances {{name}} protocols ospf export {{expo
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export OSPF_ROUTES
 set groups {{cfg_group}} policy-options policy-statement OSPF_ROUTES term DEFAULT_OSPF from protocol ospf
 set groups {{cfg_group}} policy-options policy-statement OSPF_ROUTES term DEFAULT_OSPF then accept
-set groups {{cfg_group}} policy-options policy-statement OSPF_ROUTES then reject
 {%                         if area_id != '0.0.0.0' and area_id != '0' %}
 {%                             if area_type == 'nssa' %}
 {%                                 if ospf.get('orignate_summary_lsa', false) == true %}
