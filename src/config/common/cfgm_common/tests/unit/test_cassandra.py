@@ -58,6 +58,9 @@ class FakeDriver(datastore_api.CassandraDriver):
     def _Create_Session(self, cf_name, **cf_args):
         pass
 
+    def _Keyspace_Properties(self, keyspace):
+        pass
+
 
 class TestOptions(unittest.TestCase):
 
