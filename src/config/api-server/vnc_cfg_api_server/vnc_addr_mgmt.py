@@ -879,15 +879,15 @@ class AddrMgmt(object):
     # end _create_ipam_subnet_objs
 
     def _create_net_subnet_objs(self, vn_fq_name_str, vn_uuid, vn_dict,
-                                should_persist, alloc_pool_change=[]):
+                                should_persist, alloc_pool_change=[],
+                                vn_type=None):
         self._subnet_objs.setdefault(vn_uuid, OrderedDict())
         # create subnet for each new subnet
-        refs = vn_dict.get('network_ipam_refs')
-        vn_category = vn_dict.get('virtual_network_category')
         routed_vn = False
-        if vn_category and vn_category == "routed":
+        if vn_type and vn_type == 'routed':
             routed_vn = True
 
+        refs = vn_dict.get('network_ipam_refs')
         if refs:
             for ref in refs:
                 # only create a subnet obj for a ref which is not a flat ipam
@@ -904,7 +904,8 @@ class AddrMgmt(object):
                 if ipam_subnets:
                     self._create_subnet_objs(vn_fq_name_str, vn_uuid,
                                              ipam_subnets, should_persist,
-                                             alloc_pool_change, False, routed_vn)
+                                             alloc_pool_change, False,
+                                             routed_vn)
     # end _create_net_subnet_objs
 
     def config_log(self, msg, level):
@@ -923,16 +924,20 @@ class AddrMgmt(object):
                 if not ok:
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key+':'+msg)
 
+        vn_category = obj_dict.get('virtual_network_category') or None
         self._create_net_subnet_objs(vn_fq_name_str, vn_uuid,
                                      obj_dict, should_persist=True,
-                                     alloc_pool_change=[])
+                                     alloc_pool_change=[],
+                                     vn_type=vn_category)
     # end net_create_req
 
     def net_create_notify(self, obj_id, vn_dict):
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
+        vn_category = vn_dict.get('virtual_network_category') or None
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False,
-                                     alloc_pool_change=[])
+                                     alloc_pool_change=[],
+                                     vn_type=vn_category)
     # end net_create_notify
 
     def net_update_req(self, vn_fq_name, db_vn_dict, req_vn_dict, obj_uuid=None):
@@ -984,9 +989,17 @@ class AddrMgmt(object):
                 if result is not None:
                     subnets_pool_change.append(result)
 
+        db_vn_category = db_vn_dict.get('virtual_network_category') or None
+        req_vn_category = req_vn_dict.get('virtual_network_category') or None
+        if req_vn_category:
+            vn_category = req_vn_category
+        else:
+            vn_category = db_vn_category
+
         self._create_net_subnet_objs(vn_fq_name_str, vn_uuid, req_vn_dict,
                                      should_persist=True,
-                                     alloc_pool_change=subnets_pool_change)
+                                     alloc_pool_change=subnets_pool_change,
+                                     vn_type=vn_category)
     # end net_update_req
 
     def net_update_notify(self, obj_id):
@@ -995,7 +1008,8 @@ class AddrMgmt(object):
             ok, result = db_conn.dbe_read(
                 obj_type='virtual_network',
                 obj_id=obj_id,
-                obj_fields=['fq_name', 'network_ipam_refs'],
+                obj_fields=['fq_name', 'network_ipam_refs',
+                            'virtual_network_category'],
             )
         except cfgm_common.exceptions.NoIdError as e:
             return False, (404, str(e))
@@ -1015,9 +1029,11 @@ class AddrMgmt(object):
                 except KeyError:
                     pass
 
+        vn_category = vn_dict.get('virtual_network_category') or None
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False,
-                                     alloc_pool_change=[])
+                                     alloc_pool_change=[],
+                                     vn_type=vn_category)
 
         return True, ''
     # end net_update_notify
