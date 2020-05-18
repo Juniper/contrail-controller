@@ -3823,6 +3823,52 @@ TEST_F(BgpConfigTest, BgpRouterLongLivedGracefulRestartTimeChange) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpConfigTest, BgpFastConvergenceXmppHoldTimeChange) {
+    string content_a =
+        FileRead("controller/src/bgp/testdata/config_test_fc_xmpp_a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    TASK_UTIL_EXPECT_EQ(0, server_.GetXmppHoldTime());
+
+    // XMPP hold time should change to 100. NH reachability check enabled.
+    string content_b =
+        FileRead("controller/src/bgp/testdata/config_test_fc_xmpp_b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->fc_enabled());
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->nh_check_enabled());
+    TASK_UTIL_EXPECT_EQ(100, server_.GetXmppHoldTime());
+
+    // XMPP hold time should change to 200. NH reachability check disabled.
+    string content_c =
+        FileRead("controller/src/bgp/testdata/config_test_fc_xmpp_c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->fc_enabled());
+    TASK_UTIL_EXPECT_FALSE(server_.global_config()->nh_check_enabled());
+    TASK_UTIL_EXPECT_EQ(200, server_.GetXmppHoldTime());
+
+    // Default XMPP hold time should be 90 if not configured.
+    string content_d =
+        FileRead("controller/src/bgp/testdata/config_test_fc_xmpp_d.xml");
+    EXPECT_TRUE(parser_.Parse(content_d));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->fc_enabled());
+    TASK_UTIL_EXPECT_EQ(90, server_.GetXmppHoldTime());
+
+    boost::replace_all(content_c, "<config>", "<delete>");
+    boost::replace_all(content_c, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 TEST_F(BgpConfigTest, BgpAlwaysCompareMedChange) {
     string content_a =
         FileRead("controller/src/bgp/testdata/config_test_46a.xml");

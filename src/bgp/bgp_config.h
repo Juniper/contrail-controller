@@ -605,7 +605,9 @@ public:
             bgpaas_port_start_(0),
             bgpaas_port_end_(0),
             always_compare_med_(false),
-            rd_cluster_seed_(0) {
+            rd_cluster_seed_(0),
+            fc_enabled_(false),
+            nh_check_enabled_(false) {
     }
     ~BgpGlobalSystemConfig() { }
 
@@ -643,7 +645,18 @@ public:
     void set_bgpaas_port_end(uint16_t bgpaas_port_end) {
         bgpaas_port_end_ = bgpaas_port_end;
     }
-
+    bool fc_enabled() const {
+        return fc_enabled_;
+    }
+    void set_fc_enabled(bool enable) {
+        fc_enabled_ = enable;
+    }
+    bool nh_check_enabled() const {
+        return nh_check_enabled_;
+    }
+    void set_nh_check_enabled(bool enable) {
+        nh_check_enabled_ = enable;
+    }
 private:
     mutable uint64_t last_change_at_;
     uint16_t gr_time_;
@@ -657,6 +670,8 @@ private:
     uint16_t bgpaas_port_end_;
     bool always_compare_med_;
     uint16_t rd_cluster_seed_;
+    bool fc_enabled_;
+    bool nh_check_enabled_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };

@@ -124,6 +124,20 @@ public:
               new_config->rd_cluster_seed());
         }
 
+        if (server_->global_config()->fc_enabled() !=
+                new_config->fc_enabled()) {
+            server_->global_config()->set_fc_enabled(
+                new_config->fc_enabled());
+            clear_peers = true;
+        }
+
+        if (server_->global_config()->nh_check_enabled() !=
+                new_config->nh_check_enabled()) {
+            server_->global_config()->set_nh_check_enabled(
+                new_config->nh_check_enabled());
+            clear_peers = true;
+        }
+
         bool clear_bgpaas_peers = false;
 
         // Clear bgpaas peers if there's a change in bgpaas-port-start.
@@ -672,6 +686,12 @@ uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
     if (!global_config_->gr_enable())
         return 0;
     return global_config_->llgr_time();
+}
+
+uint16_t BgpServer::GetXmppHoldTime() const {
+    if (!global_config_->fc_enabled())
+        return 0;
+    return global_config_->xmpp_hold_time();
 }
 
 uint32_t BgpServer::GetEndOfRibReceiveTime() const {
