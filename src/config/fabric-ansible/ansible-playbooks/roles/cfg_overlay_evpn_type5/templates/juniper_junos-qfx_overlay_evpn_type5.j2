@@ -28,6 +28,7 @@ set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{next_h
 set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{next_hop}} bfd-liveness-detection multiplier {{detection_time_multiplier}}
 {%                 endif %}
 {%             endfor %}
+{%             set ospf_ns = namespace(advloop=false) %}
 {%             for protocols in ri.get('protocols', []) %}
 {%                 for bgp in protocols.get('bgp', []) %}
 {%                     set bgp_name = bgp.get('name') %}
@@ -144,10 +145,14 @@ set groups {{cfg_group}} protocols ospf area {{area_id}} stub default-metric 10 
 {%                             endif %}
 {%                         endif %}
 {%                     endif %} {# /* end of ospf area id */ #}
-{%                     if advertise_loop == true %}
+{%                     if (advertise_loop == true) and (ospf_ns.advloop == false) %}
+{%                         set ospf_ns.advloop = true %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} interface lo0.0 passive
 {%                     endif %}
+{%                     set interface_type = ospf.get('interface_type', '') %}
+{%                     if interface_type != '' %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} interface {{intf}} interface-type p2p
+{%                     endif %}
 {%                     set ospf_auth_key = ospf.get('authentication_key', '') %}
 {%                     if ospf_auth_key != '' %}
 set groups {{cfg_group}} protocols ospf area {{area_id}} interface {{intf}} authentication md5 5 key {{ospf_auth_key}}
@@ -226,6 +231,7 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options static route
 {%                     endif %}
 {%                 endif %}
 {%             endfor %}
+{%             set ospf_ns = namespace(advloop=false) %}
 {%             for protocols in ri.get('protocols', []) %}
 {%                 for bgp in protocols.get('bgp', []) %}
 {%                     if 'Routed VN BGP info' in bgp.get('comment','') %}
@@ -355,14 +361,18 @@ set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_i
 {%                                 endif %}
 {%                             endif %}
 {%                         endif %}
-{%                         if advertise_loop == true %}
+{%                         if (advertise_loop == true) and (ospf_ns.advloop == false) %}
+{%                             set ospf_ns.advloop = true %}
 {%                             set loopback_intfs = ri.get('loopback_interfaces', []) %}
 {%                             set lo_intf = loopback_intfs[-1].get('name','') %}
 {%                             if lo_intf != '' %}
 set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interface {{lo_intf}} passive
 {%                             endif %}
 {%                         endif %}
+{%                         set interface_type = ospf.get('interface_type', '') %}
+{%                         if interface_type != '' %}
 set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interface {{intf}} interface-type p2p
+{%                         endif %}
 {%                         set ospf_auth_key = ospf.get('authentication_key', '') %}
 {%                         if ospf_auth_key != '' %}
 set groups {{cfg_group}} routing-instances {{name}} protocols ospf area {{area_id}} interface {{intf}} authentication md5 5 key {{ospf_auth_key}}

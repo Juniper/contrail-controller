@@ -1317,9 +1317,13 @@ class PhysicalRouterDM(DBBaseDM):
                 if key.lower().startswith(('$9$', '$1$', '$5$', '$6$')):
                     key = '"%s"' % key
         intf = 'irb.' + str(vn_obj.vn_network_id)
+        intf_type = None
+        if not self.is_vn_part_vpg_and_multihomed(vn_obj):
+            intf_type = 'p2p'
         ospf_obj = AbstractDevXsd.Ospf(name=ospf_name,
                                        authentication_key=key,
                                        interface=intf,
+                                       interface_type=intf_type,
                                        hello_interval=ospf_info.get(
                                            'hello_interval'),
                                        dead_interval=ospf_info.get(
@@ -1428,6 +1432,20 @@ class PhysicalRouterDM(DBBaseDM):
                 route.set_bfd(bfd)
             ri.add_static_routes(route)
     # end set_routed_vn_static_route_info
+
+    def is_vn_part_vpg_and_multihomed(self, vn_obj):
+        vmi_list = vn_obj.virtual_machine_interfaces
+        for vmi_uuid in vmi_list or []:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi and not vmi.virtual_port_group:
+                continue
+            vpg = VirtualPortGroupDM(vmi.virtual_port_group)
+            if vpg and vpg.pi_ae_map is not None:
+                for pr_uuid in vpg.physical_interfaces or []:
+                    if pr_uuid not in self.physical_interfaces:
+                        return True
+        return False
+    # end is_vn_part_vpg_and_multihomed
 
     def get_bd_li_map(self, vn_obj):
         vn_dict = {}
