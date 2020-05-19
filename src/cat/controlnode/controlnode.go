@@ -183,6 +183,27 @@ func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wai
 	return fmt.Errorf("CheckXMPPConnections failed")
 }
 
+// CheckGlobalSystemConfig checks if global system config has reached control node
+func (c *ControlNode) CheckGlobalSystemConfig(asn uint32) error {
+	// Check if local asn is same as configured
+	url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_IFMapNodeShowReq?x=global-system-config:default-global-system-config | xmllint --format - | grep -iw autonomous-system | grep %d", c.IPAddress, c.Config.HTTPPort, asn)
+	my_asn, err := exec.Command("/bin/bash", "-c", url).Output()
+	log.Infof("Command %s completed %s with status %v\n", url, my_asn, err)
+	if err != nil {
+		return fmt.Errorf("Asn is not correct, expected: %d", asn)
+	}
+
+	// Check if enable-4byte-as knob is enabled
+	enable_url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_IFMapNodeShowReq?x=global-system-config:default-global-system-config | xmllint --format - | grep -iw enable-4byte-as | grep -i true", c.IPAddress, c.Config.HTTPPort)
+	enable, serr := exec.Command("/bin/bash", "-c", enable_url).Output()
+	log.Infof("Command %s completed %s with status %v\n", enable_url, enable, serr)
+	if serr != nil {
+		return fmt.Errorf("enable-4byte-as knob is not set")
+	}
+
+	return nil
+}
+
 // CheckBGPConnection checks whether BGP connection to an agent has reached
 // ESTABLISHED sate (up) (or DOWN) as requested in the down bool parameter.
 func (c *ControlNode) CheckBGPConnection(name string, down bool) error {

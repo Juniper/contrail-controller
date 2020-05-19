@@ -27,6 +27,55 @@ func setupSubTest(t *testing.T, c *cat.CAT) func(t *testing.T, c *cat.CAT) {
 	}
 }
 
+// TestIntrospectForSchemaValidation tests various combination of control-nodes,
+// Agent receiving config changes to do schema validation
+func TestIntrospectForSchemaValidation(t *testing.T) {
+    var ConNodes map[string]interface{}
+    ConNodes, _ = cat.GetNumOfControlNodes()
+
+    tests := []struct {
+        desc         string
+        controlNodes int
+        agents       int
+        crpds        int
+    }{
+                {
+            desc:         "Check Global System Config",
+            controlNodes: len(ConNodes),
+            agents:       0,
+            crpds:        0,
+        }}
+
+    for _, tt := range tests {
+        t.Run(tt.desc, func(t *testing.T) {
+            log.Infof("Started test %s", tt.desc)
+
+            // Create basic CAT object first to hold all objects managed.
+            c, err := cat.New()
+            if err != nil {
+                t.Fatalf("Failed to create CAT cect: %v", err)
+            }
+
+            // Bring up control-nodes, agents and crpds.
+            if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
+                t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
+            }
+
+            // Verify that control-node bgp router configurations are added.
+            if err := verifyControlNodeBgpRoutersConfiguration(c, tt.controlNodes+tt.crpds); err != nil {
+                t.Fatalf("Cannot verify bgp routers configuration")
+	    }
+
+            // Verify that introspect page has correct config
+            if err := verifyIntrospectGlobalSystemConfig(c, 645120); err != nil {
+                t.Fatalf("bgp routers did not come back up after admin up: %v", err)
+            }
+
+            return;
+        })
+    }
+}
+
 // TestConnectivityWithConfiguration tests various combination of control-nodes,
 // agents, and CRPDs. It also injects basic configuration necessary in order to
 // add mock vmi in the agent and exchange routing information.
@@ -176,18 +225,9 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 		ipOctet = 10
 	}
 
-	if desc == "ZIUTestcase" {
-		for key, value := range ConNodes {
-			v := value.(map[string]interface{})
-			if _, err := c.AddControlNode(desc, key, v["address"].(string), controlnode.GetConfFile(), v["port"].(int)); err != nil {
-				return err
-			}
-		}
-	} else {
-		for i := 0; i < nc; i++ {
-			if _, err := c.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ipOctet, i+1), fmt.Sprintf("%s/db.json", c.SUT.Manager.RootDir), 0); err != nil {
-				return err
-			}
+	for i := 0; i < nc; i++ {
+		if _, err := c.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ipOctet, i+1), fmt.Sprintf("%s/db.json", c.SUT.Manager.RootDir), 0); err != nil {
+			return err
 		}
 	}
 
@@ -197,9 +237,7 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 		}
 	}
 
-	if desc != "ZIUTestcase" {
-		generateConfiguration(c)
-	}
+	generateConfiguration(c)
 
 	for i := 0; i < na; i++ {
 		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
@@ -210,16 +248,41 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 		return err
 	}
 
-	if desc != "ZIUTestcase" {
-		if err := verifyConfiguration(c); err != nil {
+	if err := verifyConfiguration(c); err != nil {
+		return err
+	}
+
+	if err := addVirtualPorts(c); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setup as many control-nods, agents and crpds as requested.
+func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]interface{}) error {
+	log.Debugf("%s: Creating %d control-nodes, %d c.Agents and %d c.CRPDs\n", desc, nc, na, ncrpd)
+
+	for key, value := range ConNodes {
+		v := value.(map[string]interface{})
+		if _, err := c.AddControlNode(desc, key, v["address"].(string), controlnode.GetConfFile(), v["port"].(int)); err != nil {
 			return err
 		}
 	}
 
-	if desc != "ZIUTestcase" {
-		if err := addVirtualPorts(c); err != nil {
+	for i := 0; i < ncrpd; i++ {
+		if _, err := c.AddCRPD(desc, fmt.Sprintf("crpd%d", i+1)); err != nil {
 			return err
 		}
+	}
+
+	for i := 0; i < na; i++ {
+		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
+			return err
+		}
+	}
+	if err := verifyControlNodesAndAgents(c); err != nil {
+		return err
 	}
 
 	return nil
@@ -281,6 +344,18 @@ func verifyControlNodeBgpSessions(c *cat.CAT, down bool) error {
 		}
 	}
 	return nil
+}
+
+// checks global system config in introspect page
+func verifyIntrospectGlobalSystemConfig(c *cat.CAT, asn uint32) error {
+   for _, cn := range c.ControlNodes {
+       if err := cn.CheckGlobalSystemConfig(asn); err != nil {
+           log.Infof("check global system config failed for cn %s", cn.Name)
+           return err
+       }
+   }
+
+   return nil
 }
 
 // verifyControlNodesAndAgents verifies that bgp and xmpp connections
