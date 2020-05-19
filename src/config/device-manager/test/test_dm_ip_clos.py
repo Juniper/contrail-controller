@@ -122,6 +122,14 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         self._vnc_lib.instance_ip_create(ins_ip2)
         pr1.set_physical_router_product_name('qfx10k-6s-4c')
         self._vnc_lib.physical_router_update(pr1)
+
+        self.validate_abstract_configs(pr1, pr2)
+
+        self.delete_objects()
+
+    @retries(5, hook=retry_exc_handler)
+    def validate_abstract_configs(self, pr1, pr2):
+        print "Entered into validate_abstract_configs"
         abstract_config = FakeJobHandler.get_dev_job_input(pr1.name)
         device_abstract_config1 = abstract_config.get('device_abstract_config')
         pr2.set_physical_router_product_name('qfx5110-6s-4c')
@@ -140,7 +148,6 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         self.assertEqual(bgp_peer1[0].get('ip_address'), '192.168.2.2')
         self.assertEqual(bgp_config2[0].get('ip_address'), '192.168.2.2')
         self.assertEqual(bgp_peer2[0].get('ip_address'), '192.168.2.1')
-        self.delete_objects()
 
     def create_feature_objects_and_params(self):
         self.create_features(['underlay-ip-clos'])
@@ -182,7 +189,11 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         fab_uuid = self._vnc_lib.fabric_create(fab)
         return fab_uuid
 
+    @retries(5, hook=retry_exc_handler)
     def delete_objects(self):
+        # Seeing issues with the JSON decoder - not sure why we are not
+        # receiving the response, so added retry logic for the deletion
+        # objects as well.
         vpg_list = self._vnc_lib.virtual_port_groups_list().get(
             'virtual-port-groups')
         for vpg in vpg_list:
