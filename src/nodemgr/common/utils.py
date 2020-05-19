@@ -21,8 +21,24 @@ def is_running_in_docker():
     with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
         return 'docker' in ifh.read()
 
+def is_running_in_podman():
+    pid = os.getpid()
+    with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
+        return 'libpod' in ifh.read()
 
 def is_running_in_kubepod():
     pid = os.getpid()
     with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
         return 'kubepods' in ifh.read()
+
+def get_memory_cgroup(pid_):
+    with open('/proc/{}/cgroup'.format(pid_), 'r') as f:
+        while True:
+            l = f.readline()
+            if not l:
+                break
+            g = l.partition(':memory:')[2]
+            if g:
+                return g.strip()
+
+    return None
