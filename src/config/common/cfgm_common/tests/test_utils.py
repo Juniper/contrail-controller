@@ -45,6 +45,7 @@ from datetime import datetime
 from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
+from cfgm_common.tests.cassandra_fake_impl import NotFoundException
 from cfgm_common.exceptions import ResourceExistsError, OverQuota
 
 def stub(*args, **kwargs):
@@ -1187,7 +1188,7 @@ class ZookeeperClientMock(object):
                 return self._values[path]
             return self._values[path][0]
         except Exception as err:
-            raise pycassa.NotFoundException
+            raise NotFoundException
     # end read
 
     def get_children(self, path):
@@ -1197,7 +1198,7 @@ class ZookeeperClientMock(object):
     def read_node(self, path, include_timestamp=False):
         try:
             return self.read(path, include_timestamp)
-        except pycassa.NotFoundException:
+        except NotFoundException:
             return None
     # end read_node
 
