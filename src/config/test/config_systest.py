@@ -24,9 +24,6 @@ from utils.config_fixture import ConfigFixture
 from mockcassandra import mockcassandra
 import logging
 import time
-import pycassa
-from pycassa.pool import ConnectionPool
-from pycassa.columnfamily import ColumnFamily
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
