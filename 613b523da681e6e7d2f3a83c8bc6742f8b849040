@@ -70,6 +70,30 @@
       "revId": "613b523da681e6e7d2f3a83c8bc6742f8b849040",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "f331b016_1ed236a9",
+        "filename": "src/analytics/test/structured_syslog_test.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 318,
+      "author": {
+        "id": 494
+      },
+      "writtenOn": "2020-05-20T09:23:34Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5af61287_2a373cf2",
+      "range": {
+        "startLine": 318,
+        "startChar": 215,
+        "endLine": 318,
+        "endChar": 617
+      },
+      "revId": "613b523da681e6e7d2f3a83c8bc6742f8b849040",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
