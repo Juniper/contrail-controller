@@ -11,6 +11,7 @@ go_bin_path = GoEnv.Dir('#/third_party/go/bin').abspath
 GoEnv.AppendENVPath('GOPATH', go_path)
 GoEnv.AppendENVPath('PATH', go_bin_path)
 GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
+GoEnv.AppendENVPath('GOFLAGS', '-mod=vendor')
 
 go_build = GoEnv.GoBuild(go_path + '/src/vcenter-import/main.go',
                          GoEnv['TOP'] + '/vcenter-import/vcenter-import')
