@@ -369,13 +369,22 @@ class DBBase(object, with_metaclass(DBBaseMeta)):
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]
+        # if there are more objects, one list to retrieve
+        # all objects takes several minutes
+        # split into multiple chunks
+        chunk_count = 1000
+        uuid_chunks = [uuids[i:i + chunk_count] for i in range(
+            0, len(uuids), chunk_count)]
+        objs = []
         try:
-            ok, objs = cls._object_db.object_read(obj_type, uuids,
-                                                field_names=fields)
-            if not ok:
-                return []
+            for uuid_chunk in uuid_chunks:
+                ok, objs_chunk = cls._object_db.object_read(
+                    obj_type, uuid_chunk, field_names=fields)
+                if not ok:
+                    return objs
+                objs += objs_chunk
         except NoIdError:
-            return []
+            return objs
         return objs
 
     @classmethod
