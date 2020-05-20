@@ -215,7 +215,7 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                             li_object['logical_interface_vlan_tag']):
                         if li_object['uuid'] != obj_dict['uuid']:
                             msg = ("Vlan tag  %d  already used in another "
-                                   "interface : " %
+                                   "interface : %s" %
                                    (vlan_tag, li_object['uuid']))
                             return False, (403, msg)
 
