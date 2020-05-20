@@ -41,7 +41,7 @@ _DEFAULT_USER_DOMAIN_NAME = 'Default'
 _DEFAULT_DOMAIN_ID = 'default'
 _DEFAULT_ZK_COUNTER_PATH_PREFIX = '/vnc_api_server_obj_create/'
 _DEFAULT_ZK_LOCK_PATH_PREFIX = '/vnc_api_server_locks/'
-_DEFAULT_ZK_LOCK_TIMEOUT = 5
+_DEFAULT_ZK_LOCK_TIMEOUT = 120
 
 
 def cgitb_hook(info=None, **kwargs):
