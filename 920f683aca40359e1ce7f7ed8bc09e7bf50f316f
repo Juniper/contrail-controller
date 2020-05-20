@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "16f4b2c0_222f1f1b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/fabric_validation/fabric_vpg_validator.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-20T21:49:05Z",
+      "side": 1,
+      "message": "Please ensure you\u0027ve validated for PEP8 compliance",
+      "revId": "920f683aca40359e1ce7f7ed8bc09e7bf50f316f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ecc4cc7c_50afcb12",
+        "filename": "src/config/api-server/vnc_cfg_api_server/fabric_validation/fabric_vpg_validator.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-20T21:49:05Z",
+      "side": 1,
+      "message": "This is a general purpose script to use with vnc_api. So shouldnt using server modules.",
+      "revId": "920f683aca40359e1ce7f7ed8bc09e7bf50f316f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b6e73fe5_10278d98",
+        "filename": "src/config/api-server/vnc_cfg_api_server/fabric_validation/fabric_vpg_validator.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-20T21:49:05Z",
+      "side": 1,
+      "message": "Use 4 spaces. no tabs please",
+      "revId": "920f683aca40359e1ce7f7ed8bc09e7bf50f316f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e8a2b64e_aa624c29",
+        "filename": "src/config/api-server/vnc_cfg_api_server/fabric_validation/fabric_vpg_validator.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-20T21:49:05Z",
+      "side": 1,
+      "message": "No trailing space. Make sure PEP8 compliance",
+      "revId": "920f683aca40359e1ce7f7ed8bc09e7bf50f316f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "46a77ce3_8255d1ba",
+        "filename": "src/config/api-server/vnc_cfg_api_server/fabric_validation/fabric_vpg_validator.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 215,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-20T21:49:05Z",
+      "side": 1,
+      "message": "With the report, user needs to remove offending VMI(s) from VPGs\nso i was thinking a report in below format\nFAIL: VN-VLAN REUSED IN A VPG: VPG-1(UUID):VMI-1(UUID) and VPG-1(UUID):VMI-X(UUID) has same VN(UUID) or VLAN-ID or both\nFAIL: MULTIPLE UNTAGGED VLANS: VPG-1(UUID):VMI-1(UUID):VLAN(100), VPG-1(UUID):VMI-2(UUID):VLAN(200)...\nFAIL: VN-VLAN REUSED IN A FABRIC: VPG-1(UUID):VMI-1(UUID) and VPG-2(UUID):VMI-X(UUID) has same VN(UUID) or VLAN-ID or both",
+      "revId": "920f683aca40359e1ce7f7ed8bc09e7bf50f316f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
