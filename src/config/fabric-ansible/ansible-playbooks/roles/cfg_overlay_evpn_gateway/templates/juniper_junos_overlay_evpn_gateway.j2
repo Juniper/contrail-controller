@@ -37,7 +37,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-dat
 {%             continue %}
 {%         endif %}
 {%         set ri_vn_mode = ri.get('virtual_network_mode', '') %}
-{%         if ('l3' == ri_vn_mode) and ('l3' in ri.name) and ri.get('virtual_network_is_internal') == true %}
+{%         if ('l3' == ri_vn_mode) and ('l3' in ri.name) and ri.get('virtual_network_is_internal') == true and ('import_targets' in ri.keys()) and ('export_targets' in ri.keys()) %}
 {%             set contrail_l3_ri = ri.get('description', '')[:127] %}
 {%             set vn_id  = ri.get('virtual_network_id') | int %}
 {%             set vn_id_num_l3  = vn_id + 30000 %}
