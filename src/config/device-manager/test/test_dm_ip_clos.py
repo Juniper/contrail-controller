@@ -129,7 +129,6 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
 
     @retries(5, hook=retry_exc_handler)
     def validate_abstract_configs(self, pr1, pr2):
-        print "Entered into validate_abstract_configs"
         abstract_config = FakeJobHandler.get_dev_job_input(pr1.name)
         device_abstract_config1 = abstract_config.get('device_abstract_config')
         pr2.set_physical_router_product_name('qfx5110-6s-4c')
