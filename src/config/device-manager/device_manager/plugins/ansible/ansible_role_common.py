@@ -416,8 +416,6 @@ class AnsibleRoleCommon(AnsibleConf):
                 for interface in interfaces:
                     self.add_ref_to_list(self.evpn.get_interfaces(), interface.name)
 
-            self.build_l2_evpn_interface_config(interfaces, vn, vlan)
-
         if (not is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             self.init_evpn_config()
@@ -486,99 +484,10 @@ class AnsibleRoleCommon(AnsibleConf):
             self.add_to_list(ri.get_export_targets(), target)
     # end add_routing_instance
 
-    def attach_acls(self, interface, unit):
-        pr = self.physical_router
-        if not pr:
-            return
-
-        sg_list = []
-        # now the vpg obj is available in interface object as vpg_obj
-        vpg_obj = interface.vpg_obj
-
-        # For an enterprise style fabric, VPG has SG refs
-        # For SP style fabric, VMI has SG refs
-        if self._is_enterprise_style():
-            sg_uuids = vpg_obj.security_groups
-            for sg in sg_uuids or []:
-                sg_obj = SecurityGroupDM.get(sg)
-                if sg_obj:
-                    sg_list.append(sg_obj)
-        else:
-            sg_list = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
-                                                    interface)
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
-
-        if interface.li_uuid:
-            interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
-            if interface:
-                sg_list += interface.get_attached_sgs()
-
-        filter_list = []
-        for sg in sg_list:
-            flist = self.get_configured_filters(sg)
-            filter_list += flist
-        if filter_list:
-            for fname in filter_list:
-                unit.add_firewall_filters(fname)
-    # end attach_acls
-
     def _is_enterprise_style(self):
         return self.physical_router.fabric_obj.enterprise_style
     # end _is_enterprise_style
 
-    def build_l2_evpn_interface_config(self, interfaces, vn, vlan_conf):
-        ifd_map = {}
-        for interface in interfaces:
-            ifd_map.setdefault(interface.ifd_name, []).append(interface)
-
-        for ifd_name, interface_list in list(ifd_map.items()):
-            untagged = [int(i.port_vlan_tag) for i in interface_list
-                        if i.is_untagged()]
-            if len(untagged) > 1:
-                self._logger.error(
-                    "Only one untagged interface is allowed on a ifd %s" %
-                    ifd_name)
-                continue
-            tagged = [int(i.vlan_tag) for i in interface_list
-                      if not i.is_untagged()]
-            if self._is_enterprise_style():
-                if len(untagged) > 0 and len(tagged) > 0:
-                    self._logger.error(
-                        "Enterprise style config: Can't have tagged and "
-                        "untagged interfaces for same VN on same PI %s" %
-                        ifd_name)
-                    continue
-            elif len(set(untagged) & set(tagged)) > 0:
-                self._logger.error(
-                    "SP style config: Can't have tagged and untagged "
-                    "interfaces with same Vlan-id on same PI %s" %
-                    ifd_name)
-                continue
-            _, li_map = self.set_default_pi(ifd_name)
-            for interface in interface_list:
-                if interface.is_untagged():
-                    is_tagged = False
-                    vlan_tag = str(interface.port_vlan_tag)
-                else:
-                    is_tagged = True
-                    vlan_tag = str(interface.vlan_tag)
-                unit_name = ifd_name + "." + str(interface.unit)
-                unit = self.set_default_li(li_map, unit_name, interface.unit)
-                unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn,
-                    is_tagged, vlan_tag))
-                unit.set_is_tagged(is_tagged)
-                unit.set_vlan_tag(vlan_tag)
-                # attach acls
-                self.attach_acls(interface, unit)
-                if vlan_conf:
-                    self.add_ref_to_list(vlan_conf.get_interfaces(),
-                        unit_name)
-    # end build_l2_evpn_interface_config
 
     def init_evpn_config(self, encapsulation='vxlan'):
         if not self.ri_map:
@@ -606,61 +515,6 @@ class AnsibleRoleCommon(AnsibleConf):
         vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
-
-    def build_vpg_config(self):
-        multi_homed = False
-        ae_link_members = {}
-
-        pr = self.physical_router
-        if not pr:
-            return
-        for vpg_uuid in pr.virtual_port_groups or []:
-            ae_link_members = {}
-            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
-            if not vpg_obj:
-                continue
-            if not vpg_obj.virtual_machine_interfaces:
-                continue
-            esi = vpg_obj.esi
-            for pi_uuid in vpg_obj.physical_interfaces or []:
-                if pi_uuid not in pr.physical_interfaces:
-                    multi_homed = True
-                    continue
-                ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
-                if ae_id is not None:
-                    ae_intf_name = 'ae' + str(ae_id)
-                    pi = PhysicalInterfaceDM.get(pi_uuid)
-                    if not pi:
-                        continue
-                    if ae_intf_name in ae_link_members:
-                        ae_link_members[ae_intf_name].append(pi.name)
-                    else:
-                        ae_link_members[ae_intf_name] = []
-                        ae_link_members[ae_intf_name].append(pi.name)
-                else:
-                    pi_obj = PhysicalInterfaceDM.get(pi_uuid)
-                    if pi_obj:
-                        lag = LinkAggrGroup(description="Virtual Port Group : %s" %
-                                                        vpg_obj.name)
-                        intf, _ = self.set_default_pi(pi_obj.name, 'regular')
-                        intf.set_link_aggregation_group(lag)
-
-            for ae_intf_name, link_members in list(ae_link_members.items()):
-                self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
-                                  (vpg_uuid, link_members, ae_intf_name))
-                lag = LinkAggrGroup(lacp_enabled=True,
-                                    link_members=link_members,
-                                    description="Virtual Port Group : %s" %
-                                                vpg_obj.name)
-                intf, _ = self.set_default_pi(ae_intf_name, 'lag')
-                intf.set_link_aggregation_group(lag)
-                intf.set_comment("ae interface")
-
-                #check if esi needs to be set
-                if multi_homed:
-                    intf.set_ethernet_segment_identifier(esi)
-                    multi_homed = False
-    # end build_vpg_config
 
     def get_vn_li_map(self):
         pr = self.physical_router
@@ -1454,38 +1308,27 @@ class AnsibleRoleCommon(AnsibleConf):
     def set_common_config(self):
         # This Abstract code generation needs to be skipped for ERB-UCAST-GW or
         # CRB-Access roles alone.
-        if self.is_erb_ucast_only() or self.is_crb_access_only():
-            self._logger.debug(
-                "Not executing set_common_config for : {}".format(
-                    self.physical_router.routing_bridging_roles))
-            return
+        rb_roles = self.physical_router.routing_bridging_roles
+        is_continue_execution = False
+        if rb_roles:
+            if 'DC-Gateway' in rb_roles or 'DCI-Gateway' in rb_roles or \
+                    'PNF-Servicechain' in rb_roles:
 
+                is_continue_execution = True
+        if not is_continue_execution:
+            # Execute this if and only if the above roles present else run
+            # the feature based way.
+            return
         if not self.ensure_bgp_config():
             return
-        self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
         self.set_internal_vn_routed_vn_config()
         self.set_internal_vn_lr_interconnect_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
-        self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
-
-    def is_erb_ucast_only(self):
-        return self.physical_router.is_erb_only()
-    # end is_erb_ucast_only
-
-    # check crb-access only assigned.
-    def is_crb_access_only(self):
-        if self.physical_router.routing_bridging_roles:
-            gw_role = any('gateway' in r.lower() for r in
-                       self.physical_router.routing_bridging_roles)
-            if 'CRB-Access' in self.physical_router.routing_bridging_roles \
-                    and not gw_role:
-                return True
-        return False
 
     @staticmethod
     def get_subnet_for_cidr(cidr):

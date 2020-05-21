@@ -100,76 +100,18 @@ device_family_info:
 
 # Role to feature mapping
 role_to_feature_mapping:
-  CRB-Gateway@leaf:
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_security_group
-    - overlay_lag
-    - overlay_multi_homing
-  CRB-Gateway@spine:
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_security_group
-    - overlay_lag
-    - overlay_multi_homing
-  CRB-MCAST-Gateway@spine:
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_evpn_mcast_gateway
-    - overlay_security_group
-    - overlay_lag
-    - overlay_multi_homing
   DC-Gateway@leaf:
     - overlay_networking
     - overlay_fip_snat
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_lag
-    - overlay_multi_homing
   DC-Gateway@spine:
     - overlay_networking
     - overlay_fip_snat
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_lag
-    - overlay_multi_homing
   DCI-Gateway@leaf:
     - overlay_networking
     - overlay_fip_snat
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_lag
-    - overlay_multi_homing
   DCI-Gateway@spine:
     - overlay_networking
     - overlay_fip_snat
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_lag
-    - overlay_multi_homing
-  CRB-MCAST-Gateway@leaf:
-    - overlay_evpn
-    - overlay_evpn_access
-    - overlay_evpn_gateway
-    - overlay_evpn_type5
-    - overlay_evpn_mcast_gateway
-    - overlay_security_group
-    - overlay_lag
-    - overlay_multi_homing
   PNF-Servicechain@leaf:
     - overlay_pim
     - overlay_service_chain
@@ -227,6 +169,13 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   CRB-MCAST-Gateway@spine:
     - basic
     - underlay_ip_clos
@@ -234,6 +183,14 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_evpn_mcast_gateway
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   DC-Gateway@spine:
     - basic
     - underlay_ip_clos
@@ -241,6 +198,12 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
   DCI-Gateway@spine:
     - basic
     - underlay_ip_clos
@@ -248,6 +211,12 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
   CRB-Gateway@leaf:
     - basic
     - underlay_ip_clos
@@ -255,6 +224,13 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   CRB-MCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
@@ -262,6 +238,14 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_evpn_mcast_gateway
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   DC-Gateway@leaf:
     - basic
     - underlay_ip_clos
@@ -269,6 +253,12 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
   DCI-Gateway@leaf:
     - basic
     - underlay_ip_clos
@@ -276,6 +266,12 @@ feature_based_plugin_roles:
     - overlay_bgp
     - overlay_dhcp_relay
     - overlay_telemetry
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
   AR-Client@leaf:
     - overlay_assisted_replicator_client
     - overlay_telemetry

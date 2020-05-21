@@ -7,7 +7,7 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 fro
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
 {%     set dict_var = {'route_distinguisher': ''} %}
-{%     for bgp_elem in device_abstract_config.features.get('overlay-bgp', {}).get('bgp', []) %}
+{%     for bgp_elem in device_abstract_config.get('features', {}).get('overlay-bgp', {}).get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         if 'evpn' in families %}
 {%             set route_distinguisher = bgp_elem.get('ip_address') %}
@@ -15,11 +15,14 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 the
 {%         endif %}
 {%     endfor %}
 
-{% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
+{%     set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     set ns = namespace(public_network='no') %}
-{%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
+{%     for ri in device_abstract_config.get('features', {}).get('vn-interconnect').get('routing_instances', []) %}
 {%         set name = ri.get('description', '')[:127] %}
 {%         set vxlan_id = ri.get('vxlan_id') %}
+{%         if vxlan_id == 'None' %}
+{%             set vxlan_id = ri.get('virtual_network_id') %}
+{%         endif %}
 {%         set vn_id  = ri.get('virtual_network_id') | int %}
 {%         set vn_id_num_l3  = vn_id + 30000 %}
 {%         set router_external = ri.get('is_public_network', '') %}
@@ -29,14 +32,20 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 the
 set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
 set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
 {%         endfor %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options multipath
+set groups {{cfg_group}} routing-instances {{name}} routing-options rib {{name}}.inet6.0 multipath
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{dummy_ip}}/32 discard
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
 set groups {{cfg_group}} routing-instances {{name}} route-distinguisher {{dict_var.route_distinguisher}}:{{vn_id_num_l3}}
 set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
-{%         if (router_external != true) %}
+{%         if (vxlan_id != '') %}
+{%             if (router_external != true) %}
+set groups {{cfg_group}} protocols evpn
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export type5_policy
+{%             endif %}
 {%         endif %}
 {%         set vrf_import = name+'-import' %}
 {%         set vrf_export = name+'-export' %}
