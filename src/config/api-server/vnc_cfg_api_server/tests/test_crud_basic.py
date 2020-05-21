@@ -2661,7 +2661,7 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
                  'post_dbe_create', stub)]):
             self._create_test_object()
         with ExpectedException(RefsExistError), \
-                mock.patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                mock.patch('vnc_cfg_api_server.api_server'\
                            '.VncApiServer.get_args') as get_args_patch:
             get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
@@ -2684,7 +2684,7 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
             (self._api_server._db_conn, 'dbe_release', stub)]):
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         with ExpectedException(RefsExistError), \
-                mock.patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                mock.patch('vnc_cfg_api_server.api_server'\
                            '.VncApiServer.get_args') as get_args_patch:
             get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()

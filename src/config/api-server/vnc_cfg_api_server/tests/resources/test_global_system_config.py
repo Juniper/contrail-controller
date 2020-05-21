@@ -11,7 +11,6 @@ from vnc_api.vnc_api import GlobalSystemConfig, RouteTargetList, VirtualNetwork
 from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 from vnc_cfg_api_server.tests import test_case
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -21,15 +20,73 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     ASN_4_BYTES = 6553692
     FAKE_VN_LIST = [
         {
-            'fq_name': ['fake-name1'],
-            'uuid': 'fake_uuid1',
+            'fq_name': ['fake-vn-name1'],
+            'uuid': 'fake_vn_uuid1',
             'route_target_list': {
                 'route_target': [
                     'target:%d:%d' % (NEW_ASN,
                                       get_bgp_rtgt_min_id(NEW_ASN) + 1000),
                 ]
+            },
+            'import_route_target_list': {
+                'route_target': [
+                    'target:%d:%d' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN) + 1001),
+                ]
+            },
+            'export_route_target_list': {
+                'route_target': [
+                    'target:%d:%d' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN) + 1002),
+                ]
             }
-        }
+        },
+        {
+            'fq_name': ['fake-vn-name2'],
+            'uuid': 'fake_vn_uuid2',
+            'route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                    'target:%d:%d' % (NEW_ASN + 1,
+                                      get_bgp_rtgt_min_id(NEW_ASN)),
+                    'target:%d:%d' % (NEW_ASN + 2,
+                                      get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
+        {
+            'fq_name': ['fake-vn-name3'],
+            'uuid': 'fake_vn_uuid3',
+            'import_route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
+        {
+            'fq_name': ['fake-vn-name4'],
+            'uuid': 'fake_vn_uuid4',
+            'export_route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
+    ]
+    FAKE_LR_LIST = [
+        {
+            'fq_name': ['fake-lr-name1'],
+            'uuid': 'fake_lr_uuid1',
+            'configured_route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                    'target:%s:%s' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN)),
+                    'target:%s:%s' % (NEW_ASN + 1,
+                                      get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
     ]
 
     @classmethod
@@ -43,6 +100,16 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
         super(TestGlobalSystemConfig, cls).tearDownClass(*args, **kwargs)
+
+    def tearDown(self, *args, **kwargs):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.autonomous_system = self.DEFAULT_ASN
+        gsc.enable_4byte_as = False
+
+        self.api.global_system_config_update(gsc)
+        self._api_server._global_asn = None
+
+        test_case.ApiServerTestCase.tearDown(self)
 
     @property
     def api(self):
@@ -96,25 +163,12 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
         self.assertEqual(700000, gsc.autonomous_system)
 
-        # Set the DEFAULT ASN and enable_4byte_as flag back to default as in
-        # CI, the order of test cases can change
-        gsc.autonomous_system = self.DEFAULT_ASN
-        self.api.global_system_config_update(gsc)
-
-        gsc.enable_4byte_as = False
-        self.api.global_system_config_update(gsc)
-
     def test_update_both_global_asn_and_asn_flag(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
 
         # First, enable 4byte AS flag.
         gsc.enable_4byte_as = True
         gsc.autonomous_system = 61450
-        self.api.global_system_config_update(gsc)
-
-        # Set the enable_4_byte back to false
-        gsc.enable_4byte_as = False
-        gsc.autonomous_system = self.DEFAULT_ASN
         self.api.global_system_config_update(gsc)
 
     def test_update_2_byte_asn_range_check(self):
@@ -135,19 +189,62 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         self.assertRaises(BadRequest, self.api.global_system_config_update,
                           gsc)
 
-        # Set enable_4byte_as flag back to default
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_4byte_as = False
-        self.api.global_system_config_update(gsc)
-
     def test_cannot_update_global_asn_if_used_by_user(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
 
-        gsc.autonomous_system = self.NEW_ASN
-        with mock.patch.object(self._api_server._db_conn, 'dbe_list',
-                               return_value=(True, self.FAKE_VN_LIST, None)):
-            self.assertRaises(BadRequest, self.api.global_system_config_update,
-                              gsc)
+        tests = [
+            {'autonomous_system': self.NEW_ASN,
+             'mock_return_value': (True, self.FAKE_VN_LIST, None),
+             'expected_rt_count': 6},
+            {'autonomous_system': self.NEW_ASN + 1,
+             'mock_return_value': (True, self.FAKE_VN_LIST, None),
+             'expected_rt_count': 1},
+            {'autonomous_system': self.NEW_ASN + 2,
+             'mock_return_value': (True, self.FAKE_VN_LIST, None),
+             'expected_rt_count': 1},
+            {'autonomous_system': self.NEW_ASN,
+             'mock_return_value': (True, self.FAKE_LR_LIST, None),
+             'expected_rt_count': 2},
+            {'autonomous_system': self.NEW_ASN + 1,
+             'mock_return_value': (True, self.FAKE_LR_LIST, None),
+             'expected_rt_count': 1},
+        ]
+        for t in tests:
+            gsc.autonomous_system = t['autonomous_system']
+            with mock.patch.object(self._api_server._db_conn, 'dbe_list',
+                                   return_value=t['mock_return_value']):
+                try:
+                    self.api.global_system_config_update(gsc)
+                except Exception as exc:
+                    self.assertIsInstance(exc, BadRequest)
+                    self.assertEqual(exc.status_code, 400)
+                    # The first line of exception is a generic message.
+                    # The remaining lines are list of Route Targets
+                    # that are invalid.
+                    # We want to count all invalid Route Targets,
+                    # so we start with the second element of the list.
+                    existing_rt = exc.content.split('\t')[1:]
+                    self.assertEqual(len(existing_rt), t['expected_rt_count'])
+
+    def test_can_update_global_asn_if_not_used_by_user(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_4byte_as = False
+
+        tests = [
+            {'autonomous_system': self.NEW_ASN + 10,
+             'mock_return_value': (True, self.FAKE_VN_LIST, None)},
+            {'autonomous_system': self.NEW_ASN + 2,
+             'mock_return_value': (True, self.FAKE_LR_LIST, None)},
+        ]
+        for t in tests:
+            with mock.patch.object(self._api_server._db_conn, 'dbe_list',
+                                   return_value=t['mock_return_value']):
+                gsc.autonomous_system = t['autonomous_system']
+                self.api.global_system_config_update(gsc)
+
+            gsc = self.api.global_system_config_read(
+                GlobalSystemConfig().fq_name)
+            self.assertEqual(gsc.autonomous_system, t['autonomous_system'])
 
     def test_update_asn_if_any_rt_uses_4_byte(self):
         """
@@ -188,5 +285,3 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
-        gsc.autonomous_system = self.DEFAULT_ASN
-        self.api.global_system_config_update(gsc)
