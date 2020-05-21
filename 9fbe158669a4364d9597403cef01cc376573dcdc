@@ -16,6 +16,24 @@
       "revId": "9fbe158669a4364d9597403cef01cc376573dcdc",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "09e351c9_b01e6b1b",
+        "filename": "src/config/schema-transformer/requirements.txt",
+        "patchSetId": 20
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-05-21T19:27:07Z",
+      "side": 1,
+      "message": "Sorry, I tried to search, but I can\u0027t find files responsible for ST container\u0027s requirements. Could you point a file\u0027s path?",
+      "parentUuid": "e8b518be_2b760a83",
+      "revId": "9fbe158669a4364d9597403cef01cc376573dcdc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
