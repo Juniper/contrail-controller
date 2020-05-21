@@ -1068,7 +1068,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_add_one_untagged_vlan(
         cls, db_conn, api_server, vpg_uuid,
-            vlan_id, is_untagged, validation):
+            vmi_uuid, vlan_id, is_untagged, validation):
         """Verify no untagged VLAN exists in the VPG.
 
         If this VLAN is untagged ensure no untagged
@@ -1077,6 +1077,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         :  db_conn: db connection object
         :  api_server: api_server connection object
         :  vpg_uuid: UUID of virtual_port_group object
+        :  vmi_uuid: UUID of virtual_machine_interface object
         :  vlan_id: ID of the VLAN
         :  validation:
         :    enterprise
@@ -1088,7 +1089,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if not is_untagged:
             return True, ''
         ann_key = 'validation:%s/untagged_vlan_id' % validation
-        ann_value = '%s' % vlan_id
+        ann_value = ('%s:%s' % (vlan_id, vmi_uuid))
         # ensure that no untagged vlan annotation
         # exists already
         ok, result = cls._check_annotations(
@@ -1099,11 +1100,16 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         result = result or {}
         annotations = result.get('annotations') or []
         for ann_dict, _ in annotations:
-            # Fail if its not the same entry
-            r_ann_value = ann_dict.get('value', '')
             if not (ann_key.startswith('validation:%s' % validation) and
                     ann_key.endswith('untagged_vlan_id')):
                 continue
+            # Fail if its not the same entry
+            r_ann_value = ann_dict.get('value', '')
+            r_ann_vlan, r_ann_vmi_uuid = r_ann_value.split(':', 1)
+            # VMI update case, ignore
+            if r_ann_vmi_uuid == vmi_uuid:
+                continue
+
             if r_ann_value != ann_value:
                 msg = ("Untagged VLAN(%s) already exists in "
                        "VPG(%s), This Untagged VLAN(%s) "
@@ -1122,7 +1128,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_same_vn_vlan_exists_in_vpg(
         cls, db_conn, api_server, vn_uuid,
-            vlan_id, vpg_uuid, validation):
+            vmi_uuid, vlan_id, vpg_uuid, validation):
         """Verify only same VN and same VLAN-ID combination exists.
 
         For enterprise style, there can be only one combination
@@ -1131,6 +1137,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         :  db_conn: db connection object
         :  api_server: api_server connection object
         :  vn_uuid: UUID of virtual_network
+        :  vmi_uuid: UUID of virtual_machine_interface
         :  vlan_id: ID of the VLAN
         :  vpg_uuid: UUID of VPG
         :  validation:
@@ -1173,6 +1180,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         vpg_kvps = vpg_annotations.get('key_value_pair') or []
         for kvp in vpg_kvps:
             kvp_key = kvp.get('key', '')
+            kvp_value = kvp.get('value', '')
+            # VMI update, ignore
+            if kvp_value == vmi_uuid:
+                continue
+
+            # verify VN/VLAN of existing VMI is not used again
             if (kvp_key.startswith('validation:%s' % validation) and
                     not kvp_key.endswith('untagged_vlan_id')):
                 vtype, vninfo, vlaninfo = kvp_key.split('/', 2)
@@ -1195,7 +1208,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_same_vn_vlan_exists_in_fabric(
         cls, db_conn, api_server, vn_uuid,
-            vlan_id, fabric_uuid, validation):
+            vmi_uuid, vlan_id, fabric_uuid, validation):
         """Verify only same VN and same VLAN-ID combination exists.
 
         For enterprise style, there can be only one combination
@@ -1263,6 +1276,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             kvps = annotations.get('key_value_pair') or []
             for kvp in kvps:
                 kvp_key = kvp.get('key', '')
+                kvp_value = kvp.get('value', '')
+                # VMI update, ignore
+                if kvp_value == vmi_uuid:
+                    continue
+
+                # verify VN/VLAN of existing VMI is not used again
                 if (kvp_key.startswith('validation:%s' % validation) and
                         not kvp_key.endswith('untagged_vlan_id')):
                     vtype, vninfo, vlaninfo = kvp_key.split('/', 2)
@@ -1321,8 +1340,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             if not ok:
                 return ok, result
             ok, result = cls._check_add_one_untagged_vlan(
-                db_conn, api_server, vpg_uuid, vlan_id, is_untagged_vlan,
-                validation)
+                db_conn, api_server, vpg_uuid, vmi_uuid, vlan_id,
+                is_untagged_vlan, validation)
             if not ok:
                 return ok, result
             ok, result = cls._add_unique_vn_vlan_in_vpg(
@@ -1377,8 +1396,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             if not ok:
                 return ok, result
             ok, result = cls._check_add_one_untagged_vlan(
-                db_conn, api_server, vpg_uuid, vlan_id, is_untagged_vlan,
-                validation)
+                db_conn, api_server, vpg_uuid, vmi_uuid, vlan_id,
+                is_untagged_vlan, validation)
             if not ok:
                 return ok, result
             # Enable validation at fabric level
@@ -1387,7 +1406,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 with ZookeeperLock(**zk_fab_args):
                     # verify same vn:vlan exists at fabric level
                     ok, result = cls._check_same_vn_vlan_exists_in_fabric(
-                        db_conn, api_server, vn_uuid, vlan_id,
+                        db_conn, api_server, vn_uuid, vmi_uuid, vlan_id,
                         fabric_uuid, validation)
                     if not ok:
                         return ok, result
@@ -1399,7 +1418,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             else:
                 # verify same vn:vlan exists at VPG level
                 ok, result = cls._check_same_vn_vlan_exists_in_vpg(
-                    db_conn, api_server, vn_uuid, vlan_id,
+                    db_conn, api_server, vn_uuid, vmi_uuid, vlan_id,
                     vpg_uuid, validation)
                 if not ok:
                     return ok, result

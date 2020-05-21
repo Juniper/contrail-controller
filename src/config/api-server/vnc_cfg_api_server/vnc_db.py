@@ -1405,7 +1405,7 @@ class VncDbClient(object):
                 # for untagged_vlan add extra annotation
                 this_kvps.append(
                     {'key': 'validation:%s/untagged_vlan_id' % validation,
-                     'value': vmi_vlan})
+                     'value': '%s:%s' % (vmi_vlan, vmi_uuid)})
             annotations += this_kvps
         # update VPG object with annotations
         if annotations:
