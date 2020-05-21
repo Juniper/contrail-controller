@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e8b518be_2b760a83",
+        "filename": "src/config/schema-transformer/requirements.txt",
+        "patchSetId": 20
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-05-21T03:35:32Z",
+      "side": 1,
+      "message": "gevent is installed in both containers and UT. This change will make UT have latest version but containers will have older version. \nwe should make equivalent change in containers as well.",
+      "revId": "9fbe158669a4364d9597403cef01cc376573dcdc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
