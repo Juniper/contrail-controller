@@ -1,7 +1,6 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-# flake8: noqa
 from future import standard_library  # noqa
 standard_library.install_aliases()  # noqa
 

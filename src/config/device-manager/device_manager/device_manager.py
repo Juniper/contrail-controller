@@ -8,7 +8,6 @@ Physical router configuration implementation.
 This file contains implementation of managing physical router configuration
 based on intent configuration.
 """
-# flake8: noqa
 from __future__ import absolute_import
 from future import standard_library # noqa
 standard_library.install_aliases() # noqa
