@@ -1102,9 +1102,10 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const EcmpLoadBalance &ecmp_load_balance,
                                                bool is_local,
                                                bool is_health_check_service,
-                                               bool native_encap)
+                                               bool native_encap,
+                                               const std::string &intf_name)
 {
-    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, intf_name);
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
                                     vn_list, InterfaceNHFlags::INET4, sg_list,
