@@ -1061,7 +1061,7 @@ TEST_F(DnsTest, DnsXmppTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-TEST_F(DnsTest, DefaultDnsReqTest) {
+TEST_F(DnsTest, DISABLED_DefaultDnsReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -1133,7 +1133,7 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
+TEST_F(DnsTest, DISABLED_DefaultDnsLinklocalReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
