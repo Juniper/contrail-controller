@@ -1,0 +1,694 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "78dfeafe_11f60756",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Please use str casting only if needed - this comment regards whole file",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 1,
+        "endChar": 1
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f75d9bfd_3c7dcd51",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "extract to separate variable",
+      "range": {
+        "startLine": 68,
+        "startChar": 31,
+        "endLine": 68,
+        "endChar": 89
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3f9cfc27_7f9a4659",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Please use proper logger object instead of root logger if possible",
+      "range": {
+        "startLine": 97,
+        "startChar": 8,
+        "endLine": 97,
+        "endChar": 15
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45df118c_c5ef7ce4",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 100,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "when fabric has no physical routers this value will be None. Please convert it to empty list",
+      "range": {
+        "startLine": 100,
+        "startChar": 7,
+        "endLine": 100,
+        "endChar": 69
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "336b590f_49dcb591",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 103,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "1. Please use %s-style string formatting for logging to avoid paying effort for string tempting when logging level is higher that INFO.\n2. I think is more like DEBUG level log.\n3. Consider using fabric name instead of fabric uuid for better readability",
+      "range": {
+        "startLine": 101,
+        "startChar": 8,
+        "endLine": 103,
+        "endChar": 109
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5a74ea96_e298f36a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 112,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "create dict using {} notation",
+      "range": {
+        "startLine": 110,
+        "startChar": 27,
+        "endLine": 112,
+        "endChar": 88
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fde712d8_b8c8e593",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Ditto, but log can say as INFO",
+      "range": {
+        "startLine": 115,
+        "startChar": 12,
+        "endLine": 117,
+        "endChar": 100
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "551b2b58_636d3de4",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Rename to find/get_display_name",
+      "range": {
+        "startLine": 165,
+        "startChar": 8,
+        "endLine": 165,
+        "endChar": 26
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b7e72995_664793b3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 177,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Take care when this is None",
+      "range": {
+        "startLine": 177,
+        "startChar": 25,
+        "endLine": 177,
+        "endChar": 63
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2ca38116_5600b528",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 190,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Rename to find/get_node_type",
+      "range": {
+        "startLine": 190,
+        "startChar": 8,
+        "endLine": 190,
+        "endChar": 23
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7b3ce66d_44c6a04c",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Parenthesis not needed here",
+      "range": {
+        "startLine": 203,
+        "startChar": 15,
+        "endLine": 203,
+        "endChar": 16
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8d96166a_aa30b068",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Const for it and for rest of strings used in this function",
+      "range": {
+        "startLine": 203,
+        "startChar": 47,
+        "endLine": 203,
+        "endChar": 52
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5f5d9f9c_551333b8",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 205,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Ditto",
+      "range": {
+        "startLine": 205,
+        "startChar": 17,
+        "endLine": 205,
+        "endChar": 18
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e1fb77f4_6ce795e2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 210,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Check if string matches regex instead of raising and catching exceptions",
+      "range": {
+        "startLine": 207,
+        "startChar": 0,
+        "endLine": 210,
+        "endChar": 23
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ac711bc2_ae49d312",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 300,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "I think it should be a name, not display name.\nPlease create a dict from device IP address to device name before the loop and use this mapping in it.\nThis will decrease number of calls to Config API.",
+      "range": {
+        "startLine": 299,
+        "startChar": 12,
+        "endLine": 300,
+        "endChar": 106
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "84adbcce_3968d99c",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 302,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "separate variable",
+      "range": {
+        "startLine": 301,
+        "startChar": 43,
+        "endLine": 302,
+        "endChar": 44
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e19b69d0_0a270324",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 304,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "separate variable",
+      "range": {
+        "startLine": 303,
+        "startChar": 57,
+        "endLine": 304,
+        "endChar": 91
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3b824ea3_263dd599",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 310,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "I think var node should be logged here. Also the log message should be like: \"discovered node: %s connected to: %s device\"",
+      "range": {
+        "startLine": 310,
+        "startChar": 97,
+        "endLine": 310,
+        "endChar": 102
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "96cc06da_b8d65a85",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 313,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Is it working fine for LAG connections, where given compute has more than one connection to given fabric device",
+      "range": {
+        "startLine": 313,
+        "startChar": 8,
+        "endLine": 313,
+        "endChar": 73
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b1b948fc_95b884cb",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 373,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "I think this is a mandatory parameter",
+      "range": {
+        "startLine": 373,
+        "startChar": 12,
+        "endLine": 373,
+        "endChar": 59
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c718c05e_4fd2a58b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 377,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Are these credentials always mandatory?",
+      "range": {
+        "startLine": 376,
+        "startChar": 12,
+        "endLine": 377,
+        "endChar": 50
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5842979c_acf4050d",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 392,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "is it needed for successful run?",
+      "range": {
+        "startLine": 392,
+        "startChar": 12,
+        "endLine": 392,
+        "endChar": 31
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "969b0953_47268e12",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/discover_os_computes_role/tests/inventory",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Is this file needed?",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 1,
+        "endChar": 9
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bd659af1_ac235651",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/discover_os_computes_role/tests/test.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Is this file needed?",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 5,
+        "endChar": 26
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e9c9b5ac_2500f67a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/discover_os_computes_role/vars/main.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Is this file needed?",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 2,
+        "endChar": 36
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "094018de_17fbc607",
+        "filename": "src/config/fabric-ansible/test/test_discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "I am not sure that these import are needed",
+      "range": {
+        "startLine": 2,
+        "startChar": 0,
+        "endLine": 3,
+        "endChar": 41
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "742ad203_d7f6fa87",
+        "filename": "src/config/fabric-ansible/test/test_discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Change class name to something more corresponing to the content",
+      "range": {
+        "startLine": 21,
+        "startChar": 6,
+        "endLine": 21,
+        "endChar": 27
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aa559a02_e9500085",
+        "filename": "src/config/fabric-ansible/test/test_discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "1. Please add test where system description contains more than correct node_type\n2. Put cases into separate tests\n3. cli_filter creation can be put into setUpClass method",
+      "range": {
+        "startLine": 23,
+        "startChar": 8,
+        "endLine": 23,
+        "endChar": 28
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6afde0d6_a9d5467d",
+        "filename": "src/config/fabric-ansible/test/test_discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Split into 2 separate tests",
+      "range": {
+        "startLine": 38,
+        "startChar": 8,
+        "endLine": 38,
+        "endChar": 35
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb0782c1_6a996957",
+        "filename": "src/config/fabric-ansible/test/test_discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 1,
+      "message": "Decrease keys identation",
+      "range": {
+        "startLine": 39,
+        "startChar": 8,
+        "endLine": 39,
+        "endChar": 36
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f66857f2_96e0d562",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 2
+      },
+      "lineNbr": 164,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2020-05-25T17:10:30Z",
+      "side": 0,
+      "message": "Why was it removed?",
+      "range": {
+        "startLine": 164,
+        "startChar": 10,
+        "endLine": 164,
+        "endChar": 41
+      },
+      "revId": "a869390327512b38a3f484b1ea8032364d10f95a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
