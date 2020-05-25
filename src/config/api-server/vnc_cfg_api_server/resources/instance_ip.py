@@ -16,15 +16,18 @@ from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 class InstanceIpServer(ResourceMixin, InstanceIp):
     @classmethod
     def _vmi_has_vm_ref(cls, db_conn, iip_dict):
+        if iip_dict is None:
+            return False
+
         # is this iip linked to a vmi that is not ref'd by a router
         vmi_refs = iip_dict.get('virtual_machine_interface_refs') or []
-        for vmi_ref in vmi_refs or []:
+        for vmi_ref in vmi_refs:
             ok, result = cls.dbe_read(db_conn, 'virtual_machine_interface',
                                       vmi_ref['uuid'],
                                       obj_fields=['virtual_machine_refs'])
             if not ok:
                 continue
-            if result.get('virtual_machine_refs'):
+            if result and result.get('virtual_machine_refs'):
                 return True
         return False
 
@@ -97,7 +100,7 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
                     return (ok, (400, obj_dict))
                 ipam_refs = vrouter_dict.get('network_ipam_refs') or []
             else:
-                ipam_refs = obj_dict.get('network_ipam_refs')
+                ipam_refs = obj_dict.get('network_ipam_refs') or []
 
         subnet_uuid = obj_dict.get('subnet_uuid')
         if subnet_uuid and virtual_router_refs:
@@ -130,12 +133,12 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
                 return False, (400, "Gateway IP cannot be used by VM port")
 
         alloc_pool_list = []
-        if 'virtual_router_refs' in obj_dict:
+        if obj_dict.get('virtual_router_refs'):
             # go over all the ipam_refs and build a list of alloc_pools
             # from where ip is expected
             for vr_ipam in ipam_refs:
-                vr_ipam_data = vr_ipam.get('attr', {})
-                vr_alloc_pools = vr_ipam_data.get('allocation_pools', [])
+                vr_ipam_data = vr_ipam.get('attr') or {}
+                vr_alloc_pools = vr_ipam_data.get('allocation_pools') or []
                 alloc_pool_list.extend(
                     [(vr_alloc_pool) for vr_alloc_pool in vr_alloc_pools])
 
@@ -225,7 +228,7 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        if 'virtual_network_refs' in obj_dict:
+        if obj_dict.get('virtual_network_refs'):
             ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(
                 obj_dict['virtual_network_refs'][0]['to'])
             return ok, '', ip_free_args
@@ -243,7 +246,7 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
                 return False, ""
             return True, ip_addr
 
-        if 'network_ipam_refs' in obj_dict:
+        if obj_dict.get('network_ipam_refs'):
             ipam_refs = obj_dict['network_ipam_refs']
             ok, ip_addr = _get_instance_ip(obj_dict)
             if not ok:

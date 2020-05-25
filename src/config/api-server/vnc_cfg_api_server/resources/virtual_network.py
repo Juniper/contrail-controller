@@ -29,7 +29,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
     def _check_is_provider_network_property(cls, obj_dict, db_conn,
                                             vn_ref=None):
         # no further checks if is_provider_network is not set
-        if 'is_provider_network' not in obj_dict:
+        if obj_dict.get('is_provider_network') is None:
             return (True, '')
         if not vn_ref:
             # must be set as False for non provider VN
@@ -41,8 +41,8 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         else:
             # compare obj_dict with db and fail
             # if not same as this is a read-only property
-            if obj_dict.get('is_provider_network') != \
-               vn_ref.get('is_provider_network', False):
+            is_provider_net = vn_ref.get('is_provider_network') or False
+            if obj_dict.get('is_provider_network') != is_provider_net:
                 return (False,
                         'Update is_provider_network property of VN (%s) '
                         'is not allowed' % obj_dict.get('uuid'))
@@ -129,13 +129,10 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
 
     @staticmethod
     def _check_vxlan_id(obj_dict):
-        if ('virtual_network_properties' in obj_dict and
-                obj_dict['virtual_network_properties'] is not None and
-                'vxlan_network_identifier' in obj_dict[
-                    'virtual_network_properties']):
-            virtual_network_properties = obj_dict['virtual_network_properties']
-            return True, virtual_network_properties.get(
-                'vxlan_network_identifier')
+        vn_props = obj_dict.get('virtual_network_properties')
+        if (vn_props is not None and
+                vn_props.get('vxlan_network_identifier') is not None):
+            return True, vn_props.get('vxlan_network_identifier')
         else:
             # return false only when the above fields are not found
             return False, None
@@ -158,7 +155,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                 return ok, result
 
             old_properties = result.get('provider_properties')
-            if 'virtual_machine_interface_back_refs' in result:
+            if result.get('virtual_machine_interface_back_refs'):
                 if old_properties != properties:
                     msg = ("Provider values can not be changed when VMs are "
                            "already using")
@@ -184,11 +181,13 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
     @classmethod
     def _is_multi_policy_service_chain_supported(cls, obj_dict,
                                                  read_result=None):
-        if not ('multi_policy_service_chains_enabled' in obj_dict or
-                'route_target_list' in obj_dict or
-                'import_route_target_list' in obj_dict or
-                'export_route_target_list' in obj_dict):
-            return (True, '')
+        multi_pol_enabled = obj_dict.get('multi_policy_service_chains_enabled')
+        rt_list = obj_dict.get('route_target_list')
+        import_rt_list = obj_dict.get('import_route_target_list')
+        export_rt_list = obj_dict.get('export_route_target_list')
+        if not (multi_pol_enabled is not None or rt_list is not None or
+                import_rt_list is not None or export_rt_list is not None):
+            return True, ''
 
         # Create Request
         if not read_result:
@@ -197,39 +196,38 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         result_obj_dict = copy.deepcopy(read_result)
         result_obj_dict.update(obj_dict)
         if result_obj_dict.get('multi_policy_service_chains_enabled'):
-            import_export_targets = result_obj_dict.get('route_target_list',
-                                                        {})
-            import_targets = result_obj_dict.get('import_route_target_list',
-                                                 {})
-            export_targets = result_obj_dict.get('export_route_target_list',
-                                                 {})
-            import_targets_set = set(import_targets.get('route_target', []))
-            export_targets_set = set(export_targets.get('route_target', []))
+            import_export_targets = result_obj_dict.get(
+                'route_target_list') or {}
+            import_targets = result_obj_dict.get(
+                'import_route_target_list') or {}
+            export_targets = result_obj_dict.get(
+                'export_route_target_list') or {}
+            import_targets_set = set(import_targets.get('route_target') or [])
+            export_targets_set = set(export_targets.get('route_target') or [])
             targets_in_both_import_and_export = \
                 import_targets_set.intersection(export_targets_set)
             if ((import_export_targets.get('route_target') or []) or
                     targets_in_both_import_and_export):
                 msg = "Multi policy service chains are not supported, "
                 msg += "with both import export external route targets"
-                return (False, (409, msg))
+                return False, (409, msg)
 
-        return (True, '')
+        return True, ''
 
     @classmethod
     def _check_net_mode_for_flat_ipam(cls, obj_dict, db_dict):
-        net_mode = None
-        vn_props = None
-        if 'virtual_network_properties' in obj_dict:
-            vn_props = obj_dict['virtual_network_properties']
-        elif db_dict:
+        vn_props = obj_dict.get('virtual_network_properties')
+        if vn_props is None:
             vn_props = db_dict.get('virtual_network_properties')
-        if vn_props:
+
+        if vn_props is not None:
             net_mode = vn_props.get('forwarding_mode')
+        else:
+            net_mode = None
 
         if net_mode != 'l3':
-            return (False, "flat-subnet is allowed only with l3 network")
-        else:
-            return (True, "")
+            return False, "flat-subnet is allowed only with l3 network"
+        return True, ""
 
     @classmethod
     def _check_ipam_network_subnets(cls, obj_dict, db_conn, vn_uuid,
@@ -237,9 +235,9 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         # if Network has subnets in network_ipam_refs, it should refer to
         # atleast one ipam with user-defined-subnet method. If network is
         # attached to all "flat-subnet", vn can not have any VnSubnetType cidrs
-
-        if (('network_ipam_refs' not in obj_dict) and
-           ('virtual_network_properties' in obj_dict)):
+        network_ipam_refs = obj_dict.get('network_ipam_refs')
+        vn_properties = obj_dict.get('virtual_network_properties')
+        if network_ipam_refs is None and vn_properties is not None:
             # it is a network update without any changes in network_ipam_refs
             # but changes in virtual_network_properties
             # we need to read ipam_refs from db_dict and for any ipam if
@@ -261,7 +259,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
             if not ok:
                 return False, ipam_lists[0], ipam_lists[1]
             for ipam in ipam_lists:
-                if 'ipam_subnet_method' in ipam:
+                if ipam.get('ipam_subnet_method'):
                     subnet_method = ipam['ipam_subnet_method']
                     ipam_with_flat_subnet = True
                     break
@@ -356,7 +354,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         if not ok:
             return False
 
-        if 'fabric_snat' in result:
+        if result.get('fabric_snat') is not None:
             return result['fabric_snat']
 
         return False
@@ -401,9 +399,9 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         iip_map = cls._get_vn_instance_ip_uuid_map(vn_obj, db_conn)
         new_ip_map = []
         if obj_dict.get('virtual_network_routed_properties', None) is not None:
-            vn_routed_prop = obj_dict.get('virtual_network_routed_properties',
-                                          {})
-            for routed_prop in vn_routed_prop.get('routed_properties', []):
+            vn_routed_prop = obj_dict.get(
+                'virtual_network_routed_properties') or {}
+            for routed_prop in (vn_routed_prop.get('routed_properties') or []):
                 ip_addr = routed_prop.get('loopback_ip_address', None)
                 ok = True
                 if ip_addr is None:
@@ -716,7 +714,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
             return True, ""
 
         # neutron <-> vnc sharing
-        global_access = obj_dict.get('perms2', {}).get('global_access')
+        global_access = (obj_dict.get('perms2') or {}).get('global_access')
         is_shared = obj_dict.get('is_shared')
         router_external = obj_dict.get('router_external')
         if global_access is not None or is_shared is not None or \

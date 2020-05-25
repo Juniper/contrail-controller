@@ -59,7 +59,7 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
 
     @staticmethod
     def _validate_subcluster_dep(obj_dict, db_conn):
-        if 'sub_cluster_refs' in obj_dict:
+        if obj_dict.get('sub_cluster_refs'):
             if len(obj_dict['sub_cluster_refs']):
                 sub_cluster_obj = db_conn.uuid_to_obj_dict(
                     obj_dict['sub_cluster_refs'][0]['uuid'])
@@ -93,7 +93,7 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, ref_update=None):
-        if ('sub_cluster_refs' in obj_dict or
+        if (obj_dict.get('sub_cluster_refs') or
                 (obj_dict.get('bgp_router_parameters') and
                  obj_dict['bgp_router_parameters'].get('autonomous_system'))):
             ok, result = cls._validate_subcluster_dep(obj_dict, db_conn)

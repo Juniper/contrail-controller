@@ -3,6 +3,7 @@
 #
 from __future__ import absolute_import
 import time
+
 from attrdict import AttrDict
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler

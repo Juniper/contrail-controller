@@ -58,8 +58,8 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
     @classmethod
     def check_port_gateway_not_in_same_network(cls, db_conn, obj_dict,
                                                lr_id=None):
-        if ('virtual_network_refs' in obj_dict and
-                'virtual_machine_interface_refs' in obj_dict):
+        if (obj_dict.get('virtual_network_refs') and
+                obj_dict.get('virtual_machine_interface_refs')):
             ok, result = cls.is_port_gateway_in_same_network(
                 db_conn,
                 obj_dict['virtual_machine_interface_refs'],
@@ -68,20 +68,20 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                 return ok, result
         # update
         if lr_id:
-            if ('virtual_network_refs' in obj_dict or
-                    'virtual_machine_interface_refs' in obj_dict):
+            if (obj_dict.get('virtual_network_refs') or
+                    obj_dict.get('virtual_machine_interface_refs')):
                 ok, read_result = cls.dbe_read(db_conn, 'logical_router',
                                                lr_id)
                 if not ok:
                     return ok, read_result
-            if 'virtual_network_refs' in obj_dict:
+            if obj_dict.get('virtual_network_refs'):
                 ok, result = cls.is_port_gateway_in_same_network(
                     db_conn,
                     read_result.get('virtual_machine_interface_refs') or [],
                     obj_dict['virtual_network_refs'])
                 if not ok:
                     return ok, result
-            if 'virtual_machine_interface_refs' in obj_dict:
+            if obj_dict.get('virtual_machine_interface_refs'):
                 ok, result = cls.is_port_gateway_in_same_network(
                     db_conn,
                     obj_dict['virtual_machine_interface_refs'],
@@ -118,7 +118,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         # UI as of July 2018 can still send empty vxlan_network_identifier
         # the empty value is one of 'None', None or ''.
         # Handle all these scenarios
-        if ('vxlan_network_identifier' in obj_dict):
+        if obj_dict.get('vxlan_network_identifier') is not None:
             vxlan_network_identifier = obj_dict['vxlan_network_identifier']
             if (vxlan_network_identifier != 'None' and
                     vxlan_network_identifier is not None and
@@ -132,10 +132,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
     @staticmethod
     def check_lr_type(obj_dict):
-        if 'logical_router_type' in obj_dict:
-            return obj_dict['logical_router_type']
-
-        return None
+        return obj_dict.get('logical_router_type')
 
     @classmethod
     def _ensure_lr_dci_association(cls, lr):
@@ -311,7 +308,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
         logical_router_type_in_db = cls.check_lr_type(read_result)
 
-        if ('vxlan_network_identifier' in obj_dict and
+        if (obj_dict.get('vxlan_network_identifier') is not None and
                 logical_router_type_in_db == 'vxlan-routing'):
 
             new_vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
@@ -398,8 +395,8 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             return ok, result
         lr_orig_dict = result
 
-        if (obj_dict.get('configured_route_target_list') is None and
-                'vxlan_network_identifier' not in obj_dict):
+        if (not obj_dict.get('configured_route_target_list') is None and
+                obj_dict.get('vxlan_network_identifier') is None):
             return True, ''
 
         logical_router_type_in_db = cls.check_lr_type(lr_orig_dict)
@@ -412,7 +409,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
             vn_id = None
             for vn_ref in lr_orig_dict.get('virtual_network_refs') or []:
-                if (vn_ref.get('attr', {}).get(
+                if ((vn_ref.get('attr') or {}).get(
                         'logical_router_virtual_network_type') ==
                         'InternalVirtualNetwork'):
                     vn_id = vn_ref.get('uuid')
@@ -459,8 +456,8 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                 # If vxlan_id has been set, we need to propogate it to the
                 # internal VN.
                 if vxlan_id_in_db != obj_dict.get('vxlan_network_identifier'):
-                    prop = vn_dict.get('virtual_network_properties', {})
-                    prop['vxlan_network_identifier'] =\
+                    prop = vn_dict.get('virtual_network_properties') or {}
+                    prop['vxlan_network_identifier'] = \
                         obj_dict['vxlan_network_identifier']
                     vn_obj.set_virtual_network_properties(prop)
 
@@ -478,12 +475,12 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         kwargs = {'id_perms': IdPermsType(user_visible=False, enable=True)}
         kwargs['display_name'] = 'LR::%s' % obj_dict['fq_name'][-1]
         vn_property = VirtualNetworkType(forwarding_mode='l3')
-        if 'vxlan_network_identifier' in obj_dict:
+        if obj_dict.get('vxlan_network_identifier') is not None:
             vn_property.set_vxlan_network_identifier(
                 obj_dict['vxlan_network_identifier'])
         kwargs['virtual_network_properties'] = vn_property
-        rt_list = obj_dict.get(
-            'configured_route_target_list', {}).get('route_target')
+        rt_list = (obj_dict.get('configured_route_target_list') or {}).get(
+            'route_target')
         if rt_list:
             kwargs['route_target_list'] = RouteTargetList(rt_list)
         ok, result = cls.server.get_resource_class(

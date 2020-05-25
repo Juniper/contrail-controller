@@ -17,15 +17,16 @@ class RoutingInstanceServer(ResourceMixin, RoutingInstance):
         Forbidden an external call to delete a default routing instance and
         also prevent an external call to change the default flag.
         """
+        rt_is_default = obj_dict.get('routing_instance_is_default') or False
         if is_internal_request():
             return True, ''
-        if 'routing_instance_is_default' not in obj_dict:
+        if not rt_is_default:
             return True, ''
-        if not db_obj_dict and not obj_dict['routing_instance_is_default']:
+        if not db_obj_dict and rt_is_default is False:
             # create and delete allowed if not default RI
             return True, ''
-        elif (db_obj_dict and obj_dict['routing_instance_is_default'] ==
-                db_obj_dict.get('routing_instance_is_default', False)):
+        elif (db_obj_dict and rt_is_default ==
+              (db_obj_dict.get('routing_instance_is_default') or False)):
             # update allowed if same as before
             return True, ''
 

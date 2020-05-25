@@ -11,14 +11,14 @@ class QosConfigServer(ResourceMixin, QosConfig):
     @staticmethod
     def _check_qos_values(obj_dict, db_conn):
         fc_pair = 'qos_id_forwarding_class_pair'
-        if 'dscp_entries' in obj_dict:
+        if obj_dict.get('dscp_entries'):
             for qos_id_pair in obj_dict['dscp_entries'].get(fc_pair, []):
                 dscp = qos_id_pair.get('key')
                 if dscp and dscp < 0 or dscp > 63:
                     return (False, (400, "Invalid DSCP value %d"
                                     % qos_id_pair.get('key')))
 
-        if 'vlan_priority_entries' in obj_dict:
+        if obj_dict.get('vlan_priority_entries'):
             for qos_id_pair in obj_dict['vlan_priority_entries'].get(fc_pair,
                                                                      []):
                 vlan_priority = qos_id_pair.get('key')
@@ -26,7 +26,7 @@ class QosConfigServer(ResourceMixin, QosConfig):
                     return (False, (400, "Invalid 802.1p value %d"
                                     % qos_id_pair.get('key')))
 
-        if 'mpls_exp_entries' in obj_dict:
+        if obj_dict.get('mpls_exp_entries'):
             for qos_id_pair in obj_dict['mpls_exp_entries'].get(fc_pair) or []:
                 mpls_exp = qos_id_pair.get('key')
                 if mpls_exp and mpls_exp < 0 or mpls_exp > 7:

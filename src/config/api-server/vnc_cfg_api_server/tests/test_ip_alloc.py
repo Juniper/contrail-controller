@@ -1198,17 +1198,17 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # Create NetworkIpams specifying subnet_method as flat-subnet
         # and user-defined-subnet
-        ipam1 = NetworkIpam('flat-ipam', project, IpamType("dhcp"),
+        ipam1 = NetworkIpam('flat-ipam-%s' % self.id(), project, IpamType("dhcp"),
                            ipam_subnet_method="flat-subnet",
                            ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
         self._vnc_lib.network_ipam_create(ipam1)
         logger.debug('Created network ipam')
-        ipam2 = NetworkIpam('user-defined-ipam', project, IpamType("dhcp"),
+        ipam2 = NetworkIpam('user-defined-ipam-%s' % self.id(), project, IpamType("dhcp"),
                            ipam_subnet_method="user-defined-subnet")
         self._vnc_lib.network_ipam_create(ipam2)
         logger.debug('Created network ipam')
 
-        vn = VirtualNetwork('my-v4-v6-vn', project,
+        vn = VirtualNetwork('my-v4-v6-vn-%s' % self.id(), project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
                             address_allocation_mode='user-defined-subnet-only')
         vn.add_network_ipam(ipam1, VnSubnetsType([]))

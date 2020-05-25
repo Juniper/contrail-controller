@@ -14,9 +14,9 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
         if db_dict is None:
             db_dict = {}
         cnz_refs = []
-        if 'control_node_zone_refs' in db_dict:
+        if db_dict.get('control_node_zone_refs'):
             cnz_refs.extend(db_dict['control_node_zone_refs'])
-        if 'control_node_zone_refs' in obj_dict:
+        if obj_dict.get('control_node_zone_refs'):
             cnz_refs.extend(obj_dict['control_node_zone_refs'])
         cnz_db = {}
         for ref in cnz_refs:
@@ -63,7 +63,7 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
         if not ok:
             return ok, (400, result)
 
-        if 'control_node_zone_refs' in obj_dict:
+        if obj_dict.get('control_node_zone_refs'):
             (ok, msg) = cls._validate_control_node_zone_dep(obj_dict)
             if not ok:
                 return ok, msg
@@ -88,7 +88,7 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
             return ok, (400, result)
 
         result = None
-        if 'control_node_zone_refs' in obj_dict:
+        if obj_dict.get('control_node_zone_refs'):
             ok, result = cls.dbe_read(db_conn, 'bgp_as_a_service', id)
             if not ok:
                 return ok, result
@@ -96,7 +96,7 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
             if not ok:
                 return ok, msg
 
-        if 'bgpaas_shared' in obj_dict:
+        if obj_dict.get('bgpaas_shared') is not None:
             if not result:
                 ok, result = cls.dbe_read(db_conn, 'bgp_as_a_service', id)
                 if not ok:

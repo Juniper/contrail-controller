@@ -44,6 +44,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @staticmethod
     def _kvp_to_dict(kvps):
+        if not kvps:
+            return {}
         return dict((kvp['key'], kvp['value']) for kvp in kvps)
 
     @classmethod
@@ -68,8 +70,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return
 
         # if virtual_machine_refs is an empty list delete vrouter link
-        if ('virtual_machine_refs' in obj_dict and not
-                obj_dict['virtual_machine_refs']):
+        if not obj_dict.get('virtual_machine_refs'):
             api_server.internal_request_ref_update(
                 'virtual-router',
                 vrouter_id,
@@ -121,7 +122,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             bridge_domain_links[vlan_tag] = bd_uuid
 
         # disallow final state where bd exists but vn doesn't
-        if 'virtual_network_refs' in obj_dict:
+        if obj_dict.get('virtual_network_refs'):
             vn_refs = obj_dict['virtual_network_refs']
         else:
             vn_refs = (db_dict or {}).get('virtual_network_refs')
@@ -139,19 +140,20 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def _check_port_security_and_address_pairs(cls, obj_dict, db_dict=None):
-        if ('port_security_enabled' not in obj_dict and
-                'virtual_machine_interface_allowed_address_pairs' not in
-                obj_dict):
+        if (obj_dict.get('port_security_enabled') is None and
+            obj_dict.get(
+                'virtual_machine_interface_allowed_address_pairs') is None):
             return True, ""
 
         if not db_dict:
             db_dict = {}
-        if 'port_security_enabled' in obj_dict:
+        if obj_dict.get('port_security_enabled') is not None:
             port_security = obj_dict.get('port_security_enabled', True)
         else:
             port_security = db_dict.get('port_security_enabled', True)
 
-        if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
+        if obj_dict.get('virtual_machine_interface_allowed_address_pairs') \
+                is not None:
             address_pairs = obj_dict.get(
                 'virtual_machine_interface_allowed_address_pairs')
         else:
@@ -187,7 +189,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return True, ''
 
         for shc in service_health_check_refs or []:
-            if 'uuid' in shc:
+            if shc.get('uuid'):
                 shc_uuid = shc['uuid']
             else:
                 shc_fq_name = shc['to']
@@ -346,12 +348,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        vn_dict = obj_dict['virtual_network_refs'][0]
+        vn_dict = obj_dict['virtual_network_refs'][0] or {}
         vn_uuid = vn_dict.get('uuid')
         if not vn_uuid:
             vn_fq_name = vn_dict.get('to')
             if not vn_fq_name:
-                msg = ("Virtual Machine Interface must have valide Virtual "
+                msg = ("Virtual Machine Interface must have valid Virtual "
                        "Network reference")
                 return False, (400, msg)
             vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
@@ -367,10 +369,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         vlan_tag = (obj_dict.get('virtual_machine_interface_properties') or {}
                     ).get('sub_interface_vlan_tag') or 0
+
         if vlan_tag < 0 or vlan_tag > 4094:
             return False, (400, "Invalid sub-interface VLAN tag ID: %s" %
                            vlan_tag)
-        if vlan_tag and 'virtual_machine_interface_refs' in obj_dict:
+        if vlan_tag and obj_dict.get('virtual_machine_interface_refs'):
             primary_vmi_ref = obj_dict['virtual_machine_interface_refs']
             ok, primary_vmi = cls.dbe_read(
                 db_conn,
@@ -380,18 +383,20 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                             'virtual_machine_interface_properties'])
             if not ok:
                 return ok, primary_vmi
+            primary_vmi_vlan_tag = (primary_vmi.get(
+                'virtual_machine_interface_properties') or {}).get(
+                'sub_interface_vlan_tag')
 
-            primary_vmi_vlan_tag = primary_vmi.get(
-                'virtual_machine_interface_properties', {}).get(
-                    'sub_interface_vlan_tag')
             if primary_vmi_vlan_tag:
                 msg = ("sub interface can't have another sub interface as "
                        "it's primary port")
                 return False, (400, msg)
 
-            sub_vmi_refs = primary_vmi.get('virtual_machine_interface_refs',
-                                           {})
-            sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
+            sub_vmi_refs = primary_vmi.get('virtual_machine_interface_refs')
+            if sub_vmi_refs:
+                sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
+            else:
+                sub_vmi_uuids = []
 
             if sub_vmi_uuids:
                 ok, sub_vmis, _ = db_conn.dbe_list(
@@ -402,7 +407,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
                 sub_vmi_vlan_tags = [((vmi.get(
                     'virtual_machine_interface_properties') or {}).get(
-                        'sub_interface_vlan_tag')) for vmi in sub_vmis]
+                    'sub_interface_vlan_tag')) for vmi in sub_vmis]
+
                 if vlan_tag in sub_vmi_vlan_tags:
                     msg = "Two sub interfaces under same primary port "\
                           "can't have same Vlan tag"
@@ -414,9 +420,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return (False, (400, error))
 
         inmac = None
-        if 'virtual_machine_interface_mac_addresses' in obj_dict:
+        if obj_dict.get('virtual_machine_interface_mac_addresses'):
             mc = obj_dict['virtual_machine_interface_mac_addresses']
-            if 'mac_address' in mc and mc['mac_address']:
+            if mc.get('mac_address'):
                 inmac = [m.replace("-", ":") for m in mc['mac_address']]
         if inmac is not None:
             mac_addrs_obj = MacAddressesType(inmac)
@@ -431,7 +437,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         obj_dict['virtual_machine_interface_mac_addresses'] = mac_addrs_dict
 
         kvps = []
-        if 'virtual_machine_interface_bindings' in obj_dict:
+        if obj_dict.get('virtual_machine_interface_bindings'):
             bindings = obj_dict['virtual_machine_interface_bindings']
             kvps = bindings['key_value_pair']
             kvp_dict = cls._kvp_to_dict(kvps)
@@ -442,9 +448,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']):
                 # If the segmentation_id in provider_properties is set, then
                 # a hw_veb VIF is requested.
-                if ('provider_properties' in vn_dict and
-                   vn_dict['provider_properties'] is not None and
-                   'segmentation_id' in vn_dict['provider_properties']):
+                if (vn_dict.get('provider_properties') and
+                        'segmentation_id' in vn_dict['provider_properties']):
                     kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
                     vif_type = {
                         'key': 'vif_type',
@@ -607,7 +612,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return ok, read_result
 
         vn_uuid = None
-        if 'virtual_network_refs' in read_result:
+        if read_result.get('virtual_network_refs'):
             vn_uuid = read_result['virtual_network_refs'][0].get('uuid')
         ok, error = cls._check_bridge_domain_vmi_association(
             obj_dict, read_result, db_conn, vn_uuid, False)
@@ -638,8 +643,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             if not ok:
                 return ok, vpg
 
-        if ('virtual_machine_interface_refs' in obj_dict and
-                'virtual_machine_interface_refs' in read_result):
+        if (obj_dict.get('virtual_machine_interface_refs') and
+                read_result.get('virtual_machine_interface_refs')):
             for ref in read_result['virtual_machine_interface_refs']:
                 if (ref not in obj_dict['virtual_machine_interface_refs'] and
                         vpg and
@@ -668,7 +673,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         old_vlan = (read_result.get('virtual_machine_interface_properties') or
                     {}).get('sub_interface_vlan_tag') or 0
         new_vlan = None
-        if 'virtual_machine_interface_properties' in obj_dict:
+        if obj_dict.get('virtual_machine_interface_properties'):
             new_vlan = (obj_dict['virtual_machine_interface_properties'] or
                         {}).get('sub_interface_vlan_tag') or 0
             # vRouter has limitations for VLAN tag update.
@@ -678,7 +683,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             # we will limit any vlan update once a port has been made
             # a sub-interface
             if (new_vlan != old_vlan and
-                    'virtual_machine_interface_refs' in read_result):
+                    read_result.get('virtual_machine_interface_refs')):
                 return False, (400, "Cannot change sub-interface VLAN tag ID")
 
         ret_dict = None
@@ -712,7 +717,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = tor_port_vlan_id
                         is_untagged_vlan = True
                         if (vlan_id != old_vlan and
-                           'virtual_machine_interface_refs' in read_result):
+                           read_result.get('virtual_machine_interface_refs')):
                             return False, (400, "Cannot change VLAN ID")
                     else:
                         vlan_id = new_vlan
@@ -727,9 +732,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
 
-        if 'virtual_machine_interface_bindings' in obj_dict or vmib:
+        if obj_dict.get('virtual_machine_interface_bindings') or vmib:
             bindings_port = read_result.get(
-                'virtual_machine_interface_bindings', {})
+                'virtual_machine_interface_bindings') or {}
             kvps_port = bindings_port.get('key_value_pair') or []
             kvp_dict_port = cls._kvp_to_dict(kvps_port)
             kvp_dict = cls._kvp_to_dict(kvps)
@@ -867,8 +872,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return None, None
 
         for pr in old_pi_to_pr_dict.values():
-            if (pr.get('prouter_name') == prouter_name and
-                    pr.get('ae_id') is not None):
+            if pr.get('prouter_name') == prouter_name and pr.get('ae_id'):
                 attr_obj = VpgInterfaceParametersType(pr.get('ae_id'))
                 return attr_obj, pr.get('ae_id')
 
@@ -1664,7 +1668,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             get_context().push_undo(undo_vpg_create)
 
         # Check for fabric to get vpg
-        if 'parent_uuid' in vpg_dict:
+        if vpg_dict.get('parent_uuid'):
             ok, read_result = cls.dbe_read(
                 db_conn,
                 'fabric',
@@ -1825,9 +1829,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        if ('virtual_machine_interface_refs' in obj_dict and
-                'virtual_machine_interface_properties' in obj_dict):
-            vmi_props = obj_dict['virtual_machine_interface_properties']
+        vmi_props = obj_dict.get('virtual_machine_interface_properties')
+        if obj_dict.get('virtual_machine_interface_refs') and vmi_props:
             if 'sub_interface_vlan_tag' not in vmi_props:
                 msg = "Cannot delete vmi with existing ref to sub interface"
                 return (False, (409, msg), None)

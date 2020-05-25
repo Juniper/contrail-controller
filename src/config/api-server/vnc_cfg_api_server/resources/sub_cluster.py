@@ -48,7 +48,7 @@ class SubClusterServer(ResourceMixin, SubCluster):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, ref_update=None):
-        if 'sub_cluster_asn' in obj_dict:
+        if obj_dict.get('sub_cluster_asn') is not None:
             return False, (400, 'Sub cluster ASN can not be modified')
 
         if not obj_dict.get('sub_cluster_id'):

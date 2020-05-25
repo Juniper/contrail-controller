@@ -119,7 +119,7 @@ class SecurityResourceBase(ResourceMixin):
             # system only property
             return True, ''
 
-        if 'draft_mode_state' in obj_dict:
+        if obj_dict.get('draft_mode_state') is not None:
             msg = ("Security resource property 'draft_mode_state' is only "
                    "readable")
             return False, (400, msg)
@@ -369,7 +369,7 @@ class SecurityResourceBase(ResourceMixin):
         obj_dict['parent_uuid'] = draft_pm['uuid']
         obj_dict.pop('fq_name', None)
         obj_dict.pop('uuid', None)
-        if 'id_perms' in obj_dict:
+        if obj_dict.get('id_perms') is not None:
             obj_dict['id_perms'].pop('uuid', None)
         # Set draft mode to created, if draft resource already exists, property
         # will be read from the DB, if not state need to be set to 'created'

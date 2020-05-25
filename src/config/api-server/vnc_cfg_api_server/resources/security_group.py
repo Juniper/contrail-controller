@@ -137,7 +137,7 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
             return (False, (403, "Cannot update the security group ID"))
 
         # Update the configured security group ID
-        if 'configured_security_group_id' in obj_dict:
+        if obj_dict.get('configured_security_group_id') is not None:
             actual_sg_id = sg_dict['security_group_id']
             sg_dict['configured_security_group_id'] =\
                 obj_dict['configured_security_group_id']
@@ -189,7 +189,8 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
             obj_type = 'security_group_rule'
             quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
 
-            if 'security_group_entries' in obj_dict and quota_limit >= 0:
+            if (obj_dict.get('security_group_entries') is not None and
+                    quota_limit >= 0):
                 rule_count = len(
                     obj_dict['security_group_entries']['policy_rule'])
                 path_prefix = (_DEFAULT_ZK_COUNTER_PATH_PREFIX +

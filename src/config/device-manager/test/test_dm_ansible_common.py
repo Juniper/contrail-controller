@@ -146,7 +146,7 @@ class TestAnsibleCommonDM(DMTestCase):
         node_profile_role_mappings = [NodeProfileRoleType(
                                             physical_role=r.physical_role,
                                             rb_roles=r.rb_roles)
-                                        for r in role_mappings]
+            for r in role_mappings]
         node_profile_roles = NodeProfileRolesType(
                                 role_mappings=node_profile_role_mappings)
         node_profile = NodeProfile(fq_name=[self.GSC, name], name=name,

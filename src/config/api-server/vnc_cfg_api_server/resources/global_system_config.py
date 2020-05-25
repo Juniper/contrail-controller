@@ -101,7 +101,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
     @classmethod
     def _check_asn(cls, obj_dict):
         enable_4byte_as_in_dict = None
-        if 'enable_4byte_as' in obj_dict:
+        if obj_dict.get('enable_4byte_as') is not None:
             enable_4byte_as_in_dict = obj_dict['enable_4byte_as']
 
         global_asn = obj_dict.get('autonomous_system')
@@ -297,7 +297,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if not ok:
             return ok, result
 
-        if 'enable_security_policy_draft' in obj_dict:
+        if obj_dict.get('enable_security_policy_draft') is not None:
             fields = ['fq_name', 'uuid', 'enable_security_policy_draft']
             ok, result = cls._get_global_system_config(fields)
             if not ok:
@@ -319,13 +319,13 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        if 'autonomous_system' in obj_dict:
+        if obj_dict.get('autonomous_system') is not None:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
-        if 'enable_4byte_as' in obj_dict:
+        if obj_dict.get('enable_4byte_as') is not None:
             cls.server.enable_4byte_as = obj_dict['enable_4byte_as']
 
-        if 'data_center_interconnect_loopback_namespace' not in obj_dict:
+        if obj_dict.get('data_center_interconnect_loopback_namespace') is None:
             return True, ''
 
         return cls._create_dci_lo0_network_ipam(
@@ -341,9 +341,9 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if not ok:
             return ok, read_result
 
-        if 'autonomous_system' in read_result:
+        if read_result.get('autonomous_system') is not None:
             cls.server.global_autonomous_system = read_result[
                 'autonomous_system']
-        if 'enable_4byte_as' in read_result:
+        if read_result.get('enable_4byte_as') is not None:
             cls.server.enable_4byte_as = read_result['enable_4byte_as']
         return True, ''

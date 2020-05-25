@@ -86,24 +86,24 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
             return ok, result
 
         old_subnet_method = read_result.get('ipam_subnet_method')
-        if 'ipam_subnet_method' in obj_dict:
+        if obj_dict.get('ipam_subnet_method'):
             new_subnet_method = obj_dict.get('ipam_subnet_method')
             if (old_subnet_method != new_subnet_method):
                 return (False, (400, 'ipam_subnet_method can not be changed'))
 
         if (old_subnet_method != 'flat-subnet'):
-            if 'ipam_subnets' in obj_dict:
+            if obj_dict.get('ipam_subnets'):
                 msg = "ipam-subnets are allowed only with flat-subnet"
                 return False, (400, msg)
             return True, ""
 
         old_subnetting = read_result.get('ipam_subnetting')
-        if 'ipam_subnetting' in obj_dict:
+        if obj_dict.get('ipam_subnetting'):
             subnetting = obj_dict.get('ipam_subnetting', False)
             if (old_subnetting != subnetting):
                 return (False, (400, 'ipam_subnetting can not be changed'))
 
-        if 'ipam_subnets' in obj_dict:
+        if obj_dict.get('ipam_subnets'):
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
 
             # First check the overlap condition within ipam_subnets
