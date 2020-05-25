@@ -7,6 +7,7 @@ from builtins import str
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.resource_common import FloatingIp
 
+from vnc_cfg_api_server import vnc_addr_mgmt
 from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
@@ -93,14 +94,14 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
                             asked_ip_addr=req_ip,
                             alloc_id=obj_dict['uuid'])
 
-                    except cls.addr_mgmt.AddrMgmtSubnetExhausted:
+                    except vnc_addr_mgmt.AddrMgmtSubnetExhausted:
                         # This subnet is exhausted. Try next subnet.
                         continue
 
                 if not fip_addr:
                     # Floating-ip could not be allocated from any of the
                     # configured subnets. Raise an exception.
-                    raise cls.addr_mgmt.AddrMgmtSubnetExhausted(
+                    raise vnc_addr_mgmt.AddrMgmtSubnetExhausted(
                         vn_fq_name, subnets_tried)
 
             def undo():
