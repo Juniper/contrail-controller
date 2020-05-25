@@ -200,14 +200,14 @@ class TestAnsibleDciIntraFabric(TestAnsibleCommonDM):
         self.bgp_routers = []
         ov_roles = ['crb-gateway', 'erb-ucast-gateway',
                     'dci-gateway', 'crb-mcast-gateway']
-        self.create_physical_roles(['spine'])
+        role = 'spine'
+        self.create_physical_roles([role])
         self.create_overlay_roles(ov_roles)
         jt = self.create_job_template('job-template-' + name + self.id())
         self.job_templates.append(jt)
         fabric = self.create_fabric('fab-' + name + self.id())
         self.fabrics.append(fabric)
 
-        role = 'spine'
         spine_rb_role = 'crb-gateway'
         np, rc = self.create_node_profile(
             'node-profile-' + name + self.id(),

@@ -157,7 +157,7 @@ class TestTransactionsDM(TestAnsibleCommonDM):
         dci.add_logical_router(self.lr1)
         self._vnc_lib.data_center_interconnect_create(dci)
         self.check_trans_info('DCI', 'Create', dci_name,
-                              pr_name=self.pr1.name)
+                              pr_name=self.lr1.name)
 
         dci.del_logical_router(self.lr1)
         self._vnc_lib.data_center_interconnect_update(dci)
