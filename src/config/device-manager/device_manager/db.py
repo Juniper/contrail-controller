@@ -2913,7 +2913,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.forwarding_mode = None
         try:
             prop = obj['virtual_network_properties']
-            if prop['forwarding_mode'] is not None:
+            if prop and prop['forwarding_mode'] is not None:
                 self.forwarding_mode = prop['forwarding_mode']
         except KeyError:
             pass

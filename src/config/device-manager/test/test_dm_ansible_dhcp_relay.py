@@ -91,7 +91,8 @@ class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
         project.set_vxlan_routing(True)
         self._vnc_lib.project_update(project)
 
-        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+        self.create_features(['underlay-ip-clos-{}'.format(self.id()),
+                              'overlay-bgp', 'l2-gateway',
                               'l3-gateway', 'vn-interconnect'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles(['crb-gateway'])
@@ -177,7 +178,8 @@ class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
         project.set_vxlan_routing(True)
         self._vnc_lib.project_update(project)
 
-        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+        self.create_features(['underlay-ip-clos-{}'.format(self.id()),
+                              'overlay-bgp', 'l2-gateway',
                               'l3-gateway', 'vn-interconnect'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles(['crb-gateway'])
@@ -274,7 +276,8 @@ class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
         project.set_vxlan_routing(True)
         self._vnc_lib.project_update(project)
 
-        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+        self.create_features(['underlay-ip-clos-{}'.format(self.id()),
+                              'overlay-bgp', 'l2-gateway',
                               'l3-gateway', 'vn-interconnect'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles(['crb-gateway'])
@@ -360,7 +363,8 @@ class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
         project.set_vxlan_routing(True)
         self._vnc_lib.project_update(project)
 
-        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+        self.create_features(['underlay-ip-clos-{}'.format(self.id()),
+                              'overlay-bgp', 'l2-gateway',
                               'l3-gateway', 'vn-interconnect'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles(['crb-gateway'])
@@ -445,7 +449,8 @@ class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
         project.set_vxlan_routing(True)
         self._vnc_lib.project_update(project)
 
-        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+        self.create_features(['underlay-ip-clos-{}'.format(self.id()),
+                              'overlay-bgp', 'l2-gateway',
                               'l3-gateway', 'vn-interconnect'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles(['crb-gateway'])

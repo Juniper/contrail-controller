@@ -14,6 +14,7 @@ from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from netaddr import IPNetwork
 from .test_dm_utils import FakeJobHandler
+from vnc_api.exceptions import RefsExistError
 from vnc_api.vnc_api import *
 
 
@@ -144,9 +145,9 @@ class TestAnsibleCommonDM(DMTestCase):
     def create_node_profile(self, name, vendor='juniper', device_family=None,
                             role_mappings=[], job_template=None):
         node_profile_role_mappings = [NodeProfileRoleType(
-                                            physical_role=r.physical_role,
-                                            rb_roles=r.rb_roles)
-                                        for r in role_mappings]
+            physical_role=r.physical_role, rb_roles=r.rb_roles)
+            for r in role_mappings]
+
         node_profile_roles = NodeProfileRolesType(
                                 role_mappings=node_profile_role_mappings)
         node_profile = NodeProfile(fq_name=[self.GSC, name], name=name,
@@ -217,6 +218,7 @@ class TestAnsibleCommonDM(DMTestCase):
                                    community_match_all = False, action="",
                                    local_pref=None, med=None, asn_list=[],
                                    routes=[], route_types=[], route_values=[]):
+
         prefix_list = []
         for i in range(len(prefixs)):
             prefix_list.append(PrefixMatchType(prefix=prefixs[i],

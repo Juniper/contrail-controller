@@ -163,9 +163,10 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
 
         physical_router = result
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
-        product_name = physical_router.get('physical_router_product_name', '')
+        product_name = (physical_router.get('physical_router_product_name')
+                        or '')
         if product_name.lower().startswith("qfx") and vlan_tag is not None:
-            li_type = obj_dict.get('logical_interface_type', '').lower()
+            li_type = (obj_dict.get('logical_interface_type') or '').lower()
             if li_type == 'l2' and vlan_tag in RESERVED_QFX_L2_VLAN_TAGS:
                 msg = ("Vlan ids %s are not allowed on QFX logical interface "
                        "type: %s" %
@@ -187,9 +188,9 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
 
             if 'display_name' in interface_object:
                 if interface_name == interface_object['display_name']:
-                    return False, (403, msg)
                     msg = ("Display name already used in another interface: %s"
                            % physical_interface['uuid'])
+                    return False, (403, msg)
 
             # Need to check vlan only when request is for logical interfaces
             # and when the current physical_interface is the parent
