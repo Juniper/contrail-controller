@@ -73,7 +73,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
     @classmethod
     def _frs_fix_match_tags(cls, obj_dict):
-        if 'match_tags' in obj_dict:
+        if obj_dict.get('match_tags'):
             obj_dict['match_tag_types'] = {'tag_type': []}
             for tag_type in obj_dict['match_tags'].get('tag_list', []):
                 tag_type = tag_type.lower()
@@ -96,7 +96,8 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if db_obj_dict:
             db_ag_refs = db_obj_dict.get('address_group_refs', [])
 
-        if (not is_internal_request() and 'address_group_refs' in obj_dict and
+        if (not is_internal_request() and
+                obj_dict.get('address_group_refs') and
                 (db_obj_dict or obj_dict['address_group_refs'])):
             msg = ("Cannot directly define Address Group reference from a "
                    "Firewall Rule. Use 'address_group' endpoints property in "
@@ -146,7 +147,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
             obj_parent_type = db_obj_dict['parent_type']
             db_tag_refs = db_obj_dict.get('tag_refs', [])
 
-        if (not is_internal_request() and 'tag_refs' in obj_dict and
+        if (not is_internal_request() and obj_dict.get('tag_refs') and
                 (db_obj_dict or obj_dict['tag_refs'])):
             msg = ("Cannot directly define Tags reference from a Firewall "
                    "Rule. Use 'tags' endpoints property in the Firewall Rule")

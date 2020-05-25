@@ -69,7 +69,7 @@ class ProjectServer(ResourceMixin, Project):
             return ok, result
         db_obj_dict = result
 
-        if 'enable_security_policy_draft' in obj_dict:
+        if obj_dict.get('enable_security_policy_draft') is not None:
             obj_dict['fq_name'] = db_obj_dict['fq_name']
             obj_dict['uuid'] = db_obj_dict['uuid']
             SecurityResourceBase.server = cls.server

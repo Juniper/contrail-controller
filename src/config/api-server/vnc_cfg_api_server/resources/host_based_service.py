@@ -37,8 +37,8 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
     def _check_only_one_vn_per_type(req_dict):
         vn_type_map = {}
 
-        for ref in req_dict.get('virtual_network_refs', []):
-            if 'attr' in ref and ref['attr'].get('virtual_network_type'):
+        for ref in req_dict.get('virtual_network_refs') or []:
+            if (ref.get('attr') or {}).get('virtual_network_type'):
                 vn_type_map.setdefault(
                     ref['attr'].get('virtual_network_type'),
                     set([]),
@@ -77,8 +77,8 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         else:
             err_op = 'updated'
 
-        for ref in req_dict.get('virtual_network_refs', []):
-            if 'attr' in ref and ref['attr'].get('virtual_network_type'):
+        for ref in req_dict.get('virtual_network_refs') or []:
+            if (ref.get('attr') or {}).get('virtual_network_type'):
                 vn_type_set.add(ref['attr'].get('virtual_network_type'))
 
         vn_types = ['left', 'right']
@@ -93,7 +93,7 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
 
     @staticmethod
     def _check_type(req_dict, db_dict):
-        if ('host_based_service_type' in req_dict and
+        if (req_dict.get('host_based_service_type') is not None and
                 req_dict['host_based_service_type'] !=
                 db_dict['host_based_service_type']):
             msg = "Cannot change the Host Based Service type"
@@ -456,7 +456,7 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
                 404, 'Left and right HBF networks should be present')
 
         # get the map and look for image name and secrect
-        kvs = hbs_dict.get('annotations', {}).get('key_value_pair', [])
+        kvs = (hbs_dict.get('annotations') or {}).get('key_value_pair', [])
         for kv in kvs:
             if kv['key'] == 'spec.template.spec.containers[].image' or \
                     kv['key'] == 'image':

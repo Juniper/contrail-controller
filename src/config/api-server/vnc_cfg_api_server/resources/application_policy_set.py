@@ -17,7 +17,8 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
     @staticmethod
     def _check_all_applications_flag(obj_dict):
         # all_applications flag is read-only for user
-        if not is_internal_request() and 'all_applications' in obj_dict:
+        if (not is_internal_request() and
+                obj_dict.get('all_applications') is not None):
             msg = "Application policy set 'all-applications' flag is read-only"
             return (False, (400, msg))
         return True, ""
@@ -100,7 +101,7 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
         if not ok:
             return False, result
 
-        if 'user_visible' in obj_dict.get('id_perms', {}):
+        if 'user_visible' in (obj_dict.get('id_perms') or {}):
             new_user_visible = obj_dict['id_perms'].get('user_visible', True)
             ok, result = cls.dbe_read(db_conn, 'application_policy_set', id)
             if not ok:

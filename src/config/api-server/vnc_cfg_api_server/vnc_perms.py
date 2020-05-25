@@ -51,6 +51,9 @@ class VncPermissions(object):
     # end
 
     def validate_perms(self, request, uuid, mode=PERMS_R, obj_dict=None):
+        ret_rwx = (True, 'RWX')
+        ret_r = (True, 'R')
+
         # retrieve object and permissions
         id_perms = None
         if obj_dict:
@@ -59,16 +62,19 @@ class VncPermissions(object):
             try:
                 id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
             except NoIdError:
-                return (True, 'RWX')
+                return ret_rwx
+            else:
+                if id_perms is None:
+                    return ret_rwx
 
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
         is_admin = has_role(self.cloud_admin_role, roles)
         if is_admin:
-            return (True, 'RWX')
+            return ret_rwx
         if has_role(self.global_read_only_role, roles) and mode == PERMS_R:
-            return (True, 'R')
+            return ret_r
 
         owner = id_perms['permissions']['owner']
         group = id_perms['permissions']['group']

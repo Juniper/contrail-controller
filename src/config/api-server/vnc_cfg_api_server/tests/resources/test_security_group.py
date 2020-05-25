@@ -121,7 +121,7 @@ class TestSecurityGroup(test_case.ApiServerTestCase):
         configured_sg_id = sg_obj.configured_security_group_id
         self.assertEqual(sg_obj.get_fq_name_str(),
                          mock_zk.get_sg_from_id(allocated_sg_id))
-        self.assertEqual(configured_sg_id, 0)
+        self.assertIsNone(configured_sg_id)
 
         sg_obj.set_configured_security_group_id(42)
         self.api.security_group_update(sg_obj)

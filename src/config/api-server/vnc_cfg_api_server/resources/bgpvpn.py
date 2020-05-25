@@ -24,9 +24,9 @@ class BgpvpnServer(ResourceMixin, Bgpvpn):
 
         forwarding_mode = 'l2_l3'
         vn_props = None
-        if 'virtual_network_properties' in vn_dict:
+        if vn_dict.get('virtual_network_properties'):
             vn_props = vn_dict['virtual_network_properties']
-        elif db_vn_dict and 'virtual_network_properties' in db_vn_dict:
+        elif db_vn_dict and db_vn_dict.get('virtual_network_properties'):
             vn_props = db_vn_dict['virtual_network_properties']
         if vn_props is not None:
             forwarding_mode = vn_props.get('forwarding_mode', 'l2_l3')
@@ -35,7 +35,7 @@ class BgpvpnServer(ResourceMixin, Bgpvpn):
             return True, ''
 
         bgpvpn_uuids = []
-        if 'bgpvpn_refs' in vn_dict:
+        if vn_dict.get('bgpvpn_refs'):
             bgpvpn_uuids = set(bgpvpn_ref['uuid'] for bgpvpn_ref
                                in vn_dict.get('bgpvpn_refs', []))
         elif db_vn_dict:
@@ -158,12 +158,12 @@ class BgpvpnServer(ResourceMixin, Bgpvpn):
         a bgpvpn associated to it. If yes, forbid to add bgpvpn to that
         routers.
         """
-        if ('bgpvpn_refs' not in lr_dict and
-                'virtual_machine_interface_refs' not in lr_dict):
+        if (not lr_dict.get('bgpvpn_refs') and
+                not lr_dict.get('virtual_machine_interface_refs')):
             return True, ''
 
         bgpvpn_refs = None
-        if 'bgpvpn_refs' in lr_dict:
+        if lr_dict.get('bgpvpn_refs') is not None:
             bgpvpn_refs = lr_dict['bgpvpn_refs']
         elif db_lr_dict:
             bgpvpn_refs = db_lr_dict.get('bgpvpn_refs')
@@ -171,7 +171,7 @@ class BgpvpnServer(ResourceMixin, Bgpvpn):
             return True, ''
 
         vmi_refs = []
-        if 'virtual_machine_interface_refs' in lr_dict:
+        if lr_dict.get('virtual_machine_interface_refs'):
             vmi_refs = lr_dict['virtual_machine_interface_refs']
         elif db_lr_dict:
             vmi_refs = db_lr_dict.get('virtual_machine_interface_refs') or []
@@ -189,7 +189,7 @@ class BgpvpnServer(ResourceMixin, Bgpvpn):
         vmis = result
         vn_uuids = [vn_ref['uuid']
                     for vmi in vmis
-                    for vn_ref in vmi.get('virtual_network_refs', [])]
+                    for vn_ref in vmi.get('virtual_network_refs') or []]
         if not vn_uuids:
             return True, ''
 
@@ -204,7 +204,7 @@ class BgpvpnServer(ResourceMixin, Bgpvpn):
                           vn.get('display_name', vn['fq_name'][-1]),
                           vn['uuid'])
                          for vn in vns
-                         for bgpvpn_ref in vn.get('bgpvpn_refs', [])]
+                         for bgpvpn_ref in vn.get('bgpvpn_refs') or []]
         if not found_bgpvpns:
             return True, ''
         lr_name = (lr_dict.get('fq_name') or db_lr_dict['fq_name'])[-1]

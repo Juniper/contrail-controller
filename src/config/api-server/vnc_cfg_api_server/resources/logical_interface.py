@@ -15,7 +15,7 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
             return (ok, result)
 
         vlan = 0
-        if 'logical_interface_vlan_tag' in obj_dict:
+        if obj_dict.get('logical_interface_vlan_tag') is not None:
             vlan = obj_dict['logical_interface_vlan_tag']
 
         ok, result = cls.server.get_resource_class(
@@ -43,16 +43,16 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
             return ok, read_result
 
         # do not allow change in display name
-        if 'display_name' in obj_dict:
+        if obj_dict.get('display_name'):
             if obj_dict['display_name'] != read_result.get('display_name'):
                 return (False, (403, "Cannot change display name !"))
 
         vlan = None
-        if 'logical_interface_vlan_tag' in obj_dict:
+        if obj_dict.get('logical_interface_vlan_tag') is not None:
             vlan = obj_dict['logical_interface_vlan_tag']
-            if 'logical_interface_vlan_tag' in read_result:
-                if (int(vlan) !=
-                        int(read_result.get('logical_interface_vlan_tag'))):
+            read_result_vlan = read_result.get('logical_interface_vlan_tag')
+            if read_result_vlan is not None:
+                if int(vlan) != int(read_result_vlan):
                     return (False, (403, "Cannot change Vlan id"))
 
         if vlan is None:
@@ -134,7 +134,7 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
 
     @classmethod
     def _check_vlan(cls, obj_dict, db_conn):
-        if 'logical_interface_vlan_tag' in obj_dict:
+        if obj_dict.get('logical_interface_vlan_tag') is not None:
             vlan = obj_dict['logical_interface_vlan_tag']
             if vlan < 0 or vlan > 4094:
                 return (False, (403, "Invalid Vlan id"))

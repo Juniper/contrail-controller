@@ -39,16 +39,16 @@ class ResourceMixin(object, with_metaclass(ResourceMixinMeta)):
     @classmethod
     def get_project_id_for_resource(cls, obj_dict, obj_type, db_conn):
         proj_uuid = None
-        if 'project_refs' in obj_dict:
+        if obj_dict.get('project_refs'):
             proj_dict = obj_dict['project_refs'][0]
             proj_uuid = proj_dict.get('uuid')
             if not proj_uuid:
                 proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
-        elif ('parent_type' in obj_dict and
+        elif (obj_dict.get('parent_type') and
                 obj_dict['parent_type'] == 'project'):
             proj_uuid = obj_dict['parent_uuid']
         elif (obj_type == 'loadbalancer_member' or
-              obj_type == 'floating_ip_pool' and 'parent_uuid' in obj_dict):
+              obj_type == 'floating_ip_pool' and obj_dict.get('parent_uuid')):
             # loadbalancer_member and floating_ip_pool have only one parent
             # type
             ok, proj_res = cls.dbe_read(db_conn, cls.parent_types[0],

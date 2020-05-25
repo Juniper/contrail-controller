@@ -35,7 +35,7 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         vdns_name = ":".join(obj_dict['fq_name'])
-        if 'parent_uuid' in obj_dict:
+        if obj_dict.get('parent_uuid'):
             ok, read_result = cls.dbe_read(db_conn, 'domain',
                                            obj_dict['parent_uuid'])
             if not ok:
@@ -51,7 +51,7 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
                     return ok, (code, msg), None
 
                 vdns_data = read_result['virtual_DNS_data']
-                if 'next_virtual_DNS' in vdns_data:
+                if vdns_data.get('next_virtual_DNS'):
                     if vdns_data['next_virtual_DNS'] == vdns_name:
                         return (
                             False,
@@ -98,7 +98,7 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
 
     @classmethod
     def validate_dns_server(cls, obj_dict, db_conn):
-        if 'fq_name' in obj_dict:
+        if obj_dict.get('fq_name'):
             virtual_dns = obj_dict['fq_name'][1]
             disallowed = re.compile(r'[^A-Z\d-]', re.IGNORECASE)
             if disallowed.search(virtual_dns) or virtual_dns.startswith("-"):
@@ -120,7 +120,7 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
         if ttl < 0 or ttl > 2147483647:
             return (False, (400, "Invalid value for TTL"))
 
-        if 'next_virtual_DNS' in vdns_data:
+        if vdns_data.get('next_virtual_DNS'):
             vdns_next = vdns_data['next_virtual_DNS']
             if not vdns_next or vdns_next is None:
                 return True, ""
@@ -145,7 +145,7 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
                                            next_vdns_uuid)
             if ok:
                 next_vdns_data = read_result['virtual_DNS_data']
-                if 'next_virtual_DNS' in next_vdns_data:
+                if next_vdns_data.get('next_virtual_DNS'):
                     vdns_name = ":".join(obj_dict['fq_name'])
                     if next_vdns_data['next_virtual_DNS'] == vdns_name:
                         return (

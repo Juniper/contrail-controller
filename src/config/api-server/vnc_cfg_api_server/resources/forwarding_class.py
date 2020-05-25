@@ -36,9 +36,9 @@ class ForwardingClassServer(ResourceMixin, ForwardingClass):
         if not ok:
             return ok, forwarding_class
 
-        if 'forwarding_class_id' in obj_dict:
+        if obj_dict.get('forwarding_class_id') is not None:
             fc_id = obj_dict['forwarding_class_id']
-            if 'forwarding_class_id' in forwarding_class:
+            if forwarding_class.get('forwarding_class_id') is not None:
                 if fc_id != forwarding_class.get('forwarding_class_id'):
                     return cls._check_fc_id(obj_dict, db_conn)
         return (True, '')

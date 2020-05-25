@@ -209,7 +209,7 @@ class NodeServer(ResourceMixin, Node):
                     msg = ("ref-update status ", str(ok), ": result ",
                            pformat(result))
                     db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
-        elif 'node_profile_refs' in obj_dict:
+        elif obj_dict.get('node_profile_refs'):
             cls.remove_tag_refs(id, db_conn, node_ports)
 
     @classmethod

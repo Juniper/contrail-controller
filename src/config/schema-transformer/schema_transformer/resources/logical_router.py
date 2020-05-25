@@ -42,7 +42,7 @@ class LogicalRouterST(ResourceBaseST):
             if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 old_rt_key = rt_key
                 rt_ref = None
-        if not rt_ref:
+        else:
             asn = ResourceBaseST.get_obj_type_map().get(
                 'global_system_config').get_autonomous_system()
             rtgt_num = self._object_db.alloc_route_target(name, asn, True)

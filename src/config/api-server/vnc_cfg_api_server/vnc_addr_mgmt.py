@@ -1533,8 +1533,8 @@ class AddrMgmt(object):
 
         # check if gw_ip and dns_address are not modified
         # in requested network_ipam_refs for any given subnets.
-        req_ipam_refs = req_vn_dict.get('network_ipam_refs')
-        db_ipam_refs = db_vn_dict.get('network_ipam_refs')
+        req_ipam_refs = req_vn_dict.get('network_ipam_refs') or []
+        db_ipam_refs = db_vn_dict.get('network_ipam_refs') or []
         for req_ref in req_ipam_refs:
             req_ipam_ref_uuid = req_ref.get('uuid')
             for db_ref in db_ipam_refs:
@@ -1542,9 +1542,9 @@ class AddrMgmt(object):
                 if db_ipam_ref_uuid != req_ipam_ref_uuid:
                     continue
 
-                req_vnsn_data = req_ref.get('attr')
+                req_vnsn_data = req_ref.get('attr') or {}
                 req_subnets = req_vnsn_data.get('ipam_subnets') or []
-                db_vnsn_data = db_ref.get('attr')
+                db_vnsn_data = db_ref.get('attr') or {}
                 db_subnets = db_vnsn_data.get('ipam_subnets') or []
                 (ok, result) = self._validate_subnet_update(req_subnets, db_subnets)
                 if not ok:
@@ -1768,7 +1768,7 @@ class AddrMgmt(object):
             asked_ip_addr=None, asked_ip_version=4, alloc_id=None,
             subscriber_tag=None):
         db_conn = self._get_db_conn()
-        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        ipam_refs = vn_dict.get('network_ipam_refs') or []
 
         # read ipam_subnets from all ipam_refs to be used later
         # to find out any allocation pool not specific to vrouter
@@ -1804,10 +1804,10 @@ class AddrMgmt(object):
             if sub:
                 #check if subnet_uuid is stored in the vm->ipam link
                 # to represent this ipam for flat-allocation.
-                ipam_subnets = ipam_ref['attr'].get('ipam_subnets') or []
                 for ipam_subnet in ipam_subnets:
                     ipam_subnet_uuid = ipam_subnet.get('subnet_uuid')
-                    if ipam_subnet_uuid != None and ipam_subnet_uuid == sub:
+                    if (ipam_subnet_uuid is not None
+                            and ipam_subnet_uuid == sub):
                         sn_uuid = ipam_subnet_uuid
                         found_subnet_match = True
                         break
@@ -1815,9 +1815,9 @@ class AddrMgmt(object):
                     continue
             # walk through all subnets in ipam and build list of alloc_pools
             # which are not specific to the vrouter
-            ipam_data = ipams_data.get(ipam_ref['uuid'], {})
-            ipam_subnets = ipam_data.get('ipam_subnets', {})
-            subnets = ipam_subnets.get('subnets', [])
+            ipam_data = ipams_data.get(ipam_ref['uuid']) or {}
+            ipam_subnets = ipam_data.get('ipam_subnets') or {}
+            subnets = ipam_subnets.get('subnets') or []
 
             alloc_pools = []
             vr_pool_found = False
@@ -2173,7 +2173,8 @@ class AddrMgmt(object):
         kwargs.update({'vn_dict': vn_dict})
 
         ipam_dicts = {}
-        for ipam_ref in vn_dict.get('network_ipam_refs', []):
+        ipam_refs = vn_dict.get('network_ipam_refs') or []
+        for ipam_ref in ipam_refs:
             (ok, ipam_dict) = self._uuid_to_obj_dict(
                     'network_ipam', ipam_ref['uuid'])
             if not ok:
@@ -2361,8 +2362,7 @@ class AddrMgmt(object):
                         raise AddrMgmtSubnetInvalid(ipam_fq_name_str,
                                                     key+':'+msg)
 
-
-            subnetting = obj_dict.get('ipam_subnetting', False)
+            subnetting = obj_dict.get('ipam_subnetting') or False
             self._create_ipam_subnet_objs(ipam_uuid, obj_dict,
                                           should_persist=True,
                                           alloc_pool_change=[],
@@ -2371,7 +2371,7 @@ class AddrMgmt(object):
 
     def ipam_create_notify(self, obj_dict):
         if obj_dict.get('ipam_subnet_method') == 'flat-subnet':
-            subnetting = obj_dict.get('ipam_subnetting', False)
+            subnetting = obj_dict.get('ipam_subnetting') or False
             self._create_ipam_subnet_objs(obj_dict['uuid'], obj_dict,
                                           should_persist=False,
                                           ipam_subnetting=subnetting)
@@ -2515,7 +2515,8 @@ class AddrMgmt(object):
     def _net_is_gateway_ip(self, vn_dict, ip_addr):
         ipam_refs = vn_dict.get('network_ipam_refs') or []
         for ipam in ipam_refs:
-            ipam_subnets = ipam['attr'].get('ipam_subnets') or []
+            attr = ipam.get('attr') or {}
+            ipam_subnets = attr.get('ipam_subnets') or []
             for subnet in ipam_subnets:
                 gw_ip = subnet.get('default_gateway')
                 if gw_ip != None and gw_ip == ip_addr:

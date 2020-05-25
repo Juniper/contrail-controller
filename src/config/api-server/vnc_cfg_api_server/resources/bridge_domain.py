@@ -18,7 +18,7 @@ class BridgeDomainServer(ResourceMixin, BridgeDomain):
                                   obj_fields=['bridge_domains'])
         if not ok:
             return False, result
-        if 'bridge_domains' in result and len(result['bridge_domains']) == 1:
+        if result.get('bridge_domains') and len(result['bridge_domains']) == 1:
             msg = ("Virtual network(%s) can have only one bridge domain. "
                    "Bridge domain(%s) is already created under this virtual "
                    "network" % (vn_uuid, result['bridge_domains'][0]['uuid']))

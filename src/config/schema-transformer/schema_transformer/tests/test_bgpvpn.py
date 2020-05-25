@@ -163,7 +163,7 @@ class TestBgpvpnWithLogicalRouter(STTestCase, VerifyRouteTarget):
         vn = vns[0]
         # Create two bgpvpn with route targets
         for idx in range(2):
-            bgpvpn = Bgpvpn('bgpvpn%d-%s' % (idx, self.id()))
+            bgpvpn = Bgpvpn('bgpvpn%d-%s' % (idx, self.id()), bgpvpn_type='l3')
             bgpvpn.set_route_target_list(
                 RouteTargetList(['target:%d:0' % idx]))
             bgpvpn.set_import_route_target_list(
@@ -197,7 +197,7 @@ class TestBgpvpnWithLogicalRouter(STTestCase, VerifyRouteTarget):
         vn1 = vns1[0]
         vn2 = vns2[0]
         # Create one bgpvpn with route target
-        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
+        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id(), bgpvpn_type='l3')
         rt_name = 'target:300:1'
         bgpvpn.set_route_target_list(RouteTargetList([rt_name]))
         bgpvpn_id = self._vnc_lib.bgpvpn_create(bgpvpn)
@@ -238,7 +238,7 @@ class TestBgpvpnWithLogicalRouter(STTestCase, VerifyRouteTarget):
         vn = vns[0]
         # Create one bgpvpn without any route target associated to the logical
         # router
-        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
+        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id(), bgpvpn_type='l3')
         bgpvpn_id = self._vnc_lib.bgpvpn_create(bgpvpn)
         bgpvpn = self._vnc_lib.bgpvpn_read(id=bgpvpn_id)
         lr.add_bgpvpn(bgpvpn)
@@ -284,7 +284,7 @@ class TestBgpvpnWithLogicalRouter(STTestCase, VerifyRouteTarget):
         self._vnc_lib.logical_router_update(lr)
         # Create one bgpvpn, set the same route target in its route target list
         # and associate it to the logical router
-        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
+        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id(), bgpvpn_type='l3')
         bgpvpn.set_route_target_list(RouteTargetList([rt_name]))
         bgpvpn_id = self._vnc_lib.bgpvpn_create(bgpvpn)
         bgpvpn = self._vnc_lib.bgpvpn_read(id=bgpvpn_id)
