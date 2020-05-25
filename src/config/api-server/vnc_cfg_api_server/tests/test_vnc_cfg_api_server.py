@@ -133,6 +133,7 @@ class TestVncCfgApiServer(TestVncCfgApiServerBase):
         self.api.virtual_network_create(vn)
         vmi = VirtualMachineInterface('vmi-%s' % self.id(), parent_obj=project)
         vmi.set_virtual_network(vn)
+        vmi.set_port_security_enabled(True)
         self.api.virtual_machine_interface_create(vmi)
 
         for subnet, expected_result in test_suite:

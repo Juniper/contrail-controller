@@ -365,8 +365,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return ok, result
         vn_dict = result
 
-        vlan_tag = (obj_dict.get('virtual_machine_interface_properties') or {}
-                    ).get('sub_interface_vlan_tag') or 0
+        vmi_iface_prop = obj_dict.get('virtual_machine_interface_properties')
+        if vmi_iface_prop is not None:
+            vlan_tag = vmi_iface_prop.get('sub_interface_vlan_tag') or 0
+        else:
+            vlan_tag = 0
+
         if vlan_tag < 0 or vlan_tag > 4094:
             return False, (400, "Invalid sub-interface VLAN tag ID: %s" %
                            vlan_tag)
@@ -380,18 +384,24 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                             'virtual_machine_interface_properties'])
             if not ok:
                 return ok, primary_vmi
+            primary_vmi_iface_prop = primary_vmi.get(
+                'virtual_machine_interface_properties')
+            if primary_vmi_iface_prop is not None:
+                primary_vmi_vlan_tag = primary_vmi_iface_prop.get(
+                    'sub_interface_vlan_tag', None)
+            else:
+                primary_vmi_vlan_tag = None
 
-            primary_vmi_vlan_tag = primary_vmi.get(
-                'virtual_machine_interface_properties', {}).get(
-                    'sub_interface_vlan_tag')
             if primary_vmi_vlan_tag:
                 msg = ("sub interface can't have another sub interface as "
                        "it's primary port")
                 return False, (400, msg)
 
-            sub_vmi_refs = primary_vmi.get('virtual_machine_interface_refs',
-                                           {})
-            sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
+            sub_vmi_refs = primary_vmi.get('virtual_machine_interface_refs')
+            if sub_vmi_refs is not None:
+                sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
+            else:
+                sub_vmi_uuids = []
 
             if sub_vmi_uuids:
                 ok, sub_vmis, _ = db_conn.dbe_list(
@@ -400,9 +410,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 if not ok:
                     return ok, sub_vmis
 
-                sub_vmi_vlan_tags = [((vmi.get(
-                    'virtual_machine_interface_properties') or {}).get(
-                        'sub_interface_vlan_tag')) for vmi in sub_vmis]
+                sub_vmi_vlan_tags = []
+                for vmi in sub_vmis:
+                    iface_prop = vmi.get(
+                        'virtual_machine_interface_properties')
+                    if iface_prop is not None:
+                        sub_vmi_vlan_tags.append(
+                            iface_prop.get('sub_interface_vlan_tag'))
                 if vlan_tag in sub_vmi_vlan_tags:
                     msg = "Two sub interfaces under same primary port "\
                           "can't have same Vlan tag"

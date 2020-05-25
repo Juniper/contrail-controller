@@ -1958,7 +1958,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(list(ret_vn.keys()), Not(Contains(property)))
+        self.assertIsNone(ret_vn[property])
         self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
         self.assertThat(list(ret_vn.keys()), Contains('perms2'))
         self.assertThat(list(ret_vn.keys()), Contains(reference))
@@ -1972,7 +1972,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(list(ret_vn.keys()), Not(Contains(property)))
+        self.assertIsNone(ret_vn[property])
         self.assertThat(list(ret_vn.keys()), Not(Contains(reference)))
         self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
         self.assertThat(list(ret_vn.keys()), Contains('perms2'))
@@ -2545,7 +2545,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         bgpvpn_l2 = Bgpvpn('bgpvpn-l2-%s' % self.id(), bgpvpn_type='l2')
         self._vnc_lib.bgpvpn_create(bgpvpn_l2)
         # Create l3 bgpvpn
-        bgpvpn_l3 = Bgpvpn('bgpvpn-l3-%s' % self.id())
+        bgpvpn_l3 = Bgpvpn('bgpvpn-l3-%s' % self.id(), bgpvpn_type='l3')
         self._vnc_lib.bgpvpn_create(bgpvpn_l3)
 
         # Trying to associate a 'l2' bgpvpn on the virtual network
@@ -2582,7 +2582,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         bgpvpn_l2 = Bgpvpn('bgpvpn-l2-%s' % self.id(), bgpvpn_type='l2')
         self._vnc_lib.bgpvpn_create(bgpvpn_l2)
         # Create l3 bgpvpn
-        bgpvpn_l3 = Bgpvpn('bgpvpn-l3-%s' % self.id())
+        bgpvpn_l3 = Bgpvpn('bgpvpn-l3-%s' % self.id(), bgpvpn_type='l3')
         self._vnc_lib.bgpvpn_create(bgpvpn_l3)
 
         # Trying to associate a 'l3' bgpvpn on the virtual network
@@ -2624,6 +2624,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def test_bgpvpn_fail_assoc_network_with_gw_router_assoc_to_bgpvpn(self):
         # Create one bgpvpn
         bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
+        bgpvpn.set_bgpvpn_type('l3')
         self._vnc_lib.bgpvpn_create(bgpvpn)
         # Create one virtual network with one logical router as gateway
         lr, vns, _, _ = self.create_logical_router('lr-%s' % self.id())
@@ -2643,6 +2644,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def test_bgpvpn_fail_assoc_router_with_network_assoc_to_bgpvpn(self):
         # Create one bgpvpn
         bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
+        bgpvpn.set_bgpvpn_type('l3')
         self._vnc_lib.bgpvpn_create(bgpvpn)
         # Create one virtual network with one logical router as gateway
         lr, vns, vmis, _ = self.create_logical_router('lr-%s' % self.id())
@@ -3616,7 +3618,9 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
             obj_uuids=[vmi_obj.uuid], fields=[fname])
         vmi_ids = [vmi['uuid'] for vmi in vmis['virtual-machine-interfaces']]
         self.assertEqual([vmi_obj.uuid], vmi_ids)
-        self.assertNotIn(fname, vmis['virtual-machine-interfaces'][0])
+
+        vmi_iface_fat_flow = vmis['virtual-machine-interfaces'][0].get(fname)
+        self.assertIsNone(vmi_iface_fat_flow)
 
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
         proto_type = ProtocolType(protocol='proto', port=1)
@@ -3752,7 +3756,9 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
             obj_uuids=[vmi_obj.uuid], fields=[fname])
         vmi_ids = [vmi['uuid'] for vmi in vmis['virtual-machine-interfaces']]
         self.assertEqual([vmi_obj.uuid], vmi_ids)
-        self.assertNotIn(fname, vmis['virtual-machine-interfaces'][0])
+
+        vmi_iface_fat_flow = vmis['virtual-machine-interfaces'][0].get(fname)
+        self.assertIsNone(vmi_iface_fat_flow)
 
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
         kv_pairs = KeyValuePairs([KeyValuePair(key='k', value='v')])
