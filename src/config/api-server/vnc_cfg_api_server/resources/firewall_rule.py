@@ -73,7 +73,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
     @classmethod
     def _frs_fix_match_tags(cls, obj_dict):
-        if 'match_tags' in obj_dict:
+        if obj_dict.get('match_tags'):
             obj_dict['match_tag_types'] = {'tag_type': []}
             for tag_type in obj_dict['match_tags'].get('tag_list', []):
                 tag_type = tag_type.lower()

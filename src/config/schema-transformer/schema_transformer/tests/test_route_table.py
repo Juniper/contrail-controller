@@ -174,7 +174,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
             lri = self._vnc_lib.routing_instance_read(
                 fq_name_str=ri_name)
             sr = lri.get_static_route_entries()
-            if sr is None:
+            if sr is None or len(sr.route) == 0:
                 raise Exception("sr is None")
             route = sr.route[0]
             self.assertEqual(route.prefix, "0.0.0.0/0")

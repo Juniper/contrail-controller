@@ -405,10 +405,10 @@ class VncCassandraClient(object):
         # Properties
         for prop_field in obj_class.prop_fields:
             field = obj_dict.get(prop_field)
-            # Specifically checking for None
-            if field is None:
-                continue
+
             if prop_field == 'id_perms':
+                if field is None:
+                    field = {}
                 field['created'] = datetime.datetime.utcnow().isoformat()
                 field['last_modified'] = field['created']
 
@@ -416,7 +416,8 @@ class VncCassandraClient(object):
                 # store list elements in list order
                 # iterate on wrapped element or directly or prop field
                 if obj_class.prop_list_field_has_wrappers[prop_field]:
-                    wrapper_field_keys = list(field.keys())
+                    wrapper_field_keys = None if field is None \
+                        else list(field.keys())
                     if wrapper_field_keys:
                         wrapper_field = wrapper_field_keys[0]
                         list_coll = field[wrapper_field]
@@ -431,7 +432,9 @@ class VncCassandraClient(object):
             elif prop_field in obj_class.prop_map_fields:
                 # iterate on wrapped element or directly or prop field
                 if obj_class.prop_map_field_has_wrappers[prop_field]:
-                    wrapper_field_keys = list(field.keys())
+                    wrapper_field_keys = None if field is None \
+                        else list(field.keys())
+
                     if wrapper_field_keys:
                         wrapper_field = wrapper_field_keys[0]
                         map_coll = field[wrapper_field]
@@ -594,9 +597,17 @@ class VncCassandraClient(object):
             if len(obj_uuids) == 1:
                 raise NoIdError(obj_uuids[0])
             else:
-                return (True, [])
+                return True, []
 
-        return (True, obj_dicts)
+        # fill missing fields with defaults
+        can_create = 'C'
+        for obj_dict in obj_dicts:
+            for prop_field, field_type in obj_class.prop_field_types.items():
+                if (prop_field not in obj_dict and
+                        can_create in field_type['operations']):
+                    obj_dict[prop_field] = field_type['default']
+
+        return True, obj_dicts
     # end object_read
 
     def object_count_children(self, obj_type, obj_uuid, child_type):
@@ -622,7 +633,7 @@ class VncCassandraClient(object):
             id_perms = self._cassandra_driver.get_one_col(
                                        datastore_api.OBJ_UUID_CF_NAME,
                                        obj_uuid,
-                                       'prop:id_perms')
+                                       'prop:id_perms') or {}
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
         if obj_type not in self._obj_cache_exclude_types:
@@ -747,10 +758,12 @@ class VncCassandraClient(object):
                 else:
                     list_coll = new_props[prop_name]
 
-                for i in range(len(list_coll)):
-                    self._add_to_prop_list(bch, obj_uuid, prop_name,
-                                           list_coll[i], str(i))
-            elif prop_name in obj_class.prop_map_fields:
+                if list_coll is not None:
+                    for i in range(len(list_coll)):
+                        self._add_to_prop_list(bch, obj_uuid, prop_name,
+                                               list_coll[i], str(i))
+            elif (prop_name in obj_class.prop_map_fields
+                  and new_props[prop_name] is not None):
                 # store map elements in key order
                 # iterate on wrapped element or directly on prop field
                 # for wrapped lists, store without the wrapper. regenerate
@@ -1337,7 +1350,6 @@ class VncCassandraClient(object):
                     if meta_type == 'latest_col_ts':
                         row_latest_ts = obj_cols[col_name][1]
                     continue
-
             # for all column names
 
             # sort children by creation time
