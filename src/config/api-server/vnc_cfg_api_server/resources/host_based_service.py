@@ -456,14 +456,16 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
                 404, 'Left and right HBF networks should be present')
 
         # get the map and look for image name and secrect
-        kvs = hbs_dict.get('annotations', {}).get('key_value_pair', [])
-        for kv in kvs:
-            if kv['key'] == 'spec.template.spec.containers[].image' or \
-                    kv['key'] == 'image':
-                hbs_info['service']['image'] = kv['value']
-            if kv['key'] == 'spec.template.spec.imagePullSecrets[].name' or \
-                    kv['key'] == 'imagePullSecrets':
-                hbs_info['service']['imagePullSecrets'] = kv['value']
+        annotations = hbs_dict.get('annotations', {})
+        if annotations is not None:
+            kvs = annotations.get('key_value_pair', [])
+            for kv in kvs:
+                if (kv['key'] == 'spec.template.spec.containers[].image'
+                        or kv['key'] == 'image'):
+                    hbs_info['service']['image'] = kv['value']
+                if (kv['key'] == 'spec.template.spec.imagePullSecrets[].name'
+                        or kv['key'] == 'imagePullSecrets'):
+                    hbs_info['service']['imagePullSecrets'] = kv['value']
         return hbs_info
 
     # end _get_hbs_info
