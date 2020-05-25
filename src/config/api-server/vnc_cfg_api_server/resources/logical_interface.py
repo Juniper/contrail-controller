@@ -50,9 +50,9 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
         vlan = None
         if 'logical_interface_vlan_tag' in obj_dict:
             vlan = obj_dict['logical_interface_vlan_tag']
-            if 'logical_interface_vlan_tag' in read_result:
-                if (int(vlan) !=
-                        int(read_result.get('logical_interface_vlan_tag'))):
+            read_result_vlan = read_result.get('logical_interface_vlan_tag')
+            if vlan is not None and read_result_vlan is not None:
+                if int(vlan) != int(read_result_vlan):
                     return (False, (403, "Cannot change Vlan id"))
 
         if vlan is None:

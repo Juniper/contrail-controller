@@ -1218,7 +1218,8 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(500, result)
 
         # check visibility
-        if (not result['id_perms'].get('user_visible', True) and
+        if (result['id_perms'] is not None and
+            not result['id_perms'].get('user_visible', True) and
             not self.is_admin_request()):
             result = 'This object is not visible by users: %s' % id
             self.config_object_error(id, None, obj_type, 'http_get', result)
@@ -1239,7 +1240,9 @@ class VncApiServer(object):
             self.generate_hrefs(resource_type, result)
         rsp_body.update(result)
         id_perms = result['id_perms']
-        bottle.response.set_header('ETag', '"' + id_perms['last_modified'] + '"')
+        if id_perms is not None:
+            bottle.response.set_header('ETag', '"{}"'.format(
+                id_perms['last_modified']))
         try:
             self._extension_mgrs['resourceApi'].map_method(
                 'post_%s_read' %(obj_type), id, rsp_body)
@@ -4230,6 +4233,7 @@ class VncApiServer(object):
         fq_name_str = ":".join(obj_fq_name or [])
         if req_obj_dict:
             if ('id_perms' in req_obj_dict and
+                    req_obj_dict['id_perms'] is not None and
                     req_obj_dict['id_perms'].get('uuid')):
                 if not self._db_conn.match_uuid(req_obj_dict, obj_uuid):
                     msg = (
@@ -5040,6 +5044,8 @@ class VncApiServer(object):
         if res_type == 'firewall_rule':
             for ep in [draft.get('endpoint_1', {}),
                        draft.get('endpoint_2', {})]:
+                if ep is None:
+                    continue
                 ag_fq_name = ep.get('address_group', [])
                 if ag_fq_name and ag_fq_name.split(':')[:-1] == pm_fq_name:
                     ep['address_group'] = ':'.join(parent_fq_name + [
