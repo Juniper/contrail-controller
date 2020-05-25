@@ -14,35 +14,37 @@ from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from netaddr import IPNetwork
 from .test_dm_utils import FakeJobHandler
+from vnc_api.exceptions import RefsExistError
 from vnc_api.vnc_api import *
 
 
 class RPTerm:
-    def __init__(self, name, protocols=[], prefixs=[], prefixtypes=[],
-                 extcommunity_list=[], extcommunity_match_all=None,
+    def __init__(self, name, protocols=None, prefixs=None, prefixtypes=None,
+                 extcommunity_list=None, extcommunity_match_all=None,
                  community_match_all=None, action="",
-                 local_pref=None, med=None, asn_list=[],
-                 termtype='', routes=[], route_types=[], route_values=[],
-                 fcommunity_list=[], fcommunity=None,
-                 tcommunity_list=[], tcommunity_add=[]):
+                 local_pref=None, med=None, asn_list=None,
+                 termtype='', routes=None, route_types=None, route_values=None,
+                 fcommunity_list=None, fcommunity=None,
+                 tcommunity_list=None, tcommunity_add=None):
         self.name = name
-        self.protocols = protocols
-        self.prefixs = prefixs
-        self.prefixtypes = prefixtypes
-        self.extcommunity_list = extcommunity_list
-        self.extcommunity_match_all = extcommunity_match_all
+        self.protocols = protocols or []
+        self.prefixs = prefixs or []
+        self.prefixtypes = prefixtypes or []
+        self.extcommunity_list = extcommunity_list or []
+        self.extcommunity_match_all = extcommunity_match_all or []
         self.community_match_all = community_match_all
         self.action = action
         self.local_pref = local_pref
         self.med = med
-        self.asn_list = asn_list
+        self.asn_list = asn_list or []
         self.type = termtype
-        self.routes = routes; self.route_types = route_types
-        self.route_values = route_values
-        self.fcommunity_list = fcommunity_list
+        self.routes = routes or []
+        self.route_types = route_types or []
+        self.route_values = route_values or []
+        self.fcommunity_list = fcommunity_list or []
         self.fcommunity = fcommunity
-        self.tcommunity_list = tcommunity_list
-        self.tcommunity_add = tcommunity_add
+        self.tcommunity_list = tcommunity_list or []
+        self.tcommunity_add = tcommunity_add or []
 # end RPTerm
 
 class TestAnsibleCommonDM(DMTestCase):
@@ -69,7 +71,7 @@ class TestAnsibleCommonDM(DMTestCase):
         return job_input
     # end check_dm_ansible_config_push
 
-    def create_features(self, features=[]):
+    def create_features(self, features):
         self.features = {}
         for feature in features:
             feature_obj = Feature(fq_name=[self.GSC, feature],
@@ -79,18 +81,22 @@ class TestAnsibleCommonDM(DMTestCase):
             self.features[feature] = feature_obj
     # end create_features
 
-    def create_physical_roles(self, physical_roles=[]):
+    def create_physical_roles(self, physical_roles):
         self.physical_roles = {}
         for physical_role in physical_roles:
             physical_role_obj = PhysicalRole(fq_name=[self.GSC, physical_role],
                                              parent_type='global-system-config',
                                              name=physical_role,
                                              display_name=physical_role)
-            self._vnc_lib.physical_role_create(physical_role_obj)
+            try:
+                self._vnc_lib.physical_role_create(physical_role_obj)
+            except RefsExistError:
+                physical_role_obj = self._vnc_lib.physical_role_read(
+                    fq_name=[self.GSC, physical_role])
             self.physical_roles[physical_role] = physical_role_obj
     # end create_physical_roles
 
-    def create_overlay_roles(self, overlay_roles=[]):
+    def create_overlay_roles(self, overlay_roles):
         self.overlay_roles = {}
         for overlay_role in overlay_roles:
             overlay_role_obj = OverlayRole(fq_name=[self.GSC, overlay_role],
@@ -142,11 +148,14 @@ class TestAnsibleCommonDM(DMTestCase):
     # end create_job_template
 
     def create_node_profile(self, name, vendor='juniper', device_family=None,
-                            role_mappings=[], job_template=None):
-        node_profile_role_mappings = [NodeProfileRoleType(
-                                            physical_role=r.physical_role,
-                                            rb_roles=r.rb_roles)
-                                        for r in role_mappings]
+                            role_mappings=None, job_template=None):
+        if role_mappings is None:
+            node_profile_role_mappings = []
+        else:
+            node_profile_role_mappings = [NodeProfileRoleType(
+                physical_role=r.physical_role, rb_roles=r.rb_roles)
+                for r in role_mappings]
+
         node_profile_roles = NodeProfileRolesType(
                                 role_mappings=node_profile_role_mappings)
         node_profile = NodeProfile(fq_name=[self.GSC, name], name=name,
@@ -211,12 +220,23 @@ class TestAnsibleCommonDM(DMTestCase):
         return self._vnc_lib.interface_route_table_read(id=irt_uuid)
     # end create_irt
 
-    def create_routing_policy_term(self, protocols=[], prefixs=[],
-                                   prefixtypes=[], extcommunity_list=[],
+    def create_routing_policy_term(self, protocols=None, prefixs=None,
+                                   prefixtypes=None, extcommunity_list=None,
                                    extcommunity_match_all = False,
                                    community_match_all = False, action="",
-                                   local_pref=None, med=None, asn_list=[],
-                                   routes=[], route_types=[], route_values=[]):
+                                   local_pref=None, med=None, asn_list=None,
+                                   routes=None, route_types=None,
+                                   route_values=None):
+
+        protocols = protocols or []
+        prefixs = prefixs or []
+        prefixtypes = prefixtypes or []
+        extcommunity_list = extcommunity_list or []
+        asn_list = asn_list or []
+        routes = routes or []
+        route_types = route_types or []
+        route_values = route_values or []
+
         prefix_list = []
         for i in range(len(prefixs)):
             prefix_list.append(PrefixMatchType(prefix=prefixs[i],

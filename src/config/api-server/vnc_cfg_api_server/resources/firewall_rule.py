@@ -75,7 +75,11 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
     def _frs_fix_match_tags(cls, obj_dict):
         if 'match_tags' in obj_dict:
             obj_dict['match_tag_types'] = {'tag_type': []}
-            for tag_type in obj_dict['match_tags'].get('tag_list', []):
+            match_tags = obj_dict['match_tags']
+            if match_tags is None:
+                return True, ""
+
+            for tag_type in match_tags.get('tag_list', []):
                 tag_type = tag_type.lower()
                 if tag_type == 'label':
                     return (False, (400, 'labels not allowed as match-tags'))

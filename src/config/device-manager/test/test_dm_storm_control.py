@@ -24,7 +24,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def test_01_storm_control_profile_update(self):
         # create objects
 
-        sc_name = 'strm_ctrl_upd'
+        sc_name = 'strm_ctrl_upd-{}'.format(self.id())
         bw_percent = 20
         traffic_type = ['no-broadcast', 'no-multicast']
         actions = ['interface-shutdown']
@@ -88,7 +88,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def test_02_port_profile_vpg_association(self):
         # create objects
 
-        sc_name = 'strm_ctrl_vmi'
+        sc_name = 'strm_ctrl_vmi-{}'.format(self.id())
         bw_percent = 20
         traffic_type = ['no-broadcast', 'no-multicast']
         actions = ['interface-shutdown']
@@ -134,7 +134,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def test_03_port_profile_service_provider_style_crb_access(self):
         # create objects
 
-        sc_name = 'strm_ctrl_sp_style_crb'
+        sc_name = 'strm_ctrl_sp_style_crb-{}'.format(self.id())
         bw_percent = 20
         traffic_type = ['no-broadcast', 'no-multicast']
         actions = ['interface-shutdown']
@@ -163,7 +163,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.delete_objects()
 
     def test_04_disassociate_port_profile_from_vpg(self):
-        sc_name = 'strm_ctrl_pp'
+        sc_name = 'strm_ctrl_pp-{}'.format(self.id())
         bw_percent = 20
         traffic_type = ['no-broadcast', 'no-multicast']
         actions = ['interface-shutdown']
@@ -230,7 +230,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def test_05_port_profile_service_provider_style_erb_ucast(self):
         # create objects
 
-        sc_name = 'strm_ctrl_sp_style_erb'
+        sc_name = 'strm_ctrl_sp_style_erb-{}'.format(self.id())
         bw_percent = 47
         traffic_type = ['no-broadcast', 'no-multicast']
         actions = ['interface-shutdown']
@@ -276,7 +276,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def test_07_vpg_lag(self):
         # create objects
 
-        sc_name = 'strm_ctrl_lag'
+        sc_name = 'strm_ctrl_lag-{}'.format(self.id())
         bw_percent = 25
         traffic_type = ['no-broadcast']
         actions = ['interface-shutdown']
@@ -322,7 +322,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
     def test_08_vpg_mh(self):
         # create objects
 
-        sc_name = 'strm_ctrl_mh'
+        sc_name = 'strm_ctrl_mh-{}'.format(self.id())
         bw_percent = 29
         traffic_type = ['no-multicast']
         actions = ['interface-shutdown']
