@@ -788,9 +788,10 @@ class VncCassandraClient(object):
                 else:
                     list_coll = new_props[prop_name]
 
-                for i in range(len(list_coll)):
-                    self._add_to_prop_list(bch, obj_uuid, prop_name,
-                                           list_coll[i], str(i))
+                if list_coll is not None:
+                    for i in range(len(list_coll)):
+                        self._add_to_prop_list(bch, obj_uuid, prop_name,
+                                               list_coll[i], str(i))
             elif prop_name in obj_class.prop_map_fields:
                 # store map elements in key order
                 # iterate on wrapped element or directly on prop field
@@ -803,11 +804,12 @@ class VncCassandraClient(object):
                 else:
                     map_coll = new_props[prop_name]
 
-                map_key_name = obj_class.prop_map_field_key_names[prop_name]
-                for map_elem in map_coll:
-                    map_key = map_elem[map_key_name]
-                    self._set_in_prop_map(bch, obj_uuid, prop_name,
-                                          map_elem, map_key)
+                if map_coll is not None:
+                    map_key_name = obj_class.prop_map_field_key_names[prop_name]
+                    for map_elem in map_coll:
+                        map_key = map_elem[map_key_name]
+                        self._set_in_prop_map(bch, obj_uuid, prop_name,
+                                              map_elem, map_key)
             else:
                 self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
 
@@ -1259,6 +1261,7 @@ class VncCassandraClient(object):
         list_fields = obj_class.prop_list_fields
         map_fields = obj_class.prop_map_fields
         prop_fields = obj_class.prop_fields - (list_fields | map_fields)
+        prop_field_types = obj_class.prop_field_types
 
         results = {}
         for obj_uuid, obj_cols in list(obj_rows.items()):
@@ -1378,8 +1381,12 @@ class VncCassandraClient(object):
                     if meta_type == 'latest_col_ts':
                         row_latest_ts = obj_cols[col_name][1]
                     continue
-
             # for all column names
+
+            # fill missing fields with default value
+            for key, prop in obj_class.prop_field_types.items():
+                if key not in result:
+                    result[key] = prop['default']
 
             # sort children by creation time
             for child_field in obj_class.children_fields:

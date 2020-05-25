@@ -3,6 +3,8 @@
 #
 import logging
 
+import requests
+
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import VNID_MIN_ALLOC
 from cfgm_common.exceptions import BadRequest
@@ -351,3 +353,21 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         vxlan_id = vn.get_virtual_network_properties()\
             .get_vxlan_network_identifier()
         self.assertEqual(vn_network_id, vxlan_id)
+
+    def test_propagate_default_values(self):
+        # Create new Virtual Network with only a name
+        vn = VirtualNetwork('vn-{}'.format(self.id()))
+        vn.uuid = self.api.virtual_network_create(vn)
+
+        # Read the Virtual Network
+        url = 'http://{}:{}/virtual-network/{}'.format(
+            self._api_server_ip,
+            self._api_server._args.listen_port,
+            vn.uuid)
+
+        result = requests.get(url).json()
+        vn_dict = result['virtual-network']
+
+        # Check if Virtual Network has all properties with default values
+        for prop in VirtualNetwork.prop_fields:
+            self.assertIn(prop, vn_dict)
