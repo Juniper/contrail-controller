@@ -114,7 +114,7 @@ class VirtualRouterServer(ResourceMixin, VirtualRouter):
                 msg = "Only flat-subnet ipam can be attached to vrouter"
                 return False, (400, msg)
 
-            ipam_subnets = ipam.get('ipam_subnets', {})
+            ipam_subnets = ipam.get('ipam_subnets') or {}
             # read data on the link between vrouter and ipam
             # if alloc pool exists, then make sure that alloc-pools are
             # configured in ipam subnet with a flag indicating

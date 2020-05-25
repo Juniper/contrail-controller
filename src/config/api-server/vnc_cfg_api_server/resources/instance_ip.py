@@ -97,7 +97,7 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
                     return (ok, (400, obj_dict))
                 ipam_refs = vrouter_dict.get('network_ipam_refs') or []
             else:
-                ipam_refs = obj_dict.get('network_ipam_refs')
+                ipam_refs = obj_dict.get('network_ipam_refs') or []
 
         subnet_uuid = obj_dict.get('subnet_uuid')
         if subnet_uuid and virtual_router_refs:
@@ -130,12 +130,13 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
                 return False, (400, "Gateway IP cannot be used by VM port")
 
         alloc_pool_list = []
-        if 'virtual_router_refs' in obj_dict:
+        if ('virtual_router_refs' in obj_dict and
+                obj_dict['virtual_router_refs'] is not None):
             # go over all the ipam_refs and build a list of alloc_pools
             # from where ip is expected
             for vr_ipam in ipam_refs:
-                vr_ipam_data = vr_ipam.get('attr', {})
-                vr_alloc_pools = vr_ipam_data.get('allocation_pools', [])
+                vr_ipam_data = vr_ipam.get('attr') or {}
+                vr_alloc_pools = vr_ipam_data.get('allocation_pools') or []
                 alloc_pool_list.extend(
                     [(vr_alloc_pool) for vr_alloc_pool in vr_alloc_pools])
 

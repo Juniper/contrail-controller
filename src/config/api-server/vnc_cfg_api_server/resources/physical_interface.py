@@ -163,10 +163,12 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
 
         physical_router = result
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
-        product_name = physical_router.get('physical_router_product_name', '')
-        if product_name.lower().startswith("qfx") and vlan_tag is not None:
-            li_type = obj_dict.get('logical_interface_type', '').lower()
-            if li_type == 'l2' and vlan_tag in RESERVED_QFX_L2_VLAN_TAGS:
+        product_name = physical_router.get('physical_router_product_name')
+        if (product_name and product_name.lower().startswith("qfx") and
+                vlan_tag is not None):
+            li_type = obj_dict.get('logical_interface_type')
+            if (li_type and li_type.lower() == 'l2' and
+                    vlan_tag in RESERVED_QFX_L2_VLAN_TAGS):
                 msg = ("Vlan ids %s are not allowed on QFX logical interface "
                        "type: %s" %
                        (', '.join(str(i) for i in RESERVED_QFX_L2_VLAN_TAGS),
