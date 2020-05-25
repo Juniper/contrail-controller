@@ -1732,12 +1732,16 @@ class DatabaseChecker(DatabaseManager):
                 fq_name_str, _, uuid = fq_name_str_uuid.rpartition(':')
                 try:
                     obj = uuid_table.get(uuid, columns=['prop:id_perms'])
-                    created_at = json.loads(obj['prop:id_perms']).get(
-                        'created', 'unknown')
-                    resource_map.setdefault(obj_type, {}).setdefault(
-                        fq_name_str, set([])).add((uuid, created_at))
                 except pycassa.NotFoundException:
                     stale_fq_names.add(fq_name_str)
+                else:
+                    id_perms = json.loads(obj.get('prop:id_perms', '{}'))
+                    if id_perms is not None:
+                        created_at = id_perms.get('created', 'unknown')
+                    else:
+                        created_at = 'unknown'
+                    resource_map.setdefault(obj_type, {}).setdefault(
+                        fq_name_str, set([])).add((uuid, created_at))
         if stale_fq_names:
             logger.info("Found stale fq_name index entry: %s. Use "
                         "'clean_stale_fq_names' commands to repair that. "
@@ -2900,8 +2904,11 @@ class DatabaseHealer(DatabaseManager):
                 columns=['type', 'fq_name', 'prop:id_perms']):
             type = json.loads(cols.get('type', 'null'))
             fq_name = json.loads(cols.get('fq_name', 'null'))
-            created_at = json.loads(cols['prop:id_perms']).get(
-                'created', '"unknown"')
+            id_perms = json.loads(cols.get('prop:id_perms', 'null'))
+            if id_perms:
+                created_at = id_perms.get('created', 'unknown')
+            else:
+                created_at = 'unknown'
             if not type:
                 logger.info("Unknown 'type' for object %s", uuid)
                 continue

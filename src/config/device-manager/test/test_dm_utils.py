@@ -126,6 +126,7 @@ class FakeJobHandler(object):
     def send(cls, plugin, job_template, job_input, is_delete, retry):
         job_input['device_abstract_config'] = \
             json.loads(job_input['device_abstract_config'])
+        print('DEVICE ABSTRACT CONFIG: {}'.format(job_input['device_abstract_config']))
         cls.params = {
             'plugin': plugin,
             'job_template':  job_template,
@@ -135,7 +136,11 @@ class FakeJobHandler(object):
         }
         dev_name = job_input.get('device_abstract_config', {}).get('system', {}).get('name')
         if dev_name:
-            cls.dev_params[dev_name] = {
+            if dev_name not in cls.dev_params:
+                cls.dev_params[dev_name] = {}
+
+            transaction_descr = plugin.physical_router.transaction_descr
+            cls.dev_params[dev_name][transaction_descr] = {
                 'plugin': plugin,
                 'job_template':  job_template,
                 'job_input':  job_input,
@@ -166,10 +171,12 @@ class FakeJobHandler(object):
     def get_dev_transaction_info(cls, dev_name):
         dev = cls.dev_params.get(dev_name)
         if dev:
-            pr_obj = dev.get('plugin').physical_router
-            if pr_obj:
-                return pr_obj.transaction_id, pr_obj.transaction_descr
-        return None, ''
+            info = []
+            for params in dev.values():
+                pr_obj = dev.get('plugin').physical_router
+                info.append((pr_obj.transaction_id, pr_obj.transaction_descr))
+            return info
+        return None, []
     # end get_dev_transaction_info
 
     @classmethod

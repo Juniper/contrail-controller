@@ -2028,7 +2028,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                 vmi_id = vmi_ref['uuid']
                 vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
                 vmi_props = vmi.get_virtual_machine_interface_properties()
-                if vmi_props.service_interface_type == 'left':
+                if vmi_props and vmi_props.service_interface_type == 'left':
                     left_vmis.append(vmi)
                 else:
                     right_vmis.append(vmi)

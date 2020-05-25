@@ -2910,13 +2910,9 @@ class VirtualNetworkDM(DBBaseDM):
     def set_forwarding_mode(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-        self.forwarding_mode = None
-        try:
-            prop = obj['virtual_network_properties']
-            if prop['forwarding_mode'] is not None:
-                self.forwarding_mode = prop['forwarding_mode']
-        except KeyError:
-            pass
+
+        self.forwarding_mode = (obj.get(
+            'virtual_network_properties') or {}).get('forwarding_mode', None)
     # end set_forwarding_mode
 
     def get_forwarding_mode(self):
