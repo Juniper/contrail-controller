@@ -2173,7 +2173,8 @@ class AddrMgmt(object):
         kwargs.update({'vn_dict': vn_dict})
 
         ipam_dicts = {}
-        for ipam_ref in vn_dict.get('network_ipam_refs', []):
+        ipam_refs = vn_dict.get('network_ipam_refs') or [] if vn_dict else []
+        for ipam_ref in ipam_refs:
             (ok, ipam_dict) = self._uuid_to_obj_dict(
                     'network_ipam', ipam_ref['uuid'])
             if not ok:
