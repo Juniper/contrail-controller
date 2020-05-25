@@ -7,6 +7,7 @@ from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import VNID_MIN_ALLOC
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
+import requests
 from testtools import ExpectedException
 from vnc_api.vnc_api import GlobalSystemConfig
 from vnc_api.vnc_api import RouteTargetList
@@ -351,3 +352,24 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         vxlan_id = vn.get_virtual_network_properties()\
             .get_vxlan_network_identifier()
         self.assertEqual(vn_network_id, vxlan_id)
+
+    def test_propagate_default_values(self):
+        # Create new Virtual Network with only a name
+        vn = VirtualNetwork('vn-{}'.format(self.id()))
+        vn.uuid = self.api.virtual_network_create(vn)
+
+        # Read the Virtual Network
+        url = 'http://{}:{}/virtual-network/{}'.format(
+            self._api_server_ip,
+            self._api_server._args.listen_port,
+            vn.uuid)
+
+        result = requests.get(url).json()
+        vn_dict = result['virtual-network']
+
+        # Check if Virtual Network has all properties with default values
+        for prop in VirtualNetwork.prop_fields:
+            if prop == 'annotations':
+                # TODO: find out why annotations are not in response
+                continue
+            self.assertIn(prop, vn_dict)
