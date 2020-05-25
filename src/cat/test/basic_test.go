@@ -10,7 +10,7 @@ import (
 	"cat"
 	"cat/config"
 	"cat/controlnode"
-	"cat/crpd"
+        "cat/crpd"
 	"cat/sut"
 
 	log "github.com/sirupsen/logrus"
@@ -25,6 +25,65 @@ func setupSubTest(t *testing.T, c *cat.CAT) func(t *testing.T, c *cat.CAT) {
 			t.Fatalf("CAT cects cleanup failed: %v", err)
 		}
 	}
+}
+
+func TestAgentMockPortForSchemaValidation(t *testing.T) {
+    var ConNodes map[string]interface{}
+    ConNodes, _ = cat.GetNumOfControlNodes()
+
+    tests := []struct {
+        desc         string
+        controlNodes int
+        agents       int
+        crpds        int
+    }{
+                {
+            desc:         "Test Agent Mock Port",
+            controlNodes: len(ConNodes),
+            agents:       1,
+            crpds:        0,
+        }}
+
+    for _, tt := range tests {
+        t.Run(tt.desc, func(t *testing.T) {
+            log.Infof("Started test %s", tt.desc)
+
+            // Create basic CAT object first to hold all objects managed.
+            c, err := cat.New()
+            if err != nil {
+                t.Fatalf("Failed to create CAT cect: %v", err)
+            }
+
+            // Bring up control-nodes, agents and crpds.
+            if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
+                t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: ")
+            }
+
+            // Verify that control-node bgp router configurations are added.
+            if err := verifyControlNodeBgpRoutersConfiguration(c, tt.controlNodes+tt.crpds); err != nil {
+                t.Fatalf("Cannot verify bgp routers configuration")
+            }
+
+            if err := verifyControlNodesAndAgents(c); err != nil {
+                t.Fatalf("Failed to verify control-nodes, agents and/or c.CRPDs: %v", err)
+            }
+
+            generateConfiguration(c)
+
+            // Verify that introspect page has correct config
+            if err := c.Agents[0].AddVirtualPort(c.ConfigMap["virtual_machine_interface:vmi1"],
+                    c.ConfigMap["virtual_machine:vm1"], c.ConfigMap["virtual_network:vn1"], c.ConfigMap["project:default-project"],
+                    "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1", "9091"); err != nil {
+                        t.Fatalf("Port add to agent Failed")
+                }
+
+            // Verify interface is set to active in agent introspect
+            if err := c.Agents[0].VerifyIntrospectInterfaceState("tap1", true); err != nil {
+                t.Fatalf("Interface not set to Active in agent: %v", err)
+            }
+            return;
+        })
+    }
 }
 
 // TestIntrospectForSchemaValidation tests various combination of control-nodes,

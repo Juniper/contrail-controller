@@ -3,6 +3,7 @@
 package agent
 
 import (
+        "encoding/json"
 	"bufio"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+        "time"
 
 	"cat/config"
 	"cat/sut"
@@ -55,6 +57,9 @@ func New(m sut.Manager, name, test string, endpoints []sut.Endpoint) (*Agent, er
 	if err := a.start(); err != nil {
 		return nil, err
 	}
+        if err := a.readAgentHttpPort(); err != nil {
+                return nil, err
+        }
 	return a, nil
 }
 
@@ -117,4 +122,32 @@ func (a *Agent) writeConfiguration() error {
 		return err
 	}
 	return nil
+}
+
+func (a *Agent) readAgentHttpPort() error {
+        a.PortsFile = fmt.Sprintf("%d.json", a.Cmd.Process.Pid)
+        retry := 30
+        var err error
+        for retry > 0 {
+                if bytes, err := ioutil.ReadFile(a.PortsFile); err == nil {
+                        if err := json.Unmarshal(bytes, &a.Config); err == nil {
+                                return nil
+                        }
+                }
+                time.Sleep(1 * time.Second)
+                retry = retry - 1
+        }
+        return err
+}
+
+// Check interface Active/Incative state in agent introspect
+func (a *Agent) VerifyIntrospectInterfaceState(intf string, active bool) error {
+        url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_ItfReq?name=%s | xmllint --format - | grep  \\/active | grep Active", "0.0.0.0", a.Config.HTTPPort, intf)
+        port_active, serr := exec.Command("/bin/bash", "-c", url).Output()
+        log.Infof("Command %s completed %s with status %v\n", url, port_active, serr)
+        if (serr != nil  && active) {
+                return fmt.Errorf("Interface not active in agent ")
+        }
+
+        return nil
 }
