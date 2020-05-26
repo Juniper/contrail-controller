@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4fe754c1_5043ecbb",
+        "filename": "src/config/common/cfgm_common/datastore/api.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-05-26T06:59:21Z",
+      "side": 1,
+      "message": "not sure the logger should be an option and can be none",
+      "range": {
+        "startLine": 50,
+        "startChar": 5,
+        "endLine": 50,
+        "endChar": 11
+      },
+      "revId": "804957ee68fc04385d2613098389ade9b4d539f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e433cb1a_22d3b517",
+        "filename": "src/config/common/cfgm_common/datastore/api.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-05-26T06:59:21Z",
+      "side": 1,
+      "message": "this is not used anywhere in driver and VncCassandraClient, perhaps we should remove it.",
+      "range": {
+        "startLine": 51,
+        "startChar": 5,
+        "endLine": 51,
+        "endChar": 17
+      },
+      "revId": "804957ee68fc04385d2613098389ade9b4d539f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a050cb2c_bc85377b",
+        "filename": "src/config/common/cfgm_common/datastore/api.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-05-26T06:59:21Z",
+      "side": 1,
+      "message": "Cassandra drivers don\u0027t care about that four options. They are useful only for the VncCassandraClient class.\nYou should keep them as argument to the VncCassandraClient constructor outside the options dict and perhaps name that options dict as driver_options?",
+      "range": {
+        "startLine": 54,
+        "startChar": 0,
+        "endLine": 57,
+        "endChar": 34
+      },
+      "revId": "804957ee68fc04385d2613098389ade9b4d539f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
