@@ -17,9 +17,7 @@ def get_package_version(pkg):
 
 
 def is_running_in_docker():
-    pid = os.getpid()
-    with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
-        return 'docker' in ifh.read()
+    return os.exists('/.dockerenv')
 
 def is_running_in_podman():
     pid = os.getpid()

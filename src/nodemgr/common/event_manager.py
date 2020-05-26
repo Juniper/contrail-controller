@@ -31,6 +31,7 @@ from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common import utils
 import os
 try:
+    from nodemgr.common.cri_containers import CriOContainersInterface
     from nodemgr.common.docker_containers import DockerContainersInterface
     from nodemgr.common.podman_containers import PodmanContainersInterface
     from nodemgr.common.container_process_manager import ContainerProcessInfoManager
@@ -116,14 +117,18 @@ class EventManager(object):
         gevent.signal(signal.SIGHUP, self.nodemgr_sighup_handler)
         self.system_data = LinuxSysData(self.msg_log, self.config.corefile_path)
         if ContainerProcessInfoManager:
-            if utils.is_running_in_docker() or utils.is_running_in_kubepod():
-                self.process_info_manager = ContainerProcessInfoManager(
-                    type_info._module_type, unit_names, event_handlers,
-                    update_process_list, DockerContainersInterface())
+            S = None
+            if utils.is_running_in_docker():
+                S = DockerContainersInterface()
             elif utils.is_running_in_podman():
+                S = PodmanContainersInterface()
+            elif utils.is_running_in_kubepod():
+                S = CriOContainersInterface()
+
+            if S:
                 self.process_info_manager = ContainerProcessInfoManager(
                     type_info._module_type, unit_names, event_handlers,
-                    update_process_list, PodmanContainersInterface())
+                    update_process_list, S)
 
         if not self.process_info_manager:
             self.msg_log('Node manager could not detect process manager',
