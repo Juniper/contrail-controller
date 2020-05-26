@@ -21,6 +21,7 @@ setup(
               'nodemgr.config_database_nodemgr',
               'nodemgr.vrouter_nodemgr',
               'nodemgr.common',
+              'nodemgr.common.cri',
               'nodemgr.common.sandesh',
               'nodemgr.common.sandesh.nodeinfo',
               'nodemgr.common.sandesh.nodeinfo.cpuinfo',
