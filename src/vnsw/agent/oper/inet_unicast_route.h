@@ -224,7 +224,8 @@ public:
                             const EcmpLoadBalance &ecmp_load_balance,
                             bool is_local,
                             bool is_health_check_service,
-                            bool native_encap);
+                            bool native_encap,
+                            const std::string &intf_name = "");
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                 const IpAddress &addr, uint8_t plen,
                 const boost::uuids::uuid &intf_uuid,

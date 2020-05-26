@@ -144,12 +144,19 @@ void MetaDataIpAllocator::AddFabricRoute(MetaDataIp *ip) {
     if (ip->intf_->vn()) {
         vn_list.insert(ip->intf_->vn()->GetName());
     }
-    InetUnicastAgentRouteTable::AddLocalVmRoute
-        (agent_->link_local_peer(), agent_->fabric_vrf_name(),
+
+    InetUnicastAgentRouteTable *table =
+        static_cast<InetUnicastAgentRouteTable*>
+        (agent_->vrf_table()->GetInet4UnicastRouteTable(
+                                        agent_->fabric_vrf_name()));
+
+    table->AddLocalVmRouteReq(
+         agent_->link_local_peer(), agent_->fabric_vrf_name(),
          ip->GetLinkLocalIp(), 32, ip->intf_->GetUuid(),
          vn_list, ip->intf_->label(), SecurityGroupList(),
-         TagList(), CommunityList(), true, path_preference, Ip4Address(0),
-         ecmp_load_balance, false, false, ip->intf_->name(), false);
+         TagList(), CommunityList(), true, path_preference,
+         Ip4Address(0), ecmp_load_balance, false, false, false,
+         ip->intf_->name());
 }
 
 void MetaDataIpAllocator::DelFabricRoute(MetaDataIp *ip) {
