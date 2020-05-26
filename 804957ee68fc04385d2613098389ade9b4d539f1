@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "233c7620_379ffed3",
+        "filename": "src/config/common/cfgm_common/datastore/api.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-05-26T07:17:26Z",
+      "side": 1,
+      "message": "I understand your point, perhaps the name Option is not right. What we have here does not necessarily mean we can have it not set. it is the responsible of the drivers to check validity when considering mandatory.",
+      "parentUuid": "4fe754c1_5043ecbb",
+      "range": {
+        "startLine": 50,
+        "startChar": 5,
+        "endLine": 50,
+        "endChar": 11
+      },
+      "revId": "804957ee68fc04385d2613098389ade9b4d539f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "e433cb1a_22d3b517",
         "filename": "src/config/common/cfgm_common/datastore/api.py",
         "patchSetId": 14
@@ -48,6 +72,30 @@
     },
     {
       "key": {
+        "uuid": "5363f5a8_2dcea805",
+        "filename": "src/config/common/cfgm_common/datastore/api.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-05-26T07:17:26Z",
+      "side": 1,
+      "message": "Yes you can see my patch here. https://review.opencontrail.org/c/Juniper/contrail-controller/+/58101/1\n\nI decided to avoid making such changes to ensure I don\u0027t add regressions. Such cleanup up is not related and can be done independently.",
+      "parentUuid": "e433cb1a_22d3b517",
+      "range": {
+        "startLine": 51,
+        "startChar": 5,
+        "endLine": 51,
+        "endChar": 17
+      },
+      "revId": "804957ee68fc04385d2613098389ade9b4d539f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "a050cb2c_bc85377b",
         "filename": "src/config/common/cfgm_common/datastore/api.py",
         "patchSetId": 14
@@ -59,6 +107,30 @@
       "writtenOn": "2020-05-26T06:59:21Z",
       "side": 1,
       "message": "Cassandra drivers don\u0027t care about that four options. They are useful only for the VncCassandraClient class.\nYou should keep them as argument to the VncCassandraClient constructor outside the options dict and perhaps name that options dict as driver_options?",
+      "range": {
+        "startLine": 54,
+        "startChar": 0,
+        "endLine": 57,
+        "endChar": 34
+      },
+      "revId": "804957ee68fc04385d2613098389ade9b4d539f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0c1b825b_f49942fd",
+        "filename": "src/config/common/cfgm_common/datastore/api.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-05-26T07:17:26Z",
+      "side": 1,
+      "message": "Like with generate_url. I don\u0027t want to bring any changes in the logic to avoid regression. Such cleanup will be appreciated independently.",
+      "parentUuid": "a050cb2c_bc85377b",
       "range": {
         "startLine": 54,
         "startChar": 0,
