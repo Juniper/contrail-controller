@@ -209,6 +209,30 @@
     },
     {
       "key": {
+        "uuid": "2d01baa0_91177402",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 106,
+      "author": {
+        "id": 633
+      },
+      "writtenOn": "2020-05-27T08:53:21Z",
+      "side": 1,
+      "message": "Sorry, my mistake. Ignore that comment.",
+      "parentUuid": "ad48d59f_38e526e6",
+      "range": {
+        "startLine": 106,
+        "startChar": 30,
+        "endLine": 106,
+        "endChar": 79
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "eb1de062_b6af1392",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
         "patchSetId": 2
@@ -375,6 +399,30 @@
       "writtenOn": "2020-05-26T09:12:26Z",
       "side": 1,
       "message": "TF Client",
+      "range": {
+        "startLine": 176,
+        "startChar": 17,
+        "endLine": 176,
+        "endChar": 57
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dc14ab4b_cae905f9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 176,
+      "author": {
+        "id": 633
+      },
+      "writtenOn": "2020-05-27T08:53:21Z",
+      "side": 1,
+      "message": "Sorry, my mistake. Ignore that comment.",
+      "parentUuid": "ca60a7eb_126bebed",
       "range": {
         "startLine": 176,
         "startChar": 17,
@@ -950,6 +998,30 @@
       "writtenOn": "2020-05-26T09:12:26Z",
       "side": 1,
       "message": "please match the same LOG variable name as other loggers in the project",
+      "range": {
+        "startLine": 18,
+        "startChar": 0,
+        "endLine": 18,
+        "endChar": 36
+      },
+      "revId": "3781fc73f4dfc2ee5c4432ad55e9da8571fca1fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "703dd2f2_37d0c94b",
+        "filename": "src/config/fabric-ansible/test/test_discover_os_computes.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 633
+      },
+      "writtenOn": "2020-05-27T08:53:21Z",
+      "side": 1,
+      "message": "Sorry, my mistake. Ignore that comment.",
+      "parentUuid": "3eef902c_333eeaf5",
       "range": {
         "startLine": 18,
         "startChar": 0,
