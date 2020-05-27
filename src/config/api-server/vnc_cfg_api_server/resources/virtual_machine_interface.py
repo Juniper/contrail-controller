@@ -1099,15 +1099,18 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return ok, result
         result = result or {}
         annotations = result.get('annotations') or []
-        for ann_dict, _ in annotations:
+        for ann_dict, r_ann_key in annotations:
             if not (ann_key.startswith('validation:%s' % validation) and
                     ann_key.endswith('untagged_vlan_id')):
                 continue
             # Fail if its not the same entry
             r_ann_value = ann_dict.get('value', '')
             r_ann_vlan, r_ann_vmi_uuid = r_ann_value.split(':', 1)
-            # VMI update case, ignore
+            # VMI update case, remove existing annotation
             if r_ann_vmi_uuid == vmi_uuid:
+                cls._delete_annotations(
+                    api_server, vpg_uuid, 'virtual-port-group',
+                    [r_ann_key])
                 continue
 
             if r_ann_value != ann_value:
@@ -1126,9 +1129,79 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         return True, ''
 
     @classmethod
+    def _check_remove_old_vlan_annotation(
+        cls, db_conn, api_server, vn_uuid,
+        vmi_uuid, vlan_id, vpg_uuid,
+            is_untagged_vlan, validation):
+        """Check and remove annotation with old VLAN ID.
+
+        In case of VLAN-ID update in VMIs already associated
+        with VPG, remove old annotations from VPG
+        :Args
+        :  db_conn: db connection object
+        :  api_server: api_server connection object
+        :  vn_uuid: UUID of virtual_network
+        :  vmi_uuid: UUID of virtual_machine_interface
+        :  vlan_id: ID of the VLAN
+        :  vpg_uuid: UUID of VPG
+        :  is_untagged_vlan:
+        :    True: untagged
+        :    False: tagged
+        :  validation:
+        :    enterprise
+        :    serviceprovider
+        :Returns
+        :  True, '': PASS condition
+        :  (False, (<code>, msg): Fail condition
+        """
+        # retrieve annotations info from VPGs
+        ok, vpg_dict = cls.dbe_read(
+            db_conn, 'virtual_port_group', vpg_uuid,
+            obj_fields=['annotations'])
+        if not ok:
+            return ok, vpg_dict
+
+        # check if any vn or vlan matches
+        vpg_annotations = vpg_dict.get('annotations') or {}
+        vpg_kvps = vpg_annotations.get('key_value_pair') or []
+        for kvp in vpg_kvps:
+            kvp_key = kvp.get('key', '')
+            kvp_value = kvp.get('value', '')
+            # VMI update, remove existing annotation
+            if kvp_value == vmi_uuid:
+                ok, result = cls._delete_annotations(
+                    api_server, vpg_uuid, 'virtual-port-group',
+                    [kvp_key])
+                if not ok:
+                    return ok, result
+                if is_untagged_vlan:
+                    continue
+                # VMI update, removing untagged annotation
+                # if this VLAN is not an untagged vlan anymore
+                untagg_k = 'validation:%s/untagged_vlan_id' % validation
+                untagg_v = '%s:%s' % (vlan_id, vmi_uuid)
+                ok, result = cls._check_annotations(
+                    api_server, vpg_uuid, 'virtual-port-group',
+                    untagg_k, untagg_v, fail_if_exists=False)
+                if not ok:
+                    return ok, result
+                r_untag_ann = result.get('annotations') or []
+                if r_untag_ann and len(r_untag_ann) == 1:
+                    r_untag_d, _ = r_untag_ann[0]
+                    r_untag_v = r_untag_d.get('value') or ''
+                    if r_untag_v == untagg_v:
+                        ok, result = cls._delete_annotations(
+                            api_server, vpg_uuid, 'virtual_port_group',
+                            [untagg_k])
+                        if not ok:
+                            return ok, result
+        return True, ''
+
+    @classmethod
     def _check_same_vn_vlan_exists_in_vpg(
         cls, db_conn, api_server, vn_uuid,
-            vmi_uuid, vlan_id, vpg_uuid, validation):
+            vmi_uuid, vlan_id, vpg_uuid,
+            is_untagged_vlan, validation):
         """Verify only same VN and same VLAN-ID combination exists.
 
         For enterprise style, there can be only one combination
@@ -1140,6 +1213,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         :  vmi_uuid: UUID of virtual_machine_interface
         :  vlan_id: ID of the VLAN
         :  vpg_uuid: UUID of VPG
+        :  is_untagged_vlan:
+        :    True: untagged
+        :    False: tagged
         :  validation:
         :    enterprise
         :    serviceprovider
@@ -1181,8 +1257,34 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         for kvp in vpg_kvps:
             kvp_key = kvp.get('key', '')
             kvp_value = kvp.get('value', '')
-            # VMI update, ignore
+            # VMI update, remove existing annotation
             if kvp_value == vmi_uuid:
+                ok, result = cls._delete_annotations(
+                    api_server, vpg_uuid, 'virtual-port-group',
+                    [kvp_key])
+                if not ok:
+                    return ok, result
+                if is_untagged_vlan:
+                    continue
+                # VMI update, removing untagged annotation
+                # if this VLAN is not an untagged vlan anymore
+                untagg_k = 'validation:%s/untagged_vlan_id' % validation
+                untagg_v = '%s:%s' % (vlan_id, vmi_uuid)
+                ok, result = cls._check_annotations(
+                    api_server, vpg_uuid, 'virtual-port-group',
+                    untagg_k, untagg_v, fail_if_exists=False)
+                if not ok:
+                    return ok, result
+                r_untag_ann = result.get('annotations') or []
+                if r_untag_ann and len(r_untag_ann) == 1:
+                    r_untag_d, _ = r_untag_ann[0]
+                    r_untag_v = r_untag_d.get('value') or ''
+                    if r_untag_v == untagg_v:
+                        ok, result = cls._delete_annotations(
+                            api_server, vpg_uuid, 'virtual_port_group',
+                            [untagg_k])
+                        if not ok:
+                            return ok, result
                 continue
 
             # verify VN/VLAN of existing VMI is not used again
@@ -1208,7 +1310,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_same_vn_vlan_exists_in_fabric(
         cls, db_conn, api_server, vn_uuid,
-            vmi_uuid, vlan_id, fabric_uuid, validation):
+            vmi_uuid, vlan_id, fabric_uuid,
+            is_untagged_vlan, validation):
         """Verify only same VN and same VLAN-ID combination exists.
 
         For enterprise style, there can be only one combination
@@ -1219,6 +1322,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         :  vn_uuid: UUID of virtual_network
         :  vlan_id: ID of the VLAN
         :  fabric_uuid: UUID of Fabric
+        :  is_untagged_vlan:
+        :    True: untagged
+        :    False: tagged
         :  validation:
         :    enterprise
         :    serviceprovider
@@ -1277,8 +1383,34 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             for kvp in kvps:
                 kvp_key = kvp.get('key', '')
                 kvp_value = kvp.get('value', '')
-                # VMI update, ignore
+                # VMI update, remove existing annotation
                 if kvp_value == vmi_uuid:
+                    ok, result = cls._delete_annotations(
+                        api_server, existing_vpg_uuid, 'virtual-port-group',
+                        [kvp_key])
+                    if not ok:
+                        return ok, result
+                    # VMI update, removing untagged annotation
+                    # if this VLAN is untagged
+                    if is_untagged_vlan:
+                        continue
+                    untagg_k = 'validation:%s/untagged_vlan_id' % validation
+                    untagg_v = '%s:%s' % (vlan_id, vmi_uuid)
+                    ok, result = cls._check_annotations(
+                        api_server, existing_vpg_uuid, 'virtual-port-group',
+                        untagg_k, untagg_v, fail_if_exists=False)
+                    if not ok:
+                        return ok, result
+                    r_untag_ann = result.get('annotations') or []
+                    if r_untag_ann and len(r_untag_ann) == 1:
+                        r_untag_d, _ = r_untag_ann[0]
+                        r_untag_v = r_untag_d.get('value') or ''
+                        if r_untag_v == untagg_v:
+                            ok, result = cls._delete_annotations(
+                                api_server, existing_vpg_uuid,
+                                'virtual_port_group', [untagg_k])
+                            if not ok:
+                                return ok, result
                     continue
 
                 # verify VN/VLAN of existing VMI is not used again
@@ -1334,6 +1466,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         validation = 'serviceprovider'
         # VPG ZK Lock
         with ZookeeperLock(**zk_vpg_args):
+            ok, result = cls._check_remove_old_vlan_annotation(
+                db_conn, api_server, vn_uuid, vmi_uuid, vlan_id,
+                vpg_uuid, is_untagged_vlan, validation)
+            if not ok:
+                return ok, result
             ok, result = cls._check_unique_vn_vlan_in_vpg(
                 db_conn, api_server, vpg_uuid, vn_uuid,
                 vmi_uuid, vlan_id, validation)
@@ -1407,7 +1544,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     # verify same vn:vlan exists at fabric level
                     ok, result = cls._check_same_vn_vlan_exists_in_fabric(
                         db_conn, api_server, vn_uuid, vmi_uuid, vlan_id,
-                        fabric_uuid, validation)
+                        fabric_uuid, is_untagged_vlan, validation)
                     if not ok:
                         return ok, result
                     ok, result = cls._add_unique_vn_vlan_in_vpg(
@@ -1419,7 +1556,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 # verify same vn:vlan exists at VPG level
                 ok, result = cls._check_same_vn_vlan_exists_in_vpg(
                     db_conn, api_server, vn_uuid, vmi_uuid, vlan_id,
-                    vpg_uuid, validation)
+                    vpg_uuid, is_untagged_vlan, validation)
                 if not ok:
                     return ok, result
                 ok, result = cls._add_unique_vn_vlan_in_vpg(
@@ -1763,8 +1900,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     kv_key = kv.get('key')
                     if (kv_key and kv.get('value') == vmi_uuid):
                         annotation_keys.append(kv.get('key'))
-                    if (kv_key and
-                            kv_key.endswith('untagged_vlan_id')):
+                    if (kv_key and kv_key.endswith('untagged_vlan_id') and
+                            vmi_uuid in kv.get('value')):
                         annotation_keys.append(kv.get('key'))
 
                 # annotations found, needs to be removed
