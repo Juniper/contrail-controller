@@ -41,7 +41,7 @@ groups {
 {%      for re in routing_engines %}
     {{ re }} {
         system {
-            host-name "{{ prouter_name }}-{{ re }}";
+            host-name "{{ prouter_name }}";
         }
         interfaces {
             {{ interface_configuration.get('name') }} {
