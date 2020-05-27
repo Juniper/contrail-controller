@@ -1398,7 +1398,43 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.fabric_delete(id=fabric_obj.uuid)
 
     def _test_update_vlan_in_vmi_in_same_vpg(
-            self, proj_obj, fabric_obj, pr_obj):
+            self, validation, proj_obj, fabric_obj, pr_obj):
+        """Create and verify below sequence works as expected.
+
+        Sequence of validation in this test
+        :User Creates:
+        :42 - VMI1 (tagged)
+        :4094 - VMI 2(untagged)
+        :System Creates:
+        :    42 VMI-1 annotation
+        :    4094 VMI-2 annotation
+        :    4094 VMI-2 untagged annotation
+
+        :User changes vlan-ids
+        :43 - VMI1 (tagged)
+        :4093 - VMI 2 (untagged)
+        :System Creates/Updates:
+        :    43 VMI-1 annotation
+        :    4093 VMI-2 annotation
+        :    4093 VMI-2 untagged annotation
+        :    42 VMI-1  annotation - removed
+        :    4094 VMI-2  annotation - removed
+        :    4094 VMI-2 untagged annotation - removed
+
+        :User changes untagged to tagged
+        :4093 - VMI 2 (tagged)
+        :System Creates/Updates:
+        :    4093 - VMI-2 annotation (retains)
+        :    4093 VMI-2 untagged annotation - removed
+        :    43 VMI-1 annotation
+
+        :User changes tagged to untagged
+        :43 - VMI1 (untagged)
+        :System Creates/Updates:
+        :    43 VMI-1 annotation (retains)
+        :    4093 - VMI-2 annotation (retains)
+        :    43 - VMI-1 untagged annotation - added
+        """
         vlan_1 = 42
         vlan_2 = '4094'
         vlan_3 = 43
@@ -1423,7 +1459,8 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         vn_objs = self._create_vns(proj_obj, vn_names)
         vn1_obj, vn2_obj = [vn_objs[vn_name] for vn_name in vn_names]
 
-        # create two VMIs
+        # create two VMIs one with tagged VLAN and other with
+        # untagged VLAN
         vmi_infos = [
             {'name': '%s-1' % test_id, 'vmi_id': '1',
              'parent_obj': proj_obj, 'vn': vn1_obj, 'vpg': vpg_obj.uuid,
@@ -1437,6 +1474,32 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         vmi1_obj = vmi_objs.get('%s-1' % test_id)
         vmi2_obj = vmi_objs.get('%s-2' % test_id)
         vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+
+        # fomat annotations to look for in VPG
+        vmi1_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%d' % (
+                validation, vn1_obj.uuid, vlan_1),
+            value=vmi1_obj.uuid)
+        vmi2_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%s' % (
+                validation, vn2_obj.uuid, vlan_2),
+            value=vmi2_obj.uuid)
+        vmi2_untagged_kvp = KeyValuePair(
+            key='validation:%s/untagged_vlan_id' % validation,
+            value='%s:%s' % (vlan_2, vmi2_obj.uuid))
+
+        # verify annotations are added
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        assert vmi1_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
 
         # update vlan-ID in both VMIs
         vmi_infos = [
@@ -1453,6 +1516,98 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         vmi2_obj = vmi_objs.get('%s-2' % test_id)
         vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
 
+        # fomat annotations to look for in VPG
+        vmi3_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%d' % (
+                validation, vn1_obj.uuid, vlan_3),
+            value=vmi1_obj.uuid)
+        vmi4_kvp = KeyValuePair(
+            key='validation:%s/vn:%s/vlan_id:%s' % (
+                validation, vn2_obj.uuid, vlan_4),
+            value=vmi2_obj.uuid)
+        vmi4_untagged_kvp = KeyValuePair(
+            key='validation:%s/untagged_vlan_id' % validation,
+            value='%s:%s' % (vlan_4, vmi2_obj.uuid))
+
+        # verify annotations are updated
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        # verify annotations are updated
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi4_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi4_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi4_untagged_kvp, vpg_kvps)
+        assert vmi1_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi1_kvp, vpg_kvps)
+        assert vmi2_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi2_kvp, vpg_kvps)
+        assert vmi2_untagged_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi2_untagged_kvp, vpg_kvps)
+
+        # Change VLAN type from untagged to tagged
+        vmi_infos = [
+            {'name': '%s-2' % test_id, 'vmi_uuid': vmi2_obj.uuid,
+             'vpg': vpg_obj.uuid,
+             'fabric': fabric_name, 'pis': pi2_fq_name,
+             'vlan': vlan_4, 'is_untagged': False}]
+        vmi_objs = self._update_vmis(vmi_infos)
+        vmi2_obj = vmi_objs.get('%s-2' % test_id)
+        # verify annotations are updated
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        # should persist
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+        assert vmi4_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi4_kvp, vpg_kvps)
+        # should have got removed
+        assert vmi4_untagged_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi4_untagged_kvp, vpg_kvps)
+
+        # Change VLAN type from tagged to untagged
+        vmi_infos = [
+            {'name': '%s-1' % test_id, 'vmi_uuid': vmi1_obj.uuid,
+             'vpg': vpg_obj.uuid,
+             'fabric': fabric_name, 'pis': pi1_fq_name,
+             'vlan': '%s' % vlan_3, 'is_untagged': True}]
+        vmi_objs = self._update_vmis(vmi_infos)
+        vmi1_obj = vmi_objs.get('%s-1' % test_id)
+        # verify annotations are updated
+        vpg_obj = self.api.virtual_port_group_read(id=vpg_obj.uuid)
+        vpg_annotations = vpg_obj.get_annotations() or KeyValuePairs()
+        vpg_kvps = vpg_annotations.get_key_value_pair() or []
+        # format new annoation
+        vmi3_untagged_kvp = KeyValuePair(
+            key='validation:%s/untagged_vlan_id' % validation,
+            value='%s:%s' % (vlan_3, vmi1_obj.uuid))
+
+        # newly created
+        assert vmi3_untagged_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_untagged_kvp, vpg_kvps)
+        # should persist
+        assert vmi3_kvp in vpg_kvps, \
+            "(%s) kv pair not found in vpg kvps (%s)" % (
+                vmi3_kvp, vpg_kvps)
+        assert vmi4_kvp in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi4_kvp, vpg_kvps)
+        assert vmi4_untagged_kvp not in vpg_kvps, \
+            "(%s) kv pair found in vpg kvps (%s)" % (
+                vmi4_untagged_kvp, vpg_kvps)
+
         self.api.virtual_machine_interface_delete(id=vmi1_obj.uuid)
         self.api.virtual_machine_interface_delete(id=vmi2_obj.uuid)
         self.api.virtual_network_delete(id=vn1_obj.uuid)
@@ -1466,21 +1621,23 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
 
     def test_update_vlan_in_vmi_in_same_vpg(self):
         # enterprise with fabric level validations
+        validation = 'enterprise'
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
         self._test_update_vlan_in_vmi_in_same_vpg(
-            proj_obj, fabric_obj, pr_obj)
+            validation, proj_obj, fabric_obj, pr_obj)
 
         # enterprise without fabric level validations
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites(
             disable_vlan_vn_uniqueness_check=True)
         self._test_update_vlan_in_vmi_in_same_vpg(
-            proj_obj, fabric_obj, pr_obj)
+            validation, proj_obj, fabric_obj, pr_obj)
 
         # service provider style
+        validation = 'serviceprovider'
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites(
             enterprise_style_flag=False)
         self._test_update_vlan_in_vmi_in_same_vpg(
-            proj_obj, fabric_obj, pr_obj)
+            validation, proj_obj, fabric_obj, pr_obj)
 
     def test_same_vn_with_same_vlan_across_vpg_in_enterprise(self):
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
