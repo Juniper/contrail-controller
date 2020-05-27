@@ -8,8 +8,10 @@
 #include "pkt/pkt_handler.h"
 #include "oper/bgp_as_service.h"
 #include "oper/bgp_router.h"
+#include "oper/health_check.h"
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
+#include "cmn/agent.h"
 
 VmInterface *vnet[16];
 Interface *vhost;
@@ -42,6 +44,18 @@ IpamInfo ipam_info[] = {
     {"6.6.6.0", 24, "6.6.6.6", true},
     {"7.7.7.0", 24, "7.7.7.7", true, 0, "7.7.7.8"},
 };
+
+static void SetTaskPolicyOne(const char *task, const char *exclude_list[],
+                             int count) {
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    TaskPolicy policy;
+    for (int i = 0; i < count; ++i) {
+        int task_id = scheduler->GetTaskId(exclude_list[i]);
+        policy.push_back(TaskExclusion(task_id));
+    }
+    scheduler->SetPolicy(scheduler->GetTaskId(task), policy);
+}
+bool policy_setup = false;
 
 class BgpServiceTest : public ::testing::Test {
 public:
@@ -124,6 +138,24 @@ public:
                             "vrf7", "bgpaas-client", true);
         client->WaitForIdle();
         EXPECT_TRUE(agent_->oper_db()->bgp_as_a_service()->IsConfigured());
+    }
+
+    void SetupPolicy() {
+        if (policy_setup) {
+            return;
+        }
+
+        const char *flow_mgmt_exclude_list[] = {
+            "Flow::SessionStatsCollector",
+            "Flow::SessionStatsCollectorEvent",
+            "Flow::StatsCollector",
+            "Agent::FlowKSync",
+            "Agent::FlowLogging"
+        };
+
+        SetTaskPolicyOne(kTaskFlowMgmt, flow_mgmt_exclude_list,
+                     sizeof(flow_mgmt_exclude_list) / sizeof(char *));
+        policy_setup = true;
     }
 
     virtual void TearDown() {
@@ -772,6 +804,86 @@ TEST_F(BgpServiceTest, Test_13) {
     DeleteBgpRouterConfig("127.0.0.11", 0, "ip-fabric");
     DeleteBgpRouterConfig("127.0.0.12", 0, "ip-fabric");
     client->WaitForIdle();
+}
+
+// BGPaaS with Health-check enabled
+TEST_F(BgpServiceTest, Test_14) {
+    struct PortInfo input[] = {
+        {"vnet100", 100, "1.1.1.100", "00:00:01:01:01:10", 1, 100},
+    };
+
+    client->Reset();
+    AddBgpaasPortRange(50000, 50512);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    uint32_t old_bgp_service_count =
+        agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
+    std::string bgpaas = AddBgpServiceConfig("1.1.1.100", 50005,
+                                             179, 100, "vnet100", "vrf1",
+                                             "bgpaas-client", false, true);
+    client->WaitForIdle();
+
+    HealthCheckTable *table = agent_->health_check_table();
+    boost::uuids::uuid hc_uuid = MakeUuid(1);
+    HealthCheckServiceKey key(hc_uuid);
+    HealthCheckService *hc = static_cast<HealthCheckService *> (table->FindActiveEntry(&key));
+    EXPECT_TRUE(hc != NULL);
+    EXPECT_TRUE(hc->name().compare("HC-1") == 0);
+
+    uint32_t new_bgp_service_count =
+        agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
+    EXPECT_TRUE(new_bgp_service_count == old_bgp_service_count+1);
+
+    BgpAsAService::BgpAsAServiceEntryMap map_entry =
+       Agent::GetInstance()->oper_db()->bgp_as_a_service()->bgp_as_a_service_map();
+    BgpAsAService::BgpAsAServiceEntryMapIterator map_it =
+       map_entry.begin();
+    while (map_it != map_entry.end()) {
+        EXPECT_TRUE(map_it->second->list_.size() == 1);
+        BgpAsAService::BgpAsAServiceEntryListIterator it =
+           map_it->second->list_.begin();
+        while (it != map_it->second->list_.end()) {
+            if (strcmp((*it).local_peer_ip_.to_string().c_str(),
+                       "1.1.1.100") == 0) {
+                EXPECT_TRUE((*it).health_check_configured_ == true);
+            }
+            it++;
+        }
+        map_it++;
+    }
+
+    // Trigger pkt to create BgpaaS flow that triggers Healthcheck service
+    // instantiation and adding metadata IP into VRF 0. This happens in the
+    // context of FlowMgmt task. Before triggering pkt, create task policy to
+    // block session stats collector etc. so that db::Table can run triggering
+    // the issue seen in CEM-13569
+    SetupPolicy();
+    TxTcpPacket(VmInterfaceGet(100)->id(), "1.1.1.100", "1.1.1.1", 10000, 179,
+                false, 1, 2, 1);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(100)->flow_key_nh()->id(),
+                            "1.1.1.100", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_sport() == 50005);
+    EXPECT_TRUE(fe->data().ttl == BGP_SERVICE_TTL_FWD_FLOW);
+    EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl ==
+                BGP_SERVICE_TTL_REV_FLOW);
+
+    DeleteBgpServiceConfig("1.1.1.100", 50005, "vnet100", "vrf1", true);
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    new_bgp_service_count =
+        agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
+    EXPECT_TRUE(old_bgp_service_count == new_bgp_service_count);
+    EXPECT_FALSE(VmPortActive(input, 0));
+    DelBgpaasPortRange();
+    client->WaitForIdle();
+    EXPECT_TRUE(agent_->pkt()->get_flow_proto()->FlowCount() == 0);
+    EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
 int main(int argc, char *argv[]) {
