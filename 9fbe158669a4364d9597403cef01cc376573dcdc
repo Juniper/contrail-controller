@@ -34,6 +34,24 @@
       "revId": "9fbe158669a4364d9597403cef01cc376573dcdc",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "16f11df4_414529d8",
+        "filename": "src/config/schema-transformer/requirements.txt",
+        "patchSetId": 20
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-05-27T15:21:26Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "09e351c9_b01e6b1b",
+      "revId": "9fbe158669a4364d9597403cef01cc376573dcdc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
