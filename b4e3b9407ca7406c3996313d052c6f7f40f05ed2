@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6d4d1c72_23c7b4ab",
+        "filename": "src/nodemgr/common/cri_containers.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 437
+      },
+      "writtenOn": "2020-05-27T13:17:26Z",
+      "side": 1,
+      "message": "would it be useful is provide exception text here like\nexcept Exception as e:\n   ....\u0027memory stats reading %s\u0027 % e\n?",
+      "range": {
+        "startLine": 38,
+        "startChar": 51,
+        "endLine": 38,
+        "endChar": 52
+      },
+      "revId": "b4e3b9407ca7406c3996313d052c6f7f40f05ed2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
