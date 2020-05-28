@@ -593,7 +593,10 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         if vm:
             self._manager.port_delete_or_si_link(vm, self)
 
-        self._manager.port_tuple_agent.update_vmi_port_tuples(self)
+        if hasattr(self._manager, 'port_tuple_agent'):
+            self._manager.port_tuple_agent.update_vmi_port_tuples(self)
+        else:
+            self._manager.logger.warning('port_tuple_agent attr is unavailable')
 
 # end VirtualMachineInterfaceSM
 
@@ -710,8 +713,11 @@ class ServiceInstanceSM(DBBaseSM):
         self.state = 'launch'
         self._manager.create_service_instance(self)
 
-        for pt_id in self.port_tuples:
-            self._manager.port_tuple_agent.update_port_tuple(pt_id=pt_id)
+        if hasattr(self._manager, 'port_tuple_agent'):
+            for pt_id in self.port_tuples:
+                self._manager.port_tuple_agent.update_port_tuple(pt_id=pt_id)
+        else:
+            self._manager.logger.warning('port_tuple_agent attr is unavailable')
 
 # end class ServiceInstanceSM
 
@@ -895,7 +901,10 @@ class InstanceIpSM(DBBaseSM):
     # end delete
 
     def evaluate(self):
-        self._manager.port_tuple_agent.delete_shared_iip(self)
+        if hasattr(self._manager, 'port_tuple_agent'):
+            self._manager.port_tuple_agent.delete_shared_iip(self)
+        else:
+            self._manager.logger.warning('port_tuple_agent attr is unavailable')
 
 # end class InstanceIpSM
 
@@ -1333,7 +1342,10 @@ class PortTupleSM(DBBaseSM):
     # end delete
 
     def evaluate(self):
-        self._manager.port_tuple_agent.update_port_tuple(pt_id=self.uuid)
+        if hasattr(self._manager, 'port_tuple_agent'):
+            self._manager.port_tuple_agent.update_port_tuple(pt_id=self.uuid)
+        else:
+            self._manager.logger.warning('port_tuple_agent attr is unavailable')
 # end PortTupleSM
 
 class ServiceHealthCheckSM(DBBaseSM):
