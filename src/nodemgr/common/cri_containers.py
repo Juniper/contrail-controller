@@ -183,7 +183,7 @@ class CriOContainersInterface:
         q = api_pb2.ExecSyncRequest(container_id = id_, cmd = x, timeout = 10)
         try:
             a = self._client.ExecSync(q)
-            if 0 <> a.exit_code:
+            if 0 != a.exit_code:
                 logging.critical(a.stderr)
 
             return (a.exit_code, a.stdout)
