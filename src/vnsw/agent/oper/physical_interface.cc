@@ -87,6 +87,15 @@ bool
 PhysicalInterfaceOsOperStateData::OnResync(PhysicalInterface *phy_intf) const
 {
     bool ret = false;
+
+    if(ip_ != Ip4Address(0)) {
+        if(phy_intf->ip_ != ip_) {
+            phy_intf->ip_ = ip_;
+            ret = true;
+        }
+        return ret;
+    }
+
     if(type_ == PhysicalInterfaceOsOperStateData::VR_FABRIC) {
         if(phy_intf->os_params_.os_oper_state_ != oper_state_) {
             phy_intf->os_params_.os_oper_state_ = oper_state_;

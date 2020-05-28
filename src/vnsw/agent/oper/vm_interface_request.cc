@@ -94,7 +94,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     qos_config_uuid_(), learning_enabled_(false),
     vhostuser_mode_(VmInterface::vHostUserClient), is_left_si_(false), service_mode_(VmInterface::SERVICE_MODE_ERROR),
     si_other_end_vmi_(nil_uuid()), vmi_cfg_uuid_(nil_uuid()),
-    service_intf_type_("") {
+    service_intf_type_(""), vhost_(false) {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -235,6 +235,7 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
             VmInterface::StaticRoute(Ip4Address(0), 0,
                                      agent->params()->vhost_gw(),
                                      CommunityList()));
+    vhost_ = true;
 }
 
 
@@ -818,6 +819,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         set_logical_router_uuid(data->logical_router_uuid_);
         ret = true;
     }
+
+    if (vhost_ != data->vhost_) {
+        vhost_ = data->vhost_;
+        ret = true;
+    }
+
     return ret;
 }
 

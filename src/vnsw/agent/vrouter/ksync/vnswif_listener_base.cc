@@ -422,7 +422,8 @@ void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
                                         event->type_,
                                         interface_info[INDEX_INTERFACE_NAME],
                                         interface_info[INDEX_INTERFACE_DRV_NAME],
-                                        up));
+                                        up,
+                                        Ip4Address(0)));
                             table->Enqueue(&req);
                         }
                     }
@@ -483,9 +484,24 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
     // We only handle IP Address add for VHOST interface
     // We dont yet handle delete of IP address or change of IP address
     if (event->event_ != Event::ADD_ADDR ||
-        event->interface_ != agent_->vhost_interface_name() ||
-        event->addr_.to_ulong() == 0) {
+        event->addr_.to_ulong() == 0 ||
+        (event->interface_ != agent_->fabric_interface_name() &&
+         event->interface_ != agent_->vhost_interface_name())) {   // add a check for nips vhost0 enablement here
         return;
+    }
+
+    InterfaceTable *table = agent_->interface_table();
+    if(event->interface_ == agent_->fabric_interface_name() && table) {
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(new PhysicalInterfaceKey(
+                            agent_->fabric_interface_name()));
+        req.data.reset(new PhysicalInterfaceOsOperStateData(
+                            0,
+                            "",
+                            "",
+                            false,
+                            event->addr_));
+        table->Enqueue(&req);
     }
 
     // Check if vhost already has address. We cant handle IP address change yet

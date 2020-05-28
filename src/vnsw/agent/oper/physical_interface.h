@@ -142,12 +142,13 @@ struct PhysicalInterfaceOsOperStateData : public PhysicalInterfaceData {
     };
 
     PhysicalInterfaceOsOperStateData(unsigned short int type_,
-            std::string intf_name, std::string intf_drv_name, bool status):
+            std::string intf_name, std::string intf_drv_name, bool status,
+            Ip4Address ip):
             PhysicalInterfaceData(NULL, NULL, "", PhysicalInterface::INVALID,
                     PhysicalInterface::ETHERNET, false, boost::uuids::nil_uuid(),
                     "", Ip4Address(0), Interface::TRANSPORT_INVALID),
             type_(type_), intf_name(intf_name), intf_drv_name(intf_drv_name),
-            oper_state_(status) { }
+            oper_state_(status), ip_(ip) { }
     virtual ~PhysicalInterfaceOsOperStateData() { }
     virtual bool OnResync(PhysicalInterface *phy_intf) const;
 
@@ -155,6 +156,7 @@ struct PhysicalInterfaceOsOperStateData : public PhysicalInterfaceData {
     string intf_name;
     string intf_drv_name;
     bool oper_state_;
+    Ip4Address ip_;
 };
 
 #endif // src_vnsw_agent_oper_physical_interface_hpp

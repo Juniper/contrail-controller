@@ -90,6 +90,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv6_active_ = false;
     l2_active_ = false;
     flow_count_ = 0;
+    vhost_ = false;
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -143,6 +144,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv6_active_ = false;
     l2_active_ = false;
     flow_count_ = 0;
+    vhost_ = false;
 }
 
 VmInterface::~VmInterface() {
