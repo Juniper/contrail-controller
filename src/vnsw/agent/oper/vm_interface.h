@@ -1616,6 +1616,7 @@ private:
     bool do_dhcp_relay_;
     // Proxy ARP mode for interface
     ProxyArpMode proxy_arp_mode_;
+    bool vhost_;
     // VM-Name. Used by DNS
     std::string vm_name_;
     // project uuid of the vm to which the interface belongs
@@ -1852,6 +1853,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool ecmp6_;
     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
     VmInterface::ProxyArpMode proxy_arp_mode_;
+    bool vhost_;
     bool admin_state_;
     bool disable_policy_;
     std::string analyzer_name_;

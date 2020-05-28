@@ -483,8 +483,9 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
     // We only handle IP Address add for VHOST interface
     // We dont yet handle delete of IP address or change of IP address
     if (event->event_ != Event::ADD_ADDR ||
-        event->interface_ != agent_->vhost_interface_name() ||
-        event->addr_.to_ulong() == 0) {
+        event->addr_.to_ulong() == 0 ||
+        (event->interface_ != agent_->fabric_interface_name() &&
+         event->interface_ != agent_->vhost_interface_name())) {   // add a check for nips vhost0 enablement here
         return;
     }
 

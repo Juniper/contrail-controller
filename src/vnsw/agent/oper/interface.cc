@@ -448,6 +448,7 @@ void InterfaceTable::CreateVhostReq() {
         VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
         data->CopyVhostData(agent());
 
+
         req.data.reset(data);
         Enqueue(&req);
     }
@@ -867,6 +868,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 bond_interface_list.push_back(entry);
             }
             data.set_bond_interface_list(bond_interface_list);
+            data.set_ip_addr(agent->router_id().to_string());  // check for nips vhost0 enablement
 
             if(pintf->os_params_.os_oper_state_)
                 data.set_active("Active");
@@ -900,7 +902,13 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_vn_name(vintf->vn()->GetName());
         if (vintf->vm())
             data.set_vm_uuid(UuidToString(vintf->vm()->GetUuid()));
-        data.set_ip_addr(vintf->primary_ip_addr().to_string());
+
+        if (vhost_) {   // && nips_vhost0 == true
+            data.set_ip_addr(Ip4Address(0).to_string());
+        } else {
+            data.set_ip_addr(vintf->primary_ip_addr().to_string());
+        }
+
         data.set_ip6_addr(vintf->primary_ip6_addr().to_string());
         data.set_mac_addr(vintf->vm_mac().ToString());
         data.set_mdata_ip_addr(vintf->mdata_ip_addr().to_string());

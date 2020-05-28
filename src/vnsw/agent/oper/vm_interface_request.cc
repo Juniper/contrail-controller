@@ -73,7 +73,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
     layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
-    ecmp6_(false), dhcp_enable_(true),
+    ecmp6_(false), dhcp_enable_(true), vhost_(false),
     proxy_arp_mode_(VmInterface::PROXY_ARP_NONE), admin_state_(true),
     disable_policy_(false), analyzer_name_(""),
     local_preference_(0), oper_dhcp_options_(),
@@ -235,6 +235,7 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
             VmInterface::StaticRoute(Ip4Address(0), 0,
                                      agent->params()->vhost_gw(),
                                      CommunityList()));
+    vhost_ = true;
 }
 
 
@@ -818,6 +819,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         set_logical_router_uuid(data->logical_router_uuid_);
         ret = true;
     }
+
+    if (vhost_ != data->vhost_) {
+        vhost_ = data->vhost_;
+        ret = true;
+    }
+
     return ret;
 }
 
