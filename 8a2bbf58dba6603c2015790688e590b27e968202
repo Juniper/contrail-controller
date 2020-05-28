@@ -49,6 +49,30 @@
     },
     {
       "key": {
+        "uuid": "4fe83681_0ed9b323",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 225,
+      "author": {
+        "id": 965
+      },
+      "writtenOn": "2020-05-28T12:40:49Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ebbc5522_174a68b2",
+      "range": {
+        "startLine": 225,
+        "startChar": 21,
+        "endLine": 225,
+        "endChar": 25
+      },
+      "revId": "8a2bbf58dba6603c2015790688e590b27e968202",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ea62838b_20f55cb2",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
         "patchSetId": 3
@@ -83,6 +107,30 @@
       "writtenOn": "2020-05-28T12:38:53Z",
       "side": 1,
       "message": "Ack",
+      "parentUuid": "ea62838b_20f55cb2",
+      "range": {
+        "startLine": 242,
+        "startChar": 8,
+        "endLine": 242,
+        "endChar": 20
+      },
+      "revId": "8a2bbf58dba6603c2015790688e590b27e968202",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "f5548f72_1c6bb1f9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 242,
+      "author": {
+        "id": 965
+      },
+      "writtenOn": "2020-05-28T12:40:49Z",
+      "side": 1,
+      "message": "Done",
       "parentUuid": "ea62838b_20f55cb2",
       "range": {
         "startLine": 242,
