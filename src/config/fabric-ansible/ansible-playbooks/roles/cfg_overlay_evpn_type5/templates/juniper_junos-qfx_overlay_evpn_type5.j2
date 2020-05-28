@@ -606,13 +606,25 @@ set groups {{cfg_group}} routing-options rib-groups {{rname}} import-rib {{rimpo
 {%             if ns_first.found == true %}
 {%                 set ns_first.found = false %}
 {%                 if ribg.get('interface_routes', false) == true %}
+{%                     if rimport_rib == 'inet.0' %}
+set groups {{cfg_group}} routing-options interface-routes rib-group inet {{rname}}
+{%                     else %}
 set groups {{cfg_group}} routing-instances {{rimport_rib}} routing-options interface-routes rib-group inet {{rname}}
+{%                     endif %}
 {%                 endif %}
 {%                 if ribg.get('static', false) == true %}
+{%                     if rimport_rib == 'inet.0' %}
+set groups {{cfg_group}} routing-options static rib-group {{rname}}
+{%                     else %}
 set groups {{cfg_group}} routing-instances {{rimport_rib}} routing-options static rib-group {{rname}}
+{%                     endif %}
 {%                 endif %}
 {%                 if ribg.get('bgp', false) == true %}
+{%                     if rimport_rib == 'inet.0' %}
+set groups {{cfg_group}} protocols bgp family inet unicast rib-group {{rname}}
+{%                     else %}
 set groups {{cfg_group}} routing-instances {{rimport_rib}} protocols bgp family inet unicast rib-group {{rname}}
+{%                     endif %}
 {%                 endif %}
 {%             endif %}{# /* set rib group to only src LR routing instance (first entry) */ #}
 {%         endfor %}
