@@ -593,7 +593,10 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         if vm:
             self._manager.port_delete_or_si_link(vm, self)
 
-        self._manager.port_tuple_agent.update_vmi_port_tuples(self)
+        if hasattr(self._manager, 'port_tuple_agent'):
+            self._manager.port_tuple_agent.update_vmi_port_tuples(self)
+        else:
+            self._manager.logger.warning('port_tuple_agent attr is unavailable')
 
 # end VirtualMachineInterfaceSM
 
