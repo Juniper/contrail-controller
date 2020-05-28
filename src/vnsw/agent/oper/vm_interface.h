@@ -1201,6 +1201,8 @@ public:
     const Ip4Address &primary_ip_addr() const { return primary_ip_addr_; }
     void set_primary_ip_addr(const Ip4Address &addr) { primary_ip_addr_ = addr; }
 
+    const bool &vhost() const { return vhost_; }
+
     bool policy_enabled() const { return policy_enabled_; }
     const Ip4Address &subnet_bcast_addr() const { return subnet_bcast_addr_; }
     const Ip4Address &vm_ip_service_addr() const { return vm_ip_service_addr_; }
@@ -1716,6 +1718,7 @@ private:
     //In case Vhost interface, uuid_ is stored here
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;
+    bool vhost_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1903,6 +1906,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     boost::uuids::uuid si_other_end_vmi_;
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;
+    bool vhost_;
 };
 
 // Definition for structures when request queued from Nova

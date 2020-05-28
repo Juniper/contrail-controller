@@ -153,7 +153,8 @@ void VNController::XmppServerConnect() {
 
     uint8_t count = 0;
 
-    if (agent_->is_vhost_interface_up() == false) {
+    if (agent_->is_vhost_interface_up() == false &&   // add checks for nips vhost0 enablement
+        agent_->vrouter_on_host_dpdk()) {
         // Sleep 100 msec to avoid cpu hogging.
         usleep(100000);
         ControllerConnectRetryDataType data(
@@ -269,7 +270,8 @@ void VNController::DnsXmppServerConnect() {
         return;
     }
 
-    if (agent_->is_vhost_interface_up() == false) {
+    if (agent_->is_vhost_interface_up() == false &&  // add checks for nips vhost0 enablement
+        agent_->vrouter_on_host_dpdk()) {
         // Sleep 100 msec to avoid cpu hogging.
         usleep(100000);
         ControllerConnectRetryDataType data(
