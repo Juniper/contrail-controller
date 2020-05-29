@@ -35,6 +35,7 @@ class PathResolverPartition;
 class ResolverNexthop;
 class ResolverPath;
 class ResolverRouteState;
+class RoutingInstance;
 class ShowPathResolver;
 class TaskTrigger;
 
@@ -330,7 +331,7 @@ private:
     void AddResolvedPath(ResolvedPathList::const_iterator it);
     void DeleteResolvedPath(ResolvedPathList::const_iterator it);
     BgpPath *LocateResolvedPath(const IPeer *peer, uint32_t path_id,
-        const BgpAttr *attr, uint32_t label);
+        const BgpAttr *attr, uint32_t label, bool is_replicated = false);
 
     PathResolverPartition *partition_;
     const BgpPath *path_;

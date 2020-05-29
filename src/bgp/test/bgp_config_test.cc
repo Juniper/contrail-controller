@@ -3835,7 +3835,7 @@ TEST_F(BgpConfigTest, BgpFastConvergenceXmppHoldTimeChange) {
     TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
     string name = rti->name() + ":" + "remote";
 
-    TASK_UTIL_EXPECT_EQ(0, server_.GetXmppHoldTime());
+    TASK_UTIL_EXPECT_EQ(90, server_.GetXmppHoldTime());
 
     // XMPP hold time should change to 100. NH reachability check enabled.
     string content_b =
@@ -3843,7 +3843,7 @@ TEST_F(BgpConfigTest, BgpFastConvergenceXmppHoldTimeChange) {
     EXPECT_TRUE(parser_.Parse(content_b));
     TASK_UTIL_EXPECT_TRUE(server_.global_config()->fc_enabled());
     TASK_UTIL_EXPECT_TRUE(server_.global_config()->nh_check_enabled());
-    TASK_UTIL_EXPECT_EQ(100, server_.GetXmppHoldTime());
+    TASK_UTIL_EXPECT_EQ(10, server_.GetXmppHoldTime());
 
     // XMPP hold time should change to 200. NH reachability check disabled.
     string content_c =
@@ -3851,7 +3851,7 @@ TEST_F(BgpConfigTest, BgpFastConvergenceXmppHoldTimeChange) {
     EXPECT_TRUE(parser_.Parse(content_c));
     TASK_UTIL_EXPECT_TRUE(server_.global_config()->fc_enabled());
     TASK_UTIL_EXPECT_FALSE(server_.global_config()->nh_check_enabled());
-    TASK_UTIL_EXPECT_EQ(200, server_.GetXmppHoldTime());
+    TASK_UTIL_EXPECT_EQ(20, server_.GetXmppHoldTime());
 
     // Default XMPP hold time should be 90 if not configured.
     string content_d =
