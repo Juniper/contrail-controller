@@ -46,10 +46,10 @@ public:
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
                                      BgpRoute *src_rt, const BgpPath *path,
                                      ExtCommunityPtr ptr);
-
     virtual bool Export(RibOut *ribout, Route *route,
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
+
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     size_t HashFunction(const ErmVpnPrefix &prefix) const;
     bool IsGlobalTreeRootRoute(ErmVpnRoute *rt) const;
