@@ -4,7 +4,7 @@ import sys
 
 env = DefaultEnvironment()
 
-vpath = '#/third_party/gperftools-2.1'
+vpath = '#/third_party/gperftools-2.7'
 
 #VariantDir(Dir('.').abspath + '/.libs', vpath + '/.libs')
 
