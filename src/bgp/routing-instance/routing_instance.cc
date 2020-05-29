@@ -1264,13 +1264,24 @@ void RoutingInstance::ProcessConfig() {
             server_->database()->CreateTable("inet6.0"));
         assert(table_inet6);
         AddTable(table_inet6);
-
     } else {
         // Create foo.family.0.
-        VrfTableCreate(Address::INET, Address::INETVPN);
-        VrfTableCreate(Address::INET6, Address::INET6VPN);
-        VrfTableCreate(Address::ERMVPN, Address::ERMVPN);
-        VrfTableCreate(Address::EVPN, Address::EVPN);
+        // Create path-resolver in all VRF tables to enable nh_reachability
+        // check for fast convergence.
+        BgpTable *inet_table = VrfTableCreate(Address::INET, Address::INETVPN);
+        inet_table->LocatePathResolver();
+
+        BgpTable *inet6_table =
+            VrfTableCreate(Address::INET6, Address::INET6VPN);
+        inet6_table->LocatePathResolver();
+
+        BgpTable *ermvpn_table =
+            VrfTableCreate(Address::ERMVPN, Address::ERMVPN);
+        ermvpn_table->LocatePathResolver();
+
+        BgpTable *evpn_table = VrfTableCreate(Address::EVPN, Address::EVPN);
+        evpn_table->LocatePathResolver();
+
         BgpTable *table = VrfTableCreate(Address::MVPN, Address::MVPN);
 
         // Create path-resolver in mvpn table.

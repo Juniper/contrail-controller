@@ -10,11 +10,13 @@
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_table.h"
 #include "bgp/ermvpn/ermvpn_route.h"
+#include "bgp/routing-instance/path_resolver.h"
 
 class BgpServer;
 class BgpRoute;
 class McastTreeManager;
 class MvpnProjectManager;
+class PathResolver;
 
 class ErmVpnTable : public BgpTable {
 public:
@@ -50,6 +52,9 @@ public:
     virtual bool Export(RibOut *ribout, Route *route,
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
+
+    virtual PathResolver *CreatePathResolver();
+
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     size_t HashFunction(const ErmVpnPrefix &prefix) const;
     bool IsGlobalTreeRootRoute(ErmVpnRoute *rt) const;

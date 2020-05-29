@@ -12,6 +12,7 @@
 #include "bgp/evpn/evpn_route.h"
 
 class EvpnManager;
+class PathResolver;
 
 class EvpnTable : public BgpTable {
 public:
@@ -44,6 +45,8 @@ public:
     virtual bool Export(RibOut *ribout, Route *route,
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
+
+    virtual PathResolver *CreatePathResolver();
 
     static size_t HashFunction(const EvpnPrefix &prefix);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
