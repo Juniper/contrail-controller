@@ -137,6 +137,7 @@ protected:
         : bgp_server_(new BgpServerTest(&evm_, "localhost")),
           family_(GetFamily()),
           ipv6_prefix_("::ffff:"),
+          master_(BgpConfigManager::kMasterInstance),
           bgp_peer1_(new PeerMock(false, "192.168.1.1")),
           bgp_peer2_(new PeerMock(false, "192.168.1.2")),
           xmpp_peer1_(new PeerMock(true, "172.16.1.1")),
@@ -171,6 +172,10 @@ protected:
     Address::Family GetFamily() const {
         assert(false);
         return Address::UNSPEC;
+    }
+
+    void SetFCEnabled(bool enable) const {
+        bgp_server_->global_config()->set_fc_enabled(enable);
     }
 
     // Return the overlay nexthop address.
@@ -229,12 +234,29 @@ protected:
         return ipv4_addr;
     }
 
+    string BuildPathId(const string &ipv4_addr) const {
+        if (nexthop_family_is_inet) {
+            return ipv4_addr;
+        } else {
+            string path_id("0.0.0.0");
+            return path_id;
+        }
+    }
+
     string GetTableName(const string &instance) const {
         if (family_ == Address::INET) {
-            return instance + ".inet.0";
+            if (instance == master_) {
+                return "inet.0";
+            } else {
+                return instance + ".inet.0";
+            }
         }
         if (family_ == Address::INET6) {
-            return instance + ".inet6.0";
+            if (instance == master_) {
+                return "inet6.0";
+            } else {
+                return instance + ".inet6.0";
+            }
         }
         assert(false);
         return "";
@@ -274,7 +296,7 @@ protected:
         const string &prefix_str, const string &nexthop_str, uint32_t med = 0,
         const vector<uint32_t> &comm_list = vector<uint32_t>(),
         const vector<uint16_t> &as_list = vector<uint16_t>(),
-        uint32_t flags = 0) {
+        uint32_t flags = 0, bool upd_flags = true) {
         assert(!bgp_peer->IsXmppPeer());
 
         boost::system::error_code ec;
@@ -312,33 +334,43 @@ protected:
         attr_spec.push_back(&aspath_spec);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
-        request.data.reset(
-            new BgpTable::RequestData(attr, flags|BgpPath::ResolveNexthop, 0));
+        if (upd_flags) flags |= BgpPath::ResolveNexthop;
+        request.data.reset(new BgpTable::RequestData(attr, flags, 0));
         Enqueue(table, &request, "bgp::StateMachine");
     }
 
     void AddBgpPathWithMed(IPeer *bgp_peer, const string &instance,
-        const string &prefix_str, const string &nexthop_str, uint32_t med) {
-        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, med);
+        const string &prefix_str, const string &nexthop_str, uint32_t med,
+        bool upd_flags = true) {
+        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, med,
+            vector<uint32_t>(), vector<uint16_t>(), 0, upd_flags);
     }
 
     void AddBgpPathWithCommunities(IPeer *bgp_peer, const string &instance,
         const string &prefix_str, const string &nexthop_str,
-        const vector<uint32_t> &comm_list) {
-        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0, comm_list);
+        const vector<uint32_t> &comm_list, bool upd_flags = true) {
+        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0, comm_list,
+            vector<uint16_t>(), 0, upd_flags);
     }
 
     void AddBgpPathWithAsList(IPeer *bgp_peer, const string &instance,
         const string &prefix_str, const string &nexthop_str,
-        const vector<uint16_t> &as_list) {
+        const vector<uint16_t> &as_list, bool upd_flags = true) {
         AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0,
-            vector<uint32_t>(), as_list);
+            vector<uint32_t>(), as_list, 0, upd_flags);
     }
 
     void AddBgpPathWithFlags(IPeer *bgp_peer, const string &instance,
-        const string &prefix_str, const string &nexthop_str, uint32_t flags) {
+        const string &prefix_str, const string &nexthop_str, uint32_t flags,
+        bool upd_flags = true) {
         AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0,
-            vector<uint32_t>(), vector<uint16_t>(), flags);
+            vector<uint32_t>(), vector<uint16_t>(), flags, upd_flags);
+    }
+
+    void AddBgpPathWithNoRes(IPeer *bgp_peer, const string &instance,
+        const string &prefix_str, const string &nexthop_str) {
+        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0,
+            vector<uint32_t>(), vector<uint16_t>(), 0, false);
     }
 
     template <typename XmppTableT, typename XmppPrefixT>
@@ -681,7 +713,8 @@ protected:
         const set<string> &encap_list, const LoadBalance &lb, uint32_t med,
         const CommunitySpec &comm_spec, const vector<uint16_t> &as_list) {
         const BgpAttr *attr = path->GetAttr();
-        if (attr->nexthop().to_v4().to_string() != path_id)
+        if (path_id != "0.0.0.0" &&
+            attr->nexthop().to_v4().to_string() != path_id)
             return false;
         if (label && path->GetLabel() != label)
             return false;
@@ -829,6 +862,12 @@ protected:
             CheckPathNoExists(instance, prefix, peer, path_id));
     }
 
+    void VerifyPathExists(const string &instance, const string &prefix,
+        const IPeer *peer, const string &path_id) {
+        TASK_UTIL_EXPECT_FALSE(
+            CheckPathNoExists(instance, prefix, peer, path_id));
+    }
+
     template <typename RespT>
     void ValidateResponse(Sandesh *sandesh,
         const string &instance, size_t path_count, size_t nexthop_count) {
@@ -877,6 +916,7 @@ protected:
     BgpServerTestPtr bgp_server_;
     Address::Family family_;
     string ipv6_prefix_;
+    string master_;
     PeerMock *bgp_peer1_;
     PeerMock *bgp_peer2_;
     PeerMock *xmpp_peer1_;
@@ -3044,6 +3084,589 @@ TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
     // Delete the only entry present.
     rnexthop.routes().erase(&route5);
     EXPECT_EQ(0, rnexthop.routes().size());
+}
+
+//
+// Fast Convergence tests
+//
+
+// Resolution over underlay. Underlay path added after overlay.
+TYPED_TEST(PathResolverTest, UnderlaySinglePrefix1) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// Resolution over underlay. Underlay path added before overlay.
+//
+TYPED_TEST(PathResolverTest, UnderlaySinglePrefix2) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+// Change BGP path med after BGP path has been resolved.
+TYPED_TEST(PathResolverTest, UnderlayChangeBgpPath1) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithMed(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), 100, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, 100);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithMed(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), 200, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, 200);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Change BGP path communities after BGP path has been resolved.
+//
+TYPED_TEST(PathResolverTest, UnderlayChangeBgpPath2) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    vector<uint32_t> comm_list1 = list_of(0xFFFFA101)(0xFFFFA102)(0xFFFFA103);
+    CommunitySpec comm_spec1;
+    comm_spec1.communities = comm_list1;
+    this->AddBgpPathWithCommunities(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), comm_list1, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, comm_spec1);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    vector<uint32_t> comm_list2 = list_of(0xFFFFA201)(0xFFFFA202)(0xFFFFA203);
+    CommunitySpec comm_spec2;
+    comm_spec2.communities = comm_list2;
+    this->AddBgpPathWithCommunities(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), comm_list2, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, comm_spec2);
+
+    vector<uint32_t> comm_list3 = list_of(0xFFFFA301)(0xFFFFA302)(0xFFFFA303);
+    CommunitySpec comm_spec3;
+    comm_spec3.communities = comm_list3;
+    this->AddBgpPathWithCommunities(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), comm_list3, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, comm_spec3);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Change BGP path aspath after BGP path has been resolved.
+//
+TYPED_TEST(PathResolverTest, UnderlayChangeBgpPath3) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    vector<uint16_t> as_list1 = list_of(64512)(64513)(64514);
+    this->AddBgpPathWithAsList(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), as_list1, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, as_list1);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    vector<uint16_t> as_list2 = list_of(64522)(64523)(64524);
+    this->AddBgpPathWithAsList(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), as_list2, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, as_list2);
+
+    vector<uint16_t> as_list3 = list_of(64532)(64533)(64534);
+    this->AddBgpPathWithAsList(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), as_list3, false);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()), 0, as_list3);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Change BGP path flags to infeasible after BGP path has been resolved.
+//
+TYPED_TEST(PathResolverTest, UnderlayChangeBgpPath4) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithFlags(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()),
+        BgpPath::AsPathLooped, false);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Do not resolve BGP path with prefix which is same as nexthop.
+// Add overlay route before underlay
+//
+//
+TYPED_TEST(PathResolverTest, UnderlaySamePrefixNexthop1) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// Do not resolve BGP path with prefix which is same as nexthop.
+// Add overlay route after underlay
+//
+TYPED_TEST(PathResolverTest, UnderlaySamePrefixNexthop2) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// BGP has multiple prefixes, each with the same nexthop.
+//
+TYPED_TEST(PathResolverTest, UnderlayMultiplePrefixSameNexthop1) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
+    }
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists("blue", this->BuildPrefix(idx), bgp_peer1,
+            this->BuildPathId(bgp_peer1->ToString()));
+    }
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx), bgp_peer1,
+            this->BuildPathId(bgp_peer1->ToString()));
+    }
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
+    }
+}
+
+//
+// BGP has multiple prefixes in blue and pink tables, each with same nexthop.
+//
+TYPED_TEST(PathResolverTest, UnderlayMultiplePrefixSameNexthop2) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
+        this->AddBgpPathWithNoRes(bgp_peer1, "pink", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
+    }
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists("blue", this->BuildPrefix(idx), bgp_peer1,
+            this->BuildPathId(bgp_peer1->ToString()));
+        this->VerifyPathExists("pink", this->BuildPrefix(idx), bgp_peer1,
+            this->BuildPathId(bgp_peer1->ToString()));
+    }
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx), bgp_peer1,
+            this->BuildPathId(bgp_peer1->ToString()));
+        this->VerifyPathNoExists("pink", this->BuildPrefix(idx), bgp_peer1,
+            this->BuildPathId(bgp_peer1->ToString()));
+    }
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "pink", this->BuildPrefix(idx));
+    }
+}
+
+//
+// Verify that nexthop is NOT resolved over a route that is more specific match
+// as the longest match based nexthop resolution is not enabled.
+//
+TYPED_TEST(PathResolverTest, UnderlayLongestMatch1) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 24),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 24));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// Verify that nexthop cannot be resolved over a default route (0.0.0.0/0) as
+// well as the longest match based nexthop resolution is not enabled.
+//
+TYPED_TEST(PathResolverTest, UnderlayLongestMatch2) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    const string &master = this->master_;
+
+    this->SetFCEnabled(true);
+
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPathWithNoRes(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix("0.0.0.0", 0),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 24),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->AddBgpPathWithNoRes(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress(bgp_peer2->ToString()));
+
+    this->VerifyPathExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(2), bgp_peer1,
+        this->BuildPathId(bgp_peer1->ToString()));
+
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix(bgp_peer1->ToString(), 24));
+    this->DeleteBgpPath(bgp_peer1, master,
+        this->BuildPrefix("0.0.0.0", 0));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
 }
 
 class TestEnvironment : public ::testing::Environment {
