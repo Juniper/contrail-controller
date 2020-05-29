@@ -477,7 +477,6 @@ KafkaProcessor::StopKafka(void) {
 
         producer_.reset();
 
-        assert(RdKafka::wait_destroyed(8000) == 0);
         LOG(ERROR, "Kafka Stopped");
     }
 }
