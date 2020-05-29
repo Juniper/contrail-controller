@@ -16,6 +16,7 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/routing_instance_analytics_types.h"
@@ -655,9 +656,15 @@ void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
     uint32_t path_id = rtinfo.path_id_;
     BgpPath::PathSource src = rtinfo.src_;
 
-    assert(rt_secondary->RemoveSecondaryPath(rt, src, peer, path_id));
     DBTablePartBase *partition =
         secondary_table->GetTablePartition(rt_secondary);
+    BgpPath *secondary_path = rt_secondary->FindSecondaryPath(rt, src,
+                                                              peer, path_id);
+    if (secondary_path && secondary_path->NeedsResolution()) {
+       secondary_table->path_resolver()->StopPathResolution(partition->index(),
+                                                       secondary_path);
+    }
+    assert(rt_secondary->RemoveSecondaryPath(rt, src, peer, path_id));
     if (rt_secondary->count() == 0) {
         RPR_TRACE_ONLY(Flush, secondary_table->name(), rt_secondary->ToString(),
                        peer ? peer->ToString() : "Nil",

@@ -683,6 +683,12 @@ boost::asio::io_service *BgpServer::ioservice() {
     return session_manager()->event_manager()->io_service();
 }
 
+bool BgpServer::IsFastConvergenceEnabled() const {
+    if (!global_config_->fc_enabled())
+        return 0;
+    return (global_config_->fc_enabled());
+}
+
 uint16_t BgpServer::GetGracefulRestartTime() const {
     if (!global_config_->gr_enable())
         return 0;

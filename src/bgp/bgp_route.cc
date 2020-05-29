@@ -374,6 +374,11 @@ BgpPath *BgpRoute::FindSecondaryPath(BgpRoute *src_rt,
          it != GetPathList().end(); ++it) {
         BgpSecondaryPath *path = dynamic_cast<BgpSecondaryPath *>(
             it.operator->());
+        // Skip resolved paths. They'll be taken care of by the path
+        // resolver infrastructure.
+        if (path && (path->GetFlags() & BgpPath::ResolvedPath)) {
+            continue;
+        }
         if (path && path->src_rt() == src_rt &&
             path->GetPeer() == peer && path->GetPathId() == path_id &&
             path->GetSource() == src) {
@@ -393,6 +398,11 @@ bool BgpRoute::RemoveSecondaryPath(const BgpRoute *src_rt,
          it != GetPathList().end(); it++) {
          BgpSecondaryPath *path =
             dynamic_cast<BgpSecondaryPath *>(it.operator->());
+        // Skip resolved paths. They'll be taken care of by the path
+        // resolver infrastructure.
+        if (path && (path->GetFlags() & BgpPath::ResolvedPath)) {
+            continue;
+        }
         if (path && path->src_rt() == src_rt &&
             path->GetPeer() == peer && path->GetPathId() == path_id &&
             path->GetSource() == src) {

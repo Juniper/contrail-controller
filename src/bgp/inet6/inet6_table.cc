@@ -105,6 +105,10 @@ BgpRoute *Inet6Table::RouteReplicate(BgpServer *server, BgpTable *src_table,
             (path->GetFlags() != dest_path->GetFlags()) ||
             (path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
+            if (dest_path->NeedsResolution()) {
+                path_resolver()->StopPathResolution(partition->index(),
+                                                    dest_path);
+            }
             assert(dest_route->RemoveSecondaryPath(src_rt, path->GetSource(),
                 path->GetPeer(), path->GetPathId()));
         } else {
@@ -116,6 +120,20 @@ BgpRoute *Inet6Table::RouteReplicate(BgpServer *server, BgpTable *src_table,
         new BgpSecondaryPath(path->GetPeer(), path->GetPathId(),
             path->GetSource(), new_attr, path->GetFlags(), path->GetLabel());
     replicated_path->SetReplicateInfo(src_table, src_rt);
+
+    // For VPN to VRF replication, start path resolution if fast convergence is
+    // enabled and update path flag to indicate need for resolution.
+    if (!source && (server->IsFastConvergenceEnabled()) &&
+        (replicated_path->GetSource() == BgpPath::BGP_XMPP)) {
+        Address::Family family = replicated_path->GetAttr()->nexthop_family();
+        RoutingInstanceMgr *mgr = server->routing_instance_mgr();
+        RoutingInstance *master_ri = mgr->GetDefaultRoutingInstance();
+        BgpTable *table = master_ri->GetTable(family);
+        replicated_path->SetResolveNextHop();
+        path_resolver()->StartPathResolution(dest_route, replicated_path,
+                                             table);
+    }
+
     dest_route->InsertPath(replicated_path);
 
     // Notify the route even if the best path may not have changed. For XMPP
