@@ -12,6 +12,7 @@
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 using std::auto_ptr;
@@ -121,6 +122,12 @@ BgpRoute *EvpnTable::TableFind(DBTablePartition *rtp,
     const RequestKey *pfxkey = static_cast<const RequestKey *>(prefix);
     EvpnRoute rt_key(pfxkey->prefix);
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
+}
+
+PathResolver *EvpnTable::CreatePathResolver() {
+    if (routing_instance()->IsMasterRoutingInstance())
+        return NULL;
+    return (new PathResolver(this));
 }
 
 DBTableBase *EvpnTable::CreateTable(DB *db, const string &name) {
@@ -245,6 +252,9 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
             (src_path->GetFlags() != dest_path->GetFlags()) ||
             (src_path->GetLabel() != dest_path->GetLabel()) ||
             (src_path->GetL3Label() != dest_path->GetL3Label())) {
+            if (dest_path->NeedsResolution()) {
+                path_resolver()->StopPathResolution(rtp->index(), dest_path);
+            }
             bool success = dest_route->RemoveSecondaryPath(src_rt,
                 src_path->GetSource(), src_path->GetPeer(),
                 src_path->GetPathId());
@@ -261,6 +271,20 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
                              src_path->GetFlags(), src_path->GetLabel(),
                              src_path->GetL3Label());
     replicated_path->SetReplicateInfo(src_table, src_rt);
+
+    // For VPN to VRF replication, start path resolution if fast convergence is
+    // enabled and update path flag to indicate need for resolution.
+    if (!IsMaster() && server->IsFastConvergenceEnabled() &&
+        (replicated_path->GetSource() == BgpPath::BGP_XMPP)) {
+        Address::Family family = src_path->GetAttr()->nexthop_family();
+        RoutingInstanceMgr *mgr = server->routing_instance_mgr();
+        RoutingInstance *master_ri = mgr->GetDefaultRoutingInstance();
+        BgpTable *table = master_ri->GetTable(family);
+        replicated_path->SetResolveNextHop();
+        path_resolver()->StartPathResolution(dest_route,
+                                             replicated_path, table);
+    }
+
     dest_route->InsertPath(replicated_path);
 
     // Always trigger notification.
@@ -284,7 +308,7 @@ bool EvpnTable::Export(RibOut *ribout, Route *route,
 
     const EvpnPrefix &evpn_prefix = evpn_route->GetPrefix();
     if (evpn_prefix.type() != EvpnPrefix::MacAdvertisementRoute &&
-            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute && 
+            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute &&
             evpn_prefix.type() != EvpnPrefix::SelectiveMulticastRoute) {
         return false;
     }

@@ -75,6 +75,7 @@ public:
     uint16_t GetGracefulRestartTime() const;
     uint32_t GetLongLivedGracefulRestartTime() const;
     uint16_t GetXmppHoldTime() const;
+    bool IsFastConvergenceEnabled() const;
     uint32_t GetEndOfRibReceiveTime() const;
     uint32_t GetEndOfRibSendTime() const;
 
