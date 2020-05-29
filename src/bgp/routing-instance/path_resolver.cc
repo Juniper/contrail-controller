@@ -15,9 +15,11 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
+#include "bgp/bgp_config.h"
 #include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_address.h"
 
 using std::make_pair;
@@ -1014,14 +1016,27 @@ bool ResolverPath::UpdateResolvedPaths() {
     ExtCommunityDB *extcomm_db = server->extcomm_db();
 
     // Go through paths of the nexthop route and build the list of future
-    // resolved paths.
+    // resolved paths. If the nexthop RI is the master instance, indicating
+    // that we are checking for presence of nexthop in the underlay table, the
+    // existing path is added to future resolved path as is but with updated
+    // path flag indicating that it is resolved.
     ResolvedPathList future_resolved_path_list;
     const BgpRoute *nh_route = rnexthop_->GetRoute();
     const IPeer *peer = path_ ? path_->GetPeer() : NULL;
+    // Process paths of nexthop route if nexthop RI is not the master RI.
+    const RoutingInstance *nh_ri = rnexthop_->table()->routing_instance();
+    bool nh_ri_def = false;
+    if (nh_ri->name() == BgpConfigManager::kMasterInstance) {
+        nh_ri_def = true;
+    }
+    bool process_paths = false;
+    if (path_ && nh_route && !nh_ri_def) {
+        process_paths = true;
+    }
     Route::PathList::const_iterator it;
-    if (path_ && nh_route)
+    if (process_paths)
         it = nh_route->GetPathList().begin();
-    for (; path_ && nh_route && it != nh_route->GetPathList().end(); ++it) {
+    for (; process_paths && it != nh_route->GetPathList().end(); ++it) {
         const BgpPath *nh_path = static_cast<const BgpPath *>(it.operator->());
 
         // Start with attributes of the original path.
@@ -1064,6 +1079,14 @@ bool ResolverPath::UpdateResolvedPaths() {
         BgpPath *resolved_path =
             LocateResolvedPath(peer, path_id, attr.get(), nh_path->GetLabel());
         future_resolved_path_list.insert(resolved_path);
+    }
+
+    // If nexthop RI is the default routing-instance, nothing to update except
+    // changing path_flags. Locate the resolved path.
+    if (path_ && nh_route && nh_ri_def) {
+        BgpPath *updated_path = LocateResolvedPath(peer, path_->GetPathId(),
+            path_->GetAttr(), path_->GetLabel());
+        future_resolved_path_list.insert(updated_path);
     }
 
     // Reconcile the current and future resolved paths and notify/delete the

@@ -63,6 +63,12 @@ BgpRoute *ErmVpnTable::TableFind(DBTablePartition *rtp,
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
+PathResolver *ErmVpnTable::CreatePathResolver() {
+    if (routing_instance()->IsMasterRoutingInstance())
+        return NULL;
+    return (new PathResolver(this));
+}
+
 DBTableBase *ErmVpnTable::CreateTable(DB *db, const string &name) {
     ErmVpnTable *table = new ErmVpnTable(db, name);
     table->Init();
