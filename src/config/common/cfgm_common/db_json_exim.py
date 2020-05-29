@@ -59,6 +59,17 @@ KEYSPACES = ['config_db_uuid',
             'svc_monitor_keyspace',
             'dm_keyspace']
 
+
+class LongIntEncoder(json.JSONEncoder):
+    """LongIntEncoder ensures that all type of integers up to uint64
+    is always encode as number, not a string.
+    """
+    def default(self, obj):
+        if isinstance(obj, int):
+            return obj
+        return super(LongIntEncoder, self).default(obj)
+
+
 class DatabaseExim(object):
     def __init__(self, args_str):
         self._parse_args(args_str)
@@ -302,12 +313,12 @@ class DatabaseExim(object):
         zk.start()
         nodes = get_nodes(self._api_args.cluster_id+'/')
         zk.stop()
-        db_contents['zookeeper'] = json.dumps(nodes)
+        db_contents['zookeeper'] = json.dumps(nodes, cls=LongIntEncoder)
         logger.info("Zookeeper DB dumped")
 
         f = open(self._args.export_to, 'w')
         try:
-            f.write(json.dumps(db_contents))
+            f.write(json.dumps(db_contents, cls=LongIntEncoder))
         finally:
             f.close()
         logger.info("DB dump wrote to file %s" % self._args.export_to)
