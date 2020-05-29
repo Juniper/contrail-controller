@@ -634,29 +634,31 @@ TEST_F(ShowRouteTest1, Basic) {
 
 TEST_F(ShowRouteTest1, TableListeners) {
     Configure();
-    TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
+    TASK_UTIL_EXPECT_EQ(1, ListenerCount("blue"));
 
     AddInetRoute("192.240.11.0/12", peers_[0], "blue");
     AddInetRoute("192.168.12.0/24", peers_[1], "blue");
     AddInetRoute("192.168.23.0/24", peers_[2], "blue");
 
-    string name0("Blue Listener 0");
-    string name1("Blue Listener 1");
-    string name2("Blue Listener 2");
-    string name3("Blue Listener 3");
-    int id0 = Register("blue", name0);
+    string name0("PathResolver");
+    string name1("Blue Listener 0");
+    string name2("Blue Listener 1");
+    string name3("Blue Listener 2");
+    string name4("Blue Listener 3");
+    int id0 = 0;
     int id1 = Register("blue", name1);
     int id2 = Register("blue", name2);
     int id3 = Register("blue", name3);
-    TASK_UTIL_EXPECT_EQ(4, ListenerCount("blue"));
+    int id4 = Register("blue", name4);
+    TASK_UTIL_EXPECT_EQ(5, ListenerCount("blue"));
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
 
-    vector<int> ids = list_of(id0)(id1)(id2)(id3)
+    vector<int> ids = list_of(id0)(id1)(id2)(id3)(id4)
         .convert_to_container<vector<int> >();
-    vector<string> names = list_of(name0)(name1)(name2)(name3)
+    vector<string> names = list_of(name0)(name1)(name2)(name3)(name4)
         .convert_to_container<vector<string> >();
     ShowRouteReq *show_req = new ShowRouteReq;
     Sandesh::set_response_callback(
@@ -669,11 +671,11 @@ TEST_F(ShowRouteTest1, TableListeners) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
-    Unregister("blue", id2);
-    TASK_UTIL_EXPECT_EQ(3, ListenerCount("blue"));
+    Unregister("blue", id3);
+    TASK_UTIL_EXPECT_EQ(4, ListenerCount("blue"));
 
-    ids = list_of(id0)(id1)(id3).convert_to_container<vector<int> >();
-    names = list_of(name0)(name1)(name3).convert_to_container<vector<string> >();
+    ids = list_of(id0)(id1)(id2)(id4).convert_to_container<vector<int> >();
+    names = list_of(name0)(name1)(name2)(name4).convert_to_container<vector<string> >();
     show_req = new ShowRouteReq;
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteListenersSandeshResponse, _1, ids, names,
@@ -685,10 +687,10 @@ TEST_F(ShowRouteTest1, TableListeners) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
-    Unregister("blue", id0);
     Unregister("blue", id1);
-    Unregister("blue", id3);
-    TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
+    Unregister("blue", id2);
+    Unregister("blue", id4);
+    TASK_UTIL_EXPECT_EQ(1, ListenerCount("blue"));
 
     DeleteInetRoute("192.240.11.0/12", peers_[0], 2, "blue");
     DeleteInetRoute("192.168.12.0/24", peers_[1], 1, "blue");
