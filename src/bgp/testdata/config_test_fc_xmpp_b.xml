@@ -4,7 +4,7 @@
         <fast-convergence-parameters>
             <enable>true</enable>
             <nh-reachability-check>true</nh-reachability-check>
-            <xmpp-hold-time>100</xmpp-hold-time>
+            <xmpp-hold-time>10</xmpp-hold-time>
         </fast-convergence-parameters>
     </global-system-config>
     <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
