@@ -125,6 +125,10 @@ public:
     // Reset a path as active (not stale)
     void ResetStale() { flags_ &= ~Stale; }
 
+    // Mark/Reset a path as needing resolution
+    void SetResolveNextHop() { flags_ |= ResolveNexthop; }
+    void ResetResolveNextHop() { flags_ &= ~ResolveNexthop; }
+
     void SetLlgrStale() { flags_ |= LlgrStale; }
     void ResetLlgrStale() { flags_ &= ~LlgrStale; }
 

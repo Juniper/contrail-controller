@@ -12,6 +12,7 @@
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 using std::auto_ptr;
@@ -121,6 +122,12 @@ BgpRoute *EvpnTable::TableFind(DBTablePartition *rtp,
     const RequestKey *pfxkey = static_cast<const RequestKey *>(prefix);
     EvpnRoute rt_key(pfxkey->prefix);
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
+}
+
+PathResolver *EvpnTable::CreatePathResolver() {
+    if (routing_instance()->IsMasterRoutingInstance())
+        return NULL;
+    return (new PathResolver(this));
 }
 
 DBTableBase *EvpnTable::CreateTable(DB *db, const string &name) {

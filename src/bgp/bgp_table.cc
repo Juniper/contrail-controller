@@ -869,11 +869,35 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         new_path = new BgpPath(
             peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label, l3_label);
 
-        if (new_path->NeedsResolution()) {
+        // Start path resolution for the new path if
+        // (1) Path flag has ResolveNextHop set in which case the path will
+        //     be resolved in the overlay routing table (or)
+        // (2) Fast convergence knob is enabled in which case the path will
+        //     be marked for resolution in the underlay (default) routing table
+        //     Note: Path resolution in this case is needed only for routes
+        //     in the overlay routing tables.
+        bool fc_enabled = (server()->global_config()->fc_enabled() &&
+                       !rtinstance_->IsMasterRoutingInstance());
+        if (new_path->NeedsResolution() || fc_enabled) {
             Address::Family family = new_path->GetAttr()->nexthop_family();
-            BgpTable *table = rtinstance_->GetTable(family);
+            BgpTable *table;
+            if (new_path->NeedsResolution()) {
+                table = rtinstance_->GetTable(family);
+            } else {
+                // Fast convergence knob is enabled.
+                // Update path flag to indicate need for resolution.
+                new_path->SetResolveNextHop();
+
+                // Get the default table.
+                RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
+                assert(mgr);
+                RoutingInstance *master_ri = mgr->GetDefaultRoutingInstance();
+                assert(master_ri);
+                table = master_ri->GetTable(family);
+            }
             path_resolver_->StartPathResolution(rt, new_path, table);
         }
+
         rt->InsertPath(new_path);
         notify_rt = true;
         break;
@@ -887,7 +911,7 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             // Remove the Path from the route
             if (path->NeedsResolution())
                 path_resolver_->StopPathResolution(root->index(), path);
-            rt->RemovePath(BgpPath::BGP_XMPP, peer, path_id);
+            rt->DeletePath(path);
             notify_rt = true;
         }
         break;

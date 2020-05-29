@@ -35,6 +35,7 @@ class PathResolverPartition;
 class ResolverNexthop;
 class ResolverPath;
 class ResolverRouteState;
+class RoutingInstance;
 class ShowPathResolver;
 class TaskTrigger;
 
