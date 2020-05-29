@@ -23,6 +23,8 @@ typedef uint16_t as2_t;
 #define AS_TRANS 23456
 #define AS2_MAX  0xFFFF
 
+#define XMPP_HOLD_TIME_DEFAULT 90
+
 class RoutingPolicy;
 typedef boost::intrusive_ptr<RoutingPolicy> RoutingPolicyPtr;
 
