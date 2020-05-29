@@ -41,7 +41,7 @@ class VerifyServicePolicy(VerifyPolicy):
     def __init__(self, vnc_lib):
         self._vnc_lib = vnc_lib
 
-    @retries(5)
+    @retries(10)
     def wait_to_get_sc(self, left_vn=None, right_vn=None, si_name=None,
                        check_create=False):
         for sc in list(ServiceChain.values()):
