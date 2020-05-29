@@ -683,6 +683,12 @@ boost::asio::io_service *BgpServer::ioservice() {
     return session_manager()->event_manager()->io_service();
 }
 
+bool BgpServer::IsFastConvergenceEnabled() const {
+    if (!global_config_->fc_enabled())
+        return false;
+    return (global_config_->fc_enabled());
+}
+
 uint16_t BgpServer::GetGracefulRestartTime() const {
     if (!global_config_->gr_enable())
         return 0;
@@ -697,7 +703,7 @@ uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
 
 uint16_t BgpServer::GetXmppHoldTime() const {
     if (!global_config_->fc_enabled())
-        return 0;
+        return XMPP_HOLD_TIME_DEFAULT;
     return global_config_->xmpp_hold_time();
 }
 
