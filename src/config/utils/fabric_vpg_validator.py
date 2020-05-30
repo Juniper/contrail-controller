@@ -4,13 +4,13 @@ import json
 import logging
 import logging.handlers
 import os
-import socket
 import sys
 import time
 
+from six.moves.configparser import SafeConfigParser
 from vnc_api import vnc_api
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 SPLIT_SIZE = 2
 UNTAGGED_ERROR_NUM = 2
@@ -23,6 +23,10 @@ We also maintain a change log list in that header:
 * 1.0:
     - Script checks if Virtual Port Groups with TF violate any
       VN/VLAN restrictions.
+    - Script checks if Virtual Port Groups within TF violate any
+      VN/VLAN restrictions.
+* 1.1:
+    - Added support for Keystone Auth and rbac enabled clusters
 """
 
 
@@ -46,11 +50,19 @@ class FabricVPGValidator(object):
         self._logger.addHandler(logfile)
 
         # Initiate Validation required parameters
-        hostname = socket.gethostname()
-        self.vnc_lib = vnc_api.VncApi(
-            api_server_host=socket.gethostbyname(hostname))
+        _api_args = ['api_server_host', 'connection_timeout', 'domain_name',
+                     'password', 'timeout', 'tenant_name', 'username']
+
+        vnc_api_args = {
+            k: getattr(self._args, k) for k in _api_args
+            if getattr(self._args, k)
+        }
+
+        self.vnc_lib = vnc_api.VncApi(**vnc_api_args)
         self.vpg_uuids = self.vnc_lib.virtual_port_groups_list(
-            fields=['annotations'])
+            fields=['annotations']
+        )
+        
         self.validation_failures = {}
         self.across_fabric_errors = 0
         self.within_vpg_errors = 0
@@ -246,7 +258,6 @@ class FabricVPGValidator(object):
             self.untagged_vlan_errors += len(untagged_failures)
             self.within_vpg_errors += len(local_validation_failures)
             vpg_uuid = vpg_dict['uuid']
-            # vpg_fq_name = ':'.join(x for x in vpg_dict['fq_name'])
             vpg_fq_name = vpg_dict['fq_name'][-1]
             self.validation_failures[(vpg_uuid, vpg_fq_name)] = {
                 'local_check': local_validation_failures,
@@ -417,6 +428,33 @@ class FabricVPGValidator(object):
 
 
 def _parse_args(args_str):
+    keystone_auth_parser = SafeConfigParser()
+    conf_file = keystone_auth_parser.read(
+        '/etc/contrail/contrail-keystone-auth.conf')
+
+    default_keystone_vals = {
+        "username": "admin",
+        "tenant_name": "admin",
+        "domain_name": "Default"
+    }
+
+    get_vars = (lambda x: keystone_auth_parser.get('KEYSTONE', x)
+                if keystone_auth_parser.has_option('KEYSTONE', x) else None)
+    if conf_file:
+        if keystone_auth_parser.has_section('KEYSTONE'):
+            username = get_vars('admin_user')
+            if username:
+                default_keystone_vals['username'] = username
+            password = get_vars('admin_password')
+            if password:
+                default_keystone_vals['password'] = password
+            tenant_name = get_vars('admin_tenant_name')
+            if tenant_name:
+                default_keystone_vals['tenant_name'] = tenant_name
+            domain_name = get_vars('user_domain_name')
+            if domain_name:
+                default_keystone_vals['domain_name'] = domain_name
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         description='')
@@ -435,6 +473,36 @@ def _parse_args(args_str):
         "--to-json", help="File to dump json to", default=None
     )
 
+    parser.add_argument(
+        "--username", help="Username used to login to API Server"
+    )
+
+    parser.add_argument(
+        "--password", help="Password used to login to API Server"
+    )
+
+    parser.add_argument(
+        "--api-server-host", help="IP of API Server"
+    )
+
+    parser.add_argument(
+        "--tenant-name", help="Name of Tenant"
+    )
+
+    parser.add_argument(
+        "--domain-name", help="Domain name"
+    )
+
+    parser.add_argument(
+        "--read-timeout", dest='timeout',
+        help="Timeout for Data reading operations", default=300
+    )
+
+    parser.add_argument(
+        "--connection-timeout",
+        help="Timeout set for VNC API to connect to API Server", default=120
+    )
+
     ts = calendar.timegm(time.gmtime())
     if os.path.isdir("/var/log/contrail"):
         default_log = "/var/log/contrail/fabric_validation-{0}.log".format(ts)
@@ -448,9 +516,9 @@ def _parse_args(args_str):
         default=default_log
     )
 
+    parser.set_defaults(**default_keystone_vals)
     args_obj, _ = parser.parse_known_args(args_str.split())
     _args = args_obj
-
     return _args
 # end _parse_args
 
