@@ -155,10 +155,6 @@ void PortIpcHandler::ReloadAllPorts(bool check_port) {
         if (!fs::is_directory(p)) {
             continue;
         }
-        /* Skip if filename is not in UUID format */
-        if (!IsUUID(p.filename().string())) {
-            continue;
-        }
         ReloadAllPorts(p.string(), check_port, true);
     }
 }
@@ -937,7 +933,7 @@ void PortIpcHandler::MakeVmVnPortJson(const VmVnPortSubscribeEntry *entry,
 }
 
 bool PortIpcHandler::WriteJsonToFile(VmVnPortSubscribeEntry *entry) const {
-    string vmvn_dir = vmvn_dir_ + "/" + UuidToString(entry->vm_uuid());
+    string vmvn_dir = vmvn_dir_ + "/" + entry->vm_name();
     fs::path base_dir(vmvn_dir);
     if (fs::exists(base_dir) == false) {
         if (!fs::create_directories(base_dir)) {
@@ -1031,7 +1027,8 @@ bool PortIpcHandler::DeleteVmVnPort(const string &json, const string &vm,
 }
 
 bool PortIpcHandler::GetVmVnCfgPort(const string &vm, string &info) const {
-    boost::uuids::uuid vm_uuid = StringToUuid(vm);
+    VmTable *vm_table = agent_->vm_table();
+    boost::uuids::uuid vm_uuid = vm_table->GetVmUuid(vm);
     if (vm_uuid == nil_uuid()) {
         return false;
     }
@@ -1080,7 +1077,7 @@ bool PortIpcHandler::MakeJsonFromVmiConfig(const boost::uuids::uuid &vmi_uuid,
     AddMember("id", str1.c_str(), &doc);
 
     string str2 = UuidToString(vmi_entry->vm_uuid_);
-    AddMember("instance-id", str2.c_str(), &doc);
+    AddMember("vm-uuid", str2.c_str(), &doc);
 
     string str5 = UuidToString(vmi_entry->vn_uuid_);
     AddMember("vn-id", str5.c_str(), &doc);
