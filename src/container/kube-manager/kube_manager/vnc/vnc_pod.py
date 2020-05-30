@@ -291,12 +291,15 @@ class VncPod(VncCommon):
         return vmi_uuid
 
     def _create_vm(self, pod_namespace, pod_id, pod_name, labels, proj_uuid):
-        vm_name = VncCommon.make_name(pod_name, pod_id)
-        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
+        cluster_name = vnc_kube_config.cluster_name()
+        vm_name = VncCommon.make_name(cluster_name, pod_namespace, pod_name)
+        display_name = vm_name
+        self._check_pod_uuid_change(pod_id, vm_name)
         perms2 = PermType2()
         perms2.owner = proj_uuid
         perms2.owner_access = PERMS_RWX
-        vm_obj = VirtualMachine(name=vm_name, perms2=perms2, display_name=display_name)
+        vm_obj = VirtualMachine(
+            name=vm_name, perms2=perms2, display_name=display_name)
         vm_obj.uuid = pod_id
         vm_obj.set_server_type("container")
 
@@ -346,7 +349,7 @@ class VncPod(VncCommon):
 
     def _check_pod_uuid_change(self, pod_uuid, pod_name):
         vm_fq_name = [pod_name]
-        vm_uuid = LoadbalancerKM.get_fq_name_to_uuid(vm_fq_name)
+        vm_uuid = VirtualMachineKM.get_fq_name_to_uuid(vm_fq_name)
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
@@ -495,8 +498,6 @@ class VncPod(VncCommon):
             self._set_tags_on_pod_vmi(pod_id)
 
             return vm
-        else:
-            self._check_pod_uuid_change(pod_id, pod_name)
 
         vn_obj = self._get_default_network(pod_id, pod_name, pod_namespace)
         if not vn_obj:
