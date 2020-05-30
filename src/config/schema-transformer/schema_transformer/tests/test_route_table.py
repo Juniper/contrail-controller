@@ -190,6 +190,12 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
             return si
 
         @retries(5)
+        def _wait_for_target_refs(router_):
+            r = self._vnc_lib.logical_router_read(id = router_)
+            return r.route_target_refs if r and len(r.route_target_refs) > 0 \
+                else None
+
+        @retries(5)
         def _wait_to_delete_si():
             si_list = self._vnc_lib.service_instances_list()
             try:
@@ -212,8 +218,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         si_props = si.get_service_instance_properties().get_interface_list()[1]
         ri_name = si_props.virtual_network + ":" + \
             si_props.virtual_network.split(':')[-1]
-        lr_rtgt = self._vnc_lib.logical_router_read(
-            id=lr.uuid).route_target_refs[0]['to'][0]
+        lr_rtgt = _wait_for_target_refs(lr.uuid)[0]['to'][0]
         _match_route_table(['target:1:1', lr_rtgt], ri_name)
 
         rtgt_list = RouteTargetList(route_target=['target:2:2'])
