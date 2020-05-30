@@ -84,8 +84,8 @@ class SvcMonitor(object):
             self.logger = ServiceMonitorLogger(args)
 
         # init object_db
+        self._init_db = False
         self._object_db = ServiceMonitorDB(self._args, self.logger)
-        DBBaseSM.init(self, self.logger, self._object_db)
 
         # init rabbit connection
         rabbitmq_cfg = get_rabbitmq_cfg(args)
@@ -97,6 +97,11 @@ class SvcMonitor(object):
                 DBBaseSM, REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
                 host_ip, self._args.trace_file)
         self.rabbit.establish()
+
+    def init_db(self):
+        if not self._init_db:
+            self._init_db = True
+            DBBaseSM.init(self, self.logger, self._object_db)
 
     def post_init(self, vnc_lib, args=None):
         # api server
@@ -146,6 +151,9 @@ class SvcMonitor(object):
             self.vrouter_scheduler, self._nova_client,
             self._agent_manager, self._args)
 
+        if not(self._init_db or DBBaseSM._object_db):
+            DBBaseSM.init(None, None, self._object_db)
+
         # load a loadbalancer agent
         self.loadbalancer_agent = LoadbalancerAgent(
             self, self._vnc_lib,
@@ -162,6 +170,8 @@ class SvcMonitor(object):
         self.port_tuple_agent = PortTupleAgent(self, self._vnc_lib,
             self._object_db, self._args, ServiceMonitorModuleLogger(self.logger))
         self._agent_manager.register_agent(self.port_tuple_agent)
+
+        self.init_db()
 
         # Read the object_db and populate the entry in ServiceMonitor DB
         self.sync_sm()
