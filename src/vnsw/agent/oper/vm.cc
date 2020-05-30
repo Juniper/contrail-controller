@@ -15,6 +15,7 @@
 
 using namespace std;
 using namespace autogen;
+using boost::uuids::nil_uuid;
 
 VmTable *VmTable::vm_table_;
 
@@ -140,6 +141,15 @@ void VmEntry::SendObjectLog(AgentLogEvent::type event) const {
     VM_OBJECT_LOG_LOG("AgentVm", SandeshLevel::SYS_INFO, info);
 }
 
+boost::uuids::uuid VmTable::GetVmUuid(const std::string &name)
+{
+    VmNameUuidTree::iterator it = vm_name_uuid_tree_.find(name);
+    if (it != vm_name_uuid_tree_.end()) {
+        return it->second;
+    }
+    return nil_uuid();
+}
+
 std::auto_ptr<DBEntry> VmTable::AllocEntry(const DBRequestKey *k) const {
     const VmKey *key = static_cast<const VmKey *>(k);
     VmEntry *vm = new VmEntry(key->uuid_);
@@ -152,6 +162,12 @@ DBEntry *VmTable::OperDBAdd(const DBRequest *req) {
     VmEntry *vm = new VmEntry(key->uuid_);
     vm->SetCfgName(data->name_);
     vm->SendObjectLog(AgentLogEvent::ADD);
+    VmNameUuidTree::iterator it = vm_name_uuid_tree_.find(data->name_);
+    if (it != vm_name_uuid_tree_.end()) {
+        std::swap(vm_name_uuid_tree_[data->name_], key->uuid_);
+    } else {
+        vm_name_uuid_tree_.insert(std::make_pair(data->name_, key->uuid_));
+    }
     return vm;
 }
 
@@ -165,6 +181,12 @@ bool VmTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 bool VmTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
     vm->SendObjectLog(AgentLogEvent::DEL);
+    VmNameUuidTree::const_iterator it =
+        vm_name_uuid_tree_.find(vm->GetCfgName());
+    if (it != vm_name_uuid_tree_.end()) {
+        vm_name_uuid_tree_.erase(it->first);
+    }
+
     return true;
 }
 

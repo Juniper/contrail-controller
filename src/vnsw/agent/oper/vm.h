@@ -9,6 +9,8 @@
 #include <oper/oper_db.h>
 #include <agent_types.h>
 
+typedef std::map<std::string, boost::uuids::uuid> VmNameUuidTree;
+
 struct VmKey : public AgentOperDBKey {
     VmKey(boost::uuids::uuid id) : AgentOperDBKey(), uuid_(id) {} ;
     virtual ~VmKey() { }
@@ -96,8 +98,11 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VmTable *GetInstance() {return vm_table_;}
 
+    boost::uuids::uuid GetVmUuid(const std::string &name);
+
 private:
     static VmTable *vm_table_;
+    VmNameUuidTree vm_name_uuid_tree_;
     DISALLOW_COPY_AND_ASSIGN(VmTable);
 };
 
