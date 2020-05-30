@@ -85,7 +85,6 @@ class SvcMonitor(object):
 
         # init object_db
         self._object_db = ServiceMonitorDB(self._args, self.logger)
-        DBBaseSM.init(self, self.logger, self._object_db)
 
         # init rabbit connection
         rabbitmq_cfg = get_rabbitmq_cfg(args)
@@ -162,6 +161,8 @@ class SvcMonitor(object):
         self.port_tuple_agent = PortTupleAgent(self, self._vnc_lib,
             self._object_db, self._args, ServiceMonitorModuleLogger(self.logger))
         self._agent_manager.register_agent(self.port_tuple_agent)
+
+        DBBaseSM.init(self, self.logger, self._object_db)
 
         # Read the object_db and populate the entry in ServiceMonitor DB
         self.sync_sm()
