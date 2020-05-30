@@ -416,7 +416,7 @@ class SchemaTransformer(object):
 
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
-        VirtualMachineInterfaceST.reinit()
+        VirtualMachineInterfaceST.reinit(zk_timeout=self._args.zk_timeout)
 
         gevent.sleep(0.001)
         InstanceIpST.reinit()

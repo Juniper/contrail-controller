@@ -3,8 +3,10 @@
 #
 
 from builtins import str
+import time
 
 from cfgm_common.vnc_db import DBBase
+import gevent
 
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from schema_transformer.utils import _pp_json_object
@@ -28,13 +30,19 @@ class ResourceBaseST(DBBase):
         pass
 
     @classmethod
-    def reinit(cls):
+    def reinit(cls, **kwargs):
+        zk_timeout = kwargs.get('zk_timeout')
+        start_time = time.time()
         for obj in cls.list_vnc_obj():
             try:
                 cls.locate(obj.get_fq_name_str(), obj)
             except Exception as e:
                 cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
+            if (zk_timeout and
+                    time.time() - start_time > int(zk_timeout / 8)):
+                gevent.sleep(0.1)
+                start_time = time.time()
     # end reinit
 
     @classmethod
