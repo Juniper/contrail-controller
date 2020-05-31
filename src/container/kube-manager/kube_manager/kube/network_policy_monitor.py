@@ -5,18 +5,19 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-import json
 import gevent
 from .kube_monitor import KubeMonitor
 from kube_manager.common.kube_config_db import NetworkPolicyKM
 
+
 class NetworkPolicyMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None, network_policy_db=None):
-        super(NetworkPolicyMonitor, self).__init__(args, logger, q,
+        super(NetworkPolicyMonitor, self).__init__(
+            args, logger, q,
             NetworkPolicyKM, resource_type='networkpolicy')
         self.init_monitor()
-        self.logger.info("NetworkPolicyMonitor init done.");
+        self.logger.info("NetworkPolicyMonitor init done.")
 
     def process_event(self, event):
         np_data = event['object']
@@ -40,10 +41,12 @@ class NetworkPolicyMonitor(KubeMonitor):
         else:
             np_uuid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, name, np_uuid))
-        self.logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, name, np_uuid))
+        print(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, name, np_uuid))
+        self.logger.debug(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, name, np_uuid))
         self.q.put(event)
 
     def event_callback(self):

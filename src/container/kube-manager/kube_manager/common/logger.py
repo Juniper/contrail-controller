@@ -15,7 +15,8 @@ from kube_manager.sandesh.kube_manager import ttypes as sandesh
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from kube_manager.common.kube_config_db import (
          PodKM, NamespaceKM, ServiceKM, NetworkPolicyKM, IngressKM)
-from kube_manager.vnc.config_db import (LoadbalancerKM, LoadbalancerListenerKM,
+from kube_manager.vnc.config_db import (
+    LoadbalancerKM, LoadbalancerListenerKM,
     LoadbalancerPoolKM, LoadbalancerMemberKM,
     VirtualMachineKM, VirtualRouterKM, VirtualMachineInterfaceKM,
     VirtualNetworkKM, InstanceIpKM, ProjectKM, DomainKM, SecurityGroupKM,
@@ -170,7 +171,6 @@ class KubeManagerLogger(object):
         # Register Ingress DB introspect handler.
         introspect.IngressDatabaseList.handle_request =\
             IngressKM.sandesh_handle_db_list_request
-
 
         # Register Loadbalancer DB introspect handler.
         introspect.LoadbalancerDatabaseList.handle_request = \

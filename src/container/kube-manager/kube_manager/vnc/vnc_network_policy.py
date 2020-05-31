@@ -3,7 +3,7 @@
 #
 
 """
-VNC service management for kubernetes
+VNC service management for kubernetes.
 """
 from __future__ import print_function
 from __future__ import absolute_import
