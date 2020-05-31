@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0e5eab79_cd7ad716",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 314
+      },
+      "writtenOn": "2020-05-31T23:20:13Z",
+      "side": 1,
+      "message": "For every class object, please add \"\"\" docstring comments to describe the class\u0027s functionality as well as the methods it supports \"\"\"",
+      "revId": "20fdbfe5d4e946f743852be6c4145fe817002783",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4b179bdd_eef6766b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/discover_os_computes.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 113,
+      "author": {
+        "id": 314
+      },
+      "writtenOn": "2020-05-31T23:20:13Z",
+      "side": 1,
+      "message": "fix the length of the sentence",
+      "revId": "20fdbfe5d4e946f743852be6c4145fe817002783",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
