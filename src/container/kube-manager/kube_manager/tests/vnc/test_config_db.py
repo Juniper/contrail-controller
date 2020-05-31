@@ -3,12 +3,21 @@
 #
 
 from builtins import str
+import json
 import mock
-from mock import patch
 import unittest
+
 from cfgm_common.vnc_db import DBBase
+from vnc_api.vnc_api import (
+    Project, Domain, LoadbalancerPoolType, VirtualNetwork, LoadbalancerType,
+    Loadbalancer, IdPermsType, VirtualMachineInterface,
+    VirtualMachine, LoadbalancerMemberType, LoadbalancerMember, KeyValuePair,
+    LoadbalancerListenerType, LoadbalancerListener, LoadbalancerPool,
+    InstanceIp, SecurityGroup, FloatingIpPool, FloatingIp
+)
+
 from kube_manager.vnc import config_db
-from vnc_api.vnc_api import *
+
 
 class ConfigDBTest(unittest.TestCase):
     def setUp(self):
@@ -95,8 +104,9 @@ class ConfigDBTest(unittest.TestCase):
         lb.uuid = uuid
         lb.set_virtual_machine_interface(vmi_obj)
         id_perms = IdPermsType(enable=True)
-        props = LoadbalancerType(provisioning_status='ACTIVE', id_perms=id_perms,
-                      operating_status='ONLINE', vip_address=vip_address)
+        props = LoadbalancerType(
+            provisioning_status='ACTIVE', id_perms=id_perms,
+            operating_status='ONLINE', vip_address=vip_address)
         lb.set_loadbalancer_properties(props)
         if annotations:
             for key in annotations:
@@ -111,7 +121,7 @@ class ConfigDBTest(unittest.TestCase):
         return lb_obj
     # end add_lb
 
-    def add_lb_listener(self, name, uuid, lb_obj, proj_obj, protocol, port, 
+    def add_lb_listener(self, name, uuid, lb_obj, proj_obj, protocol, port,
                         target_port):
         id_perms = IdPermsType(enable=True)
         ll = LoadbalancerListener(name, proj_obj, id_perms=id_perms,
@@ -137,7 +147,7 @@ class ConfigDBTest(unittest.TestCase):
         return ll_obj
     # end add_lb_listener
 
-    def add_lb_pool(self, name, uuid, ll_obj, proj_obj): 
+    def add_lb_pool(self, name, uuid, ll_obj, proj_obj):
         props = LoadbalancerPoolType()
         props.set_protocol("TCP")
         id_perms = IdPermsType(enable=True)
@@ -155,7 +165,7 @@ class ConfigDBTest(unittest.TestCase):
         return pool_obj
     # end add_lb_listener
 
-    def add_lb_member(self, name, uuid, pool_obj, address="10.20.30.41", 
+    def add_lb_member(self, name, uuid, pool_obj, address="10.20.30.41",
                       port=3000, annotations=None):
         props = LoadbalancerMemberType(address=address, protocol_port=port)
         id_perms = IdPermsType(enable=True)
@@ -170,7 +180,7 @@ class ConfigDBTest(unittest.TestCase):
         member_dict = self.obj_to_dict(member)
         member_dict['uuid'] = uuid
         member_dict['parent_uuid'] = pool_obj.uuid
-        member_obj = LoadbalancerMember.from_dict(**member_dict)
+        _ = LoadbalancerMember.from_dict(**member_dict)
         config_db.LoadbalancerMemberKM._object_db.object_read = mock.Mock(return_value=(True, [member_dict]))
         config_db.LoadbalancerMemberKM.locate(uuid)
     # end add_lb_member
@@ -219,7 +229,7 @@ class ConfigDBTest(unittest.TestCase):
         iip.set_virtual_machine_interface(vmi_obj)
         iip_dict = self.obj_to_dict(iip)
         iip_dict['uuid'] = 'iip'
-        iip_obj = InstanceIp.from_dict(**iip_dict)
+        _ = InstanceIp.from_dict(**iip_dict)
         config_db.InstanceIpKM._object_db.object_read = mock.Mock(return_value=(True, [iip_dict]))
         config_db.InstanceIpKM.locate('iip')
 
@@ -242,7 +252,7 @@ class ConfigDBTest(unittest.TestCase):
         proj_obj = self.add_project("kube-system", 'project')
         net_obj = self.add_vn("cluster-network", 'network', proj_obj)
         vmi_obj = self.add_vmi("kubernetes-lb-vmi", 'vmi', proj_obj, net_obj)
-        #LB
+        # LB
         annotations1 = {}
         annotations1['owner'] = 'k8s'
         lb_obj = self.add_lb("kubernetes", 'loadbalancer', proj_obj, vmi_obj, "10.20.30.40", annotations1)
@@ -251,7 +261,7 @@ class ConfigDBTest(unittest.TestCase):
         annotations2 = {}
         annotations2['vmi'] = "vmi"
         annotations2['vm'] = "vm"
-        member_obj = self.add_lb_member("kubernetes-member", 'member', pool_obj, annotations=annotations2)
+        _ = self.add_lb_member("kubernetes-member", 'member', pool_obj, annotations=annotations2)
 
         net = config_db.VirtualNetworkKM.get('network')
         vmi = config_db.VirtualMachineInterfaceKM.get('vmi')
@@ -267,29 +277,29 @@ class ConfigDBTest(unittest.TestCase):
         self.assertIsNotNone(vmi)
         self.assertIsNotNone(net)
 
-        #Test 'member'
+        # Test 'member'
         self.assertEqual(member.uuid, 'member')
         self.assertEqual(member.name, 'kubernetes-member')
         self.assertEqual(member.loadbalancer_pool, 'pool')
         # SAS FIXME self.assertEqual(member.vmi, 'vmi')
         # SAS FIXME self.assertEqual(member.vm, 'vm')
 
-        #Test 'pool'
+        # Test 'pool'
         self.assertEqual(pool.uuid, 'pool')
         self.assertEqual(pool.name, 'kubernetes-pool')
         self.assertEqual(len(pool.members), 1)
         self.assertEqual(pool.loadbalancer_listener, 'listener')
         self.assertEqual(pool.parent_uuid, 'project')
 
-        #Test 'listener'
+        # Test 'listener'
         self.assertEqual(ll.uuid, 'listener')
         self.assertEqual(ll.name, 'kubernetes-ll')
         self.assertEqual(ll.loadbalancer, 'loadbalancer')
         self.assertEqual(ll.loadbalancer_pool, 'pool')
-        #self.assertEqual(ll.target_port, '3000')
+        # self.assertEqual(ll.target_port, '3000')
         self.assertEqual(pool.parent_uuid, 'project')
 
-        #Test 'loadbalancer'
+        # Test 'loadbalancer'
         self.assertEqual(lb.uuid, 'loadbalancer')
         self.assertEqual(lb.name, 'kubernetes')
         self.assertEqual(len(lb.loadbalancer_listeners), 1)
@@ -326,13 +336,13 @@ class ConfigDBTest(unittest.TestCase):
         vmi_obj = self.add_vmi("Test-VMI", 'vmi', project, net_obj)
 
         fip_pool_obj = FloatingIpPool('Test-fip-pool', parent_obj=net_obj)
-        fip = FloatingIp(name="Test-FIP", parent_obj=fip_pool_obj, floating_ip_address = "1.2.3.33")
+        fip = FloatingIp(name="Test-FIP", parent_obj=fip_pool_obj, floating_ip_address="1.2.3.33")
         fip.set_project(project)
         fip.set_virtual_machine_interface(vmi_obj)
         fip_dict = self.obj_to_dict(fip)
         fip_dict['parent_uuid'] = 'pool'
         fip_dict['uuid'] = 'fip'
-        fip_obj = FloatingIp.from_dict(**fip_dict)
+        _ = FloatingIp.from_dict(**fip_dict)
         config_db.FloatingIpKM._object_db.object_read = mock.Mock(return_value=(True, [fip_dict]))
         config_db.FloatingIpKM.locate('fip')
 
@@ -359,7 +369,7 @@ class ConfigDBTest(unittest.TestCase):
         sg_dict = self.obj_to_dict(sg)
         sg_dict['parent_uuid'] = 'project'
         sg_dict['uuid'] = 'sg'
-        sg_obj = SecurityGroup.from_dict(**sg_dict)
+        _ = SecurityGroup.from_dict(**sg_dict)
         self.object_db.object_read = mock.Mock(
             return_value=(True, [sg_dict]))
         config_db.SecurityGroupKM.locate('sg')
@@ -370,5 +380,3 @@ class ConfigDBTest(unittest.TestCase):
         config_db.SecurityGroupKM.delete('sg')
         config_db.ProjectKM.delete('project')
     # end test_add_delete_sg(self):
-
-#end ConfigDBTest(unittest.TestCase):

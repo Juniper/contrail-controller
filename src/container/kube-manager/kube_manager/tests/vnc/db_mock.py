@@ -1,4 +1,3 @@
-from builtins import object
 from kube_manager.vnc.config_db import DBBaseKM
 
 
@@ -44,10 +43,10 @@ class DBMock(object):
         return True, ret
 
     def object_list(self, obj_type):
-        return DBMock.list(obj_type)
+        return DBMock._list(obj_type)
 
     @staticmethod
-    def list(obj_type):
+    def _list(obj_type):
         if obj_type not in DBMock.db:
             return False, None, None
         ret = [(val["fq_name"], val["uuid"]) for val in list(DBMock.db[obj_type].values())]

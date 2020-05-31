@@ -6,8 +6,8 @@
 Kube Manager Utility methods and datastructures.
 """
 
-from builtins import object
 from ast import literal_eval
+
 
 def get_dict_from_dict_string(dict_string, dict_string_kind):
     """Given a dictionary string of a kind, return its dictionary object.
@@ -24,6 +24,7 @@ def get_dict_from_dict_string(dict_string, dict_string_kind):
 
     return result_dict
 
+
 class CustomNetwork(object):
     """Defines the keywords and format of a custom network specification.
     """
@@ -36,6 +37,7 @@ class CustomNetwork(object):
         """Get a fq-network name key specification.
         """
         return [cls.domain_name_key, cls.project_name_key, cls.vn_name_key]
+
 
 def get_vn_fq_name_from_dict_string(vn_dict_string):
     """Given a dictionary string representing VN, return the VN's FQ-name.
@@ -58,16 +60,18 @@ def get_vn_fq_name_from_dict_string(vn_dict_string):
             raise Exception(err_msg)
     return vn_fq_name
 
+
 def get_domain_name_from_vn_dict_string(vn_dict_string):
     """Given a dict-string representing VN FQ-name, return the VN's domain.
     """
     vn = get_dict_from_dict_string(vn_dict_string, "virtual_network")
     domain_name = vn.get(CustomNetwork.domain_name_key, None)
     if not domain_name:
-        err_msg = "Domain name not found in virtual network dict string(%s)."%\
-            (vn_dict_string)
+        err_msg = ("Domain name not found in virtual network dict "
+                   "string(%s)." % (vn_dict_string))
         raise Exception(err_msg)
     return domain_name
+
 
 def get_project_name_from_vn_dict_string(vn_dict_string):
     """Given a dict-string representing VN FQ-name, return the VN's project.
@@ -80,6 +84,7 @@ def get_project_name_from_vn_dict_string(vn_dict_string):
         raise Exception(err_msg)
     return project_name
 
+
 def get_vn_name_from_vn_dict_string(vn_dict_string):
     """Given a dict-string representing VN FQ-name, return the name of VN.
     """
@@ -90,6 +95,7 @@ def get_vn_name_from_vn_dict_string(vn_dict_string):
             (vn_dict_string)
         raise Exception(err_msg)
     return vn_name
+
 
 class FipPoolFQName(object):
     """Defines the keywords and format of a Fip-Pool FQName specification.
@@ -104,7 +110,8 @@ class FipPoolFQName(object):
         """Get a fq-network name key specification.
         """
         return [cls.domain_name_key, cls.project_name_key, cls.vn_name_key,
-                    cls.fip_pool_name_key]
+                cls.fip_pool_name_key]
+
 
 def get_fip_pool_fq_name_from_dict_string(fip_pool_dict_string):
     """Given a dictionary string representing a fip-pool, return its FQ-name.
@@ -126,6 +133,7 @@ def get_fip_pool_fq_name_from_dict_string(fip_pool_dict_string):
             raise Exception(err_msg)
     return fip_pool_fq_name
 
+
 class ProjectFQName(object):
     """Defines the keywords and format of a Project FQName specification.
     """
@@ -138,12 +146,14 @@ class ProjectFQName(object):
         """
         return [cls.domain_name_key, cls.project_name_key]
 
+
 def get_domain_name_from_project_dict_string(proj_dict_string):
     """Given a dict-string representing project FQ-name,return its domain.
     """
     proj = get_dict_from_dict_string(proj_dict_string, "project")
     domain_name = proj.get(ProjectFQName.domain_name_key, None)
     return domain_name
+
 
 def get_project_name_from_project_dict_string(proj_dict_string):
     """Given a dict-string representing project FQ-name, return its name.

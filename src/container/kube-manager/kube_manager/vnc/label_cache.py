@@ -2,11 +2,10 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from __future__ import absolute_import
 
-from builtins import object
 from enum import Enum
-from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+
 
 class LabelCache(object):
 
@@ -38,6 +37,7 @@ class LabelCache(object):
                     del cache[key]
             except KeyError:
                 pass
+
 
 class XLabelCache(object):
     """
@@ -175,7 +175,7 @@ class XLabelCache(object):
         for label in labels:
             res_labels = XLabelCache.k8s_label_to_guid_cache[self.resource_type]
             if label in res_labels:
-                k,v = self.get_key_value(label)
+                k, v = self.get_key_value(label)
 
                 # Hack: Need an efficient way to skip namespace label delete
                 # by other resouce types.
@@ -203,7 +203,7 @@ class XLabelCache(object):
         curr_labels = self.get_labels(obj_guid)
         new_labels = {}
         for curr_label in curr_labels:
-            k,v = self.get_key_value(curr_label)
+            k, v = self.get_key_value(curr_label)
             new_labels[k] = v
         new_labels.update(dict(label))
         self.process(obj_guid, new_labels)
@@ -213,7 +213,7 @@ class XLabelCache(object):
         curr_labels = self.get_labels(obj_guid)
         new_labels = {}
         for curr_label in curr_labels:
-            k,v = self.get_key_value(curr_label)
+            k, v = self.get_key_value(curr_label)
             if k in removed_labels and removed_labels[k] == v:
                 continue
             new_labels[k] = v
@@ -232,40 +232,40 @@ class XLabelCache(object):
         return XLabelCache.k8s_guid_to_label_cache.get(obj_uuid, {})
 
     @classmethod
-    def get_namespace_label(self, namespace):
+    def get_namespace_label(cls, namespace):
         """ Construct a namespace label. """
         label = {'namespace': namespace}
         return label
 
     @classmethod
-    def get_namespace_label_kv(self, namespace):
+    def get_namespace_label_kv(cls, namespace):
         return 'namespace', namespace
 
     @classmethod
-    def get_service_label(self, service_name):
+    def get_service_label(cls, service_name):
         """ Construct a service label. """
         key = "-".join([vnc_kube_config.cluster_name(), 'svc'])
         value = service_name
         return {key: value}
 
     @classmethod
-    def get_service_member_label(self, service_name):
+    def get_service_member_label(cls, service_name):
         """ Construct a service memner label. """
-        svc_label = self.get_service_label(service_name)
+        svc_label = cls.get_service_label(service_name)
         svc_member_label_dict = {}
-        for k,v in svc_label.items():
+        for k, v in svc_label.items():
             member_key = "-".join([k, "member"])
             svc_member_label_dict[member_key] = v
         return svc_member_label_dict
 
     @classmethod
-    def get_cluster_label(self, cluster_name):
+    def get_cluster_label(cls, cluster_name):
         """ Construct a cluster label. """
         label = {'application': cluster_name}
         return label
 
     @classmethod
-    def get_ingress_label(self, ingress_name):
+    def get_ingress_label(cls, ingress_name):
         """ Construct a ingress label. """
         label = {'ingress': ingress_name}
         return label
@@ -273,19 +273,19 @@ class XLabelCache(object):
     def get_labels_dict(self, obj_guid, no_value=False):
         """ Construct labels in Contrail format. """
         labels_dict = {}
-        predefined_values = [item.value for item in self.PredefinedTags]
+        # predefined_values = [item.value for item in self.PredefinedTags]
         curr_labels = self.get_labels(obj_guid)
         is_global = vnc_kube_config.is_global_tags()
         for label in curr_labels:
-            k,v = self.get_key_value(label)
+            k, v = self.get_key_value(label)
 
             # TBD: uncomment if custom is different from predefined.
             # if k in predefined_values:
 
             labels_dict[k] = {
-                                 'is_global': is_global,
-                                  'value': v if no_value == False else None
-                             }
+                'is_global': is_global,
+                'value': None if no_value else v
+            }
 
         return labels_dict
 
@@ -295,4 +295,3 @@ class XLabelCache(object):
         for k in labels.keys():
             labels_dict[k] = None
         return labels_dict
-
