@@ -7,6 +7,7 @@ import tempfile
 
 import gevent
 from greenlet import greenlet
+
 from cfgm_common import vnc_cgitb
 from cfgm_common.tests import test_common
 sys.path.insert(0, '../../../../build/production/container/kube-manager')
@@ -15,12 +16,14 @@ from vnc_api.vnc_api import (
     PolicyEntriesType, IdPermsType, SecurityGroup, VirtualNetwork,
     VirtualNetworkType, NoIdError, VirtualMachine, VirtualMachineInterface,
     InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType,
-    VirtualRouter)
+    VirtualRouter
+)
+
 from kube_manager.common import args as kube_args
-from kube_manager.vnc import vnc_kubernetes
 from kube_manager.vnc import vnc_kubernetes_config as vnc_kube_config
 from kube_manager.vnc.config_db import (
-    VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, VirtualRouterKM)
+    VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, VirtualRouterKM
+)
 
 
 class KMTestCase(test_common.TestCase):
@@ -45,8 +48,7 @@ class KMTestCase(test_common.TestCase):
             cls.__name__,
             cls._api_server_ip,
             cls._api_server_port,
-            logger_class=
-            test_common.ErrorInterceptingLogger.get_qualified_name())
+            logger_class=test_common.ErrorInterceptingLogger.get_qualified_name())
         cls._st_greenlet = gevent.spawn(
             test_common.launch_schema_transformer,
             cls._cluster_id,
@@ -132,13 +134,16 @@ class KMTestCase(test_common.TestCase):
             time.sleep(sleep_interval)
 
     def enqueue_idle_event(self):
-        idle_event = {'type': None,
-                      'object': {
-                          'kind': 'Idle', 'metadata': {
-                              'name': None, 'uid': None
-                              }
-                          }
-                     }
+        idle_event = {
+            'type': None,
+            'object': {
+                'kind': 'Idle',
+                'metadata': {
+                    'name': None,
+                    'uid': None
+                }
+            }
+        }
         self.event_queue.put(idle_event)
 
     def generate_kube_args(self):
@@ -154,7 +159,7 @@ class KMTestCase(test_common.TestCase):
         vnc_cgitb.enable(format='text')
 
         with tempfile.NamedTemporaryFile(mode='w+') as conf,\
-            tempfile.NamedTemporaryFile(mode='w+') as logconf:
+                tempfile.NamedTemporaryFile(mode='w+') as logconf:
             cfg_parser = test_common.generate_conf_file_contents(kube_config)
             cfg_parser.write(conf)
             conf.flush()
@@ -269,12 +274,12 @@ class KMTestCase(test_common.TestCase):
                 vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_subnet]))
         return ipam_obj
 
-    def create_pod_service_network(self, pod_vn_name, service_vn_name, \
-            proj_obj, pod_subnet, service_subnet):
-        pod_vn = self.create_network(pod_vn_name, \
-            proj_obj, pod_subnet, 'pod-ipam');
-        service_vn = self.create_network(service_vn_name, \
-            proj_obj, service_subnet, 'service-ipam');
+    def create_pod_service_network(self, pod_vn_name, service_vn_name,
+                                   proj_obj, pod_subnet, service_subnet):
+        pod_vn = self.create_network(
+            pod_vn_name, proj_obj, pod_subnet, 'pod-ipam')
+        service_vn = self.create_network(
+            service_vn_name, proj_obj, service_subnet, 'service-ipam')
         return pod_vn, service_vn
 
     def create_network(self, name, proj_obj, subnet, ipam_name):
@@ -291,8 +296,8 @@ class KMTestCase(test_common.TestCase):
             vn_uuid = self._vnc_lib.virtual_network_create(vn)
             vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
 
-        ipam_obj = self._create_network_ipam(ipam_name, 'flat-subnet',
-                                                 subnet, proj_obj, vn_obj)
+        self._create_network_ipam(
+            ipam_name, 'flat-subnet', subnet, proj_obj, vn_obj)
         try:
             self._vnc_lib.virtual_network_update(vn_obj)
         except Exception as e:
@@ -302,8 +307,6 @@ class KMTestCase(test_common.TestCase):
 
         vn_obj = self._vnc_lib.virtual_network_read(
             fq_name=vn_obj.get_fq_name())
-        #kube = vnc_kubernetes.VncKubernetes.get_instance()
-        #kube._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
 
         return vn_obj
 

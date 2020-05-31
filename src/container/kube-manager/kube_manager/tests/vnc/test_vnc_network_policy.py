@@ -3,30 +3,26 @@
 #
 
 from builtins import str
-from builtins import range
 import unittest
 import uuid
 
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.common.kube_config_db import (NetworkPolicyKM)
-from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.vnc.vnc_namespace import NamespaceKM
-from kube_manager.vnc.vnc_tags import VncTags
-from kube_manager.vnc.config_db import TagKM
 from kube_manager.vnc.config_db import FirewallPolicyKM
 from kube_manager.vnc.config_db import ApplicationPolicySetKM
-from cfgm_common.exceptions import RefsExistError, NoIdError
 from kube_manager.vnc.vnc_security_policy import VncSecurityPolicy
+
 
 class VncNetworkPolicyTest(KMTestCase):
     def setUp(self, extra_config_knobs=None):
         super(VncNetworkPolicyTest, self).setUp(
             extra_config_knobs=extra_config_knobs)
-    #end setUp
+    # end setUp
 
     def tearDown(self):
         super(VncNetworkPolicyTest, self).tearDown()
-    #end tearDown
+    # end tearDown
 
     @classmethod
     def setUpClass(cls, extra_config_knobs=None):
@@ -70,7 +66,7 @@ class VncNetworkPolicyTest(KMTestCase):
 
         return ns.uuid
 
-    def _add_update_network_policy(self, np_name, np_spec = {},
+    def _add_update_network_policy(self, np_name, np_spec={},
                                    labels=None, locate=False):
         np_uuid = str(uuid.uuid4())
         np_meta = {'name': np_name,
@@ -98,7 +94,6 @@ class VncNetworkPolicyTest(KMTestCase):
         self.enqueue_event(np_del_event)
         self.wait_for_all_tasks_done()
 
-
     def _get_spec_number_of_rules(self, spec):
         num_rules = 0
         if not spec:
@@ -112,7 +107,7 @@ class VncNetworkPolicyTest(KMTestCase):
             from_rules = ingress_spec.get('from', [])
             if from_rules:
                 for from_rule in from_rules:
-                    if all(k in from_rule for k in ('namespaceSelector', \
+                    if all(k in from_rule for k in ('namespaceSelector',
                                                     'podSelector')):
                         num_from_rules += 1
                     else:
@@ -129,13 +124,13 @@ class VncNetworkPolicyTest(KMTestCase):
                 # Implicit allow all rule.
                 num_from_rules += 1
 
-            ports = ingress_spec.get('ports',[])
+            ports = ingress_spec.get('ports', [])
             if ports:
                 num_from_rules = len(ports) * num_from_rules
 
             num_rules += num_from_rules
 
-        if not "Egress" in policy_types:
+        if "Egress" not in policy_types:
             return num_rules
 
         egress_spec_list = spec.get("egress", [])
@@ -145,8 +140,8 @@ class VncNetworkPolicyTest(KMTestCase):
             to_rules = egress_spec.get('to', [])
             if to_rules:
                 for to_rule in to_rules:
-                    if all(k in to_rule for k in ('namespaceSelector', \
-                                                    'podSelector')):
+                    if all(k in to_rule for k in ('namespaceSelector',
+                                                  'podSelector')):
                         num_to_rules += 1
                     else:
                         if 'podSelector' in to_rule:
@@ -162,17 +157,15 @@ class VncNetworkPolicyTest(KMTestCase):
                 # Allow to any.
                 num_to_rules += 1
 
-            ports = egress_spec.get('ports',[])
+            ports = egress_spec.get('ports', [])
             if ports:
                 num_to_rules = len(ports) * num_to_rules
 
             num_rules += num_to_rules
 
-
         return num_rules
 
     def _validate_spec(self, spec={}, fw_policy=None):
-
         if not spec or not fw_policy:
             return
 
@@ -184,20 +177,17 @@ class VncNetworkPolicyTest(KMTestCase):
     def _validate_network_policy_resources(self, name, uuid, spec={},
                                            validate_delete=False,
                                            namespace=None):
-
         ns_name = namespace if namespace else self.ns_name
         np_event_obj = NetworkPolicyKM.find_by_name_or_uuid(uuid)
         if validate_delete:
             self.assertIsNone(np_event_obj)
         elif not spec:
-            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(name,
-                                                                       ns_name)
+            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(name, ns_name)
             fw_policy = FirewallPolicyKM.locate(fw_policy_uuid)
             self.assertIsNotNone(np_event_obj)
             self.assertIsNone(fw_policy)
         else:
-            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(name,
-                                                                       ns_name)
+            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(name, ns_name)
             fw_policy = FirewallPolicyKM.locate(fw_policy_uuid)
             self.assertIsNotNone(np_event_obj)
             self.assertIsNotNone(fw_policy)
@@ -209,21 +199,17 @@ class VncNetworkPolicyTest(KMTestCase):
         return VncSecurityPolicy.create_application_policy_set(name, parent_obj)
 
     def _get_default_application_policy_set(self):
-        aps_fq_name = [VncSecurityPolicy.default_policy_management_name,
-            self.cluster_name()]
+        _ = [VncSecurityPolicy.default_policy_management_name, self.cluster_name()]
         return self._vnc_lib.application_policy_set_read(
             id=VncSecurityPolicy.cluster_aps_uuid)
 
     def test_add_network_policy(self):
         np_name = unittest.TestCase.id(self)
-        np_spec = {
-                      'podSelector': {}
-                  }
+        np_spec = {'podSelector': {}}
         np_uuid = self._add_update_network_policy(np_name, np_spec)
         self._validate_network_policy_resources(np_name, np_uuid, np_spec)
 
-        self._delete_network_policy(unittest.TestCase.id(self), np_uuid,
-                                    np_spec)
+        self._delete_network_policy(unittest.TestCase.id(self), np_uuid, np_spec)
         self._validate_network_policy_resources(np_name, np_uuid, np_spec,
                                                 validate_delete=True)
 
@@ -232,10 +218,7 @@ class VncNetworkPolicyTest(KMTestCase):
         self._create_namespace(self.ns_name, None, True)
 
         np_name = unittest.TestCase.id(self)
-        np_spec = {
-                      'podSelector': {},
-                      'ingress': [{}]
-                  }
+        np_spec = {'podSelector': {}, 'ingress': [{}]}
         np_uuid = self._add_update_network_policy(np_name, np_spec)
         self._validate_network_policy_resources(np_name, np_uuid, np_spec)
 
@@ -270,17 +253,15 @@ class VncNetworkPolicyTest(KMTestCase):
             'ingress': [
                 {'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
-                            }
+                            'deployment': 'HR',
+                            'site': 'SVL'
                         }
-                    },
+                    }},
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ]
-                }
+                ]}
             ],
             'podSelector': {'matchLabels': {'tier': 'web'}},
             'policyTypes': ['Ingress', 'Egress']
@@ -301,27 +282,22 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
-                            }
+                            'deployment': 'HR',
+                            'site': 'SVL'
                         }
-                    },
-                    {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': 5978,
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
-            ],
+                    }},
+                    {'podSelector': {'matchLabels': {'tier': 'app'}}}],
+                'ports': [{
+                    'port': 5978,
+                    'protocol': 'TCP'
+                }]
+            }],
             'egress': [
                 {
                     'ports': [
@@ -356,26 +332,24 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
-                            }
+                            'deployment': 'HR',
+                            'site': 'SVL'
                         }
-                    },
+                    }},
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': "5978",
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
+                ],
+                'ports': [
+                    {
+                        'port': "5978",
+                        'protocol': 'TCP'
+                    }
+                ]}
             ],
             'egress': [
                 {
@@ -414,30 +388,28 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
-                            }
+                            'deployment': 'HR',
+                            'site': 'SVL'
                         }
-                    },
+                    }},
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': '3978',
-                          'protocol': 'TCP'
-                      },
-                      {
-                          'port': '4978',
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
+                ],
+                'ports': [
+                    {
+                        'port': '3978',
+                        'protocol': 'TCP'
+                    },
+                    {
+                        'port': '4978',
+                        'protocol': 'TCP'
+                    }
+                ]}
             ],
             'egress': [
                 {
@@ -510,7 +482,6 @@ class VncNetworkPolicyTest(KMTestCase):
                                                 validate_delete=True,
                                                 namespace=self.ns_name)
 
-
     def test_add_np_default_deny_all_egress(self):
         # Create namespace.
         self._create_namespace(self.ns_name, None, True)
@@ -552,9 +523,9 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-                      'podSelector': {},
-                      'policyTypes': ['Ingress', 'Egress']
-                   }
+            'podSelector': {},
+            'policyTypes': ['Ingress', 'Egress']
+        }
 
         np_uuid = self._add_update_network_policy(np_name, np_spec)
         self._validate_network_policy_resources(np_name, np_uuid, np_spec,
@@ -566,37 +537,38 @@ class VncNetworkPolicyTest(KMTestCase):
                                                 namespace=self.ns_name)
 
     def test_add_network_policy_scaling(self):
-        np_uuid_dict={}
+        np_uuid_dict = {}
         test_range = list(range(1, 10))
         for i in test_range:
             np_spec = {
-                      'podSelector': {},
-                      'ingress': [{}]
-                  }
+                'podSelector': {},
+                'ingress': [{}]
+            }
             np_name = "-".join([unittest.TestCase.id(self), str(i)])
             np_uuid_dict[i] = self._add_update_network_policy(np_name, np_spec)
             self._validate_network_policy_resources(np_name, np_uuid_dict[i],
                                                     np_spec)
 
         previous_sequence = None
-        aps_uid = VncSecurityPolicy.cluster_aps_uuid
+        _ = VncSecurityPolicy.cluster_aps_uuid
         aps_obj = self._get_default_application_policy_set()
         fw_policy_refs = aps_obj.get_firewall_policy_refs()
         for i in test_range:
             np_name = "-".join([unittest.TestCase.id(self), str(i)])
-            fw_policy_name = VncSecurityPolicy.get_firewall_policy_name(np_name,
-                self.ns_name, False)
+            fw_policy_name = VncSecurityPolicy.get_firewall_policy_name(
+                np_name, self.ns_name, False)
             for fw_policy in fw_policy_refs if fw_policy_refs else []:
                 if fw_policy_name == fw_policy['to'][-1]:
                     if previous_sequence:
-                        self.assertTrue(previous_sequence < \
-                           fw_policy['attr'].get_sequence())
+                        self.assertTrue(
+                            previous_sequence < fw_policy['attr'].get_sequence())
                     previous_sequence = fw_policy['attr'].get_sequence()
                     break
 
         for i in test_range:
             self._delete_network_policy(unittest.TestCase.id(self), np_uuid_dict[i])
-            self._validate_network_policy_resources(np_name, np_uuid_dict[i],
+            self._validate_network_policy_resources(
+                np_name, np_uuid_dict[i],
                 np_spec, validate_delete=True)
 
     def test_ingress_policy_periodic_validate(self):
@@ -615,9 +587,9 @@ class VncNetworkPolicyTest(KMTestCase):
         # Create a user network policy.
         np_name = unittest.TestCase.id(self)
         np_spec = {
-                      'podSelector': {},
-                      'policyTypes': ['Ingress', 'Egress']
-                   }
+            'podSelector': {},
+            'policyTypes': ['Ingress', 'Egress']
+        }
         np_uuid = self._add_update_network_policy(np_name, np_spec)
         self._validate_network_policy_resources(np_name, np_uuid, np_spec,
                                                 namespace=self.ns_name)
@@ -671,9 +643,9 @@ class VncNetworkPolicyTest(KMTestCase):
         # Create a network policy.
         np_name = unittest.TestCase.id(self)
         np_spec = {
-                      'podSelector': {},
-                      'policyTypes': ['Ingress', 'Egress']
-                   }
+            'podSelector': {},
+            'policyTypes': ['Ingress', 'Egress']
+        }
 
         # Create a user network policy.
         np_uuid = self._add_update_network_policy(np_name, np_spec)
@@ -729,9 +701,9 @@ class VncNetworkPolicyTest(KMTestCase):
         # Create a network policy.
         np_name = unittest.TestCase.id(self)
         np_spec = {
-                      'podSelector': {},
-                      'policyTypes': ['Ingress', 'Egress']
-                   }
+            'podSelector': {},
+            'policyTypes': ['Ingress', 'Egress']
+        }
 
         np_uuid = self._add_update_network_policy(np_name, np_spec)
         self._validate_network_policy_resources(np_name, np_uuid, np_spec,
@@ -776,13 +748,13 @@ class VncNetworkPolicyTest(KMTestCase):
         multiple user created policies are present.
         """
 
-        np_uuid_dict={}
+        np_uuid_dict = {}
         test_range = list(range(1, 10))
         for i in test_range:
             np_spec = {
-                      'podSelector': {},
-                      'ingress': [{}]
-                  }
+                'podSelector': {},
+                'ingress': [{}]
+            }
             np_name = "-".join([unittest.TestCase.id(self), str(i)])
             np_uuid_dict[i] = self._add_update_network_policy(np_name, np_spec)
             self._validate_network_policy_resources(np_name, np_uuid_dict[i],
@@ -838,16 +810,16 @@ class VncNetworkPolicyTest(KMTestCase):
                 break
 
         last_user_policy_index = None
-        loop_start_index = ingress_fw_policy_idx+1
+        loop_start_index = ingress_fw_policy_idx + 1
         for i in test_range:
             np_name = "-".join([unittest.TestCase.id(self), str(i)])
-            fw_policy_name = VncSecurityPolicy.get_firewall_policy_name(np_name,
-                self.ns_name, False)
+            fw_policy_name = VncSecurityPolicy.get_firewall_policy_name(
+                np_name, self.ns_name, False)
             for index, fw_policy in enumerate(fw_policy_refs[loop_start_index:]):
                 if fw_policy_name == fw_policy['to'][-1]:
                     if previous_sequence:
-                        self.assertTrue(previous_sequence < \
-                           fw_policy['attr']['sequence'])
+                        self.assertTrue(
+                            previous_sequence < fw_policy['attr']['sequence'])
                     previous_sequence = fw_policy['attr']['sequence']
                     last_user_policy_index = loop_start_index + index
                     break
@@ -872,7 +844,8 @@ class VncNetworkPolicyTest(KMTestCase):
 
         for i in test_range:
             self._delete_network_policy(unittest.TestCase.id(self), np_uuid_dict[i])
-            self._validate_network_policy_resources(np_name, np_uuid_dict[i],
+            self._validate_network_policy_resources(
+                np_name, np_uuid_dict[i],
                 np_spec, validate_delete=True)
 
     def test_network_policy_ordering_resolve_during_modify(self):
@@ -936,25 +909,26 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
-                    {'namespaceSelector': {
-                        'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
+                                 'except': ['172.17.1.0/24']}},
+                    {
+                        'namespaceSelector': {
+                            'matchLabels': {
+                                'deployment': 'HR',
+                                'site': 'SVL'
                             }
                         },
-                    'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': 5978,
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
+                        'podSelector': {'matchLabels': {'tier': 'app'}}
+                    }
+                ],
+                'ports': [
+                    {
+                        'port': 5978,
+                        'protocol': 'TCP'
+                    }
+                ]}
             ],
             'egress': [
                 {
@@ -990,22 +964,20 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {}
-                        },
-                    'podSelector': {'matchLabels': {}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': 5978,
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
+                    }, 'podSelector': {'matchLabels': {}}}
+                ],
+                'ports': [
+                    {
+                        'port': 5978,
+                        'protocol': 'TCP'
+                    }
+                ]}
             ],
             'egress': [
                 {
@@ -1041,27 +1013,25 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
-                            }
+                            'deployment': 'HR',
+                            'site': 'SVL'
                         }
-                    },
+                    }},
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': 5978,
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
-            ],
+                ],
+                'ports': [
+                    {
+                        'port': 5978,
+                        'protocol': 'TCP'
+                    }
+                ]
+            }],
             'egress': [
                 {
                     'ports': [
@@ -1076,8 +1046,7 @@ class VncNetworkPolicyTest(KMTestCase):
                                 'deployment': 'HR',
                                 'site': 'SVL'
                             }
-                        },
-                        'podSelector': {'matchLabels': {'tier': 'app'}}
+                        }, 'podSelector': {'matchLabels': {'tier': 'app'}}
                         }
                     ]
                 }
@@ -1101,27 +1070,25 @@ class VncNetworkPolicyTest(KMTestCase):
 
         np_name = unittest.TestCase.id(self)
         np_spec = {
-            'ingress': [
-                {'from': [
+            'ingress': [{
+                'from': [
                     {'ipBlock': {'cidr': '172.17.0.0/16',
-                                       'except': ['172.17.1.0/24']}},
+                                 'except': ['172.17.1.0/24']}},
                     {'namespaceSelector': {
                         'matchLabels': {
-                             'deployment': 'HR',
-                             'site': 'SVL'
-                            }
+                            'deployment': 'HR',
+                            'site': 'SVL'
                         }
-                    },
+                    }},
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                    ],
-                  'ports': [
-                      {
-                          'port': 5978,
-                          'protocol': 'TCP'
-                      }
-                    ]
-                }
-            ],
+                ],
+                'ports': [
+                    {
+                        'port': 5978,
+                        'protocol': 'TCP'
+                    }
+                ]
+            }],
             'egress': [
                 {
                     'ports': [
@@ -1133,8 +1100,7 @@ class VncNetworkPolicyTest(KMTestCase):
                     'to': [
                         {'namespaceSelector': {
                             'matchLabels': {}
-                        },
-                        'podSelector': {'matchLabels': {}}
+                        }, 'podSelector': {'matchLabels': {}}
                         }
                     ]
                 }

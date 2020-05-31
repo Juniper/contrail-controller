@@ -3,38 +3,42 @@
 #
 
 """
-VNC Ingress management for kubernetes
+VNC Ingress management for kubernetes.
 """
 from __future__ import print_function
-from __future__ import absolute_import
 
-from future import standard_library
-standard_library.install_aliases()
 from builtins import str
-from builtins import range
+import copy
 from six import StringIO
 import uuid
 
-from .config_db import *
-from vnc_api.vnc_api import *
+from cfgm_common.utils import cgitb_hook
+from cfgm_common.exceptions import NoIdError
+from vnc_api.gen.resource_xsd import KeyValuePair
+from vnc_api.gen.resource_client import FloatingIp
 
 from kube_manager.common.kube_config_db import IngressKM
 from kube_manager.common.kube_config_db import NamespaceKM
+from kube_manager.vnc.config_db import (
+    LoadbalancerKM, LoadbalancerListenerKM, VirtualNetworkKM,
+    LoadbalancerMemberKM, LoadbalancerPoolKM, VirtualMachineInterfaceKM,
+    FloatingIpKM
+)
 from kube_manager.vnc.loadbalancer import ServiceLbManager
 from kube_manager.vnc.loadbalancer import ServiceLbListenerManager
 from kube_manager.vnc.loadbalancer import ServiceLbPoolManager
 from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
-from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from .vnc_security_policy import VncSecurityPolicy
-from .vnc_common import VncCommon
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from kube_manager.vnc.vnc_security_policy import VncSecurityPolicy
+from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 from kube_manager.vnc.label_cache import XLabelCache
-from cfgm_common.utils import cgitb_hook
+
 
 class VncIngress(VncCommon):
     def __init__(self, tag_mgr=None):
         self._k8s_event_type = 'Ingress'
-        super(VncIngress,self).__init__(self._k8s_event_type)
+        super(VncIngress, self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
         self._args = vnc_kube_config.args()
         self._queue = vnc_kube_config.queue()
@@ -57,7 +61,7 @@ class VncIngress(VncCommon):
         try:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         except NoIdError:
-            self._logger.error("%s - %s Not Found" %(self._name, proj_fq_name))
+            self._logger.error("%s - %s Not Found" % (self._name, proj_fq_name))
             return None
         return proj_obj
 
@@ -75,7 +79,7 @@ class VncIngress(VncCommon):
 
     def _is_ip_fabric_forwarding_enabled(self, ns_name):
         ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
-        if ip_fabric_forwarding != None:
+        if ip_fabric_forwarding is not None:
             return ip_fabric_forwarding
         else:
             return self._args.ip_fabric_forwarding
@@ -98,7 +102,7 @@ class VncIngress(VncCommon):
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
-            self._logger.error("%s - %s Not Found" %(self._name, vn_fq_name))
+            self._logger.error("%s - %s Not Found" % (self._name, vn_fq_name))
             return None
 
         if set_default_vn:
@@ -119,11 +123,11 @@ class VncIngress(VncCommon):
         vn = VirtualNetworkKM.find_by_name_or_uuid(vn_obj.get_uuid())
         pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(ipam_fq_name)
         if pod_ipam_subnet_uuid is None:
-            self._logger.error("%s - %s Not Found" %(self._name, ipam_fq_name))
+            self._logger.error("%s - %s Not Found" % (self._name, ipam_fq_name))
         return pod_ipam_subnet_uuid
 
     def _get_specified_fip_pool(self, specified_fip_pool_fq_name_str):
-        if specified_fip_pool_fq_name_str == None:
+        if specified_fip_pool_fq_name_str is None:
             return None
         fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(specified_fip_pool_fq_name_str)
         try:
@@ -134,34 +138,34 @@ class VncIngress(VncCommon):
 
     def _get_fip_pool_obj(self, fip_pool_fq_name):
         try:
-            fip_pool_obj = self._vnc_lib. \
-                           floating_ip_pool_read(fq_name=fip_pool_fq_name)
+            fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
-            self._logger.error("%s - %s Not Found" \
-                 %(self._name, fip_pool_fq_name))
+            self._logger.error(
+                "%s - %s Not Found" % (self._name, fip_pool_fq_name))
             return None
         self._fip_pool_obj = fip_pool_obj
         return fip_pool_obj
 
-    def _get_floating_ip(self, name, ns_name,
+    def _get_floating_ip(
+            self, name, ns_name,
             proj_obj, external_ip=None, vmi_obj=None, specified_fip_pool_fq_name_str=None):
         fip_pool_fq_name = None
-        if specified_fip_pool_fq_name_str != None:
+        if specified_fip_pool_fq_name_str is not None:
             fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(specified_fip_pool_fq_name_str)
         if fip_pool_fq_name is None:
             ns = self._get_namespace(ns_name)
             fip_pool_fq_name = ns.get_annotated_ns_fip_pool_fq_name()
-        if fip_pool_fq_name is None: 
+        if fip_pool_fq_name is None:
             if not vnc_kube_config.is_public_fip_pool_configured():
                 return None
             try:
                 fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
                     self._args.public_fip_pool)
-            except Exception as e:
+            except Exception:
                 string_buf = StringIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
-                self._logger.error("%s - %s" %(self._name, err_msg))
+                self._logger.error("%s - %s" % (self._name, err_msg))
                 return None
 
         if vmi_obj:
@@ -187,11 +191,11 @@ class VncIngress(VncCommon):
         try:
             self._vnc_lib.floating_ip_create(fip_obj)
             fip = FloatingIpKM.locate(fip_obj.uuid)
-        except Exception as e:
+        except Exception:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
-            self._logger.error("%s - %s" %(self._name, err_msg))
+            self._logger.error("%s - %s" % (self._name, err_msg))
             return None
         return fip
 
@@ -199,8 +203,8 @@ class VncIngress(VncCommon):
         vmi_id = lb_obj.virtual_machine_interface_refs[0]['uuid']
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
         if vmi_obj is None:
-            self._logger.error("%s - %s Vmi %s Not Found" \
-                 %(self._name, lb_obj.name, vmi_id))
+            self._logger.error(
+                "%s - %s Vmi %s Not Found" % (self._name, lb_obj.name, vmi_id))
             return None
         fip = self._get_floating_ip(name, ns_name, proj_obj, external_ip, vmi_obj, specified_fip_pool_fq_name_str)
         return fip
@@ -209,8 +213,8 @@ class VncIngress(VncCommon):
         vmi_id = list(lb.virtual_machine_interfaces)[0]
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
         if vmi is None:
-            self._logger.error("%s - %s Vmi %s Not Found" \
-                 %(self._name, lb.name, vmi_id))
+            self._logger.error(
+                "%s - %s Vmi %s Not Found" % (self._name, lb.name, vmi_id))
             return
         fip_list = vmi.floating_ips.copy()
         for fip_id in fip_list or []:
@@ -222,8 +226,8 @@ class VncIngress(VncCommon):
 
     def _update_floating_ip(self, name, ns_name, external_ip, lb_obj, specified_fip_pool_fq_name_str=None):
         proj_obj = self._get_project(ns_name)
-        fip = self._allocate_floating_ip(lb_obj,
-                        name, ns_name, proj_obj, external_ip, specified_fip_pool_fq_name_str)
+        fip = self._allocate_floating_ip(
+            lb_obj, name, ns_name, proj_obj, external_ip, specified_fip_pool_fq_name_str)
         if fip:
             lb_obj.add_annotations(
                 KeyValuePair(key='externalIP', value=external_ip))
@@ -240,20 +244,21 @@ class VncIngress(VncCommon):
         vip_dict['ip'] = lb_obj._loadbalancer_properties.vip_address
         vip_dict_list.append(vip_dict)
         patch = {'status': {'loadBalancer': {'ingress': vip_dict_list}}}
-        self._kube.patch_resource("ingress", name, patch,
-                ns_name, sub_resource_name='status')
+        self._kube.patch_resource(
+            "ingress", name, patch,
+            ns_name, sub_resource_name='status')
 
     def _find_ingress(self, ingress_cache, ns_name, service_name):
         if not ns_name or not service_name:
             return
         key = 'service'
         value = '-'.join([ns_name, service_name])
-        labels = {key:value}
+        labels = {key: value}
         result = set()
         for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             ingress_ids = ingress_cache.get(key, set())
-            #no matching label
+            # no matching label
             if not ingress_ids:
                 return ingress_ids
             if not result:
@@ -265,51 +270,53 @@ class VncIngress(VncCommon):
     def _clear_ingress_cache_uuid(self, ingress_cache, ingress_uuid):
         if not ingress_uuid:
             return
-        key_list = [k for k,v in list(ingress_cache.items()) if ingress_uuid in v]
+        key_list = [k for k, v in list(ingress_cache.items()) if ingress_uuid in v]
         for key in key_list or []:
             label = tuple(key.split(':'))
             self._label_cache._remove_label(key, ingress_cache, label, ingress_uuid)
 
-    def _clear_ingress_cache(self, ingress_cache,
+    def _clear_ingress_cache(
+            self, ingress_cache,
             ns_name, service_name, ingress_uuid):
         if not ns_name or not service_name:
             return
         key = 'service'
         value = '-'.join([ns_name, service_name])
-        labels = {key:value}
+        labels = {key: value}
         for label in list(labels.items()) or []:
             key = self._label_cache._get_key(label)
-            self._label_cache._remove_label(key,
-                ingress_cache, label, ingress_uuid)
+            self._label_cache._remove_label(
+                key, ingress_cache, label, ingress_uuid)
 
-    def _update_ingress_cache(self, ingress_cache,
+    def _update_ingress_cache(
+            self, ingress_cache,
             ns_name, service_name, ingress_uuid):
         if not ns_name or not service_name:
             return
         key = 'service'
         value = '-'.join([ns_name, service_name])
-        labels = {key:value}
+        labels = {key: value}
         for label in list(labels.items()) or []:
             key = self._label_cache._get_key(label)
-            self._label_cache._locate_label(key,
-                ingress_cache, label, ingress_uuid)
+            self._label_cache._locate_label(
+                key, ingress_cache, label, ingress_uuid)
 
     def _vnc_create_member(self, pool, address, port, annotations):
         pool_obj = self.service_lb_pool_mgr.read(pool.uuid)
-        member_obj = self.service_lb_member_mgr.create(pool_obj,
-                          address, port, annotations)
+        member_obj = self.service_lb_member_mgr.create(
+            pool_obj, address, port, annotations)
         return member_obj
 
     def _vnc_update_member(self, member_id, address, port, annotations):
-        member_obj = self.service_lb_member_mgr.update(member_id,
-                          address, port, annotations)
+        member_obj = self.service_lb_member_mgr.update(
+            member_id, address, port, annotations)
         return member_obj
 
     def _vnc_create_pool(self, ns_name, ll, port, lb_algorithm, annotations):
         proj_obj = self._get_project(ns_name)
         ll_obj = self.service_ll_mgr.read(ll.uuid)
-        pool_obj = self.service_lb_pool_mgr.create(ll_obj, proj_obj,
-                                            port, lb_algorithm, annotations)
+        pool_obj = self.service_lb_pool_mgr.create(
+            ll_obj, proj_obj, port, lb_algorithm, annotations)
         return pool_obj
 
     def _vnc_create_listeners(self, ns_name, lb, port):
@@ -326,9 +333,10 @@ class VncIngress(VncCommon):
 
         vip_address = None
         pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(ns_name, vn_obj)
-        lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name, uid,
-                    name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid,
-                    tags=self._labels.get_labels_dict(uid))
+        lb_obj = self.service_lb_mgr.create(
+            self._k8s_event_type, ns_name, uid,
+            name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid,
+            tags=self._labels.get_labels_dict(uid))
         if lb_obj:
             external_ip = None
             if annotations and 'externalIP' in annotations:
@@ -336,11 +344,11 @@ class VncIngress(VncCommon):
             specified_fip_pool_fq_name_str = None
             if annotations and 'opencontrail.org/fip-pool' in annotations:
                 specified_fip_pool_fq_name_str = annotations['opencontrail.org/fip-pool']
-            fip = self._update_floating_ip(name,
-                            ns_name, external_ip, lb_obj, specified_fip_pool_fq_name_str)
+            fip = self._update_floating_ip(
+                name, ns_name, external_ip, lb_obj, specified_fip_pool_fq_name_str)
             self._update_kube_api_server(name, ns_name, lb_obj, fip)
         else:
-            self._logger.error("%s - %s LB Not Created" %(self._name, name))
+            self._logger.error("%s - %s LB Not Created" % (self._name, name))
 
         return lb_obj
 
@@ -406,8 +414,7 @@ class VncIngress(VncCommon):
                 if member.annotations is None:
                     annotations = {}
                     kvps = []
-                    member_obj = self._vnc_lib. \
-                                 loadbalancer_member_read(id=member_id)
+                    member_obj = self._vnc_lib.loadbalancer_member_read(id=member_id)
                     member_obj_kvp = member_obj.annotations.key_value_pair
                     kvps_len = len(member_obj_kvp)
                     for count in range(0, kvps_len):
@@ -433,7 +440,7 @@ class VncIngress(VncCommon):
         if 'tls' in spec:
             tls_list = spec['tls']
             for tls in tls_list:
-                if not 'secretName' in tls:
+                if 'secretName' not in tls:
                     continue
                 if 'hosts' in tls:
                     hosts = tls['hosts']
@@ -471,7 +478,7 @@ class VncIngress(VncCommon):
                             virtual_host = True
                     if 'path' in path:
                         backend['annotations']['path'] = path['path']
-                        if virtual_host == False and 'ALL' in list(tls_dict.keys()):
+                        if not virtual_host and 'ALL' in list(tls_dict.keys()):
                             secretname = 'ALL'
                     service = path['backend']
                     backend['annotations']['type'] = 'acl'
@@ -510,13 +517,14 @@ class VncIngress(VncCommon):
         resource_type = "service"
         service_name = backend_member['serviceName']
         service_port = backend_member['servicePort']
-        service_info = self._kube.get_resource(resource_type,
-                       service_name, ns_name)
+        service_info = self._kube.get_resource(
+            resource_type, service_name, ns_name)
         member = None
         if service_info and 'clusterIP' in service_info['spec']:
             service_ip = service_info['spec']['clusterIP']
-            self._logger.debug("%s - clusterIP for service %s - %s" \
-                 %(self._name, service_name, service_ip))
+            self._logger.debug(
+                "%s - clusterIP for service %s - %s"
+                % (self._name, service_name, service_ip))
             member_match = False
             annotations = {}
             annotations['serviceName'] = service_name
@@ -527,22 +535,21 @@ class VncIngress(VncCommon):
                     member_match = True
                     break
             if not member_match:
-                member_obj = self._vnc_create_member(pool,
-                                  service_ip, service_port, annotations)
+                member_obj = self._vnc_create_member(
+                    pool, service_ip, service_port, annotations)
                 if member_obj:
                     member = LoadbalancerMemberKM.locate(member_obj.uuid)
                 else:
                     self._logger.error(
-                         "%s - (%s %s) Member Not Created for Pool %s" \
-                         %(self._name, service_name,
-                         str(service_port), pool.name))
+                        "%s - (%s %s) Member Not Created for Pool %s"
+                        % (self._name, service_name, str(service_port), pool.name))
         else:
-            self._logger.error("%s - clusterIP for Service %s Not Found" \
-                 %(self._name, service_name))
             self._logger.error(
-                 "%s - (%s %s) Member Not Created for Pool %s" \
-                 %(self._name, service_name,
-                 str(service_port), pool.name))
+                "%s - clusterIP for Service %s Not Found"
+                % (self._name, service_name))
+            self._logger.error(
+                "%s - (%s %s) Member Not Created for Pool %s"
+                % (self._name, service_name, str(service_port), pool.name))
         return member
 
     def _update_member(self, ns_name, backend_member, pool):
@@ -559,30 +566,29 @@ class VncIngress(VncCommon):
         old_service_port = member.params['protocol_port']
         service_ip = None
         if new_service_name != old_service_name:
-            service_info = self._kube.get_resource(resource_type,
-                           new_service_name, ns_name)
+            service_info = self._kube.get_resource(
+                resource_type, new_service_name, ns_name)
             if service_info and 'clusterIP' in service_info['spec']:
                 service_ip = service_info['spec']['clusterIP']
             else:
-                self._logger.error("%s - clusterIP for Service %s Not Found" \
-                     %(self._name, new_service_name))
                 self._logger.error(
-                     "%s - (%s %s) Member Not Updated for Pool %s" \
-                     %(self._name, new_service_name,
-                     str(new_service_port), pool.name))
+                    "%s - clusterIP for Service %s Not Found"
+                    % (self._name, new_service_name))
+                self._logger.error(
+                    "%s - (%s %s) Member Not Updated for Pool %s"
+                    % (self._name, new_service_name, str(new_service_port), pool.name))
                 self._vnc_delete_member(member_id)
                 LoadbalancerMemberKM.delete(member_id)
                 self._logger.error(
-                     "%s - (%s %s) Member Deleted for Pool %s" \
-                     %(self._name, old_service_name,
-                     str(old_service_port), pool.name))
+                    "%s - (%s %s) Member Deleted for Pool %s"
+                    % (self._name, old_service_name, str(old_service_port), pool.name))
                 return None
         else:
             service_ip = member.params['address']
         annotations = {}
         annotations['serviceName'] = new_service_name
-        member_obj = self._vnc_update_member(member_id,
-                     service_ip, new_service_port, annotations)
+        self._vnc_update_member(
+            member_id, service_ip, new_service_port, annotations)
         member = LoadbalancerMemberKM.update(member)
         return member
 
@@ -590,13 +596,13 @@ class VncIngress(VncCommon):
         pool_id = ll.loadbalancer_pool
         pool = LoadbalancerPoolKM.get(pool_id)
         if pool is None:
-            pool_obj = self._vnc_create_pool(ns_name, ll,
-                            port, lb_algorithm, annotations)
+            pool_obj = self._vnc_create_pool(
+                ns_name, ll, port, lb_algorithm, annotations)
             pool_id = pool_obj.uuid
             pool = LoadbalancerPoolKM.locate(pool_id)
         else:
-            self._logger.error("%s - %s Pool Not Created" \
-                 %(self._name, ll.name))
+            self._logger.error(
+                "%s - %s Pool Not Created" % (self._name, ll.name))
         return pool
 
     def _create_listener(self, ns_name, lb, port):
@@ -604,8 +610,9 @@ class VncIngress(VncCommon):
         if ll_obj:
             ll = LoadbalancerListenerKM.locate(ll_obj.uuid)
         else:
-            self._logger.error("%s - %s Listener for Port %s Not Created" \
-                 %(self._name, lb.name, str(port)))
+            self._logger.error(
+                "%s - %s Listener for Port %s Not Created"
+                % (self._name, lb.name, str(port)))
         return ll
 
     def _create_listener_pool_member(self, ns_name, lb, backend):
@@ -630,8 +637,9 @@ class VncIngress(VncCommon):
         backend_member = backend['member']
         member = self._create_member(ns_name, backend_member, pool)
         if member is None:
-            self._logger.error("%s - Deleting Listener %s and Pool %s" \
-                %(self._name, ll.name, pool.name))
+            self._logger.error(
+                "%s - Deleting Listener %s and Pool %s"
+                % (self._name, ll.name, pool.name))
             self._vnc_delete_pool(pool.uuid)
             LoadbalancerPoolKM.delete(pool.uuid)
             self._vnc_delete_listener(ll.uuid)
@@ -651,9 +659,8 @@ class VncIngress(VncCommon):
                     if new_backend['member']['serviceName'] == service_name:
 
                         # Create a firewall rule for ingress to this service.
-                        fw_uuid = VncIngress.add_ingress_to_service_rule(ns_name,
-                                                ingress.name,
-                                                service_name)
+                        fw_uuid = VncIngress.add_ingress_to_service_rule(
+                            ns_name, ingress.name, service_name)
                         lb.add_firewall_rule(fw_uuid)
 
                         self._create_listener_pool_member(
@@ -666,9 +673,8 @@ class VncIngress(VncCommon):
 
                         # Delete rules created for this ingress to service.
                         deleted_fw_rule_uuid =\
-                            VncIngress.delete_ingress_to_service_rule(ns_name,
-                                                                  ingress.name,
-                                                                  service_name)
+                            VncIngress.delete_ingress_to_service_rule(
+                                ns_name, ingress.name, service_name)
                         lb.remove_firewall_rule(deleted_fw_rule_uuid)
 
     def _create_lb(self, uid, name, ns_name, event):
@@ -678,8 +684,9 @@ class VncIngress(VncCommon):
             if 'kubernetes.io/ingress.class' in annotations:
                 ingress_controller = annotations['kubernetes.io/ingress.class']
         if ingress_controller != 'opencontrail':
-            self._logger.warning("%s - ingress controller is not opencontrail for ingress %s"
-                %(self._name, name))
+            self._logger.warning(
+                "%s - ingress controller is not opencontrail for ingress %s"
+                % (self._name, name))
             self._delete_ingress(uid)
             return
         lb = LoadbalancerKM.get(uid)
@@ -698,8 +705,8 @@ class VncIngress(VncCommon):
             if external_ip != lb.external_ip:
                 self._deallocate_floating_ip(lb)
                 lb_obj = self._vnc_lib.loadbalancer_read(id=lb.uuid)
-                fip = self._update_floating_ip(name, ns_name,
-                            external_ip, lb_obj, specified_fip_pool_fq_name_str)
+                fip = self._update_floating_ip(
+                    name, ns_name, external_ip, lb_obj, specified_fip_pool_fq_name_str)
                 if fip:
                     lb.external_ip = external_ip
                 self._update_kube_api_server(name, ns_name, lb_obj, fip)
@@ -712,17 +719,17 @@ class VncIngress(VncCommon):
 
         # find the unchanged backends
         for new_backend in new_backend_list[:] or []:
-            self._update_ingress_cache(self._ingress_label_cache,
+            self._update_ingress_cache(
+                self._ingress_label_cache,
                 ns_name, new_backend['member']['serviceName'], uid)
             for old_backend in old_backend_list[:] or []:
-                if new_backend['annotations'] == old_backend['annotations'] \
-                    and new_backend['listener'] == old_backend['listener'] \
-                    and new_backend['pool'] == old_backend['pool'] \
-                    and new_backend['member'] == old_backend['member']:
-
+                if (new_backend['annotations'] == old_backend['annotations'] and
+                        new_backend['listener'] == old_backend['listener'] and
+                        new_backend['pool'] == old_backend['pool'] and
+                        new_backend['member'] == old_backend['member']):
                     # Create a firewall rule for this member.
-                    fw_uuid = VncIngress.add_ingress_to_service_rule(ns_name,
-                                  name, new_backend['member']['serviceName'])
+                    fw_uuid = VncIngress.add_ingress_to_service_rule(
+                        ns_name, name, new_backend['member']['serviceName'])
                     lb.add_firewall_rule(fw_uuid)
 
                     old_backend_list.remove(old_backend)
@@ -735,16 +742,13 @@ class VncIngress(VncCommon):
         backend_update_list = []
         for new_backend in new_backend_list[:] or []:
             for old_backend in old_backend_list[:] or []:
-                if new_backend['annotations'] == old_backend['annotations'] \
-                    and new_backend['listener'] == old_backend['listener'] \
-                    and new_backend['pool'] == old_backend['pool']:
+                if (new_backend['annotations'] == old_backend['annotations'] and
+                        new_backend['listener'] == old_backend['listener'] and
+                        new_backend['pool'] == old_backend['pool']):
                     backend = old_backend
-                    backend['member']['member_id'] = \
-                                     old_backend['member_id']
-                    backend['member']['serviceName'] = \
-                                     new_backend['member']['serviceName']
-                    backend['member']['servicePort'] = \
-                                     new_backend['member']['servicePort']
+                    backend['member']['member_id'] = old_backend['member_id']
+                    backend['member']['serviceName'] = new_backend['member']['serviceName']
+                    backend['member']['servicePort'] = new_backend['member']['servicePort']
                     backend_update_list.append(backend)
                     old_backend_list.remove(old_backend)
                     new_backend_list.remove(new_backend)
@@ -754,8 +758,9 @@ class VncIngress(VncCommon):
             backend_member = backend['member']
             member = self._update_member(ns_name, backend_member, pool)
             if member is None:
-                self._logger.error("%s - Deleting Listener %s and Pool %s" \
-                     %(self._name, ll.name, pool.name))
+                self._logger.error(
+                    "%s - Deleting Listener %s and Pool %s"
+                    % (self._name, ll.name, pool.name))
                 self._vnc_delete_pool(pool.uuid)
                 LoadbalancerPoolKM.delete(pool.uuid)
                 self._vnc_delete_listener(ll.uuid)
@@ -768,16 +773,16 @@ class VncIngress(VncCommon):
             self._delete_listener(backend['listener_id'])
 
             deleted_fw_rule_uuid =\
-                VncIngress.delete_ingress_to_service_rule(ns_name,
-                    name, backend['member']['serviceName'])
+                VncIngress.delete_ingress_to_service_rule(
+                    ns_name, name, backend['member']['serviceName'])
             lb.remove_firewall_rule(deleted_fw_rule_uuid)
 
         # create the new backends
         for backend in new_backend_list:
 
             # Create a firewall rule for this member.
-            fw_uuid = VncIngress.add_ingress_to_service_rule(ns_name,
-                    name, backend['member']['serviceName'])
+            fw_uuid = VncIngress.add_ingress_to_service_rule(
+                ns_name, name, backend['member']['serviceName'])
             lb.add_firewall_rule(fw_uuid)
 
             self._create_listener_pool_member(ns_name, lb, backend)
@@ -838,14 +843,14 @@ class VncIngress(VncCommon):
 
     def _create_ingress_event(self, event_type, ingress_id, lb):
         event = {}
-        object = {}
-        object['kind'] = 'Ingress'
-        object['spec'] = {}
-        object['metadata'] = {}
-        object['metadata']['uid'] = ingress_id
+        object_ = {}
+        object_['kind'] = 'Ingress'
+        object_['spec'] = {}
+        object_['metadata'] = {}
+        object_['metadata']['uid'] = ingress_id
         if event_type == 'delete':
             event['type'] = 'DELETED'
-            event['object'] = object
+            event['object'] = object_
             self._queue.put(event)
         return
 
@@ -853,8 +858,8 @@ class VncIngress(VncCommon):
         lb_uuid_set = set(LoadbalancerKM.keys())
         ingress_uuid_set = set(IngressKM.keys())
         deleted_ingress_set = lb_uuid_set - ingress_uuid_set
-        for uuid in deleted_ingress_set:
-            lb = LoadbalancerKM.get(uuid)
+        for _id in deleted_ingress_set:
+            lb = LoadbalancerKM.get(_id)
             if not lb:
                 continue
             if not lb.annotations:
@@ -873,7 +878,7 @@ class VncIngress(VncCommon):
                 if cluster == vnc_kube_config.cluster_name() and \
                    owner == 'k8s' and \
                    kind == self._k8s_event_type:
-                    self._create_ingress_event('delete', uuid, lb)
+                    self._create_ingress_event('delete', _id, lb)
                     break
         return
 
@@ -881,7 +886,7 @@ class VncIngress(VncCommon):
         self._sync_ingress_lb()
 
     @classmethod
-    def get_ingress_label_name(self, ns_name, name):
+    def get_ingress_label_name(cls, ns_name, name):
         return "-".join([vnc_kube_config.cluster_name(), ns_name, name])
 
     def process(self, event):
@@ -891,10 +896,12 @@ class VncIngress(VncCommon):
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s:%s"
-              %(self._name, event_type, kind, ns_name, name, uid))
-        self._logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self._name, event_type, kind, ns_name, name, uid))
+        print(
+            "%s - Got %s %s %s:%s:%s"
+            % (self._name, event_type, kind, ns_name, name, uid))
+        self._logger.debug(
+            "%s - Got %s %s %s:%s:%s"
+            % (self._name, event_type, kind, ns_name, name, uid))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
 
@@ -906,7 +913,7 @@ class VncIngress(VncCommon):
             # 2. A label for the namespace of ingress object.
             #
             labels = self._labels.get_ingress_label(
-                         self.get_ingress_label_name(ns_name, name))
+                self.get_ingress_label_name(ns_name, name))
             labels.update(self._labels.get_namespace_label(ns_name))
             self._labels.process(uid, labels)
 
@@ -942,14 +949,14 @@ class VncIngress(VncCommon):
 
         # Get labels for this ingress service.
         labels = self._labels.get_ingress_label(
-                     self.get_ingress_label_name(ns_name, name))
-        for type, value in labels.items():
-            tag_obj = self.tag_mgr.read(type, value)
+            self.get_ingress_label_name(ns_name, name))
+        for type_, value in labels.items():
+            tag_obj = self.tag_mgr.read(type_, value)
             if tag_obj:
                 vmi_refs = tag_obj.get_virtual_machine_interface_back_refs()
                 for vmi in vmi_refs if vmi_refs else []:
                     vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi['uuid'])
-                    self._vnc_lib.unset_tag(vmi_obj, type)
+                    self._vnc_lib.unset_tag(vmi_obj, type_)
 
     def create_ingress_security_policy(self):
         """
@@ -957,8 +964,9 @@ class VncIngress(VncCommon):
         """
         if not VncSecurityPolicy.ingress_svc_fw_policy_uuid:
             ingress_svc_fw_policy_uuid =\
-                VncSecurityPolicy.create_firewall_policy(self._k8s_event_type,
-                  None, None, is_global=True)
+                VncSecurityPolicy.create_firewall_policy(
+                    self._k8s_event_type,
+                    None, None, is_global=True)
             VncSecurityPolicy.add_firewall_policy(ingress_svc_fw_policy_uuid)
             VncSecurityPolicy.ingress_svc_fw_policy_uuid =\
                 ingress_svc_fw_policy_uuid
@@ -986,13 +994,10 @@ class VncIngress(VncCommon):
                 ns_name, ingress_name, service_name)
 
             fw_rule_uuid = VncSecurityPolicy.create_firewall_rule_allow_all(
-                                                              rule_name,
-                                                              service_labels,
-                                                              ingress_labels)
+                rule_name, service_labels, ingress_labels)
 
             VncSecurityPolicy.add_firewall_rule(
-                                  VncSecurityPolicy.ingress_svc_fw_policy_uuid,
-                                  fw_rule_uuid)
+                VncSecurityPolicy.ingress_svc_fw_policy_uuid, fw_rule_uuid)
 
             return fw_rule_uuid
 
@@ -1023,4 +1028,3 @@ class VncIngress(VncCommon):
             # Delete the rule.
             VncSecurityPolicy.delete_firewall_rule(
                 VncSecurityPolicy.ingress_svc_fw_policy_uuid, rule_uuid)
-

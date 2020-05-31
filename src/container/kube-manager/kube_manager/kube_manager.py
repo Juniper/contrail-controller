@@ -3,13 +3,10 @@
 #
 
 """
-Kubernetes network manager
+Kubernetes network manager.
 """
-from __future__ import absolute_import
 
-from builtins import object
 import random
-import socket
 import os
 import sys
 import time
@@ -20,14 +17,11 @@ import greenlet
 from gevent.queue import Queue
 import gevent
 
-from .vnc.config_db import DBBaseKM
-from .vnc.reaction_map import REACTION_MAP
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.zkclient import ZookeeperClient
-from .common import logger as common_logger
-from .common import args as kube_args
-from .vnc import vnc_kubernetes
-from .kube import (
+from kube_manager.common import logger as common_logger
+from kube_manager.common import args as kube_args
+from kube_manager.kube import (
     kube_monitor,
     namespace_monitor,
     pod_monitor,
@@ -37,7 +31,10 @@ from .kube import (
     ingress_monitor,
     network_monitor
 )
-from .sandesh.kube_introspect import ttypes as introspect
+from kube_manager.vnc.config_db import DBBaseKM
+from kube_manager.vnc.reaction_map import REACTION_MAP
+from kube_manager.vnc import vnc_kubernetes
+from kube_manager.sandesh.kube_introspect import ttypes as introspect
 
 
 class KubeNetworkManager(object):
@@ -148,8 +145,8 @@ class KubeNetworkManager(object):
         if inst is None:
             return
         inst.logger.sandesh_uninit()
-        for greenlet in inst.greenlets:
-            greenlet.kill()
+        for gl in inst.greenlets:
+            gl.kill()
         inst.greenlets = []
         inst.vnc.destroy_instance()
         inst.vnc = None
@@ -248,7 +245,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
                 km_logger,
                 DBBaseKM,
                 REACTION_MAP,
-                client_pfx+'kube_manager',
+                client_pfx + 'kube_manager',
                 rabbitmq_cfg,
                 args.host_ip
             )
@@ -260,7 +257,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
             km_logger.debug("Removed remained AMQP queue")
 
         # Ensure zookeeper is up and running before starting kube-manager
-        _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
+        _zookeeper_client = ZookeeperClient(client_pfx + "kube-manager",
                                             args.zk_server_ip, args.host_ip)
 
         km_logger.notice("Waiting to be elected as master...")
@@ -277,6 +274,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
     else:  # nested mode, skip zookeeper mastership check
         run_kube_manager(km_logger, args, kube_api_skip, event_queue,
                          vnc_kubernetes_config_dict)
+
 
 if __name__ == '__main__':
     main()

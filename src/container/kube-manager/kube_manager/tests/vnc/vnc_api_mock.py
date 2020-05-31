@@ -1,12 +1,10 @@
-from __future__ import absolute_import
 from builtins import str
-from builtins import object
 import copy
 import functools
 import json
 
 from vnc_api.vnc_api import all_resource_type_tuples, get_object_class, NoIdError, RefsExistError
-from .db_mock import DBMock
+from kube_manager.tests.vnc.db_mock import DBMock
 
 
 class VncApiMock(object):
@@ -62,10 +60,9 @@ class VncApiMock(object):
         (args_ok, result) = VncApiMock._read_args_to_id(res_type, fq_name, fq_name_str, id)
         if not args_ok:
             return result
-        id = result
-        if id is None:
+        if result is None:
             raise NoIdError("Object does not exist.")
-        ok, ret = DBMock.read(res_type.replace('-', '_'), [id])
+        ok, ret = DBMock.read(res_type.replace('-', '_'), [result])
         if (not ok) or (len(ret) < 1):
             raise NoIdError("Object does not exist.")
         return VncApiMock.object_from_dict(res_type, ret[0])
@@ -86,13 +83,13 @@ class VncApiMock(object):
     def _objects_list(self, res_type, parent_id=None, parent_fq_name=None,
                       obj_uuids=None, back_ref_id=None, fields=None,
                       detail=False, count=False, filters=None, shared=False):
-        return VncApiMock.list(res_type, parent_id, parent_fq_name,
-                               obj_uuids, back_ref_id, fields, detail, count, filters, shared)
+        return VncApiMock._list(res_type, parent_id, parent_fq_name,
+                                obj_uuids, back_ref_id, fields, detail, count, filters, shared)
 
     @staticmethod
-    def list(res_type, parent_id=None, parent_fq_name=None,
-             obj_uuids=None, back_ref_id=None, fields=None,
-             detail=False, count=False, filters=None, shared=False):
+    def _list(res_type, parent_id=None, parent_fq_name=None,
+              obj_uuids=None, back_ref_id=None, fields=None,
+              detail=False, count=False, filters=None, shared=False):
         ret = []
         for obj_dict in list(DBMock.get_dict(res_type.replace('-', '_')).values()):
             obj = VncApiMock.object_from_dict(res_type, obj_dict)
@@ -113,12 +110,11 @@ class VncApiMock(object):
         (args_ok, result) = VncApiMock._read_args_to_id(res_type, fq_name=fq_name, id=id)
         if not args_ok:
             return result
-        id = result
-        if id is None:
+        if result is None:
             raise NoIdError("Object does not exist.")
-        obj = DBMock.read(res_type.replace('-', '_'), [id])
+        obj = DBMock.read(res_type.replace('-', '_'), [result])
         VncApiMock.name_to_uuid.pop(obj.get_name())
-        DBMock.delete(res_type.replace('-', '_'), id)
+        DBMock.delete(res_type.replace('-', '_'), result)
 
     def _object_get_default_id(self, res_type):
         return 0

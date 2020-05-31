@@ -3,14 +3,13 @@
 #
 
 from builtins import str
-from builtins import range
 import uuid
 from collections import namedtuple
 import ipaddress
 import unittest
+import mock
 
 from cfgm_common.exceptions import NoIdError
-import mock
 
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.common.kube_config_db import (NamespaceKM, PodKM)
@@ -131,7 +130,8 @@ class VncPodTest(KMTestCase):
 
     def _create_virtual_network(self, proj_obj, vn_name):
         pod_vn_obj, service_vn_obj = \
-            self.create_pod_service_network(vn_name, self.service_vn_name, \
+            self.create_pod_service_network(
+                vn_name, self.service_vn_name,
                 proj_obj, '10.32.0.0/12', '10.96.0.0/12')
         return pod_vn_obj
 
@@ -161,10 +161,11 @@ class VncPodTest(KMTestCase):
             VncKubernetes._vnc_kubernetes.pod_mgr._kube = mock.MagicMock()
 
     def _delete_pod(self, testpod, uuid=None, spec=None, meta=None, wait=True):
-        pod_del_event = self.create_event('Pod',
-                            spec if spec else testpod.spec,
-                            meta if meta else testpod.meta,
-                            'DELETED')
+        pod_del_event = self.create_event(
+            'Pod',
+            spec if spec else testpod.spec,
+            meta if meta else testpod.meta,
+            'DELETED')
         PodKM.delete(uuid if uuid else testpod.uuid)
         self.enqueue_event(pod_del_event)
         if wait:
@@ -189,13 +190,13 @@ class VncPodTest(KMTestCase):
             try:
                 pod_ipam = self._vnc_lib.network_ipam_read(id=pod_ipam['uuid'])
                 subnet = pod_ipam.ipam_subnets.subnets[0].subnet
-            except:
+            except Exception:
                 pass
 
         self.assertIsNotNone(subnet)
         iip_ip = ipaddress.ip_address(str(iip_obj.instance_ip_address))
-        vn_network = ipaddress.ip_network(subnet.ip_prefix + u'/'
-                                          + str(subnet.ip_prefix_len))
+        vn_network = ipaddress.ip_network(subnet.ip_prefix + u'/' +
+                                          str(subnet.ip_prefix_len))
         self.assertTrue(iip_ip in vn_network)
 
     def _assert_virtual_machine(self, pod_uuid, cluster_project,
@@ -221,6 +222,7 @@ class VncPodTest(KMTestCase):
             iip = self._vnc_lib.instance_ip_read(id=iip_uuid)
             self.assertIsNotNone(iip)
             self._assert_pod_ip_is_from_vn_ipam(iip, vn_obj_uuid)
+
 
 class VncPodTestClusterProjectDefined(VncPodTest):
     def setUp(self, extra_config_knobs=None):
@@ -424,7 +426,6 @@ class VncPodTestCustomNetworkAnnotation(VncPodTest):
         proj_fq_name = ['default-domain', self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
-
         testpod = self._create_update_pod(self.pod_name,
                                           self.ns_name,
                                           self.pod_status,
@@ -513,12 +514,13 @@ class VncPodTestScaling(VncPodTest):
             vn_obj = VirtualNetworkKM.locate(vn_obj_uuid)
             self.assertTrue(len(vn_obj.instance_ips) == scale - 1 - i)
 
+
 class VncPodLabelsTest(VncPodTest):
 
     def _construct_tag_name(self, type, value):
         return "=".join([type, value])
 
-    def _construct_tag_fq_name(self, type, value, proj_obj = None):
+    def _construct_tag_fq_name(self, type, value, proj_obj=None):
         if proj_obj:
             tag_fq_name = proj_obj['fq_name'] + \
                 [self._construct_tag_name(type, value)]
@@ -531,7 +533,7 @@ class VncPodLabelsTest(VncPodTest):
         for key, value in labels.items():
             tag_fq_name = self._construct_tag_fq_name(key, value)
             try:
-                tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+                _ = self._vnc_lib.tag_read(fq_name=tag_fq_name)
             except NoIdError:
                 if not validate_delete:
                     self.assertTrue(False)
@@ -556,7 +558,6 @@ class VncPodLabelsTest(VncPodTest):
         proj_fq_name = ['default-domain', self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj_uuid = self._create_virtual_network(proj_obj, self.vn_name).uuid
-
 
         pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
                                                                self.ns_name,
@@ -585,9 +586,7 @@ class VncPodLabelsTest(VncPodTest):
 
     def test_pod_add_delete(self):
 
-        labels = {
-                     "testcase": unittest.TestCase.id(self)
-                 }
+        labels = {"testcase": unittest.TestCase.id(self)}
         pod_uuid = self._add_update_pod('ADDED', dict(labels))
         self._validate_tags(labels)
 
