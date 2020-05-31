@@ -3,11 +3,9 @@
 #
 
 import mock
-from mock import patch
 import unittest
-from cfgm_common.vnc_db import DBBase
 from kube_manager.kube import kube_monitor
-from vnc_api.vnc_api import *
+
 
 class Map(dict):
     """
@@ -41,6 +39,7 @@ class Map(dict):
         super(Map, self).__delitem__(key)
         del self.__dict__[key]
 
+
 class KubeMonitorTest(unittest.TestCase):
     def setUp(self):
         self.args = Map()
@@ -51,8 +50,8 @@ class KubeMonitorTest(unittest.TestCase):
         self.args['kubernetes_api_secure_port'] = 6443
         kube_monitor.KubeMonitor._is_kube_api_server_alive = mock.Mock(return_value=True)
         self.base_url = "https://{0}:{1}".format(
-                                self.args.kubernetes_api_server,
-                                self.args.kubernetes_api_secure_port)
+            self.args.kubernetes_api_server,
+            self.args.kubernetes_api_secure_port)
     # end setUp
 
     def tearDown(self):
@@ -70,17 +69,19 @@ class KubeMonitorTest(unittest.TestCase):
 
     def test_kube_monitor_api_v1_url_construction(self):
         api_v1_base_url = "{0}/api/v1".format(self.base_url)
-        check_v1_url = lambda x: x.get_component_url() == \
-                                "/".join([api_v1_base_url, k8s_url_resource])
-
         api_v2_base_url = "{0}/api/v2".format(self.base_url)
-        check_v2_url = lambda x: x.get_component_url() == \
-                                "/".join([api_v2_base_url, k8s_url_resource])
 
-        get_custom_group_url =\
-            lambda group, version: "/".join([self.base_url, group, version])
-        check_custom_url = lambda x, custom_url: x.get_component_url() == \
-                                "/".join([custom_url, k8s_url_resource])
+        def check_v1_url(x):
+            return x.get_component_url() == "/".join([api_v1_base_url, k8s_url_resource])
+
+        def check_v2_url(x):
+            return x.get_component_url() == "/".join([api_v2_base_url, k8s_url_resource])
+
+        def get_custom_group_url(group, version):
+            return "/".join([self.base_url, group, version])
+
+        def check_custom_url(x, custom_url):
+            return x.get_component_url() == "/".join([custom_url, k8s_url_resource])
 
         # Validate that, if no explicit api_group and api_version is given, we will
         # use the default api_group and api_version for the known resource_type.
@@ -107,10 +108,11 @@ class KubeMonitorTest(unittest.TestCase):
         # url with appropriate api_group for the known resource_type
         custom_url = get_custom_group_url("apis/extensions", "v1beta1")
         resource_type = "networkpolicy"
-        netpol_monitor = kube_monitor.KubeMonitor(self.args,
-                                               resource_type=resource_type,
-                                               logger=mock.Mock(),
-                                               api_group="networking.k8s.io")
+        netpol_monitor = kube_monitor.KubeMonitor(
+            self.args,
+            resource_type=resource_type,
+            logger=mock.Mock(),
+            api_group="networking.k8s.io")
         k8s_url_resource =\
             self.get_k8s_url_resource(netpol_monitor.k8s_api_resources, resource_type)
         self.assertTrue(check_custom_url(netpol_monitor, custom_url))
@@ -119,11 +121,12 @@ class KubeMonitorTest(unittest.TestCase):
         # url with appropriate api_group and api_version for the unknown resource_type.
         custom_url = get_custom_group_url("networking.k8s.io", "v3")
         resource_type = "testresources"
-        test_monitor = kube_monitor.KubeMonitor(self.args,
-                                               resource_type=resource_type,
-                                               logger=mock.Mock(),
-                                               api_group="networking.k8s.io",
-                                               api_version="v3")
+        test_monitor = kube_monitor.KubeMonitor(
+            self.args,
+            resource_type=resource_type,
+            logger=mock.Mock(),
+            api_group="networking.k8s.io",
+            api_version="v3")
         k8s_url_resource =\
             self.get_k8s_url_resource(test_monitor.k8s_api_resources, resource_type)
         self.assertTrue(check_custom_url(test_monitor, custom_url))
@@ -132,12 +135,13 @@ class KubeMonitorTest(unittest.TestCase):
 
     def test_kube_monitor_beta_url_construction(self):
         api_beta1_base_url = "{0}/apis/extensions/v1beta1".format(self.base_url)
-        check_beta1_url = lambda x: x.get_component_url() == \
-                                "/".join([api_beta1_base_url, k8s_url_resource])
-
         api_beta2_base_url = "{0}/apis/extensions/v1beta2".format(self.base_url)
-        check_beta2_url = lambda x: x.get_component_url() == \
-                                "/".join([api_beta2_base_url, k8s_url_resource])
+
+        def check_beta1_url(x):
+            return x.get_component_url() == "/".join([api_beta1_base_url, k8s_url_resource])
+
+        def check_beta2_url(x):
+            return x.get_component_url() == "/".join([api_beta2_base_url, k8s_url_resource])
 
         # Validate that, if beta resource is requested, we will construct beta
         # url, with the right api_group and api_version for known resource_type
@@ -152,13 +156,13 @@ class KubeMonitorTest(unittest.TestCase):
         # resource_type, we will construt beta url with passed api_group and api_version
         resource_type = "testresources"
         test_monitor = kube_monitor.KubeMonitor(self.args, logger=mock.Mock(),
-                                                   api_group="apis/extensions",
-                                                   api_version="v1beta2",
-                                                   resource_type=resource_type)
+                                                api_group="apis/extensions",
+                                                api_version="v1beta2",
+                                                resource_type=resource_type)
         k8s_url_resource =\
             self.get_k8s_url_resource(test_monitor.k8s_api_resources, resource_type)
         self.assertTrue(check_beta2_url(test_monitor))
 
     # end test_kube_monitor_beta_url_construction
 
-#end KubeMonitorTest(unittest.TestCase):
+# end KubeMonitorTest(unittest.TestCase):

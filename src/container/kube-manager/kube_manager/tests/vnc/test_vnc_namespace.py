@@ -3,15 +3,15 @@
 #
 
 from builtins import str
-from builtins import range
 import uuid
+
+from cfgm_common.exceptions import NoIdError
 
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.vnc.vnc_namespace import NamespaceKM
-from kube_manager.vnc.vnc_tags import VncTags
 from kube_manager.vnc.config_db import TagKM
-from cfgm_common.exceptions import RefsExistError, NoIdError
+
 
 class VncNamespaceTest(KMTestCase):
     def setUp(self, extra_config_knobs=None):
@@ -52,6 +52,7 @@ class VncNamespaceTest(KMTestCase):
         self.wait_for_all_tasks_done()
         return ns_uuid
 
+
 class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
     def setUp(self, extra_config_knobs=None):
         super(VncNamespaceTestClusterProjectDefined, self).setUp(
@@ -61,7 +62,7 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
         super(VncNamespaceTestClusterProjectDefined, self).tearDown()
 
     def _mod_namespace(self, uuid, name, spec, annotations,
-                            labels=None, locate=False):
+                       labels=None, locate=False):
         ns_uuid = uuid
         ns_meta = {'name': name,
                    'uid': ns_uuid}
@@ -81,15 +82,14 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
         self.enqueue_event(ns_del_event)
         self.wait_for_all_tasks_done()
 
-
     def test_add_namespace(self):
-        ns_uuid = self._create_and_add_namespace(self.ns_name, {},
-            None, locate=True)
+        ns_uuid = self._create_and_add_namespace(
+            self.ns_name, {}, None, locate=True)
         # Check for project
         proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
-                                                    self.cluster_project)
-        proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                   proj_name])
+            self.cluster_project)
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", proj_name])
         self.assertIsNotNone(proj)
         self.assertEquals(proj_name, proj.name)
 
@@ -99,22 +99,24 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
     def test_add_namespace_with_isolation_annotation(self):
         ns_annotations = {'opencontrail.org/isolation': "true"}
 
-        ns_uuid = self._create_and_add_namespace(self.ns_name, {},
-                                                 ns_annotations, locate=True)
+        ns_uuid = self._create_and_add_namespace(
+            self.ns_name, {}, ns_annotations, locate=True)
         proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
-                                                    self.cluster_project)
-        proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                   proj_name])
+            self.cluster_project)
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", proj_name])
         self.assertIsNotNone(proj)
         self.assertEquals(proj_name, proj.name)
 
-        fqname = ['default-domain', proj_name, \
+        fqname = [
+            'default-domain', proj_name,
             self.cluster_name() + '-' + self.ns_name + '-pod-network']
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
 
         NamespaceKM.delete(ns_uuid)
         NamespaceKM.delete(self.ns_name)
+
 
 class VncNamespaceTestClusterProjectUndefined(
         VncNamespaceTestClusterProjectDefined):
@@ -137,12 +139,12 @@ class VncNamespaceTestClusterProjectUndefined(
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
     def test_add_namespace(self):
-        ns_uuid = self._create_and_add_namespace(self.ns_name, {},
-            None, locate=True)
+        ns_uuid = self._create_and_add_namespace(
+            self.ns_name, {}, None, locate=True)
         proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
-                                                    self.ns_name)
-        proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                   proj_name])
+            self.ns_name)
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", proj_name])
         self.assertIsNotNone(proj)
         self.assertEquals(proj_name, proj.name)
 
@@ -150,13 +152,14 @@ class VncNamespaceTestClusterProjectUndefined(
 
         # Validate that the project is deleted.
         try:
-            self._vnc_lib.project_read(fq_name=["default-domain",
-                                                       proj_name])
+            self._vnc_lib.project_read(
+                fq_name=["default-domain", proj_name])
         except NoIdError:
             pass
         else:
             # Project exists. Assert.
             self.assertIsNotNone(None)
+
 
 class VncNamespaceTestCustomNetwork(VncNamespaceTest):
     def setUp(self, extra_config_knobs=None):
@@ -179,8 +182,7 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTest):
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
     def test_add_namespace_with_custom_network_annotation(self):
-        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
-                                                    self.cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(self.cluster_project)
         proj_fq_name = [self.domain, proj_name]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
@@ -192,11 +194,9 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTest):
                    'name': self.vn_name}
         ns_annotations = {'opencontrail.org/network': repr(vn_dict)}
 
-        self._create_and_add_namespace(self.ns_name, {}, ns_annotations,
-           locate=True)
+        self._create_and_add_namespace(self.ns_name, {}, ns_annotations, locate=True)
 
-        ns_proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
-                                                            self.ns_name)
+        ns_proj_name = kube_config.VncKubernetesConfig.cluster_project_name(self.ns_name)
         proj = self._vnc_lib.project_read(fq_name=["default-domain",
                                                    ns_proj_name])
         self.assertIsNotNone(proj)
@@ -205,6 +205,7 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTest):
         fqname = [self.domain, proj_name, self.vn_name]
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
+
 
 class VncNamespaceTestScaling(VncNamespaceTest):
     def setUp(self, extra_config_knobs=None):
@@ -217,8 +218,7 @@ class VncNamespaceTestScaling(VncNamespaceTest):
     def test_add_namespace_scaling(self):
         scale = 100
         ns_uuids = []
-        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
-                                                    self.cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(self.cluster_project)
         for i in range(scale):
             ns_uuid = self._create_and_add_namespace(self.ns_name + str(i), {},
                                                      None, locate=True)
@@ -235,15 +235,16 @@ class VncNamespaceTestScaling(VncNamespaceTest):
                 NamespaceKM.delete(ns_uuid)
                 NamespaceKM.delete(ns.name)
 
+
 class VncNamespaceLabelsTest(VncNamespaceTestClusterProjectDefined):
     def setUp(self, extra_config_knobs=None):
         super(VncNamespaceLabelsTest, self).setUp(
             extra_config_knobs=extra_config_knobs)
-    #end setUp
+    # end setUp
 
     def tearDown(self):
         super(VncNamespaceLabelsTest, self).tearDown()
-    #end tearDown
+    # end tearDown
 
     @classmethod
     def setUpClass(cls, extra_config_knobs=None):
@@ -260,7 +261,7 @@ class VncNamespaceLabelsTest(VncNamespaceTestClusterProjectDefined):
     def _construct_tag_name(self, type, value):
         return "=".join([type, value])
 
-    def _construct_tag_fq_name(self, type, value, proj_obj = None):
+    def _construct_tag_fq_name(self, type, value, proj_obj=None):
         if proj_obj:
             tag_fq_name = proj_obj['fq_name'] + \
                 [self._construct_tag_name(type, value)]
@@ -273,7 +274,7 @@ class VncNamespaceLabelsTest(VncNamespaceTestClusterProjectDefined):
         for key, value in labels.items():
             tag_fq_name = self._construct_tag_fq_name(key, value)
             try:
-                tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+                _ = self._vnc_lib.tag_read(fq_name=tag_fq_name)
             except NoIdError:
                 if not validate_delete:
                     self.assertTrue(False)
@@ -285,11 +286,9 @@ class VncNamespaceLabelsTest(VncNamespaceTestClusterProjectDefined):
                 self.assertIsNotNone(tag_uuid)
 
     def test_add_namespace(self):
-        labels = {
-                     'nsname': self.ns_name
-                 }
-        ns_uuid = self._create_and_add_namespace(self.ns_name, {},
-            None, labels, locate=True)
+        labels = {'nsname': self.ns_name}
+        ns_uuid = self._create_and_add_namespace(
+            self.ns_name, {}, None, labels, locate=True)
 
         # Validate that tags have been created in VNC.
         self._validate_tags(labels)

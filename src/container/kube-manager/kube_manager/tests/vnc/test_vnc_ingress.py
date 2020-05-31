@@ -3,14 +3,11 @@
 #
 
 from builtins import str
-from builtins import range
-from past.builtins import basestring
 from gevent import monkey
-
-SERVICE_PORT = 80
 
 monkey.patch_all()
 
+from six import string_types
 from collections import namedtuple
 import mock
 from netaddr import IPNetwork, IPAddress
@@ -19,14 +16,15 @@ import uuid
 import unittest
 
 from cfgm_common.exceptions import NoIdError
+from vnc_api.gen.resource_client import VirtualNetwork, FloatingIpPool
+from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
+from vnc_api.gen.resource_client import VirtualRouter
+
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.common.kube_config_db import NamespaceKM, ServiceKM, IngressKM
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.vnc.config_db import ProjectKM, VirtualRouterKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
-from vnc_api.gen.resource_client import VirtualNetwork, FloatingIpPool
-from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
-from vnc_api.gen.resource_client import VirtualRouter
 
 Uuids = namedtuple('Uuids', ['lb_uuid',
                              'vmi_uuid',
@@ -35,6 +33,8 @@ Uuids = namedtuple('Uuids', ['lb_uuid',
                              'lb_member_uuid',
                              'lb_listener_uuid',
                              'lb_pool_uuid'])
+
+SERVICE_PORT = 80
 
 
 class VncIngressTest(KMTestCase):
@@ -94,8 +94,8 @@ class VncIngressTest(KMTestCase):
         self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         pod_network_uuid = self._create_virtual_network(cluster_project)
-        service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-default-service-network')
+        service_network_uuid = self._create_virtual_network(
+            cluster_project, 'cluster-default-service-network')
 
         ports, srv_meta = self._enqueue_add_service(namespace_name)
 
@@ -191,9 +191,9 @@ class VncIngressTest(KMTestCase):
         custom_network = 'custom-pod-network'
         self.create_project(cluster_project)
         pod_network_uuid = self._create_virtual_network(cluster_project,
-                                                    network=custom_network)
-        service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-default-service-network')
+                                                        network=custom_network)
+        service_network_uuid = self._create_virtual_network(
+            cluster_project, 'cluster-default-service-network')
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(
                 cluster_project, custom_network)
@@ -222,8 +222,8 @@ class VncIngressTest(KMTestCase):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         pod_network_uuid = self._create_virtual_network(cluster_project)
-        service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-default-service-network')
+        service_network_uuid = self._create_virtual_network(
+            cluster_project, 'cluster-default-service-network')
 
         ports, srv_meta = self._enqueue_add_loadbalancer(namespace_name)
         ingress_meta, ingress_uuid = self._enqueue_add_ingress(namespace_name)
@@ -339,9 +339,9 @@ class VncIngressTest(KMTestCase):
         custom_network = 'custom-pod-network'
         self.create_project(cluster_project)
         pod_network_uuid = self._create_virtual_network(cluster_project,
-                                                    network=custom_network)
-        service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-default-service-network')
+                                                        network=custom_network)
+        service_network_uuid = self._create_virtual_network(
+            cluster_project, 'cluster-default-service-network')
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(cluster_project,
                                                         custom_network)
@@ -598,10 +598,11 @@ class VncIngressTest(KMTestCase):
         ns_uuid = str(uuid.uuid4())
         namespace_name = 'custom_isolated_namespace'
         ns_add_event = self.create_add_namespace_event(namespace_name, ns_uuid)
-        annotations = {'opencontrail.org/network':
-                           str({'domain': 'default-domain',
-                                'project': project,
-                                'name': network})}
+        annotations = {
+            'opencontrail.org/network': str({
+                'domain': 'default-domain',
+                'project': project,
+                'name': network})}
         ns_add_event['object']['metadata']['annotations'] = annotations
         NamespaceKM.locate(ns_uuid, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
@@ -712,8 +713,7 @@ class VncIngressTest(KMTestCase):
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
-        subnets = [vn_subnet] if isinstance(vn_subnet,
-                                            basestring) else vn_subnet
+        subnets = [vn_subnet] if isinstance(vn_subnet, string_types) else vn_subnet
         subnet_infos = []
         for subnet in subnets:
             cidr = IPNetwork(subnet)
@@ -731,8 +731,9 @@ class VncIngressTest(KMTestCase):
         return subnet_data
 
     def _create_vrouter_for_vm(self, vmi, vm):
-        vrouter_obj = VirtualRouter('phys-host-1' + vmi.uuid,
-            virtual_router_ip_address = self.get_kubernetes_node_ip())
+        vrouter_obj = VirtualRouter(
+            'phys-host-1' + vmi.uuid,
+            virtual_router_ip_address=self.get_kubernetes_node_ip())
         self._vnc_lib.virtual_router_create(vrouter_obj)
         vrouter_obj = self._vnc_lib.virtual_router_read(
             fq_name=vrouter_obj.get_fq_name())
@@ -769,8 +770,8 @@ class VncIngressTest(KMTestCase):
         return vrouter_uuids
 
     def _delete_vrouters(self, uuids):
-        for uuid in uuids:
-            self._vnc_lib.virtual_router_delete(id=uuid)
+        for uuid_ in uuids:
+            self._vnc_lib.virtual_router_delete(id=uuid_)
 
     def _delete_virtual_network(self, vn_id):
         try:

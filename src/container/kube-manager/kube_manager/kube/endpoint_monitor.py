@@ -3,19 +3,18 @@
 #
 
 from __future__ import print_function
-from __future__ import absolute_import
 
-import json
 import gevent
-from .kube_monitor import KubeMonitor
+from kube_manager.kube.kube_monitor import KubeMonitor
+
 
 class EndPointMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(EndPointMonitor, self).__init__(args, logger, q,
-            resource_type='endpoints')
+        super(EndPointMonitor, self).__init__(
+            args, logger, q, resource_type='endpoints')
         self.init_monitor()
-        self.logger.info("EndPointyMonitor init done.");
+        self.logger.info("EndPointyMonitor init done.")
 
     def process_event(self, event):
         endpoint_data = event['object']
@@ -34,10 +33,12 @@ class EndPointMonitor(KubeMonitor):
         if endpoint_name == "openshift-master-controllers":
             return
 
-        print("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, endpoint_name, uid))
-        self.logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, endpoint_name, uid))
+        print(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, endpoint_name, uid))
+        self.logger.debug(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, endpoint_name, uid))
         self.q.put(event)
 
     def event_callback(self):
