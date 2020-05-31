@@ -3,30 +3,29 @@
 #
 
 """
-VNC service management for kubernetes
+VNC service management for kubernetes.
 """
 from __future__ import print_function
-from __future__ import absolute_import
 
 from builtins import str
 import uuid
 
-from cfgm_common import *
+import cfgm_common
 from vnc_api.vnc_api import (
-    AddressType, IpamSubnets, IdPermsType, IpamSubnetType, NetworkIpam,
+    AddressType, IdPermsType, NetworkIpam,
     NoIdError, PolicyEntriesType, PolicyRuleType, PortType, Project,
     RefsExistError, SecurityGroup, SubnetType, VirtualNetwork,
     VirtualNetworkType, VnSubnetsType, NetworkPolicy, ActionListType,
     VirtualNetworkPolicyType, SequenceType, ShareType)
 from kube_manager.vnc.config_db import (
-    NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM, DBBaseKM)
+    VirtualNetworkKM, ProjectKM, SecurityGroupKM, DBBaseKM)
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM
-from kube_manager.vnc.vnc_kubernetes_config import (
-    VncKubernetesConfig as vnc_kube_config)
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.label_cache import XLabelCache
 from kube_manager.vnc.vnc_pod import VncPod
-from .vnc_security_policy import VncSecurityPolicy
+from kube_manager.vnc.vnc_security_policy import VncSecurityPolicy
+
 
 class VncNamespace(VncCommon):
 
@@ -65,11 +64,11 @@ class VncNamespace(VncCommon):
 
     def _get_namespace_pod_vn_name(self, ns_name):
         return vnc_kube_config.cluster_name() + \
-                '-' +  ns_name + "-pod-network"
+            '-' + ns_name + "-pod-network"
 
     def _get_namespace_service_vn_name(self, ns_name):
         return vnc_kube_config.cluster_name() + \
-                '-' +  ns_name + "-service-network"
+            '-' + ns_name + "-service-network"
 
     def _get_ip_fabric_forwarding(self, ns_name):
         ns = self._get_namespace(ns_name)
@@ -79,7 +78,7 @@ class VncNamespace(VncCommon):
 
     def _is_ip_fabric_forwarding_enabled(self, ns_name):
         ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
-        if ip_fabric_forwarding != None:
+        if ip_fabric_forwarding is not None:
             return ip_fabric_forwarding
         else:
             return self._args.ip_fabric_forwarding
@@ -92,7 +91,7 @@ class VncNamespace(VncCommon):
 
     def _is_ip_fabric_snat_enabled(self, ns_name):
         ip_fabric_snat = self._get_ip_fabric_snat(ns_name)
-        if ip_fabric_snat != None:
+        if ip_fabric_snat is not None:
             return ip_fabric_snat
         else:
             return self._args.ip_fabric_snat
@@ -188,10 +187,10 @@ class VncNamespace(VncCommon):
                     tenant_found = True
                     break
             if oper == 'add':
-                if tenant_found == True:
+                if tenant_found:
                     continue
                 else:
-                    share_item = ShareType(tenant=proj_uuid, tenant_access=PERMS_R)
+                    share_item = ShareType(tenant=proj_uuid, tenant_access=cfgm_common.PERMS_R)
                     share.append(share_item)
             else:
                 share.remove(item)
@@ -199,7 +198,8 @@ class VncNamespace(VncCommon):
             vn_obj.perms2 = perms2
             self._vnc_lib.virtual_network_update(vn_obj)
 
-    def _create_isolated_ns_virtual_network(self, ns_name, vn_name,
+    def _create_isolated_ns_virtual_network(
+            self, ns_name, vn_name,
             vn_type, proj_obj, ipam_obj=None, provider=None,
             enforce_policy=False):
         """
@@ -267,8 +267,7 @@ class VncNamespace(VncCommon):
 
         # If required, enforce security policy at virtual network level.
         if enforce_policy:
-            self._vnc_lib.set_tags(vn_obj,
-              self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
+            self._vnc_lib.set_tags(vn_obj, self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
 
         return vn_obj
 
@@ -305,7 +304,8 @@ class VncNamespace(VncCommon):
     def _attach_policy(self, vn_obj, *policies):
         for policy in policies or []:
             if policy:
-                vn_obj.add_network_policy(policy,
+                vn_obj.add_network_policy(
+                    policy,
                     VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
         self._vnc_lib.virtual_network_update(vn_obj)
         for policy in policies or []:
@@ -314,20 +314,19 @@ class VncNamespace(VncCommon):
 
     def _create_policy_entry(self, src_vn_obj, dst_vn_obj):
         return PolicyRuleType(
-                direction = '<>',
-                action_list = ActionListType(simple_action='pass'),
-                protocol = 'any',
-                src_addresses = [
-                    AddressType(virtual_network = src_vn_obj.get_fq_name_str())
-                ],
-                src_ports = [PortType(-1, -1)],
-                dst_addresses = [
-                    AddressType(virtual_network = dst_vn_obj.get_fq_name_str())
-                ],
-                dst_ports = [PortType(-1, -1)])
+            direction='<>',
+            action_list=ActionListType(simple_action='pass'),
+            protocol='any',
+            src_addresses=[
+                AddressType(virtual_network=src_vn_obj.get_fq_name_str())
+            ],
+            src_ports=[PortType(-1, -1)],
+            dst_addresses=[
+                AddressType(virtual_network=dst_vn_obj.get_fq_name_str())
+            ],
+            dst_ports=[PortType(-1, -1)])
 
-    def _create_vn_vn_policy(self, policy_name,
-            proj_obj, src_vn_obj, dst_vn_obj):
+    def _create_vn_vn_policy(self, policy_name, proj_obj, src_vn_obj, dst_vn_obj):
         policy_exists = False
         policy = NetworkPolicy(name=policy_name, parent_obj=proj_obj)
         try:
@@ -348,7 +347,7 @@ class VncNamespace(VncCommon):
         return policy_obj
 
     def _create_attach_policy(self, ns_name, proj_obj,
-            ip_fabric_vn_obj, pod_vn_obj, service_vn_obj):
+                              ip_fabric_vn_obj, pod_vn_obj, service_vn_obj):
         if not self._cluster_service_policy:
             cluster_service_np_fq_name = \
                 vnc_kube_config.cluster_default_service_network_policy_fq_name()
@@ -378,13 +377,16 @@ class VncNamespace(VncCommon):
                 return
 
         policy_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'pod-service-np'])
-        #policy_name = '%s-default' %ns_name
-        ns_default_policy = self._create_vn_vn_policy(policy_name, proj_obj,
+        # policy_name = '%s-default' %ns_name
+        ns_default_policy = self._create_vn_vn_policy(
+            policy_name, proj_obj,
             pod_vn_obj, service_vn_obj)
-        self._attach_policy(pod_vn_obj, ns_default_policy,
+        self._attach_policy(
+            pod_vn_obj, ns_default_policy,
             self._ip_fabric_policy, self._cluster_service_policy,
             self._nested_underlay_policy)
-        self._attach_policy(service_vn_obj, ns_default_policy,
+        self._attach_policy(
+            service_vn_obj, ns_default_policy,
             self._ip_fabric_policy, self._nested_underlay_policy)
 
     def _delete_policy(self, ns_name, proj_fq_name):
@@ -491,11 +493,11 @@ class VncNamespace(VncCommon):
             except NoIdError as e:
                 self._logger.error(
                     "Unable to locate virtual network [%s]"
-                    "annotated on namespace [%s]. Error [%s]" %\
+                    "annotated on namespace [%s]. Error [%s]" %
                     (ann_vn_fq_name, name, str(e)))
 
         # If this namespace is isolated, create it own network.
-        if self._is_namespace_isolated(name) == True or name == 'default':
+        if self._is_namespace_isolated(name) or name == 'default':
             vn_name = self._get_namespace_pod_vn_name(name)
             if self._is_ip_fabric_forwarding_enabled(name):
                 ipam_fq_name = vnc_kube_config.ip_fabric_ipam_fq_name()
@@ -506,23 +508,24 @@ class VncNamespace(VncCommon):
                 ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
                 provider = None
             pod_vn = self._create_isolated_ns_virtual_network(
-                    ns_name=name, vn_name=vn_name, vn_type='pod-network',
-                    proj_obj=proj_obj, ipam_obj=ipam_obj, provider=provider,
-                    enforce_policy = secure_vn)
+                ns_name=name, vn_name=vn_name, vn_type='pod-network',
+                proj_obj=proj_obj, ipam_obj=ipam_obj, provider=provider,
+                enforce_policy=secure_vn)
             # Cache pod network info in namespace entry.
             self._set_namespace_pod_virtual_network(name, pod_vn.get_fq_name())
             vn_name = self._get_namespace_service_vn_name(name)
             ipam_fq_name = vnc_kube_config.service_ipam_fq_name()
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
             service_vn = self._create_isolated_ns_virtual_network(
-                    ns_name=name, vn_name=vn_name, vn_type='service-network',
-                    ipam_obj=ipam_obj,proj_obj=proj_obj,
-                    enforce_policy = secure_vn)
+                ns_name=name, vn_name=vn_name, vn_type='service-network',
+                ipam_obj=ipam_obj, proj_obj=proj_obj,
+                enforce_policy=secure_vn)
             # Cache service network info in namespace entry.
             self._set_namespace_service_virtual_network(
-                    name, service_vn.get_fq_name())
-            self._create_attach_policy(name, proj_obj,
-                    self._ip_fabric_vn_obj, pod_vn, service_vn)
+                name, service_vn.get_fq_name())
+            self._create_attach_policy(
+                name, proj_obj,
+                self._ip_fabric_vn_obj, pod_vn, service_vn)
         else:
             self._update_default_virtual_network_perms2(name, proj_obj.uuid)
 
@@ -537,7 +540,8 @@ class VncNamespace(VncCommon):
             # If requested, enforce security policy at project level.
             if secure_project:
                 proj_obj = self._vnc_lib.project_read(id=project.uuid)
-                self._vnc_lib.set_tags(proj_obj,
+                self._vnc_lib.set_tags(
+                    proj_obj,
                     self._labels.get_labels_dict(
                         VncSecurityPolicy.cluster_aps_uuid))
         return project
@@ -556,54 +560,49 @@ class VncNamespace(VncCommon):
                                "[%s]" % (name))
             return
 
-        try:
-            # If the namespace is isolated, delete its virtual network.
-            if self._is_namespace_isolated(name):
-                self._delete_policy(name, proj_fq_name)
-                vn_name = self._get_namespace_pod_vn_name(name)
-                self._delete_isolated_ns_virtual_network(
-                    name, vn_name=vn_name, proj_fq_name=proj_fq_name)
-                # Clear pod network info from namespace entry.
-                self._set_namespace_pod_virtual_network(name, None)
-                vn_name = self._get_namespace_service_vn_name(name)
-                self._delete_isolated_ns_virtual_network(
-                    name, vn_name=vn_name, proj_fq_name=proj_fq_name)
-                # Clear service network info from namespace entry.
-                self._set_namespace_service_virtual_network(name, None)
-            else:
-                self._update_default_virtual_network_perms2(name, project_uuid, oper='del')
+        # If the namespace is isolated, delete its virtual network.
+        if self._is_namespace_isolated(name):
+            self._delete_policy(name, proj_fq_name)
+            vn_name = self._get_namespace_pod_vn_name(name)
+            self._delete_isolated_ns_virtual_network(
+                name, vn_name=vn_name, proj_fq_name=proj_fq_name)
+            # Clear pod network info from namespace entry.
+            self._set_namespace_pod_virtual_network(name, None)
+            vn_name = self._get_namespace_service_vn_name(name)
+            self._delete_isolated_ns_virtual_network(
+                name, vn_name=vn_name, proj_fq_name=proj_fq_name)
+            # Clear service network info from namespace entry.
+            self._set_namespace_service_virtual_network(name, None)
+        else:
+            self._update_default_virtual_network_perms2(name, project_uuid, oper='del')
 
-            # delete security groups
-            security_groups = project.get_security_groups()
-            for sg_uuid in security_groups:
-                sg = SecurityGroupKM.get(sg_uuid)
-                if not sg:
-                    continue
-                sg_name = vnc_kube_config.get_default_sg_name(name)
-                if sg.name != sg_name:
-                    continue
-                for vmi_id in list(sg.virtual_machine_interfaces):
-                    try:
-                        self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
-                            'security-group', sg.uuid, None, 'DELETE')
-                    except NoIdError:
-                        pass
-                self._vnc_lib.security_group_delete(id=sg_uuid)
+        # delete security groups
+        security_groups = project.get_security_groups()
+        for sg_uuid in security_groups:
+            sg = SecurityGroupKM.get(sg_uuid)
+            if not sg:
+                continue
+            sg_name = vnc_kube_config.get_default_sg_name(name)
+            if sg.name != sg_name:
+                continue
+            for vmi_id in list(sg.virtual_machine_interfaces):
+                try:
+                    self._vnc_lib.ref_update(
+                        'virtual-machine-interface', vmi_id,
+                        'security-group', sg.uuid, None, 'DELETE')
+                except NoIdError:
+                    pass
+            self._vnc_lib.security_group_delete(id=sg_uuid)
 
-            # delete the label cache
-            if project:
-                self._clear_namespace_label_cache(namespace_id, project)
-            # delete the namespace
-            self._delete_namespace(name)
+        # delete the label cache
+        if project:
+            self._clear_namespace_label_cache(namespace_id, project)
+        # delete the namespace
+        self._delete_namespace(name)
 
-            # If project was created for this namesspace, delete the project.
-            if vnc_kube_config.get_project_name_for_namespace(name) ==\
-               project.name:
-                self._vnc_lib.project_delete(fq_name=proj_fq_name)
-
-        except:
-            # Raise it up to be logged.
-            raise
+        # If project was created for this namesspace, delete the project.
+        if vnc_kube_config.get_project_name_for_namespace(name) == project.name:
+            self._vnc_lib.project_delete(fq_name=proj_fq_name)
 
     def _sync_namespace_project(self):
         """Sync vnc project objects with K8s namespace object.
@@ -615,13 +614,11 @@ class VncNamespace(VncCommon):
         so the vnc project can be cleaned up.
         """
         for project in ProjectKM.objects():
-            if project.owner != 'k8s' or \
-                project.cluster != vnc_kube_config.cluster_name():
+            if project.owner != 'k8s' or project.cluster != vnc_kube_config.cluster_name():
                 continue
             k8s_namespace_uuid = project.get_k8s_namespace_uuid()
             # Proceed only if this project is tagged with a k8s namespace.
-            if k8s_namespace_uuid and not\
-                   self._get_namespace(k8s_namespace_uuid):
+            if k8s_namespace_uuid and not self._get_namespace(k8s_namespace_uuid):
                 event = {}
                 dict_object = {}
                 dict_object['kind'] = 'Namespace'
@@ -654,12 +651,12 @@ class VncNamespace(VncCommon):
             return
 
         # Add custom namespace label on the namespace object.
-        self._labels.append(k8s_namespace_uuid,
+        self._labels.append(
+            k8s_namespace_uuid,
             self._labels.get_namespace_label(ns.name))
 
         if not ns.firewall_ingress_allow_rule_uuid:
-            ingress_rule_name = self._get_namespace_firewall_ingress_rule_name(
-                                    ns.name)
+            ingress_rule_name = self._get_namespace_firewall_ingress_rule_name(ns.name)
 
             # Create a rule for default allow behavior on this namespace.
             ns.firewall_ingress_allow_rule_uuid =\
@@ -674,8 +671,7 @@ class VncNamespace(VncCommon):
 
         if not ns.firewall_egress_allow_rule_uuid:
 
-            egress_rule_name = self._get_namespace_firewall_egress_rule_name(
-                                    ns.name)
+            egress_rule_name = self._get_namespace_firewall_egress_rule_name(ns.name)
 
             # Create a rule for default egress allow behavior on this namespace.
             ns.firewall_egress_allow_rule_uuid =\
@@ -700,12 +696,9 @@ class VncNamespace(VncCommon):
             VncSecurityPolicy.delete_firewall_rule(
                 VncSecurityPolicy.allow_all_fw_policy_uuid, rule_uuid)
 
-
             # Dis-associate and delete egress rule from namespace policy.
-            egress_rule_name = self._get_namespace_firewall_egress_rule_name(
-                                    ns_name)
-            egress_rule_uuid = VncSecurityPolicy.get_firewall_rule_uuid(
-                                   egress_rule_name)
+            egress_rule_name = self._get_namespace_firewall_egress_rule_name(ns_name)
+            egress_rule_uuid = VncSecurityPolicy.get_firewall_rule_uuid(egress_rule_name)
             VncSecurityPolicy.delete_firewall_rule(
                 VncSecurityPolicy.allow_all_fw_policy_uuid, egress_rule_uuid)
 
@@ -715,10 +708,12 @@ class VncNamespace(VncCommon):
         name = event['object']['metadata'].get('name')
         ns_id = event['object']['metadata'].get('uid')
         labels = dict(event['object']['metadata'].get('labels', {}))
-        print("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, name, ns_id))
-        self._logger.debug("%s - Got %s %s %s:%s"
-                           %(self._name, event_type, kind, name, ns_id))
+        print(
+            "%s - Got %s %s %s:%s"
+            % (self._name, event_type, kind, name, ns_id))
+        self._logger.debug(
+            "%s - Got %s %s %s:%s"
+            % (self._name, event_type, kind, name, ns_id))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
 
@@ -760,4 +755,3 @@ class VncNamespace(VncCommon):
         else:
             self._logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
-
