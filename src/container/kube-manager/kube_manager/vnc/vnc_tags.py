@@ -13,6 +13,7 @@ from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
 from kube_manager.vnc.config_db import TagKM
 
+
 class VncTags(object):
 
     def __init__(self):
@@ -29,14 +30,14 @@ class VncTags(object):
             except NoIdError as e:
                 self._logger.error(
                     "Unable to locate project object for [%s]"
-                    ". Error [%s]" %\
+                    ". Error [%s]" %
                     (proj_fq_name, str(e)))
                 self._logger.debug(
                     "All tags for this cluster will created with be in "
                     "global space as project object was not found.")
             else:
                 self._logger.debug(
-                    "All tags will be created within the scope of project [%s]"%\
+                    "All tags will be created within the scope of project [%s]" %
                     (proj_fq_name))
 
     def _construct_tag_name(self, type, value):
@@ -56,7 +57,7 @@ class VncTags(object):
                   tag_type_name=type,
                   tag_value=value)
         try:
-            tag_uuid = self._vnc_lib.tag_create(tag)
+            self._vnc_lib.tag_create(tag)
         except RefsExistError:
             # Tags cannot be updated.
             pass
@@ -65,7 +66,7 @@ class VncTags(object):
             tag_obj = self._vnc_lib.tag_read(fq_name=tag.get_fq_name())
         except NoIdError as e:
             self._logger.error(
-                "Unable to create tag [%s]. Error [%s]" %\
+                "Unable to create tag [%s]. Error [%s]" %
                 (tag.get_fq_name(), str(e)))
             return
         # Cache the object in local db.
@@ -79,31 +80,31 @@ class VncTags(object):
 
             TagKM.delete(tag_uuid)
             self._logger.debug("Tag (%s) deleted successfully."
-                             %(self._construct_tag_fq_name(type, value)))
+                               % (self._construct_tag_fq_name(type, value)))
         except RefsExistError:
             self._logger.debug("Tag (%s) deletion failed. Tag is in use."
-                             %(self._construct_tag_fq_name(type, value)))
+                               % (self._construct_tag_fq_name(type, value)))
         except NoIdError:
             self._logger.debug("Tag delete failed. Tag [%s] not found."
-                               %(self._construct_tag_fq_name(type, value)))
+                               % (self._construct_tag_fq_name(type, value)))
 
         return
 
     def read(self, type, value):
         try:
             return self._vnc_lib.tag_read(
-                          fq_name=self._construct_tag_fq_name(type, value))
+                fq_name=self._construct_tag_fq_name(type, value))
         except NoIdError:
             self._logger.debug("Tag read failed. Tag [%s] not found."
-                               %(self._construct_tag_fq_name(type, value)))
+                               % (self._construct_tag_fq_name(type, value)))
         except Exception as e:
             self._logger.debug("Tag [%s] read failed. Error [%s]."
-                   %(self._construct_tag_fq_name(type, value), e.message))
+                               % (self._construct_tag_fq_name(type, value), e.message))
         return None
 
     def get_tags_fq_name(self, kv_dict, create=False):
         tags = []
-        for k,v in kv_dict.items():
+        for k, v in kv_dict.items():
             if create:
                 self.create(k, v)
             tags.append(self._construct_tag_name(k, v))

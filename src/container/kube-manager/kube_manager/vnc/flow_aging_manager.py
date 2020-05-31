@@ -9,25 +9,24 @@ from __future__ import absolute_import
 
 from builtins import str
 from vnc_api.vnc_api import *
-from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
-def create_flow_aging_timeout_entry(vnc_lib, protocol, port,
-        timeout_in_seconds):
+
+def create_flow_aging_timeout_entry(vnc_lib, protocol, port, timeout_in_seconds):
     """
     Create a flow-aging entry in vrouter for a specific flow.
     """
-    flow_aging_obj=FlowAgingTimeout(protocol, port, timeout_in_seconds)
-    flow_aging_list=FlowAgingTimeoutList([flow_aging_obj])
+    flow_aging_obj = FlowAgingTimeout(protocol, port, timeout_in_seconds)
+    flow_aging_list = FlowAgingTimeoutList([flow_aging_obj])
 
     # Get current VRouter config from API server.
     try:
-        current_config=vnc_lib.global_vrouter_config_read(
+        current_config = vnc_lib.global_vrouter_config_read(
             fq_name=['default-global-system-config',
-                'default-global-vrouter-config'])
+                     'default-global-vrouter-config'])
     except NoIdError:
         # VRouter config does not exist. Create one.
-        conf_obj=GlobalVrouterConfig(flow_aging_timeout_list=flow_aging_list)
-        result=vnc_lib.global_vrouter_config_create(conf_obj)
+        conf_obj = GlobalVrouterConfig(flow_aging_timeout_list=flow_aging_list)
+        vnc_lib.global_vrouter_config_create(conf_obj)
         return
 
     # Get currently configured flow aging timeouts.

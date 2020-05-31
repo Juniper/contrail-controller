@@ -4,20 +4,20 @@
 
 from __future__ import print_function
 
-from future import standard_library
-standard_library.install_aliases()
 import socket
 import sys
 
 from six.moves import configparser
 import argparse
 from six import string_types
-from vnc_api.vnc_api import *
-from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
+from pysandesh.sandesh_base import Sandesh, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import (HttpPortKubeManager,ApiServerPort,\
+from sandesh_common.vns.constants import (
+    HttpPortKubeManager,
+    ApiServerPort,
     DiscoveryServerPort)
 from enum import Enum
+
 
 class MandatoryArgs(Enum):
     """
@@ -67,12 +67,13 @@ class MandatoryArgs(Enum):
         "validatefn": lambda x: x
     }
 
+
 def parse_args(args_str=None):
     if not args_str:
         args_str = sys.argv[1:]
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument("-c", "--config-file", action='append',
-        help="Specify config file", metavar="FILE")
+                             help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(args_str)
 
     defaults = {
@@ -90,9 +91,9 @@ def parse_args(args_str=None):
         'disc_server_port': DiscoveryServerPort,
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_file': '/var/log/contrail/contrail-kube-manager.log',
-        'api_service_link_local' : 'True',
-        'orchestrator' : 'kubernetes',
-        'token' : '',
+        'api_service_link_local': 'True',
+        'orchestrator': 'kubernetes',
+        'token': '',
         'nested_mode': '0',
         'global_tags': '1',
         'aps_name': '',
@@ -122,9 +123,9 @@ def parse_args(args_str=None):
         'cluster_id': '',
         'vnc_endpoint_ip': '[127.0.0.1]',
         'vnc_endpoint_port': ApiServerPort,
-        'admin_user' : '',
-        'admin_password' : '',
-        'admin_tenant' : '',
+        'admin_user': '',
+        'admin_password': '',
+        'admin_tenant': '',
         'public_fip_pool': '{}',
         'zk_server_ip': '127.0.0.1:2181',
     }
@@ -138,12 +139,12 @@ def parse_args(args_str=None):
         MandatoryArgs.POD_SUBNET.value['arg_str']: None,
         MandatoryArgs.IP_FABRIC_SUBNET.value['arg_str']: None,
         'kubernetes_cluster_owner': 'k8s',
-        'kubernetes_cluster_domain' : 'default-domain',
+        'kubernetes_cluster_domain': 'default-domain',
         'cluster_name': None,
-        'cluster_project' : "{}",
-        'cluster_network' : "{}",
-        'cluster_pod_network' : None,
-        'cluster_service_network' : None,
+        'cluster_project': "{}",
+        'cluster_network': "{}",
+        'cluster_pod_network': None,
+        'cluster_service_network': None,
         'ip_fabric_forwarding': False,
         'ip_fabric_snat': False,
         'host_network_service': False,
@@ -231,16 +232,17 @@ def rabbitmq_args(args):
         'ssl_ca_certs': args.kombu_ssl_ca_certs
     }
 
+
 def validate_mandatory_args(args):
     for mandatory_arg in MandatoryArgs:
         arg_name = mandatory_arg.value['arg_str']
         if not hasattr(args, arg_name):
             print("Mandatory Argument %s not found in config"
-                % arg_name)
+                  % arg_name)
             sys.exit("Mandatory argument [%s] not found in config" % arg_name)
 
         validatefn = mandatory_arg.value.get('validatefn', None)
         arg_value = getattr(args, arg_name)
         if validatefn and not validatefn(arg_value):
-            sys.exit("Validation of mandatory argument [%s] configured with"\
-                " value [%s] failed." % (arg_name, arg_value))
+            sys.exit("Validation of mandatory argument [%s] configured with"
+                     " value [%s] failed." % (arg_name, arg_value))

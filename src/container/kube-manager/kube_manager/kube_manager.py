@@ -3,13 +3,11 @@
 #
 
 """
-Kubernetes network manager
+Kubernetes network manager.
 """
 from __future__ import absolute_import
 
-from builtins import object
 import random
-import socket
 import os
 import sys
 import time
@@ -148,8 +146,8 @@ class KubeNetworkManager(object):
         if inst is None:
             return
         inst.logger.sandesh_uninit()
-        for greenlet in inst.greenlets:
-            greenlet.kill()
+        for gl in inst.greenlets:
+            gl.kill()
         inst.greenlets = []
         inst.vnc.destroy_instance()
         inst.vnc = None
@@ -248,7 +246,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
                 km_logger,
                 DBBaseKM,
                 REACTION_MAP,
-                client_pfx+'kube_manager',
+                client_pfx + 'kube_manager',
                 rabbitmq_cfg,
                 args.host_ip
             )
@@ -260,7 +258,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
             km_logger.debug("Removed remained AMQP queue")
 
         # Ensure zookeeper is up and running before starting kube-manager
-        _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
+        _zookeeper_client = ZookeeperClient(client_pfx + "kube-manager",
                                             args.zk_server_ip, args.host_ip)
 
         km_logger.notice("Waiting to be elected as master...")
@@ -277,6 +275,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
     else:  # nested mode, skip zookeeper mastership check
         run_kube_manager(km_logger, args, kube_api_skip, event_queue,
                          vnc_kubernetes_config_dict)
+
 
 if __name__ == '__main__':
     main()
