@@ -32,9 +32,9 @@ setup(
     install_requires=requirements('requirements.txt'),
     tests_require=requirements('test-requirements.txt'),
 
-    entry_points = {
+    entry_points={
         # Please update sandesh/common/vns.sandesh on process name change
-        'console_scripts' : [
+        'console_scripts': [
             'contrail-kube-manager = kube_manager.kube_manager:main',
         ],
     },
