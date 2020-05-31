@@ -13,13 +13,13 @@ import uuid
 
 from cfgm_common import *
 from vnc_api.vnc_api import (
-    AddressType, IpamSubnets, IdPermsType, IpamSubnetType, NetworkIpam,
+    AddressType, IdPermsType, NetworkIpam,
     NoIdError, PolicyEntriesType, PolicyRuleType, PortType, Project,
     RefsExistError, SecurityGroup, SubnetType, VirtualNetwork,
     VirtualNetworkType, VnSubnetsType, NetworkPolicy, ActionListType,
     VirtualNetworkPolicyType, SequenceType, ShareType)
 from kube_manager.vnc.config_db import (
-    NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM, DBBaseKM)
+    VirtualNetworkKM, ProjectKM, SecurityGroupKM, DBBaseKM)
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
@@ -27,6 +27,7 @@ from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.label_cache import XLabelCache
 from kube_manager.vnc.vnc_pod import VncPod
 from .vnc_security_policy import VncSecurityPolicy
+
 
 class VncNamespace(VncCommon):
 

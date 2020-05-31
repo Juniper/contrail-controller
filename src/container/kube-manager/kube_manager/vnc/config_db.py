@@ -6,7 +6,6 @@
 This file contains implementation of data model for kube manager
 """
 from builtins import str
-from builtins import range
 import json
 
 from cfgm_common.vnc_db import DBBase
@@ -18,6 +17,7 @@ from kube_manager.sandesh.kube_introspect import ttypes as introspect
 INVALID_VLAN_ID = 4096
 MAX_VLAN_ID = 4095
 MIN_VLAN_ID = 1
+
 
 class DBBaseKM(DBBase):
     obj_type = __name__
@@ -89,9 +89,10 @@ class DBBaseKM(DBBase):
         # the annotations-based-fq-name as required by the object's db.
         if hasattr(cls, 'ann_fq_name_key'):
             if not set(cls.ann_fq_name_key).issubset(annotations):
-                err_msg = "Annotations required to contruct kube_fq_name for"+\
-                    " object (%s:%s) was not found in input keyword args." %\
-                    (namespace, name)
+                err_msg = (
+                    "Annotations required to contruct kube_fq_name for"
+                    " object (%s:%s) was not found in input keyword args." %
+                    (namespace, name))
                 raise Exception(err_msg)
 
         # Annotate the object.
@@ -119,8 +120,7 @@ class DBBaseKM(DBBase):
         if hasattr(cls, 'ann_fq_name_key'):
             fq_name = []
             fq_name_key = cls.ann_fq_name_infra_key + cls.ann_fq_name_key
-            if obj_dict.get('annotations') and\
-              obj_dict['annotations'].get('key_value_pair'):
+            if obj_dict.get('annotations') and obj_dict['annotations'].get('key_value_pair'):
                 kvps = obj_dict['annotations']['key_value_pair']
                 for elem in fq_name_key:
                     for kvp in kvps:
@@ -159,9 +159,10 @@ class DBBaseKM(DBBase):
         # of annotated-fq-name.
         if hasattr(cls, 'ann_fq_name_key'):
             if not set(cls.ann_fq_name_key).issubset(annotations):
-                err_msg = "Annotations required to contruct kube_fq_name for"+\
-                    " object (%s:%s) was not found in input keyword args." %\
-                    (namespace, name)
+                err_msg = (
+                    "Annotations required to contruct kube_fq_name for"
+                    " object (%s:%s) was not found in input keyword args." %
+                    (namespace, name))
                 raise Exception(err_msg)
 
         # Lookup annnoated-fq-name in annotated-fq-name to uuid table.
@@ -222,11 +223,12 @@ class DBBaseKM(DBBase):
 
     @staticmethod
     def _build_annotation_dict(annotation_dict):
-        return {str(annot['key']): str(annot['value'])
-                      for annot
-                      in annotation_dict['key_value_pair']} \
-            if annotation_dict and annotation_dict.get('key_value_pair') \
-            else {}
+        if not annotation_dict or not annotation_dict.get('key_value_pair'):
+            return {}
+        return {
+            str(annot['key']): str(annot['value'])
+            for annot in annotation_dict['key_value_pair']
+        } 
 
     @staticmethod
     def _build_string_dict(src_dict):
@@ -238,9 +240,11 @@ class DBBaseKM(DBBase):
 
     @staticmethod
     def _build_cls_uuid_list(cls, collection):
-        return [cls(str(list(collection)[i]))
-                   for i in range(len(collection))] \
+        return [
+            cls(str(list(collection)[i]))
+            for i in range(len(collection))] \
             if collection else []
+
 
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
@@ -328,9 +332,9 @@ class LoadbalancerKM(DBBaseKM):
             lb_annotations = cls._build_annotation_dict(lb.annotations)
 
             lb_listeners = cls._build_cls_uuid_list(
-                    introspect.LbListenerUuid, lb.loadbalancer_listeners)
+                introspect.LbListenerUuid, lb.loadbalancer_listeners)
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, lb.virtual_machine_interfaces)
+                introspect.VMIUuid, lb.virtual_machine_interfaces)
 
             # Construct response for an element.
             if 'Ingress' in lb.ann_fq_name:
@@ -439,6 +443,7 @@ class LoadbalancerListenerKM(DBBaseKM):
         lbl_resp.response(req.context())
 # end class LoadbalancerListenerKM
 
+
 class LoadbalancerPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
@@ -520,6 +525,7 @@ class LoadbalancerPoolKM(DBBaseKM):
         lbp_resp.response(req.context())
 # end class LoadbalancerPoolKM
 
+
 class LoadbalancerMemberKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_member'
@@ -595,6 +601,7 @@ class LoadbalancerMemberKM(DBBaseKM):
         # Send the reply out.
         lbm_resp.response(req.context())
 # end class LoadbalancerMemberKM
+
 
 class HealthMonitorKM(DBBaseKM):
     _dict = {}
@@ -728,7 +735,7 @@ class VirtualMachineKM(DBBaseKM):
             vm_annotations = cls._build_annotation_dict(vm.annotations)
 
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, vm.virtual_machine_interfaces)
+                introspect.VMIUuid, vm.virtual_machine_interfaces)
             vr = introspect.VRUuid(vr_uuid=str(vm.virtual_router)) \
                 if vm.virtual_router else None
 
@@ -810,7 +817,7 @@ class VirtualRouterKM(DBBaseKM):
             vr_annotations = cls._build_annotation_dict(vr.annotations)
 
             vms = cls._build_cls_uuid_list(
-                    introspect.VMUuid, vr.virtual_machines)
+                introspect.VMUuid, vr.virtual_machines)
 
             # Construct response for an element.
             vr_instance = introspect.VirtualRouterInstance(
@@ -848,7 +855,6 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         self.security_groups = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
-
 
     def update(self, obj=None):
         if obj is None:
@@ -982,11 +988,11 @@ class VirtualMachineInterfaceKM(DBBaseKM):
             vmi_annotations = cls._build_annotation_dict(vmi.annotations)
 
             fips = cls._build_cls_uuid_list(
-                    introspect.FIPUuid, vmi.floating_ips)
+                introspect.FIPUuid, vmi.floating_ips)
             sgs = cls._build_cls_uuid_list(
-                    introspect.SGUuid, vmi.security_groups)
+                introspect.SGUuid, vmi.security_groups)
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, vmi.virtual_machine_interfaces)
+                introspect.VMIUuid, vmi.virtual_machine_interfaces)
 
             # Construct response for an element.
             vmi_instance = introspect.VirtualMachineInterfaceInstance(
@@ -1006,6 +1012,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
 
         # Send the reply out.
         vmi_resp.response(req.context())
+
 
 class VirtualNetworkKM(DBBaseKM):
     _dict = {}
@@ -1102,15 +1109,14 @@ class VirtualNetworkKM(DBBaseKM):
 
             ipam_subnets = [introspect.NetworkIpamSubnetInstance(
                 uuid=sub[0], fq_name=sub[1])
-                            for sub
-                            in vn.network_ipam_subnets.items()]
+                for sub in vn.network_ipam_subnets.items()]
 
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, vn.virtual_machine_interfaces)
+                introspect.VMIUuid, vn.virtual_machine_interfaces)
             iips = cls._build_cls_uuid_list(
-                    introspect.IIPUuid, vn.instance_ips)
+                introspect.IIPUuid, vn.instance_ips)
             nipams = cls._build_cls_uuid_list(
-                    introspect.NIPAMUuid, vn.network_ipams)
+                introspect.NIPAMUuid, vn.network_ipams)
 
             # Construct response for an element.
             vn_instance = introspect.VirtualNetworkInstance(
@@ -1130,6 +1136,7 @@ class VirtualNetworkKM(DBBaseKM):
 
         # Send the reply out.
         vn_resp.response(req.context())
+
 
 class InstanceIpKM(DBBaseKM):
     _dict = {}
@@ -1192,11 +1199,11 @@ class InstanceIpKM(DBBaseKM):
                 continue
 
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, iip.virtual_machine_interfaces)
+                introspect.VMIUuid, iip.virtual_machine_interfaces)
             vns = cls._build_cls_uuid_list(
-                    introspect.VNUuid, iip.virtual_networks)
+                introspect.VNUuid, iip.virtual_networks)
             fips = cls._build_cls_uuid_list(
-                    introspect.FIPUuid, iip.floating_ips)
+                introspect.FIPUuid, iip.floating_ips)
 
             # Construct response for an element.
             iip_instance = introspect.InstanceIpInstance(
@@ -1214,8 +1221,8 @@ class InstanceIpKM(DBBaseKM):
 
         # Send the reply out.
         iip_resp.response(req.context())
-
 # end class InstanceIpKM
+
 
 class ProjectKM(DBBaseKM):
     _dict = {}
@@ -1307,9 +1314,9 @@ class ProjectKM(DBBaseKM):
             ns_labels = cls._build_string_dict(project.ns_labels)
 
             sgs = cls._build_cls_uuid_list(
-                    introspect.SGUuid, project.security_groups)
+                introspect.SGUuid, project.security_groups)
             vns = cls._build_cls_uuid_list(
-                    introspect.VNUuid, project.virtual_networks)
+                introspect.VNUuid, project.virtual_networks)
 
             # Construct response for an element.
             project_instance = introspect.ProjectInstance(
@@ -1329,6 +1336,7 @@ class ProjectKM(DBBaseKM):
 
         # Send the reply out.
         project_resp.response(req.context())
+
 
 class DomainKM(DBBaseKM):
     _dict = {}
@@ -1381,6 +1389,7 @@ class DomainKM(DBBaseKM):
 
         # Send the reply out.
         domain_resp.response(req.context())
+
 
 class SecurityGroupKM(DBBaseKM):
     _dict = {}
@@ -1499,7 +1508,7 @@ class SecurityGroupKM(DBBaseKM):
                 rule_entries.append(sgre)
 
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, sg.virtual_machine_interfaces)
+                introspect.VMIUuid, sg.virtual_machine_interfaces)
 
             # Construct response for an element.
             sg_instance = introspect.SecurityGroupInstance(
@@ -1518,6 +1527,7 @@ class SecurityGroupKM(DBBaseKM):
 
         # Send the reply out.
         sg_resp.response(req.context())
+
 
 class FloatingIpPoolKM(DBBaseKM):
     _dict = {}
@@ -1567,8 +1577,8 @@ class FloatingIpPoolKM(DBBaseKM):
 
             fip_pool_subnets = []
             if hasattr(fip_pool, 'floating_ip_pool_subnets') and\
-                fip_pool.floating_ip_pool_subnets and \
-                fip_pool.floating_ip_pool_subnets.get('subnet_uuid'):
+                    fip_pool.floating_ip_pool_subnets and \
+                    fip_pool.floating_ip_pool_subnets.get('subnet_uuid'):
                 fip_pool_subnets = fip_pool.floating_ip_pool_subnets[
                     'subnet_uuid']
 
@@ -1586,6 +1596,7 @@ class FloatingIpPoolKM(DBBaseKM):
 
         # Send the reply out.
         fip_pool_resp.response(req.context())
+
 
 class FloatingIpKM(DBBaseKM):
     _dict = {}
@@ -1644,7 +1655,7 @@ class FloatingIpKM(DBBaseKM):
             fip_annotations = cls._build_annotation_dict(fip.annotations)
 
             vmis = cls._build_cls_uuid_list(
-                    introspect.VMIUuid, fip.virtual_machine_interfaces)
+                introspect.VMIUuid, fip.virtual_machine_interfaces)
 
             # Construct response for an element.
             fip_instance = introspect.FloatingIpInstance(
@@ -1663,6 +1674,7 @@ class FloatingIpKM(DBBaseKM):
         # Send the reply out.
         fip_resp.response(req.context())
 # end class FloatingIpKM
+
 
 class NetworkIpamKM(DBBaseKM):
     _dict = {}
@@ -1699,10 +1711,8 @@ class NetworkIpamKM(DBBaseKM):
 
         # Iterate through all elements of NetworkIpam DB.
         for network_ipam in NetworkIpamKM.objects():
-
             # If the request is for a specific entry, then locate the entry.
-            if req.network_ipam_uuid \
-                and req.network_ipam_uuid != network_ipam.uuid:
+            if req.network_ipam_uuid and req.network_ipam_uuid != network_ipam.uuid:
                 continue
 
             network_ipam_annotations = cls._build_annotation_dict(
@@ -1721,6 +1731,7 @@ class NetworkIpamKM(DBBaseKM):
         # Send the reply out.
         network_ipam_resp.response(req.context())
 # end class NetworkIpamKM
+
 
 class NetworkPolicyKM(DBBaseKM):
     _dict = {}
@@ -1749,6 +1760,7 @@ class NetworkPolicyKM(DBBaseKM):
             return
         del cls._dict[uuid]
 # end class NetworkPolicyKM
+
 
 class TagKM(DBBaseKM):
     _dict = {}
@@ -1780,6 +1792,7 @@ class TagKM(DBBaseKM):
         del cls._dict[uuid]
 # end class TagKM
 
+
 class PolicyManagementKM(DBBaseKM):
     _dict = {}
     obj_type = 'policy_management'
@@ -1806,6 +1819,7 @@ class PolicyManagementKM(DBBaseKM):
         super(PolicyManagementKM, cls).delete(uuid)
         del cls._dict[uuid]
 # end class PolicyManagementKM
+
 
 class ApplicationPolicySetKM(DBBaseKM):
     _dict = {}
@@ -1834,8 +1848,9 @@ class ApplicationPolicySetKM(DBBaseKM):
         # Construct a sorted list of firewall policy refs.
         if self.firewall_policy_refs:
             self.firewall_policies_sorted =\
-                sorted(self.firewall_policy_refs,
-                  key = lambda policy_ref: policy_ref['attr'].get('sequence'))
+                sorted(
+                    self.firewall_policy_refs,
+                    key=lambda policy_ref: policy_ref['attr'].get('sequence'))
         else:
             self.firewall_policies_sorted = []
         return obj
@@ -1858,8 +1873,8 @@ class ApplicationPolicySetKM(DBBaseKM):
         for policy in self.firewall_policies_sorted:
             fw_policies.append(policy.get('uuid'))
         return fw_policies
-
 # end class ApplicationPolicySetKM
+
 
 class FirewallRuleKM(DBBaseKM):
     _dict = {}
@@ -1899,6 +1914,7 @@ class FirewallRuleKM(DBBaseKM):
     def get_fq_name(self):
         return self.fq_name
 # end class FirewallRuleKM
+
 
 class FirewallPolicyKM(DBBaseKM):
     _dict = {}
@@ -1979,8 +1995,8 @@ class FirewallPolicyKM(DBBaseKM):
 
     def is_after_tail(self):
         return True if self.after_tail == 'True' else False
-
 # end class FirewallPolicyKM
+
 
 class AddressGroupKM(DBBaseKM):
     _dict = {}
@@ -2009,6 +2025,7 @@ class AddressGroupKM(DBBaseKM):
         del cls._dict[uuid]
 # end class AddressGroupKM
 
+
 class GlobalVrouterConfigKM(DBBaseKM):
     _dict = {}
     obj_type = 'global_vrouter_config'
@@ -2035,4 +2052,3 @@ class GlobalVrouterConfigKM(DBBaseKM):
         super(GlobalVrouterConfigKM, cls).delete(uuid)
         del cls._dict[uuid]
 # end class GlobalVrouterConfigKM
-

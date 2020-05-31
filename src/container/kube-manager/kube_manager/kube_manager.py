@@ -9,7 +9,6 @@ from __future__ import absolute_import
 
 from builtins import object
 import random
-import socket
 import os
 import sys
 import time
@@ -148,8 +147,8 @@ class KubeNetworkManager(object):
         if inst is None:
             return
         inst.logger.sandesh_uninit()
-        for greenlet in inst.greenlets:
-            greenlet.kill()
+        for gl in inst.greenlets:
+            gl.kill()
         inst.greenlets = []
         inst.vnc.destroy_instance()
         inst.vnc = None
@@ -277,6 +276,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
     else:  # nested mode, skip zookeeper mastership check
         run_kube_manager(km_logger, args, kube_api_skip, event_queue,
                          vnc_kubernetes_config_dict)
+
 
 if __name__ == '__main__':
     main()
