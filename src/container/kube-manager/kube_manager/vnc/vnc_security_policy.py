@@ -7,24 +7,28 @@ VNC Security Policy management for kubernetes
 """
 
 from builtins import str
-from builtins import object
+from enum import Enum
+import json
+
 from vnc_api.vnc_api import *
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
-from kube_manager.vnc.config_db import (ApplicationPolicySetKM,
+from kube_manager.vnc.config_db import (
+    ApplicationPolicySetKM,
     PolicyManagementKM)
-from enum import Enum
 from kube_manager.vnc.label_cache import XLabelCache
-from kube_manager.vnc.config_db import (FirewallPolicyKM, FirewallRuleKM,
-                                        AddressGroupKM)
+from kube_manager.vnc.config_db import (
+    FirewallPolicyKM,
+    FirewallRuleKM,
+    AddressGroupKM)
 from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.common.kube_config_db import NetworkPolicyKM
-import collections
-import json
+
 
 class FWSimpleAction(Enum):
     PASS = ActionListType(simple_action='pass')
     DENY = ActionListType(simple_action='deny')
+
 
 class FWService(object):
     @classmethod
@@ -34,6 +38,7 @@ class FWService(object):
         dst_ports = PortType(dst_start_port, dst_end_port)
         return FirewallServiceType(protocol=protocol,
                                    dst_ports=dst_ports)
+
 
 class FWRuleEndpoint(object):
     @classmethod
@@ -48,21 +53,25 @@ class FWRuleEndpoint(object):
 
         return FirewallRuleEndpointType(any=True)
 
+
 class FWDirection(Enum):
     BIDRECT = "<>"
     FROM = "<"
     TO = ">"
+
 
 class FWDefaultProtoPort(Enum):
     PROTOCOL = "any"
     START_PORT = "0"
     END_PORT = "65535"
 
+
 FWProtoMap = {
     "TCP": "tcp",
     "UDP": "udp",
     "any": "any"
 }
+
 
 class FWRule(object):
     default_policy_management_name = None
@@ -76,7 +85,7 @@ class FWRule(object):
         if not parent_obj:
             pm_obj = PolicyManagement(cls.default_policy_management_name)
             try:
-                parent_uuid = cls.vnc_lib.policy_management_create(pm_obj)
+                cls.vnc_lib.policy_management_create(pm_obj)
             except RefsExistError:
                 pass
             pm_obj = cls.vnc_lib.policy_management_read(
@@ -85,14 +94,14 @@ class FWRule(object):
         else:
             pm_obj = parent_obj
 
-        ip_prefix =  cidr.split('/')
+        ip_prefix = cidr.split('/')
         subnet_list = SubnetListType()
         subnet = SubnetType(ip_prefix=ip_prefix[0],
                             ip_prefix_len=ip_prefix[1])
         subnet_list.add_subnet(subnet)
 
         addr_grp_obj = AddressGroup(name=name, parent_obj=pm_obj,
-                                address_group_prefix=subnet_list)
+                                    address_group_prefix=subnet_list)
         try:
             addr_grp_uuid = cls.vnc_lib.address_group_create(addr_grp_obj)
         except RefsExistError:
@@ -111,9 +120,9 @@ class FWRule(object):
             # Delete the address group.
             cls.vnc_lib.address_group_delete(id=uuid)
         except RefsExistError:
-           # It is possible that this address group is shared across
-           # multiple firwall rules or even by user rules.
-           # So if ref exists, we are fine with it.
+            # It is possible that this address group is shared across
+            # multiple firwall rules or even by user rules.
+            # So if ref exists, we are fine with it.
             pass
 
     @classmethod
@@ -131,16 +140,16 @@ class FWRule(object):
         return labels
 
     @classmethod
-    def _get_tags(cls, nps_selector, namespace = None):
+    def _get_tags(cls, nps_selector, namespace=None):
         tags = []
         selector_labels_dict =\
-                    dict(nps_selector.get('matchLabels', {}))
+            dict(nps_selector.get('matchLabels', {}))
         if selector_labels_dict:
             if namespace:
                 selector_labels_dict.update(
-                         XLabelCache.get_namespace_label(namespace))
+                    XLabelCache.get_namespace_label(namespace))
             tags = VncSecurityPolicy.get_tags_fn(
-                                selector_labels_dict, True)
+                selector_labels_dict, True)
         return tags
 
     @classmethod
@@ -153,14 +162,13 @@ class FWRule(object):
 
     @classmethod
     def spec_parser(cls, from_rule, from_rule_index,
-                    rule_name_prefix, namespace = None):
+                    rule_name_prefix, namespace=None):
         ep_list = []
         ns_ps_name = None
         tags = []
         tagsns = []
         tagsps = []
         ps_or_ns = False
-
 
         if 'namespaceSelector' in from_rule:
             ps_or_ns = True
@@ -179,9 +187,9 @@ class FWRule(object):
         if ps_or_ns:
             tags = tagsns + tagsps
             rule_name = cls._create_rule_name(
-                                  rule_name_prefix,
-                                  ns_ps_name,
-                                  from_rule_index)
+                rule_name_prefix,
+                ns_ps_name,
+                from_rule_index)
             ep_list.append([rule_name,
                             FWRuleEndpoint.get(tags),
                             FWSimpleAction.PASS.value])
@@ -193,14 +201,14 @@ class FWRule(object):
             if 'except' in ip_block:
                 for except_cidr in ip_block.get('except'):
                     rule_name = '-'.join([rule_name_prefix,
-                                        name,
-                                        str(from_rule_index),
-                                        except_cidr])
+                                          name,
+                                          str(from_rule_index),
+                                          except_cidr])
                     addr_grp_obj = cls.create_address_group(name=None,
                                                             cidr=except_cidr)
                     ep_list.append([rule_name,
-                                FWRuleEndpoint.get(address_group=addr_grp_obj),
-                                FWSimpleAction.DENY.value])
+                                    FWRuleEndpoint.get(address_group=addr_grp_obj),
+                                    FWSimpleAction.DENY.value])
 
             if 'cidr' in ip_block:
                 rule_name = '-'.join([rule_name_prefix,
@@ -209,7 +217,7 @@ class FWRule(object):
                                       "cidr",
                                       ip_block.get('cidr')])
                 addr_grp_obj = cls.create_address_group(name=None,
-                                                     cidr=ip_block.get('cidr'))
+                                                        cidr=ip_block.get('cidr'))
 
                 ep_list.append([rule_name,
                                 FWRuleEndpoint.get(address_group=addr_grp_obj),
@@ -226,8 +234,8 @@ class FWRule(object):
             port_start = FWDefaultProtoPort.START_PORT.value
             port_end = FWDefaultProtoPort.END_PORT.value
             service_list.append([FWService.get(protocol,
-                                              dst_start_port=port_start,
-                                              dst_end_port=port_end)])
+                                               dst_start_port=port_start,
+                                               dst_end_port=port_end)])
         else:
             for port in ports:
                 protocol = port.get('protocol',
@@ -238,8 +246,8 @@ class FWRule(object):
                                     FWDefaultProtoPort.END_PORT.value)
 
                 service_list.append([FWService.get(FWProtoMap[protocol],
-                                                  dst_start_port=port_start,
-                                                  dst_end_port=port_end)])
+                                                   dst_start_port=port_start,
+                                                   dst_end_port=port_end)])
         return service_list
 
     @classmethod
@@ -265,17 +273,17 @@ class FWRule(object):
             if from_rules:
                 for from_rule in from_rules:
                     ep_list = cls.spec_parser(from_rule,
-                                        from_rules.index(from_rule),
-                                        rule_name, namespace)
+                                              from_rules.index(from_rule),
+                                              rule_name, namespace)
                     if ep_list:
                         ep1_list.extend(ep_list)
 
         if not ep1_list:
             ep1_list.append([
-                                '-'.join([rule_name, "allow-all"]),
-                                 FWRuleEndpoint.get(),
-                                 FWSimpleAction.PASS.value
-                            ])
+                '-'.join([rule_name, "allow-all"]),
+                FWRuleEndpoint.get(),
+                FWSimpleAction.PASS.value
+            ])
 
         service_list = cls.ports_parser(ingress)
 
@@ -283,14 +291,14 @@ class FWRule(object):
         for ep1 in ep1_list:
             for service in service_list:
                 rule_obj = FirewallRule(
-                               name='%s' % "-".join([ep1[0], str(service_list.index(service))]),
-                               parent_obj=pobj,
-                               action_list=ep1[2],
-                               service=service[0],
-                               endpoint_1=ep1[1],
-                               endpoint_2=ep2,
-                               direction=FWDirection.TO.value
-                            )
+                    name='%s' % "-".join([ep1[0], str(service_list.index(service))]),
+                    parent_obj=pobj,
+                    action_list=ep1[2],
+                    service=service[0],
+                    endpoint_1=ep1[1],
+                    endpoint_2=ep2,
+                    direction=FWDirection.TO.value
+                )
                 rule_list.append(rule_obj)
 
         return rule_list
@@ -320,18 +328,18 @@ class FWRule(object):
             if to_rules:
                 for to_rule in to_rules:
                     ep_list = cls.spec_parser(to_rule,
-                                          to_rules.index(to_rule),
-                                          rule_name, namespace)
+                                              to_rules.index(to_rule),
+                                              rule_name, namespace)
                     if ep_list:
                         ep2_list.extend(ep_list)
 
         # if no explicit spec is specified, then allow all egress.
         if not ep2_list:
             ep2_list.append([
-                                '-'.join([rule_name, "allow-all"]),
-                                 FWRuleEndpoint.get(),
-                                 FWSimpleAction.PASS.value
-                            ])
+                '-'.join([rule_name, "allow-all"]),
+                FWRuleEndpoint.get(),
+                FWSimpleAction.PASS.value
+            ])
 
         # Get port config from spec.
         service_list = cls.ports_parser(egress)
@@ -347,7 +355,7 @@ class FWRule(object):
                     endpoint_1=ep1,
                     endpoint_2=ep2[1],
                     direction=FWDirection.TO.value
-                    )
+                )
                 rule_list.append(rule_obj)
 
         return rule_list
@@ -364,8 +372,8 @@ class FWRule(object):
         action = FWSimpleAction.DENY.value
         ep1 = FWRuleEndpoint.get(tags)
         ep2 = FWRuleEndpoint.get()
-        service=FWService.get(protocol,
-                          dst_start_port=port_start, dst_end_port=port_end)
+        service = FWService.get(protocol,
+                                dst_start_port=port_start, dst_end_port=port_end)
 
         rule = FirewallRule(
             name='%s' % rule_name,
@@ -378,7 +386,6 @@ class FWRule(object):
         )
 
         return rule
-
 
     @classmethod
     def parser(cls, name, namespace, pobj, spec):
@@ -398,14 +405,15 @@ class FWRule(object):
                 ingress_spec_list = spec.get("ingress", [])
                 for ingress_spec in ingress_spec_list:
                     fw_rules +=\
-                        cls.ingress_parser(name, namespace, pobj, tags,
-                           ingress_spec, ingress_spec_list.index(ingress_spec))
+                        cls.ingress_parser(
+                            name, namespace, pobj, tags,
+                            ingress_spec, ingress_spec_list.index(ingress_spec))
 
                 # Add ingress deny-all for all other non-explicit traffic.
-                deny_all_rule_name = namespace+"-ingress-"+name+"-denyall"
+                deny_all_rule_name = namespace + "-ingress-" + name + "-denyall"
                 deny_all_rule_uuid =\
                     VncSecurityPolicy.create_firewall_rule_deny_all(
-                                                      deny_all_rule_name, tags)
+                        deny_all_rule_name, tags)
 
             if policy_type == 'Egress':
                 # Get egress spec.
@@ -420,6 +428,7 @@ class FWRule(object):
                         name, namespace, tags)
 
         return fw_rules, deny_all_rule_uuid, egress_deny_all_rule_uuid
+
 
 class VncSecurityPolicy(VncCommon):
     default_policy_management_name = 'default-policy-management'
@@ -464,7 +473,7 @@ class VncSecurityPolicy(VncCommon):
         if not parent_obj:
             pm_obj = PolicyManagement(cls.default_policy_management_name)
             try:
-                parent_uuid = cls.vnc_lib.policy_management_create(pm_obj)
+                cls.vnc_lib.policy_management_create(pm_obj)
             except RefsExistError:
                 pass
             pm_obj = cls.vnc_lib.policy_management_read(
@@ -489,10 +498,12 @@ class VncSecurityPolicy(VncCommon):
     def tag_cluster_application_policy_set(cls):
         aps_uuid = cls.cluster_aps_uuid
         aps_obj = cls.vnc_lib.application_policy_set_read(id=aps_uuid)
-        cls.vnc_security_policy_instance._labels.process(aps_uuid,
+        cls.vnc_security_policy_instance._labels.process(
+            aps_uuid,
             cls.vnc_security_policy_instance._labels.get_cluster_label(
                 vnc_kube_config.cluster_name()))
-        cls.vnc_lib.set_tags(aps_obj,
+        cls.vnc_lib.set_tags(
+            aps_obj,
             cls.vnc_security_policy_instance._labels.get_labels_dict(aps_uuid))
 
     @classmethod
@@ -533,7 +544,7 @@ class VncSecurityPolicy(VncCommon):
 
         # If this firewall policy already exists, get its uuid.
         fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(
-                             name, namespace, is_global)
+            name, namespace, is_global)
         if fw_policy_uuid:
             #
             # FW policy exists.
@@ -546,13 +557,13 @@ class VncSecurityPolicy(VncCommon):
                 if curr_fw_policy.spec and curr_fw_policy.spec != json.dumps(spec):
                     reconfigure = True
 
-                if tag_last == True and not curr_fw_policy.is_tail():
+                if tag_last and not curr_fw_policy.is_tail():
                     reconfigure = True
 
-                if tag_after_tail == True and not curr_fw_policy.is_after_tail():
+                if tag_after_tail and not curr_fw_policy.is_after_tail():
                     reconfigure = True
 
-                if reconfigure == False:
+                if not reconfigure:
                     return fw_policy_uuid
 
                 # Get the current firewall rules on this policy.
@@ -596,11 +607,11 @@ class VncSecurityPolicy(VncCommon):
                    rule_uuid in fw_rules_del_candidates:
                     fw_rules_del_candidates.remove(rule_uuid)
 
-
             rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
             FirewallRuleKM.locate(rule_uuid)
 
-            fw_policy_obj.add_firewall_rule(rule_obj,
+            fw_policy_obj.add_firewall_rule(
+                rule_obj,
                 cls.construct_sequence_number(fw_rules.index(rule)))
 
         if deny_all_rule_uuid:
@@ -660,7 +671,6 @@ class VncSecurityPolicy(VncCommon):
             # We are not aware of this firewall policy.
             return
 
-
         fw_policy = FirewallPolicyKM.locate(fw_policy_uuid)
         fw_policy_rules = fw_policy.firewall_rules
 
@@ -677,18 +687,11 @@ class VncSecurityPolicy(VncCommon):
                 fw_policy.egress_deny_all_rule_uuid)
 
         for rule_uuid in fw_policy_rules:
-            try:
-                VncSecurityPolicy.delete_firewall_rule(fw_policy_uuid,
-                                                       rule_uuid)
-            except:
-                raise
+            VncSecurityPolicy.delete_firewall_rule(fw_policy_uuid, rule_uuid)
 
         cls.remove_firewall_policy(name, namespace)
-        try:
-            cls.vnc_lib.firewall_policy_delete(id=fw_policy_uuid)
-            FirewallPolicyKM.delete(fw_policy_uuid)
-        except:
-            raise
+        cls.vnc_lib.firewall_policy_delete(id=fw_policy_uuid)
+        FirewallPolicyKM.delete(fw_policy_uuid)
 
     @classmethod
     def create_firewall_rule_allow_all(cls, rule_name, labels_dict,
@@ -720,8 +723,9 @@ class VncSecurityPolicy(VncCommon):
         action = FWSimpleAction.PASS.value
         ep1 = FWRuleEndpoint.get(src_tags)
         ep2 = FWRuleEndpoint.get(tags)
-        service=FWService.get(protocol,
-                          dst_start_port=port_start, dst_end_port=port_end)
+        service = FWService.get(
+            protocol,
+            dst_start_port=port_start, dst_end_port=port_end)
 
         rule = FirewallRule(
             name='%s' % rule_name,
@@ -738,7 +742,7 @@ class VncSecurityPolicy(VncCommon):
         except RefsExistError:
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
-        rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
+        cls.vnc_lib.firewall_rule_read(id=rule_uuid)
         FirewallRuleKM.locate(rule_uuid)
 
         return rule_uuid
@@ -765,8 +769,8 @@ class VncSecurityPolicy(VncCommon):
         action = FWSimpleAction.DENY.value
         ep1 = FWRuleEndpoint.get()
         ep2 = FWRuleEndpoint.get(tags)
-        service=FWService.get(protocol,
-                          dst_start_port=port_start, dst_end_port=port_end)
+        service = FWService.get(protocol,
+                                dst_start_port=port_start, dst_end_port=port_end)
 
         rule = FirewallRule(
             name='%s' % rule_name,
@@ -804,7 +808,7 @@ class VncSecurityPolicy(VncCommon):
             raise
 
         rule_name = "-".join([FWRule.get_egress_rule_name(name, namespace),
-                                 "default-deny-all"])
+                              "default-deny-all"])
 
         protocol = FWDefaultProtoPort.PROTOCOL.value
         port_start = FWDefaultProtoPort.START_PORT.value
@@ -812,9 +816,9 @@ class VncSecurityPolicy(VncCommon):
         action = FWSimpleAction.DENY.value
         ep1 = FWRuleEndpoint.get(tags)
         ep2 = FWRuleEndpoint.get()
-        service=FWService.get(protocol,
-                              dst_start_port=port_start,
-                              dst_end_port=port_end)
+        service = FWService.get(protocol,
+                                dst_start_port=port_start,
+                                dst_end_port=port_end)
 
         rule = FirewallRule(
             name='%s' % rule_name,
@@ -842,7 +846,7 @@ class VncSecurityPolicy(VncCommon):
             sequence = cls.construct_sequence_number(sequence_num)
             try:
                 fw_policy_obj = cls.vnc_lib.firewall_policy_read(
-                                    id=cls.deny_all_fw_policy_uuid)
+                    id=cls.deny_all_fw_policy_uuid)
             except NoIdError:
                 raise
             aps_obj.add_firewall_policy(fw_policy_obj, sequence)
@@ -852,7 +856,7 @@ class VncSecurityPolicy(VncCommon):
             sequence = cls.construct_sequence_number(sequence_num)
             try:
                 fw_policy_obj = cls.vnc_lib.firewall_policy_read(
-                                    id=cls.allow_all_fw_policy_uuid)
+                    id=cls.allow_all_fw_policy_uuid)
             except NoIdError:
                 raise
             aps_obj.add_firewall_policy(fw_policy_obj, sequence)
@@ -878,14 +882,13 @@ class VncSecurityPolicy(VncCommon):
 
         try:
             new_fw_policy_obj = cls.vnc_lib.firewall_policy_read(
-                                    id=fw_policy_uuid)
+                id=fw_policy_uuid)
         except NoIdError:
             raise
 
         tail_obj = False
         post_tail_obj = False
         last_entry_sequence = None
-        tail_k8s_obj = None
         tail_k8s_obj_sequence = None
         post_tail_k8s_obj_sequence = None
         validate_curr_seq_num = None
@@ -893,7 +896,7 @@ class VncSecurityPolicy(VncCommon):
         for fw_policy in fw_policy_refs if fw_policy_refs else []:
             try:
                 fw_policy_obj = cls.vnc_lib.firewall_policy_read(
-                                    id=fw_policy['uuid'])
+                    id=fw_policy['uuid'])
             except NoIdError:
                 # TBD Error handling.
                 pass
@@ -901,7 +904,7 @@ class VncSecurityPolicy(VncCommon):
             # If firewall policy is already found on this APS, validate that it
             # is in the expected sequence on the APS.
             if new_fw_policy_obj.get_fq_name() == fw_policy_obj.get_fq_name():
-                if append_after_tail == False and tail == False:
+                if not append_after_tail and not tail:
                     # No special sequencing requested. Nothing more to verify.
                     return
                 else:
@@ -924,14 +927,13 @@ class VncSecurityPolicy(VncCommon):
 
             # Track the sequence number of "tail" object.
             if k8s_obj and tail_obj:
-                tail_k8s_obj = fw_policy_obj
                 tail_k8s_obj_sequence = fw_policy['attr'].get_sequence()
 
             # Track the sequence number of the first K8s object after "tail".
             if k8s_obj and post_tail_obj:
                 if not post_tail_k8s_obj_sequence or\
                     cls.lhs_before_rhs(fw_policy['attr'].get_sequence(),
-                                     post_tail_k8s_obj_sequence):
+                                       post_tail_k8s_obj_sequence):
                     post_tail_k8s_obj_sequence = fw_policy['attr'].get_sequence()
 
             # Track the sequence number of last FW policy on this APS.
@@ -945,26 +947,26 @@ class VncSecurityPolicy(VncCommon):
             # The object being added is already found on the APS.
             # Validate that its position in the APS is as requested.
 
-            if append_after_tail == True and tail_k8s_obj_sequence:
+            if append_after_tail and tail_k8s_obj_sequence:
                 # If being requested to add after tail, make sure that current
                 # sequence number if after "tail" object.
                 if cls.lhs_before_rhs(tail_k8s_obj_sequence, validate_curr_seq_num):
                     return
 
-            elif tail == True and post_tail_k8s_obj_sequence:
+            elif tail and post_tail_k8s_obj_sequence:
                 # If being requested to add "tail" object, make sure that current
                 # sequence number if before all post "tail" objects.
                 if cls.lhs_before_rhs(validate_curr_seq_num, post_tail_k8s_obj_sequence):
                     return
 
             vnc_kube_config.logger().error(
-                 "%s - Validation of sequence number for existing Firewall Policy failed."
-                 " Policies will rearranged."
-                 " FWPolicy FQName[%s] Curr Seq Num [%s] append_after_tail[%s]"
-                 " tail [%s] Tail Obj Seq Num [%s] Post Tail Obj Seq Num [%s]"
-                     %(cls.name, new_fw_policy_obj.get_fq_name(), validate_curr_seq_num,
-                       str(append_after_tail), str(tail), tail_k8s_obj_sequence,
-                       post_tail_k8s_obj_sequence))
+                "%s - Validation of sequence number for existing Firewall Policy failed."
+                " Policies will rearranged."
+                " FWPolicy FQName[%s] Curr Seq Num [%s] append_after_tail[%s]"
+                " tail [%s] Tail Obj Seq Num [%s] Post Tail Obj Seq Num [%s]"
+                % (cls.name, new_fw_policy_obj.get_fq_name(), validate_curr_seq_num,
+                   str(append_after_tail), str(tail), tail_k8s_obj_sequence,
+                   post_tail_k8s_obj_sequence))
 
         #
         # Determine new the sequence number for the policy being added.
@@ -977,8 +979,8 @@ class VncSecurityPolicy(VncCommon):
                 cls.construct_sequence_number(
                     float(last_entry_sequence) + float('1.0'))
             if tail_k8s_obj_sequence:
-                tail_sequence = cls._move_trailing_firewall_policies(aps_obj,
-                                    last_k8s_fw_policy_sequence)
+                tail_sequence = cls._move_trailing_firewall_policies(
+                    aps_obj, last_k8s_fw_policy_sequence)
                 if append_after_tail:
                     sequence = cls.construct_sequence_number(
                         float(tail_sequence.get_sequence()))
@@ -1039,7 +1041,7 @@ class VncSecurityPolicy(VncCommon):
         rule_refs = fw_policy_obj.get_firewall_rule_refs()
         for rule in rule_refs if rule_refs else []:
 
-            if  fw_rule_uuid == rule['uuid']:
+            if fw_rule_uuid == rule['uuid']:
                 return
 
             if not last_entry_sequence or last_entry_sequence < rule['attr'].get_sequence():
@@ -1090,7 +1092,8 @@ class VncSecurityPolicy(VncCommon):
     def create_allow_all_security_policy(cls):
         if not cls.allow_all_fw_policy_uuid:
             allow_all_fw_policy_uuid =\
-                VncSecurityPolicy.create_firewall_policy("allowall",
+                VncSecurityPolicy.create_firewall_policy(
+                    "allowall",
                     None, None, is_global=True, tag_after_tail=True)
             VncSecurityPolicy.add_firewall_policy(allow_all_fw_policy_uuid,
                                                   append_after_tail=True)
@@ -1100,8 +1103,9 @@ class VncSecurityPolicy(VncCommon):
     def create_deny_all_security_policy(cls):
         if not cls.deny_all_fw_policy_uuid:
             deny_all_fw_policy_uuid =\
-                VncSecurityPolicy.create_firewall_policy("denyall",
-                 None, None, tag_last=True, is_global=True)
+                VncSecurityPolicy.create_firewall_policy(
+                    "denyall",
+                    None, None, tag_last=True, is_global=True)
             VncSecurityPolicy.add_firewall_policy(deny_all_fw_policy_uuid,
                                                   tail=True)
             cls.deny_all_fw_policy_uuid = deny_all_fw_policy_uuid
@@ -1183,8 +1187,8 @@ class VncSecurityPolicy(VncCommon):
                     break
 
                 vnc_kube_config.logger().error(
-                    "%s - Ingress FW Policy [%s] not the first policy on APS [%s]"\
-                     %(cls.name, cls.ingress_svc_fw_policy_uuid, aps.name))
+                    "%s - Ingress FW Policy [%s] not the first policy on APS [%s]"
+                    % (cls.name, cls.ingress_svc_fw_policy_uuid, aps.name))
                 return False
 
         # Validate that deny and allow policies of this cluster are found on
@@ -1216,14 +1220,14 @@ class VncSecurityPolicy(VncCommon):
         if not deny_all_fw_policy_index or not allow_all_fw_policy_index:
             if cls.deny_all_fw_policy_uuid and not deny_all_fw_policy_index:
                 vnc_kube_config.logger().error(
-                    "%s - deny-all FW Policy [%s] not found on APS [%s]"\
-                     %(cls.name, cls.deny_all_fw_policy_uuid, aps.name))
+                    "%s - deny-all FW Policy [%s] not found on APS [%s]"
+                    % (cls.name, cls.deny_all_fw_policy_uuid, aps.name))
 
             if cls.allow_all_fw_policy_uuid and not allow_all_fw_policy_index:
                 vnc_kube_config.logger().error(
-                    "%s - allow-all FW Policy [%s] not found (or not found"\
-                    " after deny-all policy) on APS [%s]"\
-                     %(cls.name, cls.allow_all_fw_policy_uuid, aps.name))
+                    "%s - allow-all FW Policy [%s] not found (or not found"
+                    " after deny-all policy) on APS [%s]"
+                    % (cls.name, cls.allow_all_fw_policy_uuid, aps.name))
             return False
 
         # Validation succeeded. All is well.
@@ -1248,8 +1252,8 @@ class VncSecurityPolicy(VncCommon):
         aps.update()
 
         vnc_kube_config.logger().debug(
-            "%s - Remove existing firewall policies of cluster from APS [%s]"\
-            %(cls.name, aps.name))
+            "%s - Remove existing firewall policies of cluster from APS [%s]"
+            % (cls.name, aps.name))
 
         # To begin with, remove all existing firewall policies of this cluster
         # from the APS.
@@ -1259,7 +1263,7 @@ class VncSecurityPolicy(VncCommon):
             fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
 
             # Filter out policies not owned by this cluster.
-            if fw_policy.cluster_name!= vnc_kube_config.cluster_name():
+            if fw_policy.cluster_name != vnc_kube_config.cluster_name():
                 continue
 
             # De-link the firewall policy from APS.
@@ -1288,7 +1292,7 @@ class VncSecurityPolicy(VncCommon):
             last_entry_sequence = fw_policy_refs[-1]['attr'].get_sequence()
             # Construct the next sequence number to use.
             sequence = cls.construct_sequence_number(
-                    float(last_entry_sequence) + float('1.0'))
+                float(last_entry_sequence) + float('1.0'))
 
         # Filter our infra created firewall policies.
         try:
@@ -1307,23 +1311,24 @@ class VncSecurityPolicy(VncCommon):
             pass
 
         # Reconstruct the policies in the order we want them to be.
-        add_firewall_policies = [cls.ingress_svc_fw_policy_uuid] +\
-                                removed_firewall_policies+\
-                                [cls.deny_all_fw_policy_uuid]+\
-                                [cls.allow_all_fw_policy_uuid]
+        add_firewall_policies = \
+            [cls.ingress_svc_fw_policy_uuid] +\
+            removed_firewall_policies +\
+            [cls.deny_all_fw_policy_uuid] +\
+            [cls.allow_all_fw_policy_uuid]
 
         # Attach the policies to the APS.
         for fw_policy_uuid in add_firewall_policies:
             vnc_kube_config.logger().debug(
-                "%s - Recreate  FW policy [%s] on APS [%s] at sequence [%s]"\
-                %(cls.name, fw_policy_uuid, aps.name, sequence.get_sequence()))
+                "%s - Recreate  FW policy [%s] on APS [%s] at sequence [%s]"
+                % (cls.name, fw_policy_uuid, aps.name, sequence.get_sequence()))
             try:
                 fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
             except NoIdError:
                 raise
             aps_obj.add_firewall_policy(fw_policy_obj, sequence)
             sequence = cls.construct_sequence_number(
-                    float(sequence.get_sequence()) + float('1.0'))
+                float(sequence.get_sequence()) + float('1.0'))
 
         # Update the APS.
         cls.vnc_lib.application_policy_set_update(aps_obj)
@@ -1365,11 +1370,11 @@ class VncSecurityPolicy(VncCommon):
         # policy and infra created deny-all policy.
         try:
             start_index = cluster_firewall_policies.index(
-                              cls.ingress_svc_fw_policy_uuid)
+                cls.ingress_svc_fw_policy_uuid)
             end_index = cluster_firewall_policies.index(
-                              cls.deny_all_fw_policy_uuid)
+                cls.deny_all_fw_policy_uuid)
             curr_user_firewall_policies =\
-                          cluster_firewall_policies[start_index+1:end_index]
+                cluster_firewall_policies[start_index + 1:end_index]
         except ValueError:
             return []
 
@@ -1383,7 +1388,7 @@ class VncSecurityPolicy(VncCommon):
 
             # Decipher the firewall policy corresponding to the network policy.
             fw_policy_uuid = FirewallPolicyKM.get_fq_name_to_uuid(
-                                 np.get_vnc_fq_name().split(":"))
+                np.get_vnc_fq_name().split(":"))
             if not fw_policy_uuid:
                 # We are yet to process this network policy.
                 continue

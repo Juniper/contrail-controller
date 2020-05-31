@@ -1,12 +1,12 @@
 from builtins import str
 from builtins import range
-from past.builtins import basestring
 import uuid
 
 from gevent import monkey
 from mock import MagicMock
 monkey.patch_all()
 
+from six import string_types
 from netaddr import IPNetwork, IPAddress
 
 from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
@@ -91,8 +91,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
-        subnets = [vn_subnet] if isinstance(vn_subnet,
-                                            basestring) else vn_subnet
+        subnets = [vn_subnet] if isinstance(vn_subnet, string_types) else vn_subnet
         subnet_infos = []
         for subnet in subnets:
             cidr = IPNetwork(subnet)

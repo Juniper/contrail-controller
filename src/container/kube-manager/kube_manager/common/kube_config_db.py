@@ -5,22 +5,20 @@
 """
 Database for Kubernetes objects.
 """
-from __future__ import absolute_import
-
 from builtins import str
 import json
 
 from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
-from ast import literal_eval
-from .utils import (get_vn_fq_name_from_dict_string, get_dict_from_dict_string)
-from .utils import get_fip_pool_fq_name_from_dict_string
+from kube_manager.common.utils import get_vn_fq_name_from_dict_string
+from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
+
 
 class KubeDBBase(DBBase):
     obj_type = __name__
 
     @classmethod
-    def evaluate(self):
+    def evaluate(cls):
         pass
 
     @staticmethod
@@ -46,6 +44,7 @@ class KubeDBBase(DBBase):
             return get_fip_pool_fq_name_from_dict_string(fip_pool_ann)
         return None
 
+
 #
 # Kubernetes POD Object DB.
 #
@@ -53,7 +52,7 @@ class PodKM(KubeDBBase):
     _dict = {}
     obj_type = 'Pod'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj=None):
         self.uuid = uuid
 
         # Metadata.
@@ -118,7 +117,8 @@ class PodKM(KubeDBBase):
                 continue
 
             # Construct response for an element.
-            pod_instance = introspect.PodInstance(uuid=pod.uuid, name=pod.name,
+            pod_instance = introspect.PodInstance(
+                uuid=pod.uuid, name=pod.name,
                 labels=pod.labels, nodename=pod.nodename, ip=pod.host_ip,
                 phase=pod.phase)
 
@@ -138,8 +138,8 @@ class PodKM(KubeDBBase):
                 self.pod_vn_fq_name = self.get_vn_from_annotation(
                     annotations)
             except Exception as e:
-                err_msg = "Failed to parse annotation for pod[%s].Error[%s]"%\
-                    (self.name, str(e))
+                err_msg = ("Failed to parse annotation for pod[%s].Error[%s]" %
+                           (self.name, str(e)))
                 raise Exception(err_msg)
 
         # Parse virtual network annotations.
@@ -150,7 +150,6 @@ class PodKM(KubeDBBase):
                 interfaceList = []
                 networks_list = json.loads(str(annotations[cncf_networks]))
                 networkAnnotationWhiteList = {"namespace", "name", "interface"}
-                duplicateInterfaces = False
                 for network in networks_list:
                     network_dict = {}
                     for element in network:
@@ -167,24 +166,24 @@ class PodKM(KubeDBBase):
                         interfaceList.append(network["interface"])
                     self.networks.append(network_dict)
 
-                duplicateInterfaceCount = [i for i,
-                    x in enumerate(interfaceList)
+                duplicateInterfaceCount = [
+                    i for i, x in enumerate(interfaceList)
                     if interfaceList.count(x) > 1]
                 if len(duplicateInterfaceCount) > 0:
-                    err_msg = "Interface %s is defined more than once"%\
-                        interfaceList[duplicateInterfaceCount[0]]
+                    err_msg = ("Interface %s is defined more than once" %
+                               interfaceList[duplicateInterfaceCount[0]])
                     raise Exception(err_msg)
             else:
                 networks_list = annotations[cncf_networks].split(',')
                 for network in networks_list:
                     if '/' in network:
                         ns_name, net_name = network.split('/')
-                        network_dict = {'network':net_name,
-                                        'namespace':ns_name}
+                        network_dict = {'network': net_name,
+                                        'namespace': ns_name}
                     else:
                         ns_name = self.namespace
                         net_name = network
-                        network_dict = {'network':net_name}
+                        network_dict = {'network': net_name}
                     if not NetworkKM.is_contrail_k8s_cni_nw(net_name, ns_name):
                         continue
                     self.networks.append(network_dict)
@@ -202,6 +201,7 @@ class PodKM(KubeDBBase):
                 pod_uuids.append(pod_uuid)
         return pod_uuids
 
+
 #
 # Kubernetes Namespace Object DB.
 #
@@ -209,7 +209,7 @@ class NamespaceKM(KubeDBBase):
     _dict = {}
     obj_type = 'Namespace'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj=None):
         self.uuid = uuid
 
         # Metadata.
@@ -266,8 +266,8 @@ class NamespaceKM(KubeDBBase):
                 self.annotated_vn_fq_name = self.get_vn_from_annotation(
                     annotations)
             except Exception as e:
-                err_msg = "Failed to parse annotations for namespace [%s]."\
-                " Error[%s]" % (self.name, str(e))
+                err_msg = ("Failed to parse annotations for namespace [%s]."
+                           " Error[%s]" % (self.name, str(e)))
                 raise Exception(err_msg)
 
         # Cache namespace isolation directive.
@@ -305,8 +305,8 @@ class NamespaceKM(KubeDBBase):
                 self.annotated_ns_fip_pool_fq_name = self.get_fip_pool_from_annotation(
                     annotations)
             except Exception as e:
-                err_msg = "Failed to parse annotations for fip-pool [%s]."\
-                " Error[%s]" % (self.name, str(e))
+                err_msg = ("Failed to parse annotations for fip-pool [%s]."
+                           " Error[%s]" % (self.name, str(e)))
                 raise Exception(err_msg)
 
     def _update_status(self, status):
@@ -363,9 +363,10 @@ class NamespaceKM(KubeDBBase):
                 continue
 
             # Construct response for a namespace element.
-            ns_instance = introspect.NamespaceInstance(uuid=ns.uuid,
-                            labels=ns.labels, name=ns.name,
-                            phase=ns.phase, isolated=ns.isolated)
+            ns_instance = introspect.NamespaceInstance(
+                uuid=ns.uuid,
+                labels=ns.labels, name=ns.name,
+                phase=ns.phase, isolated=ns.isolated)
 
             # Append the constructed element info to the response.
             ns_resp.namespaces.append(ns_instance)
@@ -383,11 +384,11 @@ class NamespaceKM(KubeDBBase):
         self.removed_labels = {}
         new_labels = labels if labels else {}
 
-        for k,v in new_labels.items():
+        for k, v in new_labels.items():
             if k not in self.labels or v != self.labels[k]:
                 self.added_labels[k] = v
 
-        for k,v in self.labels.items():
+        for k, v in self.labels.items():
             if k not in new_labels or v != new_labels[k]:
                 self.removed_labels[k] = v
 
@@ -397,6 +398,8 @@ class NamespaceKM(KubeDBBase):
     def get_changed_labels(self):
         """ Return labels changed by the last update. """
         return self.added_labels, self.removed_labels
+
+
 #
 # Kubernetes Service Object DB.
 #
@@ -404,7 +407,7 @@ class ServiceKM(KubeDBBase):
     _dict = {}
     obj_type = 'Service'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj=None):
         self.uuid = uuid
 
         # Metadata.
@@ -441,7 +444,7 @@ class ServiceKM(KubeDBBase):
     def _update_spec(self, spec):
         if spec is None:
             return
-        self.service_type= spec.get('type')
+        self.service_type = spec.get('type')
         self.cluster_ip = spec.get('clusterIP')
         self.ports = spec.get('ports')
 
@@ -464,7 +467,8 @@ class ServiceKM(KubeDBBase):
                 continue
 
             # Construct response for an element.
-            svc_instance = introspect.ServiceInstance(uuid=svc.uuid,
+            svc_instance = introspect.ServiceInstance(
+                uuid=svc.uuid,
                 name=svc.name, name_space=svc.namespace, labels=svc.labels,
                 cluster_ip=svc.cluster_ip, service_type=svc.service_type)
 
@@ -473,6 +477,7 @@ class ServiceKM(KubeDBBase):
 
         # Send the reply out.
         svc_resp.response(req.context())
+
 
 #
 # Kubernetes Network Policy Object DB.
@@ -487,7 +492,7 @@ class NetworkPolicyKM(KubeDBBase):
     # inconsistencies between k8s and contrail databases.
     create_sequence = []
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj=None):
         self.uuid = uuid
         # Metadata.
         self.name = None
@@ -591,7 +596,7 @@ class NetworkPolicyKM(KubeDBBase):
                                 for except_cidr in ipblock.get('except', []):
                                     except_cidr_list.append(except_cidr)
                                 np_ip_block = introspect.NetworkPolicyIpBlock(
-                                    cidr=cidr, except_cidr = except_cidr_list)
+                                    cidr=cidr, except_cidr=except_cidr_list)
 
                             from_list.append(introspect.NetworkPolicyFromRules(
                                 podSelector=np_pod_selector,
@@ -605,12 +610,12 @@ class NetworkPolicyKM(KubeDBBase):
 
                             np_port = introspect.NetworkPolicyPort(
                                 port=port.get('port').__str__(),
-                                    protocol=port.get('protocol'))
+                                protocol=port.get('protocol'))
 
                             np_port_list.append(np_port)
 
-                    np_ingress_list.append(\
-                        introspect.NetworkPolicyIngressPolicy(\
+                    np_ingress_list.append(
+                        introspect.NetworkPolicyIngressPolicy(
                             fromPolicy=from_list, ports=np_port_list))
 
             # Parse "egress" attribute.
@@ -629,7 +634,7 @@ class NetworkPolicyKM(KubeDBBase):
                                 for except_cidr in ipblock.get('except', []):
                                     except_cidr_list.append(except_cidr)
                                 np_ip_block = introspect.NetworkPolicyIpBlock(
-                                    cidr=cidr, except_cidr = except_cidr_list)
+                                    cidr=cidr, except_cidr=except_cidr_list)
 
                             to_list.append(introspect.NetworkPolicyToRules(
                                 ipBlock=np_ip_block))
@@ -640,11 +645,11 @@ class NetworkPolicyKM(KubeDBBase):
                         for port in egress.get('ports'):
                             np_port = introspect.NetworkPolicyPort(
                                 port=port.get('port').__str__(),
-                                    protocol=port.get('protocol'))
+                                protocol=port.get('protocol'))
                             np_port_list.append(np_port)
 
-                    np_egress_list.append(\
-                        introspect.NetworkPolicyEgressPolicy(\
+                    np_egress_list.append(
+                        introspect.NetworkPolicyEgressPolicy(
                             toPolicy=to_list, ports=np_port_list))
 
             # Parse "pod selector" attribute.
@@ -654,20 +659,23 @@ class NetworkPolicyKM(KubeDBBase):
                 np_pod_selector = introspect.NetworkPolicyLabelSelectors(
                     matchLabels=pod_selector.get('matchLabels'))
 
-            np_spec = introspect.NetworkPolicySpec(ingress=np_ingress_list,
-                egress = np_egress_list,
+            np_spec = introspect.NetworkPolicySpec(
+                ingress=np_ingress_list,
+                egress=np_egress_list,
                 podSelector=np_pod_selector)
 
-            np_instance = introspect.NetworkPolicyInstance(uuid=np.uuid,
+            np_instance = introspect.NetworkPolicyInstance(
+                uuid=np.uuid,
                 name=np.name, name_space=np.namespace,
                 vnc_firewall_policy_fqname=np.get_vnc_fq_name().__str__(),
-                    spec_string=np.spec.__str__(), spec=np_spec)
+                spec_string=np.spec.__str__(), spec=np_spec)
 
             # Append the constructed element info to the response.
             np_resp.network_policies.append(np_instance)
 
         # Send the reply out.
         np_resp.response(req.context())
+
 
 #
 # Kubernetes Ingress Object DB.
@@ -734,7 +742,7 @@ class IngressKM(KubeDBBase):
             rules = []
             for rule in ingress.rules:
                 ingress_rule = introspect.IngressRule(spec=[])
-                for key,value in rule.items():
+                for key, value in rule.items():
                     if key == 'host':
                         # Get host info from rule.
                         ingress_rule.host = value
@@ -771,11 +779,12 @@ class IngressKM(KubeDBBase):
         # Send the reply out.
         ingress_resp.response(req.context())
 
+
 class NetworkKM(KubeDBBase):
     _dict = {}
     obj_type = 'Network'
 
-    def __init__(self, uuid, obj = None):
+    def __init__(self, uuid, obj=None):
         self.uuid = uuid
 
         # Metadata.
@@ -818,8 +827,8 @@ class NetworkKM(KubeDBBase):
                 self.annotated_vn_fq_name = self.get_vn_from_annotation(
                     annotations)
             except Exception as e:
-                err_msg = "Failed to parse annotations for network [%s]."\
-                " Error[%s]" % (self.name, str(e))
+                err_msg = ("Failed to parse annotations for network [%s]."
+                           " Error[%s]" % (self.name, str(e)))
                 raise Exception(err_msg)
         elif 'opencontrail.org/cidr' in annotations:
             # CASE 2: Network does not exists in Contrail. The network FQ name
@@ -842,4 +851,3 @@ class NetworkKM(KubeDBBase):
             if value.name == name and value.namespace == namespace:
                 return value
         return None
-
