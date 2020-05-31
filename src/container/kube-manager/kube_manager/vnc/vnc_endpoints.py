@@ -3,12 +3,14 @@
 #
 
 """
-VNC endpoints management for kubernetes
+VNC endpoints management for kubernetes.
 """
 from __future__ import print_function
 
 
 from cfgm_common import importutils
+from cfgm_common.exceptions import NoIdError
+from vnc_api.gen.resource_client import VirtualMachine
 from kube_manager.vnc.config_db import (
     DBBaseKM, InstanceIpKM, LoadbalancerKM, LoadbalancerListenerKM,
     LoadbalancerMemberKM, LoadbalancerPoolKM, VirtualMachineInterfaceKM,
@@ -16,7 +18,6 @@ from kube_manager.vnc.config_db import (
 from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.vnc_kubernetes_config \
     import VncKubernetesConfig as vnc_kube_config
-from vnc_api.vnc_api import (NoIdError, VirtualMachine)
 from kube_manager.vnc.label_cache import XLabelCache
 
 
@@ -124,12 +125,11 @@ class VncEndpoints(VncCommon):
             if not self._args.host_network_service:
                 return
             host_vmi = self._get_vmi_from_ip(address)
-            if host_vmi == None:
+            if host_vmi is None:
                 return
             else:
                 vm = VirtualMachine(name="host", display_name="host")
                 vm.virtual_machine_interfaces = [host_vmi]
-
 
         for lb_listener_id in lb.loadbalancer_listeners:
             pool = self._get_loadbalancer_pool(lb_listener_id, port)
@@ -137,7 +137,7 @@ class VncEndpoints(VncCommon):
                 continue
 
             for vmi_id in vm.virtual_machine_interfaces:
-                if host_vmi == None:
+                if host_vmi is None:
                     vmi = VirtualMachineInterfaceKM.get(vmi_id)
                 else:
                     vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
@@ -153,7 +153,7 @@ class VncEndpoints(VncCommon):
                         ip_found = True
                         break
 
-                if ip_found == False:
+                if not ip_found:
                     continue
 
                 for member_id in pool.members:
@@ -168,17 +168,15 @@ class VncEndpoints(VncCommon):
                     member_obj = self._vnc_create_member(
                         pool, pod_id, vmi_id, port['port'])
 
-                    try:
-                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                                      id = vmi_id)
-                    except:
-                        raise
+                    vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
 
                     # Attach the service label to underlying pod vmi.
-                    self._labels.append(vmi_id,
+                    self._labels.append(
+                        vmi_id,
                         self._labels.get_service_label(lb.service_name))
                     # Set tags on the vmi.
-                    self._vnc_lib.set_tags(vmi_obj,
+                    self._vnc_lib.set_tags(
+                        vmi_obj,
                         self._labels.get_labels_dict(vmi_id))
 
                     LoadbalancerMemberKM.locate(member_obj.uuid)
@@ -201,20 +199,16 @@ class VncEndpoints(VncCommon):
                         % (pod_id, lb.name))
 
                     try:
-                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                                      id = member.vmi)
+                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=member.vmi)
 
                         # Remove service member label from vmi.
                         svc_member_label = self._labels.get_service_label(
                             lb.service_name)
-                        for k,v in svc_member_label.items():
+                        for k, v in svc_member_label.items():
                             self._vnc_lib.unset_tag(vmi_obj, k)
-
                     except NoIdError:
                         # VMI has already been deleted. Nothing to unset/remove.
                         pass
-                    except:
-                        raise
 
                     self.service_lb_member_mgr.delete(member_id)
                     LoadbalancerMemberKM.delete(member.uuid)

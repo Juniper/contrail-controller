@@ -3,27 +3,38 @@
 #
 
 """
-VNC service management for kubernetes
+VNC service management for kubernetes.
 """
 from __future__ import print_function
-from __future__ import absolute_import
 
 from builtins import str
+import json
 import uuid
 
-from vnc_api.vnc_api import *
-from .config_db import *
+from cfgm_common.exceptions import RefsExistError
+from vnc_api.gen.resource_client import (
+    Project, SecurityGroup
+)
+from vnc_api.gen.resource_xsd import (
+    AddressType, PolicyRuleType, PortType, PolicyEntriesType
+)
+
+from kube_manager.vnc.config_db import (
+    SecurityGroupKM, VirtualMachineInterfaceKM, VirtualMachineKM,
+    FirewallPolicyKM
+)
 from kube_manager.common.kube_config_db import NamespaceKM
 from kube_manager.common.kube_config_db import NetworkPolicyKM
-from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from .vnc_common import VncCommon
-from .vnc_security_policy import VncSecurityPolicy
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from kube_manager.vnc.vnc_common import VncCommon
+from kube_manager.vnc.vnc_security_policy import VncSecurityPolicy
 from kube_manager.vnc.label_cache import XLabelCache
+
 
 class VncNetworkPolicy(VncCommon):
 
     def __init__(self):
-        super(VncNetworkPolicy,self).__init__('NetworkPolicy')
+        super(VncNetworkPolicy, self).__init__('NetworkPolicy')
         self._name = type(self).__name__
         self._queue = vnc_kube_config.queue()
         self._ingress_ns_label_cache = {}
@@ -63,17 +74,17 @@ class VncNetworkPolicy(VncCommon):
                 self._default_ns_sgs[sg.namespace].update(sg_dict)
             elif sg.np_pod_selector:
                 self._update_sg_cache(self._np_pod_label_cache,
-                            sg.np_pod_selector, sg.uuid)
+                                      sg.np_pod_selector, sg.uuid)
             elif sg.ingress_pod_selector:
                 self._update_sg_cache(self._ingress_pod_label_cache,
-                            sg.ingress_pod_selector, sg.uuid)
+                                      sg.ingress_pod_selector, sg.uuid)
             if sg.np_spec:
-                #_get_ingress_rule_list update _ingress_ns_label_cache
-                self._get_ingress_rule_list(sg.np_spec,
-                            sg.namespace, sg.name, sg.uuid)
+                # _get_ingress_rule_list update _ingress_ns_label_cache
+                self._get_ingress_rule_list(
+                    sg.np_spec, sg.namespace, sg.name, sg.uuid)
 
     def _get_ns_allow_all_label(self):
-        label = {'NS-SG':'ALLOW-ALL'}
+        label = {'NS-SG': 'ALLOW-ALL'}
         return label
 
     def _find_namespaces(self, labels, ns_set=None):
@@ -81,7 +92,7 @@ class VncNetworkPolicy(VncCommon):
         for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             ns_ids = self._label_cache.ns_label_cache.get(key, set())
-            #no matching label
+            # no matching label
             if not ns_ids:
                 return ns_ids
             if not result:
@@ -98,7 +109,7 @@ class VncNetworkPolicy(VncCommon):
         for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             pod_ids = self._label_cache.pod_label_cache.get(key, set())
-            #no matching label
+            # no matching label
             if not pod_ids:
                 return pod_ids
             if not result:
@@ -115,7 +126,7 @@ class VncNetworkPolicy(VncCommon):
         for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             sg_ids = sg_cache.get(key, set())
-            #no matching label
+            # no matching label
             if not sg_ids:
                 continue
             if not result:
@@ -127,7 +138,7 @@ class VncNetworkPolicy(VncCommon):
     def _clear_sg_cache_uuid(self, sg_cache, sg_uuid):
         if not sg_uuid:
             return
-        key_list = [k for k,v in list(sg_cache.items()) if sg_uuid in v]
+        key_list = [k for k, v in list(sg_cache.items()) if sg_uuid in v]
         for key in key_list or []:
             label = tuple(key.split(':'))
             self._label_cache._remove_label(key, sg_cache, label, sg_uuid)
@@ -147,39 +158,37 @@ class VncNetworkPolicy(VncCommon):
             self._label_cache._locate_label(key, sg_cache, label, sg_uuid)
 
     def _set_sg_annotations(self, namespace, name, sg_obj, **kwargs):
-        SecurityGroupKM.add_annotations(self, sg_obj, namespace, sg_obj.name,
-            **kwargs)
-        return
+        SecurityGroupKM.add_annotations(self, sg_obj, namespace, sg_obj.name, **kwargs)
 
     def _vnc_create_sg(self, np_spec, namespace, name,
-            uuid=None, **kwargs_annotations):
+                       uuid=None, **kwargs_annotations):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(namespace)
-        proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name,
-            parent='domain')
+        proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name, parent='domain')
         sg_obj = SecurityGroup(name=name, parent_obj=proj_obj)
         if uuid:
             sg_obj.uuid = uuid
         if np_spec:
             kwargs_annotations.update({'np_spec': json.dumps(np_spec)})
-        self._set_sg_annotations(namespace, name,
-            sg_obj, **kwargs_annotations)
+        self._set_sg_annotations(namespace, name, sg_obj, **kwargs_annotations)
         try:
             self._vnc_lib.security_group_create(sg_obj)
-        except Exception as e:
-            self._logger.error("%s - %s SG Not Created" %s(self._name, name))
+        except Exception:
+            self._logger.error("%s - %s SG Not Created" % (self._name, name))
             return None
         sg = SecurityGroupKM.locate(sg_obj.uuid)
         return sg
 
     def _create_ingress_sg(self, namespace, sg_name, ingress_pod_selector):
-        sg = self._vnc_create_sg(None, namespace,
-                sg_name, ingress_pod_selector=ingress_pod_selector)
+        sg = self._vnc_create_sg(
+            None, namespace,
+            sg_name, ingress_pod_selector=ingress_pod_selector)
         return sg
 
     def _create_np_sg(self, spec, namespace, name, uuid, np_pod_selector):
         sg_name = VncCommon.make_name(name, uuid)
-        sg = self._vnc_create_sg(spec, namespace,
-                sg_name, uuid, np_pod_selector=np_pod_selector)
+        sg = self._vnc_create_sg(
+            spec, namespace,
+            sg_name, uuid, np_pod_selector=np_pod_selector)
         return sg
 
     def _get_rule_list(self, address_list, port_list, ingress=True):
@@ -231,8 +240,8 @@ class VncNetworkPolicy(VncCommon):
                 address_list.append(address)
         for label in list(labels.items()):
             key = self._label_cache._get_key(label)
-            self._label_cache._locate_label(key,
-                    self._ingress_ns_label_cache, label, np_sg_uuid)
+            self._label_cache._locate_label(
+                key, self._ingress_ns_label_cache, label, np_sg_uuid)
         return address_list
 
     def _get_ports(self, port_info=None):
@@ -258,8 +267,9 @@ class VncNetworkPolicy(VncCommon):
         ingress_rule_list = []
         ingress_acl_rules = spec.get('ingress')
         if not ingress_acl_rules or not len(ingress_acl_rules):
-            self._logger.error("%s - %s:%s Ingress Rules Not Available" \
-                %(self._name, np_sg_name, np_sg_uuid))
+            self._logger.error(
+                "%s - %s:%s Ingress Rules Not Available"
+                % (self._name, np_sg_name, np_sg_uuid))
             return ingress_rule_list
         ingress_pod_sg_index = 0
         for ingress_acl_rule in ingress_acl_rules:
@@ -303,8 +313,8 @@ class VncNetworkPolicy(VncCommon):
                         src_address = self._get_ns_address(namespace)
                     else:
                         ingress_pod_sg_index += 1
-                        src_sg_name = VncCommon.make_name(np_sg_name,
-                                    'ingress', ingress_pod_sg_index)
+                        src_sg_name = VncCommon.make_name(
+                            np_sg_name, 'ingress', ingress_pod_sg_index)
                         src_address['pod_selector'] = pod_selector_labels
                         src_address['src_sg_name'] = src_sg_name
                     src_address_list.append(src_address)
@@ -317,18 +327,20 @@ class VncNetworkPolicy(VncCommon):
         src_addr = AddressType(security_group=':'.join(src_sg_fq_name))
         dst_addr = AddressType(security_group='local')
         proto = dst_port['protocol'].lower()
-        rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                protocol=proto,
-                src_addresses=[src_addr],
-                src_ports=[PortType(0, 65535)],
-                dst_addresses=[dst_addr],
-                dst_ports=[PortType(int(dst_port['start_port']),
-                    int(dst_port['end_port']))],
-                ethertype='IPv4')
+        rule = PolicyRuleType(
+            rule_uuid=sgr_uuid, direction='>',
+            protocol=proto,
+            src_addresses=[src_addr],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[dst_addr],
+            dst_ports=[PortType(
+                int(dst_port['start_port']),
+                int(dst_port['end_port']))],
+            ethertype='IPv4')
         return rule
 
     def _update_sg_pod_link(self, namespace, pod_id,
-            sg_id, oper, validate_vm=True, validate_sg=False):
+                            sg_id, oper, validate_vm=True, validate_sg=False):
         vm = VirtualMachineKM.get(pod_id)
         if not vm or vm.owner != 'k8s':
             return
@@ -355,16 +367,20 @@ class VncNetworkPolicy(VncCommon):
             if not vmi:
                 return
             try:
-                self._logger.debug("%s - %s SG-%s Ref for Pod-%s" \
-                    %(self._name, oper, sg_id, pod_id))
-                self._vnc_lib.ref_update('virtual-machine-interface',
+                self._logger.debug(
+                    "%s - %s SG-%s Ref for Pod-%s"
+                    % (self._name, oper, sg_id, pod_id))
+                self._vnc_lib.ref_update(
+                    'virtual-machine-interface',
                     vmi_id, 'security-group', sg_id, None, oper)
             except RefsExistError:
-                self._logger.error("%s -  SG-%s Ref Exists for pod-%s" \
-                    %(self._name, sg_id, pod_id))
-            except Exception as e:
-                self._logger.error("%s - Failed to %s SG-%s Ref for pod-%s" \
-                    %(self._name, oper, sg_id, pod_id))
+                self._logger.error(
+                    "%s -  SG-%s Ref Exists for pod-%s"
+                    % (self._name, sg_id, pod_id))
+            except Exception:
+                self._logger.error(
+                    "%s - Failed to %s SG-%s Ref for pod-%s"
+                    % (self._name, oper, sg_id, pod_id))
 
     def _update_rule_uuid(self, sg_rule_set):
         for sg_rule in sg_rule_set or []:
@@ -375,7 +391,8 @@ class VncNetworkPolicy(VncCommon):
         if sg_rule_set:
             rules = PolicyEntriesType(list(sg_rule_set))
             sg_obj.set_security_group_entries(rules)
-        self._set_sg_annotations(namespace, sg.name,
+        self._set_sg_annotations(
+            namespace, sg.name,
             sg_obj, **annotations)
         self._vnc_lib.security_group_update(sg_obj)
 
@@ -399,12 +416,11 @@ class VncNetworkPolicy(VncCommon):
         self._vnc_lib.security_group_update(sg_obj)
 
     def _get_ingress_sg_rule_list(self, namespace, name,
-            ingress_rule_list, ingress_pod_sg_create=True):
+                                  ingress_rule_list, ingress_pod_sg_create=True):
         ingress_pod_sgs = set()
         ingress_ns_sgs = set()
         ingress_sg_rule_list = []
         ingress_pod_sg_dict = {}
-        ingress_pod_sg_index = 0
         for ingress_rule in ingress_rule_list or []:
             proj_fq_name = vnc_kube_config.cluster_project_fq_name(namespace)
             src_sg_fq_name = proj_fq_name[:]
@@ -418,18 +434,19 @@ class VncNetworkPolicy(VncCommon):
                     pod_sg_created = True
                 if ingress_pod_sg_create and not pod_sg_created:
                     pod_sg = self._create_ingress_sg(
-                            namespace, src_sg_name, json.dumps(pod_selector))
+                        namespace, src_sg_name, json.dumps(pod_selector))
                     if not pod_sg:
                         continue
                     ingress_pod_sg_dict[src_sg_name] = pod_sg.uuid
                     pod_sg.ingress_pod_selector = pod_selector
                     ingress_pod_sgs.add(pod_sg.uuid)
-                    self._update_sg_cache(self._ingress_pod_label_cache,
-                            pod_selector, pod_sg.uuid)
+                    self._update_sg_cache(
+                        self._ingress_pod_label_cache,
+                        pod_selector, pod_sg.uuid)
                     pod_ids = self._find_pods(pod_selector)
                     for pod_id in pod_ids:
-                        self._update_sg_pod_link(namespace,
-                            pod_id, pod_sg.uuid, 'ADD', validate_vm=True)
+                        self._update_sg_pod_link(
+                            namespace, pod_id, pod_sg.uuid, 'ADD', validate_vm=True)
                 src_sg_fq_name.append(src_sg_name)
             else:
                 if 'ns_selector' in src_address:
@@ -437,7 +454,7 @@ class VncNetworkPolicy(VncCommon):
                     ingress_ns_sgs.add(ns_sg_uuid)
                 src_sg_fq_name = src_address['security_group']
             ingress_sg_rule = self._get_ingress_sg_rule(
-                    src_sg_fq_name, dst_port)
+                src_sg_fq_name, dst_port)
             ingress_sg_rule_list.append(ingress_sg_rule)
         return ingress_sg_rule_list, ingress_pod_sgs, ingress_ns_sgs
 
@@ -450,8 +467,8 @@ class VncNetworkPolicy(VncCommon):
         labels.update(namespace_label)
         np_sg_uuid_set = self._find_sg(self._np_pod_label_cache, labels)
         ingress_sg_uuid_set = self._find_sg(
-                self._ingress_pod_label_cache, labels)
-        new_sg_uuid_set  = np_sg_uuid_set | ingress_sg_uuid_set
+            self._ingress_pod_label_cache, labels)
+        new_sg_uuid_set = np_sg_uuid_set | ingress_sg_uuid_set
 
         vmi_sg_uuid_set = set()
         for vmi_id in vm.virtual_machine_interfaces:
@@ -468,12 +485,12 @@ class VncNetworkPolicy(VncCommon):
 
         removed_sg_uuid_set = old_sg_uuid_set
         for sg_uuid in removed_sg_uuid_set or []:
-            self._update_sg_pod_link(pod_namespace,
-                    pod_id, sg_uuid, 'DELETE', validate_sg=True)
+            self._update_sg_pod_link(
+                pod_namespace, pod_id, sg_uuid, 'DELETE', validate_sg=True)
         added_sg_uuid_set = new_sg_uuid_set - old_sg_uuid_set
         for sg_uuid in added_sg_uuid_set or []:
-            self._update_sg_pod_link(pod_namespace,
-                    pod_id, sg_uuid, 'ADD', validate_sg=True)
+            self._update_sg_pod_link(
+                pod_namespace, pod_id, sg_uuid, 'ADD', validate_sg=True)
 
     def update_ns_np(self, ns_name, ns_id, labels, sg_dict):
         self._default_ns_sgs[ns_name] = sg_dict
@@ -492,11 +509,11 @@ class VncNetworkPolicy(VncCommon):
 
         ns_allow_all_label = self._get_ns_allow_all_label()
         ingress_ns_allow_all_sg_set = self._find_sg(
-                self._ingress_ns_label_cache, ns_allow_all_label)
+            self._ingress_ns_label_cache, ns_allow_all_label)
         ingress_ns_sg_uuid_set = self._find_sg(
-                self._ingress_ns_label_cache, labels)
+            self._ingress_ns_label_cache, labels)
         sg_uuid_set = set(np_sgs) | \
-                ingress_ns_allow_all_sg_set | ingress_ns_sg_uuid_set
+            ingress_ns_allow_all_sg_set | ingress_ns_sg_uuid_set
 
         for sg_uuid in sg_uuid_set or []:
             np_sg = SecurityGroupKM.get(sg_uuid)
@@ -504,22 +521,23 @@ class VncNetworkPolicy(VncCommon):
                 continue
             ingress_rule_list = \
                 self._get_ingress_rule_list(
-                        np_sg.np_spec, np_sg.namespace, np_sg.name, np_sg.uuid)
+                    np_sg.np_spec, np_sg.namespace, np_sg.name, np_sg.uuid)
             ingress_sg_rule_list, ingress_pod_sgs, \
                 ingress_ns_sgs = self._get_ingress_sg_rule_list(
-                        np_sg.namespace, np_sg.name, ingress_rule_list, False)
+                    np_sg.namespace, np_sg.name, ingress_rule_list, False)
             for ns_sg in ingress_ns_sgs or []:
                 self._update_ns_sg(ns_sg, np_sg.uuid, 'ADD')
             annotations = {}
             annotations['ingress_ns_sgs'] = json.dumps(list(ingress_ns_sgs))
             ingress_sg_rule_set = set(ingress_sg_rule_list)
             self._update_rule_uuid(ingress_sg_rule_set)
-            self._update_np_sg(np_sg.namespace, np_sg,
-                    ingress_sg_rule_set, **annotations)
+            self._update_np_sg(
+                np_sg.namespace, np_sg,
+                ingress_sg_rule_set, **annotations)
 
     def _get_np_pod_selector(self, spec):
         pod_selector = spec.get('podSelector')
-        if not pod_selector or not 'matchLabels' in pod_selector:
+        if not pod_selector or 'matchLabels' not in pod_selector:
             labels = {}
         else:
             labels = pod_selector.get('matchLabels')
@@ -529,7 +547,7 @@ class VncNetworkPolicy(VncCommon):
         """
         Add all labels referenced in the network policy to the label cache.
         """
-        all_labels =  []
+        all_labels = []
         spec = event['object']['spec']
         if spec:
             # Get pod selector labels.
@@ -543,10 +561,10 @@ class VncNetworkPolicy(VncCommon):
                     if 'namespaceSelector' in from_rule:
                         all_labels.append(
                             from_rule.get('namespaceSelector').get(
-                                'matchLabels',{}))
+                                'matchLabels', {}))
                     if 'podSelector' in from_rule:
                         all_labels.append(
-                            from_rule.get('podSelector').get('matchLabels',{}))
+                            from_rule.get('podSelector').get('matchLabels', {}))
 
             # Call label mgmt API.
             self._labels.process(np_uuid, list_curr_labels_dict=all_labels)
@@ -554,8 +572,9 @@ class VncNetworkPolicy(VncCommon):
     def vnc_network_policy_add(self, event, namespace, name, uid):
         spec = event['object']['spec']
         if not spec:
-            self._logger.error("%s - %s:%s Spec Not Found" \
-                %(self._name, name, uid))
+            self._logger.error(
+                "%s - %s:%s Spec Not Found"
+                % (self._name, name, uid))
             return
 
         fw_policy_uuid = VncSecurityPolicy.create_firewall_policy(name, namespace,
@@ -571,7 +590,8 @@ class VncNetworkPolicy(VncCommon):
     def _vnc_delete_sg(self, sg):
         for vmi_id in list(sg.virtual_machine_interfaces):
             try:
-                self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                self._vnc_lib.ref_update(
+                    'virtual-machine-interface', vmi_id,
                     'security-group', sg.uuid, None, 'DELETE')
             except Exception as e:
                 self._logger.error("Failed to detach SG %s" % str(e))
@@ -589,17 +609,17 @@ class VncNetworkPolicy(VncCommon):
         Self-create a network policy delete event.
         """
         event = {}
-        object = {}
+        object_ = {}
         event['type'] = 'DELETED'
-        object['kind'] = 'NetworkPolicy'
-        object['metadata'] = {}
+        object_['kind'] = 'NetworkPolicy'
+        object_['metadata'] = {}
 
         fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
-        object['metadata']['uid'] = fw_policy.k8s_uuid
-        object['metadata']['name'] = fw_policy.k8s_name
-        object['metadata']['namespace'] = fw_policy.k8s_namespace
+        object_['metadata']['uid'] = fw_policy.k8s_uuid
+        object_['metadata']['name'] = fw_policy.k8s_name
+        object_['metadata']['namespace'] = fw_policy.k8s_namespace
 
-        event['object'] = object
+        event['object'] = object_
         self._queue.put(event)
         return
 
@@ -610,11 +630,11 @@ class VncNetworkPolicy(VncCommon):
 
         # Validate current network policy config.
         valid = VncSecurityPolicy.validate_cluster_security_policy()
-        if valid == False:
+        if not valid:
             # Validation of current network policy config failed.
             self._logger.error(
-                "%s - Periodic validation of cluster security policy failed."\
-                " Attempting to heal."\
+                "%s - Periodic validation of cluster security policy failed."
+                " Attempting to heal."
                 % (self._name))
 
             # Attempt to heal the inconsistency in network policy config.
@@ -630,7 +650,7 @@ class VncNetworkPolicy(VncCommon):
         # are found in Contrail API.
         for fw_policy_uuid in headless_fw_policy_uuids:
             self._logger.error(
-                "%s - Generating delete event for orphaned FW policy [%s]"\
+                "%s - Generating delete event for orphaned FW policy [%s]"
                 % (self._name, fw_policy_uuid))
             self._create_network_policy_delete_event(fw_policy_uuid)
 
@@ -646,10 +666,12 @@ class VncNetworkPolicy(VncCommon):
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s:%s"
-              %(self._name, event_type, kind, namespace, name, uid))
-        self._logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self._name, event_type, kind, namespace, name, uid))
+        print(
+            "%s - Got %s %s %s:%s:%s"
+            % (self._name, event_type, kind, namespace, name, uid))
+        self._logger.debug(
+            "%s - Got %s %s %s:%s:%s"
+            % (self._name, event_type, kind, namespace, name, uid))
 
         if event['object'].get('kind') == 'NetworkPolicy':
             if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':

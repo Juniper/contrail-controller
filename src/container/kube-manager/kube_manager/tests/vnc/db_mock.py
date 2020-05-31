@@ -1,4 +1,3 @@
-from builtins import object
 from kube_manager.vnc.config_db import DBBaseKM
 
 

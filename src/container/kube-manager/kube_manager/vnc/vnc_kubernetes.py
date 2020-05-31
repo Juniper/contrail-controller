@@ -3,52 +3,51 @@
 #
 
 """
-VNC management for kubernetes
+VNC management for kubernetes.
 """
 from __future__ import print_function
-from __future__ import absolute_import
 
-from future import standard_library
-standard_library.install_aliases()
 from builtins import str
-from builtins import range
 from six import StringIO
 import gevent
 from gevent.queue import Empty
+import time
 
 import requests
-import socket
-import argparse
-import uuid
 
 from cfgm_common import importutils
-from cfgm_common import vnc_cgitb
-from cfgm_common.exceptions import *
+from cfgm_common.exceptions import ResourceExhaustionError, NoIdError, RefsExistError
+from cfgm_common.vnc_db import DBBase
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
-from vnc_api.vnc_api import *
-import kube_manager.common.args as kube_args
-from .config_db import *
-from . import db
-from . import label_cache
-from .label_cache import XLabelCache
-from .reaction_map import REACTION_MAP
-from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from .vnc_common import VncCommon
-from . import flow_aging_manager
-from pysandesh.sandesh_base import *
-from pysandesh.sandesh_logger import *
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
-          NodeTypeNames, INSTANCE_ID_DEFAULT
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from .vnc_security_policy import VncSecurityPolicy
+from vnc_api import vnc_api
+from vnc_api.gen.resource_xsd import (
+    AddressType, PortType, PolicyEntriesType, VirtualNetworkPolicyType,
+    PolicyRuleType, ActionListType, SequenceType, IpamSubnetType,
+    VirtualNetworkType, VnSubnetsType, PortTranslationPool,
+    PortTranslationPools, SubnetType, IpamSubnets
+)
+from vnc_api.gen.resource_client import (
+    NetworkPolicy, VirtualNetwork, Project, NetworkIpam
+)
 
-class VncKubernetes(VncCommon):
+import kube_manager.common.args as kube_args
+from kube_manager.vnc.config_db import (
+    DBBaseKM, ProjectKM, NetworkIpamKM, VirtualNetworkKM
+)
+from kube_manager.vnc import db
+from kube_manager.vnc import label_cache
+from kube_manager.vnc import reaction_map
+from kube_manager.vnc import vnc_common
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from kube_manager.vnc.vnc_security_policy import VncSecurityPolicy
+from kube_manager.vnc import flow_aging_manager
+
+
+class VncKubernetes(vnc_common.VncCommon):
 
     _vnc_kubernetes = None
 
@@ -67,7 +66,8 @@ class VncKubernetes(VncCommon):
         self.vnc_lib = self._vnc_connect()
 
         # Cache common config.
-        self.vnc_kube_config = vnc_kube_config(logger=self.logger,
+        self.vnc_kube_config = vnc_kube_config(
+            logger=self.logger,
             vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
 
         #
@@ -80,10 +80,11 @@ class VncKubernetes(VncCommon):
         # Note: The way to disable flow timeout is to set timeout to max
         #       possible value.
         #
-        if self.args.nested_mode is '1':
+        if self.args.nested_mode == '1':
             for cassandra_server in self.args.cassandra_server_list:
                 cassandra_port = cassandra_server.split(':')[-1]
-                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib,
                     "tcp", cassandra_port, 2147483647)
 
             if self.args.rabbit_port:
@@ -96,7 +97,8 @@ class VncKubernetes(VncCommon):
 
             for collector in self.args.collectors:
                 collector_port = collector.split(':')[-1]
-                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib,
                     "tcp", collector_port, 2147483647)
 
         # init access to db
@@ -104,7 +106,7 @@ class VncKubernetes(VncCommon):
         DBBaseKM.init(self, self.logger, self._db)
 
         # If nested mode is enabled via config, then record the directive.
-        if self.args.nested_mode is '1':
+        if self.args.nested_mode == '1':
             DBBaseKM.set_nested(True)
 
         # sync api server db in local cache
@@ -112,20 +114,21 @@ class VncKubernetes(VncCommon):
 
         # init rabbit connection
         rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
-        self.rabbit = VncAmqpHandle(self.logger._sandesh,
-                self.logger, DBBaseKM, REACTION_MAP,
-                self.args.cluster_id+'-'+self.args.cluster_name+'-'+'kube_manager',
-                rabbitmq_cfg, self.args.host_ip)
+        self.rabbit = VncAmqpHandle(
+            self.logger._sandesh,
+            self.logger, DBBaseKM, reaction_map.REACTION_MAP,
+            self.args.cluster_id + '-' + self.args.cluster_name + '-kube_manager',
+            rabbitmq_cfg, self.args.host_ip)
         self.rabbit.establish()
         self.rabbit._db_resync_done.set()
 
         # Register label add and delete callbacks with label management entity.
-        XLabelCache.register_label_add_callback(VncKubernetes.create_tags)
-        XLabelCache.register_label_delete_callback(VncKubernetes.delete_tags)
+        label_cache.XLabelCache.register_label_add_callback(VncKubernetes.create_tags)
+        label_cache.XLabelCache.register_label_delete_callback(VncKubernetes.delete_tags)
 
         # Instantiate and init Security Policy Manager.
-        self.security_policy_mgr = VncSecurityPolicy(self.vnc_lib,
-                                                     VncKubernetes.get_tags)
+        self.security_policy_mgr = VncSecurityPolicy(
+            self.vnc_lib, VncKubernetes.get_tags)
 
         # provision cluster
         self._provision_cluster()
@@ -187,7 +190,8 @@ class VncKubernetes(VncCommon):
         api_server_list = self.args.vnc_endpoint_ip.split(',')
         while not connected:
             try:
-                vnc_lib = VncApi(self.args.auth_user,
+                vnc_lib = vnc_api.VncApi(
+                    self.args.auth_user,
                     self.args.auth_password, self.args.auth_tenant,
                     api_server_list, self.args.vnc_endpoint_port,
                     auth_token_url=self.args.auth_token_url)
@@ -213,7 +217,8 @@ class VncKubernetes(VncCommon):
 
     def _attach_policy(self, vn_obj, *policies):
         for policy in policies or []:
-            vn_obj.add_network_policy(policy,
+            vn_obj.add_network_policy(
+                policy,
                 VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
         self.vnc_lib.virtual_network_update(vn_obj)
         for policy in policies or []:
@@ -222,22 +227,22 @@ class VncKubernetes(VncCommon):
     def _create_policy_entry(self, src_vn_obj, dst_vn_obj, src_np_obj=None):
         if src_vn_obj:
             src_addresses = [
-                AddressType(virtual_network = src_vn_obj.get_fq_name_str())
+                AddressType(virtual_network=src_vn_obj.get_fq_name_str())
             ]
         else:
             src_addresses = [
-                AddressType(network_policy = src_np_obj.get_fq_name_str())
+                AddressType(network_policy=src_np_obj.get_fq_name_str())
             ]
         return PolicyRuleType(
-                direction = '<>',
-                action_list = ActionListType(simple_action='pass'),
-                protocol = 'any',
-                src_addresses = src_addresses,
-                src_ports = [PortType(-1, -1)],
-                dst_addresses = [
-                    AddressType(virtual_network = dst_vn_obj.get_fq_name_str())
-                ],
-                dst_ports = [PortType(-1, -1)])
+            direction='<>',
+            action_list=ActionListType(simple_action='pass'),
+            protocol='any',
+            src_addresses=src_addresses,
+            src_ports=[PortType(-1, -1)],
+            dst_addresses=[
+                AddressType(virtual_network=dst_vn_obj.get_fq_name_str())
+            ],
+            dst_ports=[PortType(-1, -1)])
 
     def _create_vn_vn_policy(self, policy_name, proj_obj, *vn_obj):
         policy_exists = False
@@ -252,7 +257,7 @@ class VncKubernetes(VncCommon):
         network_policy_entries = PolicyEntriesType()
         total_vn = len(vn_obj)
         for i in range(0, total_vn):
-            for j in range(i+1, total_vn):
+            for j in range(i + 1, total_vn):
                 policy_entry = self._create_policy_entry(vn_obj[i], vn_obj[j])
                 network_policy_entries.add_policy_rule(policy_entry)
         policy_obj.set_network_policy_entries(network_policy_entries)
@@ -282,7 +287,8 @@ class VncKubernetes(VncCommon):
             self.vnc_lib.network_policy_create(policy)
         return policy_obj
 
-    def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj,
+    def _create_attach_policy(
+            self, proj_obj, ip_fabric_vn_obj,
             pod_vn_obj, service_vn_obj, cluster_vn_obj):
         policy_name = vnc_kube_config.cluster_name() + \
             '-default-ip-fabric-np'
@@ -294,20 +300,23 @@ class VncKubernetes(VncCommon):
             self._create_np_vn_policy(policy_name, proj_obj, service_vn_obj)
         policy_name = vnc_kube_config.cluster_name() + \
             '-default-pod-service-np'
-        cluster_default_policy = self._create_vn_vn_policy(policy_name,
+        cluster_default_policy = self._create_vn_vn_policy(
+            policy_name,
             proj_obj, pod_vn_obj, service_vn_obj)
         self._attach_policy(ip_fabric_vn_obj, ip_fabric_policy)
-        self._attach_policy(pod_vn_obj,
+        self._attach_policy(
+            pod_vn_obj,
             ip_fabric_policy, cluster_default_policy)
-        self._attach_policy(service_vn_obj, ip_fabric_policy,
+        self._attach_policy(
+            service_vn_obj, ip_fabric_policy,
             cluster_service_network_policy, cluster_default_policy)
 
         # In nested mode, create and attach a network policy to the underlay
         # virtual network.
         if DBBaseKM.is_nested() and cluster_vn_obj:
             policy_name = vnc_kube_config.cluster_nested_underlay_policy_name()
-            nested_underlay_policy = self._create_np_vn_policy(policy_name,
-                                         proj_obj, cluster_vn_obj)
+            nested_underlay_policy = self._create_np_vn_policy(
+                policy_name, proj_obj, cluster_vn_obj)
             self._attach_policy(cluster_vn_obj, nested_underlay_policy)
 
     def _create_project(self, project_name):
@@ -321,8 +330,7 @@ class VncKubernetes(VncCommon):
         ProjectKM.locate(proj_obj.uuid)
         return proj_obj
 
-    def _create_ipam(self, ipam_name, subnets, proj_obj,
-            type='flat-subnet'):
+    def _create_ipam(self, ipam_name, subnets, proj_obj, type='flat-subnet'):
         ipam_obj = NetworkIpam(name=ipam_name, parent_obj=proj_obj)
 
         ipam_subnets = []
@@ -331,8 +339,9 @@ class VncKubernetes(VncCommon):
             ipam_subnet = IpamSubnetType(subnet=SubnetType(pfx, int(pfx_len)))
             ipam_subnets.append(ipam_subnet)
         if not len(ipam_subnets):
-            self.logger.error("%s - %s subnet is empty for %s" \
-                 %(self._name, ipam_name, subnets))
+            self.logger.error(
+                "%s - %s subnet is empty for %s"
+                % (self._name, ipam_name, subnets))
 
         if type == 'flat-subnet':
             ipam_obj.set_ipam_subnet_method('flat-subnet')
@@ -364,7 +373,7 @@ class VncKubernetes(VncCommon):
                         # Subnet is specified.
                         # Validate that we are able to match subnect as well.
                         if len(ipam_ref['attr'].ipam_subnets) and \
-                            subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
+                                subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
                             return True
                     else:
                         # Subnet is not specified.
@@ -386,17 +395,17 @@ class VncKubernetes(VncCommon):
                 if count == 20:
                     return
                 time.sleep(3)
-                count+=1
+                count += 1
         port_count = 1024
         start_port = 56000
         end_port = start_port + port_count - 1
-        snat_port_range = PortType(start_port = start_port, end_port = end_port)
+        snat_port_range = PortType(start_port=start_port, end_port=end_port)
         port_pool_tcp = PortTranslationPool(
             protocol="tcp", port_range=snat_port_range)
 
         start_port = end_port + 1
         end_port = start_port + port_count - 1
-        snat_port_range = PortType(start_port = start_port, end_port = end_port)
+        snat_port_range = PortType(start_port=start_port, end_port=end_port)
         port_pool_udp = PortTranslationPool(
             protocol="udp", port_range=snat_port_range)
         port_pools = PortTranslationPools([port_pool_tcp, port_pool_udp])
@@ -463,16 +472,19 @@ class VncKubernetes(VncCommon):
         cluster_service_vn_obj = self._create_network(
             vnc_kube_config.cluster_default_service_network_name(),
             'service-network', proj_obj, service_ipam_obj, service_ipam_update)
-        self._create_attach_policy(proj_obj, ip_fabric_vn_obj,
+        self._create_attach_policy(
+            proj_obj, ip_fabric_vn_obj,
             cluster_pod_vn_obj, cluster_service_vn_obj, cluster_vn_obj)
 
-    def _create_network(self, vn_name, vn_type, proj_obj,
+    def _create_network(
+            self, vn_name, vn_type, proj_obj,
             ipam_obj, ipam_update, provider=None):
         # Check if the VN already exists.
         # If yes, update existing VN object with k8s config.
         vn_exists = False
-        vn = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
-                 address_allocation_mode='flat-subnet-only')
+        vn = VirtualNetwork(
+            name=vn_name, parent_obj=proj_obj,
+            address_allocation_mode='flat-subnet-only')
         try:
             vn_obj = self.vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
@@ -491,7 +503,7 @@ class VncKubernetes(VncCommon):
             vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
         vn_obj.set_virtual_network_properties(
-             VirtualNetworkType(forwarding_mode='l3'))
+            VirtualNetworkType(forwarding_mode='l3'))
 
         fabric_snat = False
         if vn_type == 'pod-network':
@@ -500,13 +512,13 @@ class VncKubernetes(VncCommon):
         if not vn_exists:
             if self.args.ip_fabric_forwarding:
                 if provider:
-                    #enable ip_fabric_forwarding
+                    # enable ip_fabric_forwarding
                     vn_obj.add_virtual_network(provider)
             elif fabric_snat and self.args.ip_fabric_snat:
-                #enable fabric_snat
+                # enable fabric_snat
                 vn_obj.set_fabric_snat(True)
             else:
-                #disable fabric_snat
+                # disable fabric_snat
                 vn_obj.set_fabric_snat(False)
             # Create VN.
             self.vnc_lib.virtual_network_create(vn_obj)
@@ -539,11 +551,11 @@ class VncKubernetes(VncCommon):
             self.service_mgr.service_timer()
             self.pod_mgr.pod_timer()
             self.namespace_mgr.namespace_timer()
-        except Exception as e:
+        except Exception:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
-            self.logger.error("vnc_timer: %s - %s" %(self._name, err_msg))
+            self.logger.error("vnc_timer: %s - %s" % (self._name, err_msg))
 
     def vnc_process(self):
         while True:
@@ -570,17 +582,19 @@ class VncKubernetes(VncCommon):
                 elif kind == 'NetworkAttachmentDefinition':
                     self.network_mgr.process(event)
                 else:
-                    print("%s - Event %s %s %s:%s:%s not handled"
-                        %(self._name, event_type, kind, namespace, name, uid))
-                    self.logger.error("%s - Event %s %s %s:%s:%s not handled"
-                        %(self._name, event_type, kind, namespace, name, uid))
+                    print(
+                        "%s - Event %s %s %s:%s:%s not handled"
+                        % (self._name, event_type, kind, namespace, name, uid))
+                    self.logger.error(
+                        "%s - Event %s %s %s:%s:%s not handled"
+                        % (self._name, event_type, kind, namespace, name, uid))
             except Empty:
                 gevent.sleep(0)
-            except Exception as e:
+            except Exception:
                 string_buf = StringIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
-                self.logger.error("%s - %s" %(self._name, err_msg))
+                self.logger.error("%s - %s" % (self._name, err_msg))
 
     @classmethod
     def get_instance(cls):

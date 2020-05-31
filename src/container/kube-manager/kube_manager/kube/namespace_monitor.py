@@ -3,20 +3,19 @@
 #
 
 from __future__ import print_function
-from __future__ import absolute_import
 
-import json
 import gevent
-from .kube_monitor import KubeMonitor
 from kube_manager.common.kube_config_db import NamespaceKM
+from kube_manager.kube.kube_monitor import KubeMonitor
+
 
 class NamespaceMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(NamespaceMonitor, self).__init__(args, logger, q, NamespaceKM,
-            resource_type='namespace')
+        super(NamespaceMonitor, self).__init__(
+            args, logger, q, NamespaceKM, resource_type='namespace')
         self.init_monitor()
-        self.logger.info("NamespaceMonitor init done.");
+        self.logger.info("NamespaceMonitor init done.")
 
     def get_entry_url(self, base_url, entry):
         """Get URL to an entry.
@@ -26,7 +25,7 @@ class NamespaceMonitor(KubeMonitor):
         populated for namespace entries. Once that bug is fixed, this method
         should be removed.
         """
-        return self.base_url + "/namespaces/" +  entry['metadata']['name']
+        return self.base_url + "/namespaces/" + entry['metadata']['name']
 
     def process_event(self, event):
         namespace_data = event['object']
@@ -46,10 +45,12 @@ class NamespaceMonitor(KubeMonitor):
         else:
             namespace_uuid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, name, namespace_uuid))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, name, namespace_uuid))
+        print(
+            "%s - Got %s %s %s:%s"
+            % (self.name, event_type, kind, name, namespace_uuid))
+        self.logger.debug(
+            "%s - Got %s %s %s:%s"
+            % (self.name, event_type, kind, name, namespace_uuid))
         self.q.put(event)
 
     def event_callback(self):

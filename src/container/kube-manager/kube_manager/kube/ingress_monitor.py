@@ -3,20 +3,19 @@
 #
 
 from __future__ import print_function
-from __future__ import absolute_import
 
-import json
 import gevent
-from .kube_monitor import KubeMonitor
 from kube_manager.common.kube_config_db import IngressKM
+from kube_manager.kube.kube_monitor import KubeMonitor
+
 
 class IngressMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(IngressMonitor, self).__init__(args,
-            logger, q, IngressKM, resource_type='ingress')
+        super(IngressMonitor, self).__init__(
+            args, logger, q, IngressKM, resource_type='ingress')
         self.init_monitor()
-        self.logger.info("IngressMonitor init done.");
+        self.logger.info("IngressMonitor init done.")
 
     def process_event(self, event):
         event_type = event['type']
@@ -40,10 +39,12 @@ class IngressMonitor(KubeMonitor):
         else:
             uuid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, name, uuid))
-        self.logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, name, uuid))
+        print(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, name, uuid))
+        self.logger.debug(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, name, uuid))
         self.q.put(event)
 
     def event_callback(self):
