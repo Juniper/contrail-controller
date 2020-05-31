@@ -1,24 +1,23 @@
 from builtins import str
-from builtins import range
-from past.builtins import basestring
 import uuid
 
 from gevent import monkey
 from mock import MagicMock
 monkey.patch_all()
 
+from six import string_types
 from netaddr import IPNetwork, IPAddress
 
-from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 from vnc_api.gen.resource_client import VirtualNetwork
-from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
+from vnc_api.gen.resource_xsd import (
+    IpamSubnetType, SubnetType, VnSubnetsType, KeyValuePair, KeyValuePairs
+)
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM, ServiceKM
 from kube_manager.vnc.config_db import (VirtualMachineInterfaceKM)
 from kube_manager.tests.vnc import test_case
 from kube_manager.tests.vnc.db_mock import DBBaseKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
-from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as \
-                                                    vnc_kube_config
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 TEST_NAMESPACE = 'test-namespace'
 TEST_SERVICE_NAME = 'test-service'
@@ -91,8 +90,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
-        subnets = [vn_subnet] if isinstance(vn_subnet,
-                                            basestring) else vn_subnet
+        subnets = [vn_subnet] if isinstance(vn_subnet, string_types) else vn_subnet
         subnet_infos = []
         for subnet in subnets:
             cidr = IPNetwork(subnet)
@@ -165,8 +163,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         self.enqueue_event(pod_add_event)
         return pod_uid
 
-    def _add_endpoints(self, name, namespace, pod_uids=(), host_ips=(),
-                        iip={}):
+    def _add_endpoints(self, name, namespace, pod_uids=(), host_ips=(), iip={}):
         endpoint_uid = str(uuid.uuid4())
         event = self.create_event(
             kind='Endpoints',
@@ -246,8 +243,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         self.enqueue_event(event)
         return event['object']
 
-    def _replace_pod_in_endpoints(self, endpoints, old_pod_uid, new_pod_uid,
-                                    iip={}):
+    def _replace_pod_in_endpoints(self, endpoints, old_pod_uid, new_pod_uid, iip={}):
         event = {
             'object': endpoints,
             'type': 'MODIFIED'
@@ -301,6 +297,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
                     KeyValuePair('vm', vm_uid),
                     KeyValuePair('vmi', vmi_uid)]),
                 member_annotations)
+
 
 class VncEndpointsTest(VncEndpointsTestBase):
 
@@ -545,6 +542,7 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self._delete_endpoints(endpoints)
         # No assertion here. It should just pass without error.
 
+
 class VncEndpointsNestedTest(VncEndpointsTestBase):
 
     @classmethod
@@ -682,6 +680,7 @@ class VncEndpointsNestedTest(VncEndpointsTestBase):
         self.wait_for_all_tasks_done()
 
         self._check_lb_members()
+
 
 class VncEndpointsTestScaling(VncEndpointsTestBase):
     def test_endpoints_add_scaling(self):
