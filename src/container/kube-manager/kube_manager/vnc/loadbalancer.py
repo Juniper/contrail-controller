@@ -1,24 +1,23 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
-
-from __future__ import absolute_import
+import uuid
 
 from builtins import str
 from cfgm_common import *
 from vnc_api.vnc_api import *
 from kube_manager.vnc.config_db import *
-import uuid
-from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from .vnc_common import VncCommon
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.label_cache import XLabelCache
 
 LOG = logging.getLogger(__name__)
 
+
 class ServiceLbManager(VncCommon):
 
     def __init__(self):
-        super(ServiceLbManager,self).__init__('ServiceLoadBalancer')
+        super(ServiceLbManager, self).__init__('ServiceLoadBalancer')
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
         self._labels = XLabelCache('ServiceLoadBalancer')
@@ -41,22 +40,24 @@ class ServiceLbManager(VncCommon):
             return None
         self._delete_virtual_interface(vmi_ids)
 
-    def _create_virtual_interface(self, proj_obj, vn_obj, service_ns,
-                service_name, service_id, k8s_event_type, vip_address=None,
-                subnet_uuid=None, tags=None):
+    def _create_virtual_interface(
+            self, proj_obj, vn_obj, service_ns,
+            service_name, service_id, k8s_event_type, vip_address=None,
+            subnet_uuid=None, tags=None):
         vmi_uuid = str(uuid.uuid4())
         cluster_name = vnc_kube_config.cluster_name()
         vmi_name = VncCommon.make_name(cluster_name, k8s_event_type,
-                                    service_name, service_id)
+                                       service_name, service_id)
         vmi_display_name = VncCommon.make_display_name(service_ns, service_name)
-        #Check if VMI exists, if yes, delete it.
-        vmi_obj = VirtualMachineInterface(name=vmi_name, parent_obj=proj_obj,
-                    display_name=vmi_display_name)
+        # Check if VMI exists, if yes, delete it.
+        vmi_obj = VirtualMachineInterface(
+            name=vmi_name, parent_obj=proj_obj,
+            display_name=vmi_display_name)
         try:
-            vmi_id = self._vnc_lib.fq_name_to_id('virtual-machine-interface',vmi_obj.get_fq_name())
+            vmi_id = self._vnc_lib.fq_name_to_id('virtual-machine-interface', vmi_obj.get_fq_name())
             if vmi_id:
                 self.logger.error("Duplicate LB Interface %s, delete it" %
-                                    vmi_obj.get_fq_name())
+                                  vmi_obj.get_fq_name())
                 vmi = VirtualMachineInterfaceKM.get(vmi_id)
                 iip_ids = vmi.instance_ips
                 for iip_id in list(iip_ids):
@@ -73,12 +74,13 @@ class ServiceLbManager(VncCommon):
         except NoIdError:
             pass
 
-        #Create LB VMI
+        # Create LB VMI
         vmi_obj.name = vmi_name
         vmi_obj.uuid = vmi_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
-        sg_name = "-".join([vnc_kube_config.cluster_name(),
+        sg_name = "-".join([
+            vnc_kube_config.cluster_name(),
             service_ns, 'default-sg'])
         sg_obj = SecurityGroup(sg_name, proj_obj)
         vmi_obj.add_security_group(sg_obj)
@@ -94,7 +96,8 @@ class ServiceLbManager(VncCommon):
         try:
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
         except NoIdError:
-            self.logger.warning("Read Service VMI failed for"
+            self.logger.warning(
+                "Read Service VMI failed for"
                 " service (" + service_name + ")" + " with NoIdError for vmi(" + vmi_id + ")")
             return None, None
 
@@ -102,7 +105,7 @@ class ServiceLbManager(VncCommon):
         if tags:
             self._vnc_lib.set_tags(vmi_obj, tags)
 
-        #Create InstanceIP <--- LB VMI
+        # Create InstanceIP <--- LB VMI
         iip_uuid = str(uuid.uuid4())
         iip_name = VncCommon.make_name(service_name, iip_uuid)
         iip_display_name = VncCommon.make_display_name(service_ns, service_name)
@@ -188,16 +191,18 @@ class ServiceLbManager(VncCommon):
             lb_provider = 'native'
         elif k8s_event_type == 'Ingress':
             lb_provider = 'opencontrail'
-        lb_obj = Loadbalancer(name=lb_name, parent_obj=proj_obj,
-                    loadbalancer_provider=lb_provider,
-                    display_name=lb_display_name)
+        lb_obj = Loadbalancer(
+            name=lb_name, parent_obj=proj_obj,
+            loadbalancer_provider=lb_provider,
+            display_name=lb_display_name)
 
         lb_obj.uuid = service_id
         sas_obj = self._check_provider_exists(loadbalancer_provider=lb_provider)
         if sas_obj is not None:
             lb_obj.set_service_appliance_set(sas_obj)
 
-        vmi_obj, vip_address = self._create_virtual_interface(proj_obj,
+        vmi_obj, vip_address = self._create_virtual_interface(
+            proj_obj,
             vn_obj, service_ns, service_name, service_id, k8s_event_type,
             vip_address, subnet_uuid, tags=tags)
         if vmi_obj is None:
@@ -205,11 +210,13 @@ class ServiceLbManager(VncCommon):
         lb_obj.set_virtual_machine_interface(vmi_obj)
 
         id_perms = IdPermsType(enable=True)
-        props = LoadbalancerType(provisioning_status='ACTIVE', id_perms=id_perms,
-                      operating_status='ONLINE', vip_address=vip_address)
+        props = LoadbalancerType(
+            provisioning_status='ACTIVE', id_perms=id_perms,
+            operating_status='ONLINE', vip_address=vip_address)
         lb_obj.set_loadbalancer_properties(props)
 
-        LoadbalancerKM.add_annotations(self, lb_obj, service_ns, service_name,
+        LoadbalancerKM.add_annotations(
+            self, lb_obj, service_ns, service_name,
             k8s_type=k8s_event_type)
 
         try:
@@ -218,10 +225,11 @@ class ServiceLbManager(VncCommon):
             self._vnc_lib.loadbalancer_update(lb_obj)
         return lb_obj
 
+
 class ServiceLbListenerManager(VncCommon):
 
     def __init__(self):
-        super(ServiceLbListenerManager,self).__init__('ServiceLbListener')
+        super(ServiceLbListenerManager, self).__init__('ServiceLbListener')
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
 
@@ -234,14 +242,15 @@ class ServiceLbListenerManager(VncCommon):
     def create(self, lb_obj, proj_obj, port):
 
         if not port:
-            self.logger.error("Port is Missing for LB %s" %lb_obj.name)
+            self.logger.error("Port is Missing for LB %s" % lb_obj.name)
             return None
         ll_uuid = str(uuid.uuid4())
         name = lb_obj.name + "-" + port['protocol'] + "-" + str(port['port']) + "-" + ll_uuid
 
         id_perms = IdPermsType(enable=True)
-        ll_obj = LoadbalancerListener(name, proj_obj, id_perms=id_perms,
-                                  display_name=name)
+        ll_obj = LoadbalancerListener(
+            name, proj_obj, id_perms=id_perms,
+            display_name=name)
         ll_obj.uuid = ll_uuid
 
         if lb_obj:
@@ -272,10 +281,11 @@ class ServiceLbListenerManager(VncCommon):
 
         return ll_obj
 
+
 class ServiceLbPoolManager(VncCommon):
 
     def __init__(self):
-        super(ServiceLbPoolManager,self).__init__('ServiceLbPool')
+        super(ServiceLbPoolManager, self).__init__('ServiceLbPool')
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
 
@@ -302,16 +312,17 @@ class ServiceLbPoolManager(VncCommon):
         if lb_algorithm:
             props.set_loadbalancer_method(lb_algorithm)
         id_perms = IdPermsType(enable=True)
-        pool_obj = LoadbalancerPool(ll_obj.name, proj_obj, uuid=pool_uuid,
-                                loadbalancer_pool_properties=props,
-                                id_perms=id_perms)
+        pool_obj = LoadbalancerPool(
+            ll_obj.name, proj_obj, uuid=pool_uuid,
+            loadbalancer_pool_properties=props,
+            id_perms=id_perms)
 
         if ll_obj:
             pool_exists = ll_obj.get_loadbalancer_pool_back_refs()
             if pool_exists is not None:
                 raise loadbalancerv2.OnePoolPerListener(
-                                     listener_id=p['listener_id'],
-                                     pool_id=pool_exists[0]['uuid'])
+                    listener_id=p['listener_id'],
+                    pool_id=pool_exists[0]['uuid'])
             pool_obj.set_loadbalancer_listener(ll_obj)
 
         if annotations:
@@ -324,10 +335,11 @@ class ServiceLbPoolManager(VncCommon):
 
         return pool_obj
 
+
 class ServiceLbMemberManager(VncCommon):
 
     def __init__(self):
-        super(ServiceLbMemberManager,self).__init__('ServiceLbMember')
+        super(ServiceLbMemberManager, self).__init__('ServiceLbMember')
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
 

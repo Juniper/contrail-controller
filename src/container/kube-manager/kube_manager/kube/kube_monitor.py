@@ -1,10 +1,7 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-from future import standard_library
-standard_library.install_aliases()
 from builtins import next
-from builtins import object
 import json
 import socket
 import time
@@ -13,53 +10,61 @@ from six import StringIO
 
 from cfgm_common.utils import cgitb_hook
 
+
 class KubeMonitor(object):
 
     k8s_api_resources = {
-        'pod'           : {'kind': 'Pod',
-                           'version': 'v1',
-                           'k8s_url_resource': 'pods',
-                           'group': ''},
-        'service'       : {'kind': 'Service',
-                           'version': 'v1',
-                           'k8s_url_resource': 'services',
-                           'group': 'v1'},
-        'ingress'       : {'kind': 'Ingress',
-                           'version': 'v1beta1',
-                           'k8s_url_resource': 'ingresses',
-                           'group': 'extensions'},
-        'endpoints'     : {'kind': 'Endpoints',
-                           'version': 'v1',
-                           'k8s_url_resource': 'endpoints',
-                           'group': ''},
-        'namespace'     : {'kind': 'Namespace',
-                           'version': 'v1',
-                           'k8s_url_resource': 'namespaces',
-                           'group': ''},
-        'networkpolicy' : {'kind': 'NetworkPolicy',
-                           'version': 'v1beta1',
-                           'k8s_url_resource': 'networkpolicies',
-                           'group': 'extensions'},
-        'customresourcedefinition' :
-                          {'kind': 'CustomResourceDefinition',
-                           'version': 'v1beta1',
-                           'k8s_url_resource': 'customresourcedefinitions',
-                           'group': 'apiextensions.k8s.io'},
-        'networkattachmentdefinition' :
-                          {'kind': 'NetworkAttachmentDefinition',
-                           'version': 'v1',
-                           'k8s_url_resource': 'network-attachment-definitions',
-                           'group': 'k8s.cni.cncf.io'}
+        'pod': {
+            'kind': 'Pod',
+            'version': 'v1',
+            'k8s_url_resource': 'pods',
+            'group': ''},
+        'service': {
+            'kind': 'Service',
+            'version': 'v1',
+            'k8s_url_resource': 'services',
+            'group': 'v1'},
+        'ingress': {
+            'kind': 'Ingress',
+            'version': 'v1beta1',
+            'k8s_url_resource': 'ingresses',
+            'group': 'extensions'},
+        'endpoints': {
+            'kind': 'Endpoints',
+            'version': 'v1',
+            'k8s_url_resource': 'endpoints',
+            'group': ''},
+        'namespace': {
+            'kind': 'Namespace',
+            'version': 'v1',
+            'k8s_url_resource': 'namespaces',
+            'group': ''},
+        'networkpolicy': {
+            'kind': 'NetworkPolicy',
+            'version': 'v1beta1',
+            'k8s_url_resource': 'networkpolicies',
+            'group': 'extensions'},
+        'customresourcedefinition': {
+            'kind': 'CustomResourceDefinition',
+            'version': 'v1beta1',
+            'k8s_url_resource': 'customresourcedefinitions',
+            'group': 'apiextensions.k8s.io'},
+        'networkattachmentdefinition': {
+            'kind': 'NetworkAttachmentDefinition',
+            'version': 'v1',
+            'k8s_url_resource': 'network-attachment-definitions',
+            'group': 'k8s.cni.cncf.io'}
     }
 
     def __init__(self, args=None, logger=None, q=None, db=None,
-                 resource_type='KubeMonitor',api_group=None, api_version=None):
+                 resource_type='KubeMonitor', api_group=None, api_version=None):
         self.name = type(self).__name__
         self.args = args
         self.logger = logger
         self.q = q
         self.cloud_orchestrator = self.args.orchestrator
-        self.token = self.args.token # valid only for OpenShift
+        # token valid only for OpenShift
+        self.token = self.args.token
         self.headers = {'Connection': 'Keep-Alive'}
         self.verify = False
         self.timeout = 60
@@ -97,8 +102,9 @@ class KubeMonitor(object):
 
         if (resource_type == 'KubeMonitor'):
             self.base_url = self.url + "/openapi/v2"
-            resp = requests.get(self.base_url,
-                       headers=self.headers, verify=self.verify)
+            resp = requests.get(
+                self.base_url,
+                headers=self.headers, verify=self.verify)
             if resp.status_code == 200:
                 json_data = resp.json()['definitions']
                 for key in json_data.keys():
@@ -145,7 +151,7 @@ class KubeMonitor(object):
 
                 msg = "kube_api_service is not reachable. Retry in %s secs." %\
                           (self.timeout)
-                self.logger.error("%s - %s" %(self.name, msg))
+                self.logger.error("%s - %s" % (self.name, msg))
                 time.sleep(self.timeout)
                 continue
 
@@ -226,16 +232,16 @@ class KubeMonitor(object):
                     continue
                 try:
                     # Construct the event and initiate processing.
-                    event = {'object':resp.json(), 'type':'ADDED'}
+                    event = {'object': resp.json(), 'type': 'ADDED'}
                     self.process_event(event)
                 except ValueError:
                     self.logger.error("Invalid data read from kube api server:"
                                       " %s" % (entry))
-                except Exception as e:
+                except Exception:
                     string_buf = StringIO()
                     cgitb_hook(file=string_buf, format="text")
                     err_msg = string_buf.getvalue()
-                    self.logger.error("%s - %s" %(self.name, err_msg))
+                    self.logger.error("%s - %s" % (self.name, err_msg))
 
                 resp.close()
 
@@ -260,7 +266,7 @@ class KubeMonitor(object):
             self.kube_api_resp = resp
             self.kube_api_stream_handle = resp.iter_lines(chunk_size=256,
                                                           delimiter='\n')
-            self.logger.info("%s - Watches %s" %(self.name, url))
+            self.logger.info("%s - Watches %s" % (self.name, url))
         except requests.exceptions.RequestException as e:
             self.logger.error("%s - %s" % (self.name, e))
 
@@ -304,7 +310,7 @@ class KubeMonitor(object):
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               k8s_url_resource, resource_name)
             if sub_resource_name:
-                url = "%s/%s" %(url, sub_resource_name)
+                url = "%s/%s" % (url, sub_resource_name)
 
         headers = {'Accept': 'application/json',
                    'Content-Type': 'application/strategic-merge-patch+json'}
@@ -324,8 +330,8 @@ class KubeMonitor(object):
         return resp.iter_lines(chunk_size=10, delimiter='\n')
 
     def post_resource(self, resource_type, resource_name,
-            body_params, namespace=None, sub_resource_name=None,
-            api_group=None, api_version=None):
+                      body_params, namespace=None, sub_resource_name=None,
+                      api_group=None, api_version=None):
         api_group, api_version, k8s_url_resource = \
             self._get_k8s_api_resource(resource_type, api_group, api_version)
 
@@ -336,7 +342,7 @@ class KubeMonitor(object):
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               k8s_url_resource, resource_name)
             if sub_resource_name:
-                url = "%s/%s" %(url, sub_resource_name)
+                url = "%s/%s" % (url, sub_resource_name)
 
         headers = {'Accept': 'application/json',
                    'Content-Type': 'application/json',
@@ -345,8 +351,8 @@ class KubeMonitor(object):
 
         try:
             resp = requests.post(url, headers=headers,
-                                data=json.dumps(body_params),
-                                verify=self.verify)
+                                 data=json.dumps(body_params),
+                                 verify=self.verify)
             if resp.status_code not in [200, 201]:
                 resp.close()
                 return
@@ -386,7 +392,7 @@ class KubeMonitor(object):
         except ValueError:
             self.logger.error(
                 "Invalid JSON data from response stream:%s" % line)
-        except Exception as e:
+        except Exception:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()

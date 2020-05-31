@@ -4,11 +4,11 @@
 
 from builtins import str
 from builtins import range
-from past.builtins import basestring
 from gevent import monkey
 
 monkey.patch_all()
 
+from six import string_types
 from collections import namedtuple
 from netaddr import IPNetwork, IPAddress
 import uuid
@@ -613,7 +613,7 @@ class VncServiceTest(KMTestCase):
 
     def _create_virtual_network(self, project='default',
                                 network='cluster-default-service-network'):
-        if project == 'default' :
+        if project == 'default':
             project = kube_config.VncKubernetesConfig.\
                         cluster_project_name('default')
         proj_fq_name = ['default-domain', project]
@@ -631,8 +631,7 @@ class VncServiceTest(KMTestCase):
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
-        subnets = [vn_subnet] if isinstance(vn_subnet,
-                                            basestring) else vn_subnet
+        subnets = [vn_subnet] if isinstance(vn_subnet, string_types) else vn_subnet
         subnet_infos = []
         for subnet in subnets:
             cidr = IPNetwork(subnet)

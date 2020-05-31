@@ -4,13 +4,13 @@
 
 from builtins import str
 from builtins import range
-from past.builtins import basestring
 from gevent import monkey
 
 SERVICE_PORT = 80
 
 monkey.patch_all()
 
+from six import string_types
 from collections import namedtuple
 import mock
 from netaddr import IPNetwork, IPAddress
@@ -712,8 +712,7 @@ class VncIngressTest(KMTestCase):
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
-        subnets = [vn_subnet] if isinstance(vn_subnet,
-                                            basestring) else vn_subnet
+        subnets = [vn_subnet] if isinstance(vn_subnet, string_types) else vn_subnet
         subnet_infos = []
         for subnet in subnets:
             cidr = IPNetwork(subnet)
