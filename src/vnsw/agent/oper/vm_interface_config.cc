@@ -1666,8 +1666,9 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     // Get interface UUID
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
-
+    std::cout << "VMIProcessConfig" <<std::endl;
     boost::uuids::uuid vmi_uuid = u;
+    std::cout << vmi_uuid <<std::endl;
     assert(cfg);
     // Handle object delete
     if (node->IsDeleted()) {
@@ -1726,13 +1727,14 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
                 continue;
             }
         }
-
         if (adj_node->table() == agent_->cfg()->cfg_sg_table()) {
             BuildSgList(data, adj_node);
+           std::cout << "called BuildSgList" <<std::endl;
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_tag_table()) {
             BuildTagList(&vmi_list, adj_node);
+             std::cout << "called BuildTagList" <<std::endl;
         }
 
         if (adj_node->table() == agent()->cfg()->cfg_slo_table()) {
@@ -1741,6 +1743,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
                 static_cast<autogen::SecurityLoggingObject *>(adj_node->
                                                               GetObject());
             autogen::IdPermsType id_perms = slo->id_perms();
+            std::cout << "before CfgUuidSet " <<std::endl;
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                        slo_uuid);
             data->slo_list_.push_back(slo_uuid);
@@ -1748,10 +1751,12 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
             vn_node = adj_node;
+            std::cout << "before BuildVn " <<std::endl;
             BuildVn(data, adj_node, u, &vn_list);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_qos_table()) {
+           std::cout << "before BuildQosConfig " <<std::endl;
             BuildQosConfig(data, adj_node);
         }
 
@@ -1774,8 +1779,8 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         if (adj_node->table() == agent_->cfg()->cfg_aliasip_table()) {
             BuildAliasIpList(this, data, adj_node);
         }
-
         if (adj_node->table() == agent_->cfg()->cfg_vm_port_vrf_table()) {
+            std::cout << "before BuildVrfAndServiceVlanInfo" <<std::endl;
             BuildVrfAndServiceVlanInfo(agent_, data, adj_node);
         }
 
@@ -1937,7 +1942,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     }
     UpdatePhysicalDeviceVnEntry(u, dev, data->vn_uuid_, vn_node);
     vmi_ifnode_to_req_++;
-
+    std::cout<<"VmiProcessConfig leaving"<<std::endl;
     return true;
 }
 
