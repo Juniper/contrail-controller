@@ -10,10 +10,11 @@ import time
 from six.moves.configparser import SafeConfigParser
 from vnc_api import vnc_api
 
-__version__ = "1.1"
+__version__ = "1.2"
 
 SPLIT_SIZE = 2
 UNTAGGED_ERROR_NUM = 2
+PERCENT = 100
 
 """
 NOTE: As that script is not self contained in a python package and as it
@@ -27,6 +28,9 @@ We also maintain a change log list in that header:
       VN/VLAN restrictions.
 * 1.1:
     - Added support for Keystone Auth and rbac enabled clusters
+* 1.2:
+    - Fixed bug for VPGs without any VMIs
+    - Changed info statement to debug statement for
 """
 
 
@@ -62,7 +66,7 @@ class FabricVPGValidator(object):
         self.vpg_uuids = self.vnc_lib.virtual_port_groups_list(
             fields=['annotations']
         )
-        
+
         self.validation_failures = {}
         self.across_fabric_errors = 0
         self.within_vpg_errors = 0
@@ -83,7 +87,8 @@ class FabricVPGValidator(object):
     # Function returns all annotations for a given VPG as a list
     def _get_annotations_for_vpg(self, vpg_dict):
         annotations_list = []
-        annotations_kv_pairs = vpg_dict['annotations']['key_value_pair']
+        annotations = vpg_dict.get('annotations') or {}
+        annotations_kv_pairs = annotations.get('key_value_pair') or []
         for annotations_kv_dict in annotations_kv_pairs:
             annotation_key = annotations_kv_dict['key']
             annotations_value = annotations_kv_dict['value']
@@ -288,7 +293,7 @@ class FabricVPGValidator(object):
 
         if len(local_errors) == 0:
             return
-        self._logger.info(
+        self._logger.error(
             "Validation Errors that occured in VPG due to wrong combination:")
         vnc_lib = self._get_vnc_lib()
         for existing_vmi, other_vmi, vn, vlan in local_errors:
@@ -296,7 +301,7 @@ class FabricVPGValidator(object):
                 id=existing_vmi).get_display_name()
             other_vmi_fq_name = vnc_lib.virtual_machine_interface_read(
                 id=other_vmi).get_display_name()
-            self._logger.info(
+            self._logger.error(
                 _create_error_msg(
                     vpg_key[0], vpg_key[1],
                     existing_vmi, existing_vmi_fq_name,
@@ -326,7 +331,7 @@ class FabricVPGValidator(object):
             return error_msg
         if len(local_errors) == 0:
             return
-        self._logger.info(
+        self._logger.error(
             "Validation Errors that occured due to other VPGs within fabric ")
         vnc_lib = self._get_vnc_lib()
         for vmi, other_vpg, vn, vlan in local_errors:
@@ -335,7 +340,7 @@ class FabricVPGValidator(object):
             ).get_display_name()
             other_vmi_name = vnc_lib.virtual_machine_interface_read(
                 id=other_vpg[2]).get_display_name()
-            self._logger.info(
+            self._logger.error(
                 _create_error_msg(
                     vpg_key[1], vpg_key[0],
                     vmi_fq_name, vmi,
@@ -363,7 +368,7 @@ class FabricVPGValidator(object):
 
         if len(local_errors) == 0:
             return
-        self._logger.info(
+        self._logger.error(
             "Validation Errors that occured due to" +
             "multiple Untagged VLANs")
         vnc_lib = self._get_vnc_lib()
@@ -373,7 +378,7 @@ class FabricVPGValidator(object):
             untag_vmi_fq_name = vnc_lib.virtual_machine_interface_read(
                 id=vmi_untag).get_display_name()
 
-            self._logger.info(
+            self._logger.error(
                 _create_error_msg(
                     vpg_key[0], vpg_key[1],
                     vmi_untag, untag_vmi_fq_name,
@@ -385,12 +390,12 @@ class FabricVPGValidator(object):
     def _report_validation_error_in_fabric(self):
         for vpg, errors in self.validation_failures.items():
             if all(len(error) == 0 for error_type, error in errors.items()):
-                self._logger.info(
-                    "For vpg with uuid: {0}, there were no failures".
+                self._logger.debug(
+                    "For vpg with uuid and name: {0}, there were no failures".
                     format(vpg))
             else:
                 self.invalid_vpgs += 1
-                self._logger.info(
+                self._logger.error(
                     "The following errors occured for vpg with uuid: {0}"
                     .format(vpg))
                 self._report_within_vpg_errors(errors['local_check'], vpg)
@@ -399,31 +404,31 @@ class FabricVPGValidator(object):
 
     def _report_statistics(self):
         print("\n")
-        print("Reporting Statistics:")
         if self.total_errors == 0:
-            across_percent = 0
-            within_vpg = 0
-            untagged_vlan = 0
+            self._logger.info("All VPGs are valid within Fabric :)")
         else:
+            print("Reporting Statistics:")
             across_percent =  \
-                (1.0 * self.across_fabric_errors / self.total_errors) * 100
+                (1.0 * self.across_fabric_errors / self.total_errors) * PERCENT
             within_vpg = \
-                (1.0 * self.within_vpg_errors / self.total_errors) * 100
+                (1.0 * self.within_vpg_errors / self.total_errors) * PERCENT
             untagged_vlan = \
-                (1.0 * self.untagged_vlan_errors / self.total_errors) * 100
+                (1.0 * self.untagged_vlan_errors / self.total_errors) * PERCENT
 
-        print("Percentage of errors that occur due to Across" +
-              " Fabric VN/VLAN combinations is {0}%".format(across_percent))
-        print(
-            "Percentage of errors that occur due to " +
-            "Duplicate Untagged VLANs is {0}%".
-            format(untagged_vlan))
-        print("Percentage of errors that occur due to invalid" +
-              "VN/VLAN combinations within vpgs is {0}%".format(within_vpg))
+            print("Percentage of errors that occur due to Across" +
+                  " Fabric VN/VLAN combinations is {0}%"
+                  .format(across_percent))
+            print(
+                "Percentage of errors that occur due to " +
+                "Duplicate Untagged VLANs is {0}%".
+                format(untagged_vlan))
+            print("Percentage of errors that occur due to invalid" +
+                  "VN/VLAN combinations within same vpgs is {0}%"
+                  .format(within_vpg))
 
-        invalid_percent = \
-            (1.0 * self.invalid_vpgs / self._num_total_vpgs) * 100
-        print("Invalid VPG percentage is {0}".format(invalid_percent))
+            invalid_percent = \
+                (1.0 * self.invalid_vpgs / self._num_total_vpgs) * PERCENT
+            print("Invalid VPG percentage is {0}".format(invalid_percent))
 # End of class FabricVPGValidator
 
 
