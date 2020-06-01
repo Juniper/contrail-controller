@@ -2039,7 +2039,7 @@ class DBInterface(object):
 
         sn_q_dict['gateway_ip'] = subnet_vnc.default_gateway
         if sn_q_dict['gateway_ip'] == '0.0.0.0':
-            sn_q_dict['gateway_ip'] = None
+            sn_q_dict['gateway_ip'] = 'None'
 
         alloc_obj_list = subnet_vnc.get_allocation_pools()
         allocation_pools = []
@@ -2051,7 +2051,7 @@ class DBInterface(object):
 
         if subnet_vnc.subnet:
             if allocation_pools is None or not allocation_pools:
-                if (sn_q_dict['gateway_ip'] is not None and
+                if (sn_q_dict['gateway_ip'] != 'None' and
                    (int(IPNetwork(sn_q_dict['gateway_ip']).network) ==
                     int(IPNetwork(cidr).network+1))):
                     first_ip = str(IPNetwork(cidr).network + 2)
