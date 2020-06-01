@@ -934,6 +934,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (subtype_ == PhysicalInterface::CONFIG) {
             flags |= VIF_FLAG_NATIVE_VLAN_TAG;
+            flags |= VIF_FLAG_FAB_GW_MODE;
         }
         encoder.set_vifr_name(display_name_);
 
