@@ -17,7 +17,14 @@ class VncObjectDBClient(object):
                  reset_config=False, credential=None, walk=True,
                  obj_cache_entries=0, obj_cache_exclude_types=None,
                  debug_obj_cache_types=None, connection=None,
-                 db_engine='cassandra', ssl_enabled=False, ca_certs=None):
+                 db_engine='cassandra', ssl_enabled=False, ca_certs=None,
+                 # TODO(sahid): For projects that are using
+                 # VncObjectDBClient like: kube-manager, mesos-manager
+                 # db-loader, schema_transformer, device_manager,
+                 # svc_monitor, we consider to continue using `thrift`
+                 # until we are sure they are compliant with other
+                 # drivers.
+                 cassandra_driver='thrift'):
             if db_engine == 'cassandra':
                 self._object_db = vnc_cassandra.VncCassandraClient(
                     server_list,
@@ -33,7 +40,8 @@ class VncObjectDBClient(object):
                     obj_cache_exclude_types=obj_cache_exclude_types,
                     debug_obj_cache_types=debug_obj_cache_types,
                     ssl_enabled=ssl_enabled,
-                    ca_certs=ca_certs)
+                    ca_certs=ca_certs,
+                    cassandra_driver=cassandra_driver)
             else:
                 msg = ("Contrail API server does not support database backend "
                        "'%s'" % db_engine)
