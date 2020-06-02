@@ -10,10 +10,11 @@ from builtins import str
 from builtins import range
 from builtins import object
 import copy
-import six
+import os
 
 import gevent
 from pprint import pformat
+import six
 
 from vnc_api import vnc_api
 from .exceptions import NoIdError, VncError
@@ -24,6 +25,7 @@ import datetime
 from operator import itemgetter
 from collections import OrderedDict
 from cfgm_common.datastore.drivers.cassandra_thrift import CassandraDriverThrift
+from cfgm_common.datastore.drivers.cassandra_cql import CassandraDriverCQL
 from cfgm_common.datastore import api as datastore_api
 
 
@@ -94,13 +96,26 @@ class VncCassandraClient(object):
         return db_info
     # end get_db_info
 
-    def __init__(self, server_list, **options):
+    def __init__(self, server_list, cassandra_driver, **options):
 
-        # TODO: Instantiate this driver based on if it's python2.7 (Thrift)
-        #       python 3 (CQL)
-        self._cassandra_driver = CassandraDriverThrift(server_list, **options)
+        if cassandra_driver == 'cql':
+            driverClass = CassandraDriverCQL
+        elif cassandra_driver == 'thrift':
+            driverClass = CassandraDriverThrift
+            if six.PY3:
+                raise VncError(
+                    "selected driver `{}` not supported for Python 3.".format(
+                        cassandra_driver))
+        else:
+            raise VncError(
+                "datastore driver not selected, see `cassandra_driver`.")
+
+        self._cassandra_driver = driverClass(server_list, **options)
 
         self._logger = self._cassandra_driver.options.logger
+        self._logger('VNCCassandra started with driver {}'.format(driverClass),
+                     level=SandeshLevel.SYS_INFO)
+
         self._cache_uuid_to_fq_name = {}
 
         self._obj_cache_mgr = ObjectCacheManager(
