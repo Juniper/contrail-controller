@@ -100,19 +100,35 @@ sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(sandesh_sources)
-sdist_gen = env.Command('dist/kube_manager-0.1dev.tar.gz', 'setup.py',
-                        cd_cmd + 'python setup.py sdist')
 
-env.Depends(sdist_gen, sdist_depends)
-env.Default(sdist_gen)
+
+def SymLink(target, source, env):
+    os.symlink(os.path.abspath(str(source[0])), os.path.abspath(str(target[0])))
+
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
-                              cd_cmd + 'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
-    env.Alias('install', install_cmd)
+    reqs_cmd = env.Install(env['INSTALL_SHARE'] + '/contrail/kube-manager/', 'requirements.txt')
+    env.Depends(reqs_cmd, sdist_depends)
+    env.Alias('install', reqs_cmd)
 
+    install_cmd_py2 = env.Command(None, 'setup.py',
+                                  cd_cmd + 'python2 setup.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd_py2, sdist_depends)
+    env.Alias('install', install_cmd_py2)
+
+    setup_link_cmd = env.Command("setup-py3.py", "setup.py", SymLink)
+    env.Depends(setup_link_cmd, sdist_depends)
+    install_cmd_py3 = env.Command(None, 'setup-py3.py',
+                                  cd_cmd + 'python3 setup-py3.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd_py3, sdist_depends)
+    env.Alias('install', install_cmd_py3)
+
+sdist_gen = env.Command('dist/kube_manager-0.1dev.tar.gz', 'setup.py',
+                        cd_cmd + 'python setup.py sdist')
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
 env.SetupPyTestSuite(sdist_gen,
                      '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
                      '/../noarch/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
