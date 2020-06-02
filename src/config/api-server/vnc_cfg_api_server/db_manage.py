@@ -481,6 +481,7 @@ class DatabaseManager(object):
 
         self._cassandra = VncCassandraClient(
             self._cassandra_servers,
+            cassandra_driver=self._api_args.cassandra_driver,
             db_prefix=self._api_args.cluster_id,
             rw_keyspaces=rw_keyspaces,
             ro_keyspaces=None,

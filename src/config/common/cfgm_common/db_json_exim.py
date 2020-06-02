@@ -117,7 +117,8 @@ class DatabaseExim(object):
             ssl_enabled=self._api_args.cassandra_use_ssl,
             ca_certs=self._api_args.cassandra_ca_certs,
             credential=credential,
-            walk=False)
+            walk=False,
+            cassandra_driver=self._api_args.cassandra_driver)
 
     def log(self, msg, level):
         logger.debug(msg)
