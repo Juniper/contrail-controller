@@ -3473,7 +3473,8 @@ class VncApiServer(object):
             obj_cache_exclude_types=obj_cache_exclude_types,
             debug_obj_cache_types=debug_obj_cache_types,
             cassandra_use_ssl=self._args.cassandra_use_ssl,
-            cassandra_ca_certs=self._args.cassandra_ca_certs)
+            cassandra_ca_certs=self._args.cassandra_ca_certs,
+            cassandra_driver=self._args.cassandra_driver)
 
 
         #TODO refacter db connection management.

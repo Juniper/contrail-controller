@@ -15,7 +15,7 @@ from ast import literal_eval
 import base64
 from cfgm_common import jsonutils as json
 from six.moves.configparser import SafeConfigParser
-from six import string_types
+from six import string_types, PY3
 import vnc_api.gen.resource_xsd
 from . import vnc_quota
 import cfgm_common
@@ -133,7 +133,8 @@ def parse_args(args_str):
     # cassandra options
     cassandraopts = {
         'cassandra_user'     : None,
-        'cassandra_password' : None
+        'cassandra_password' : None,
+        'cassandra_driver'   : (PY3 and 'cql' or 'thrift'),
     }
     # sandesh options
     sandeshopts = SandeshConfig.get_default_options()
@@ -182,6 +183,14 @@ def parse_args(args_str):
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
+    parser.add_argument(
+        "--cassandra_driver",
+        choices=['thrift', 'cql'],
+        help="The Cassandra's driver used. "
+        "The `trift`'s driver is *deprecated*, only supported with Python 2.  "
+        "The `cql`'s driver is supported with Python 2 and 3. `cql` is the "
+        "recommmanded driver.  Please note that Cassandra exposes different "
+        "port for `thrift` and `cql`, usualy 9160 and 9042.")
     parser.add_argument(
         "--cassandra_use_ssl", action="store_true",
         help="Enable TLS for cassandra connection")
