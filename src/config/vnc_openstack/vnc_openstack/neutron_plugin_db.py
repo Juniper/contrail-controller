@@ -49,6 +49,7 @@ from six import StringIO
 
 from vnc_openstack.utils import filter_fields
 from vnc_openstack.utils import resource_is_in_use
+from .vnc_cache import VncCache
 
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
@@ -90,6 +91,7 @@ class LocalVncApi(VncApi):
             self.api_server_routes = []
 
         self.api_server_obj = api_server_obj
+        self.vnc_cache = VncCache()
         super(LocalVncApi, self).__init__(*args, **kwargs)
     # def __init__
 
@@ -103,8 +105,21 @@ class LocalVncApi(VncApi):
             ret_item[item_key][rb] = copy.deepcopy(
                 ret_item[item_key][rb])
 
+    def _read_from_cache(self, key):
+        if self.vnc_cache.has(key):
+            return self.vnc_cache.retrieve(key)
+
+    def _store_to_cache(self, key, data):
+        self.vnc_cache.store(key, data)
+
+    def _invalidate_cache(self):
+        self.vnc_cache.clean()
+
     @use_context
     def _request(self, op, url, data=None, *args, **kwargs):
+        if op != rest.OP_GET:
+            self._invalidate_cache()
+
         # Override vnc_lib._request so that list requests can reach
         # api_server_obj methods directly instead of system call.
         # Always pass contextual user_token aka mux connection to api-server
@@ -161,13 +176,15 @@ class LocalVncApi(VncApi):
 
         try:
             status = 200
-            ret_val = None
+            ret_val = self._read_from_cache(key=url)
             ret_list = None
 
-            if len(url_parts) < 3:
-                ret_val = server_method()
-            else:
-                ret_val = server_method(url_parts[2])
+            if ret_val is None:
+                if len(url_parts) < 3:
+                    ret_val = server_method()
+                else:
+                    ret_val = server_method(url_parts[2])
+                self._store_to_cache(key=url, data=ret_val)
             # make deepcopy of ref['attr'] as from_dict will update
             # in-place and change the cached value
             try:
