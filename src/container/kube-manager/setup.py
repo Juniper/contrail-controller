@@ -4,6 +4,9 @@
 
 import re
 from setuptools import setup, find_packages
+import sys
+
+PY2 = sys.version_info.major < 3
 
 
 def requirements(filename):
@@ -35,7 +38,7 @@ setup(
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
-            'contrail-kube-manager = kube_manager.kube_manager:main',
+            'contrail-kube-manager{} = kube_manager.kube_manager:main'.format("" if PY2 else "-py3"),
         ],
     },
 )
