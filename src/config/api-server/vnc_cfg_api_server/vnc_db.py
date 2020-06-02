@@ -96,7 +96,10 @@ class VncServerCassandraClient(VncCassandraClient):
                  cassandra_credential, walk, obj_cache_entries,
                  obj_cache_exclude_types, debug_obj_cache_types,
                  log_response_time=None, ssl_enabled=False, ca_certs=None,
-                 pool_size=20):
+                 pool_size=20,
+                 # Default to None, VncCassandraClient will raise an
+                 # exception if not well configured.
+                 cassandra_driver=None):
         self._db_client_mgr = db_client_mgr
         keyspaces = datastore_api.UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -109,7 +112,7 @@ class VncServerCassandraClient(VncCassandraClient):
             obj_cache_exclude_types=obj_cache_exclude_types,
             debug_obj_cache_types=debug_obj_cache_types,
             log_response_time=log_response_time, ssl_enabled=ssl_enabled,
-            ca_certs=ca_certs)
+            ca_certs=ca_certs, cassandra_driver=cassandra_driver)
     # end __init__
 
     def config_log(self, msg, level):
@@ -999,7 +1002,7 @@ class VncDbClient(object):
                  db_prefix='', db_credential=None, obj_cache_entries=0,
                  obj_cache_exclude_types=None, debug_obj_cache_types=None,
                  db_engine='cassandra', cassandra_use_ssl=False,
-                 cassandra_ca_certs=None, **kwargs):
+                 cassandra_ca_certs=None, cassandra_driver=None, **kwargs):
         self._db_engine = db_engine
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
@@ -1054,7 +1057,8 @@ class VncDbClient(object):
                     db_credential, walk, obj_cache_entries,
                     obj_cache_exclude_types, debug_obj_cache_types,
                     self.log_cassandra_response_time,
-                    ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs)
+                    ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs,
+                    cassandra_driver=cassandra_driver)
 
             self._zk_db.master_election("/api-server-election", db_client_init)
         else:
