@@ -100,19 +100,25 @@ sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(sandesh_sources)
-sdist_gen = env.Command('dist/kube_manager-0.1dev.tar.gz', 'setup.py',
-                        cd_cmd + 'python setup.py sdist')
-
-env.Depends(sdist_gen, sdist_depends)
-env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
-                              cd_cmd + 'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
-    env.Alias('install', install_cmd)
+    # install python3 first to override entrypoint script by python2
+    # TODO: remove py2 further and pure py3
+    install_cmd_py3 = env.Command(None, 'setup.py',
+                                  cd_cmd + 'python3 setup.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd_py3, sdist_depends)
+    env.Alias('install', install_cmd_py3)
+    install_cmd_py2 = env.Command(None, 'setup.py',
+                                  cd_cmd + 'python2 setup.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd_py2, install_cmd_py3)
+    env.Alias('install', install_cmd_py2)
 
+sdist_gen = env.Command('dist/kube_manager-0.1dev.tar.gz', 'setup.py',
+                        cd_cmd + 'python setup.py sdist')
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
 env.SetupPyTestSuite(sdist_gen,
                      '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
                      '/../noarch/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
