@@ -19,6 +19,7 @@ from six.moves import configparser
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from .neutron_plugin_db import DBInterface
+from .vnc_cache import VncCache
 from cfgm_common.utils import CacheContainer
 
 @bottle.error(400)
@@ -51,6 +52,7 @@ class NeutronPluginInterface(object):
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
         self._api_server_obj = api_server_obj
+        self.vnc_cache = VncCache()
 
         try:
             exts_enabled = conf_sections.getboolean('NEUTRON',
@@ -233,17 +235,23 @@ class NeutronPluginInterface(object):
         Network get request
         """
 
-        fields = network['fields']
+        fields = sorted(network['fields'])
+
+        key, _, _ = self.vnc_cache.make_key('network', network['id'], *fields)
+        if self.vnc_cache.has(key):
+            return self.vnc_cache.retrieve(key)
 
         cfgdb = self._get_user_cfgdb(context)
         net_info = cfgdb.network_read(network['id'], fields, context)
+
+        self.vnc_cache.store(key, net_info)
         return net_info
 
     def plugin_create_network(self, context, network):
         """
         Network create request
         """
-
+        self.vnc_cache.remove_contain('network')
         cfgdb = self._get_user_cfgdb(context)
         net_info = cfgdb.network_create(network['resource'], context)
         return net_info
@@ -252,7 +260,7 @@ class NeutronPluginInterface(object):
         """
         Network update request
         """
-
+        self.vnc_cache.remove_contain(network['id'])
         cfgdb = self._get_user_cfgdb(context)
         net_info = cfgdb.network_update(network['id'],
                                         network['resource'], context)
@@ -262,7 +270,7 @@ class NeutronPluginInterface(object):
         """
         Network delete request
         """
-
+        self.vnc_cache.remove_contain('network')
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.network_delete(network['id'], context)
         LOG.debug("plugin_delete_network(): " + pformat(network['id']))
@@ -271,11 +279,24 @@ class NeutronPluginInterface(object):
         """
         Networks get request
         """
-
         filters = network['filters']
+        if filters:
+            fields = json.dumps(sorted(filters.items()))
+        else:
+            fields = ''
+
+        _, key_plural, _ = self.vnc_cache.make_key(
+            'networks',
+            context.get('tenant', context.get('tenant_id', '')),
+            fields)
+
+        if self.vnc_cache.has(key_plural):
+            return self.vnc_cache.retrieve(key_plural)
 
         cfgdb = self._get_user_cfgdb(context)
         nets_info = cfgdb.network_list(context, filters)
+
+        self.vnc_cache.store(key_plural, nets_info)
         return json.dumps(nets_info)
 
     def plugin_get_networks_count(self, context, network):
@@ -284,12 +305,25 @@ class NeutronPluginInterface(object):
         """
 
         filters = network['filters']
+        if filters:
+            fields = json.dumps(sorted(filters.items()))
+        else:
+            fields = ''
+
+        _, _, key_count = self.vnc_cache.make_key(
+            'networks',
+            context.get('tenant', context.get('tenant_id', '')),
+            fields)
+        if self.vnc_cache.has(key_count):
+            return self.vnc_cache.retrieve(key_count)
 
         cfgdb = self._get_user_cfgdb(context)
-        nets_count = cfgdb.network_count(filters, context)
+        nets_count = {'count': cfgdb.network_count(filters, context)}
         LOG.debug("plugin_get_networks_count(): filters: "
                   + pformat(filters) + " data: " + str(nets_count))
-        return {'count': nets_count}
+
+        self.vnc_cache.store(key_count, nets_count)
+        return nets_count
 
     def plugin_http_post_network(self):
         """

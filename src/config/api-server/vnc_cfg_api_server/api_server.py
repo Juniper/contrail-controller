@@ -47,7 +47,7 @@ import copy
 from pprint import pformat
 from io import StringIO
 from vnc_api.utils import AAA_MODE_VALID_VALUES
-# import GreenletProfiler
+import yappi
 from cfgm_common import vnc_cgitb
 from kazoo.exceptions import LockTimeout
 from attrdict import AttrDict
@@ -1988,7 +1988,7 @@ class VncApiServer(object):
 
         self._pipe_start_app = None
 
-        #GreenletProfiler.set_clock_type('wall')
+        yappi.set_clock_type('wall')
         self._profile_info = None
 
         for act_res in _ACTION_RESOURCES:
@@ -3177,17 +3177,18 @@ class VncApiServer(object):
     # end fetch_records
 
     def start_profile(self):
-        #GreenletProfiler.start()
-        pass
+        yappi.start(builtins=False)
     # end start_profile
 
     def stop_profile(self):
-        pass
-        #GreenletProfiler.stop()
-        #stats = GreenletProfiler.get_func_stats()
-        #self._profile_info = stats.print_all()
+        yappi.stop()
+        func_stats = yappi.get_func_stats()
+        func_stats.save('/root/contrail/perf_output.txt', type="ystat")
+        func_stats.print_all()
+        thread_stats = yappi.get_thread_stats().print_all()
+        self._profile_info = None
 
-        #return self._profile_info
+        return self._profile_info
     # end stop_profile
 
     def get_profile_info(self):

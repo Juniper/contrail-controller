@@ -49,6 +49,7 @@ from six import StringIO
 
 from vnc_openstack.utils import filter_fields
 from vnc_openstack.utils import resource_is_in_use
+from .vnc_cache import VncCache
 
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
@@ -80,6 +81,7 @@ class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
     def get_uuid(self):
         return self.uuid
 
+
 class LocalVncApi(VncApi):
     def __init__(self, api_server_obj, *args, **kwargs):
         if api_server_obj:
@@ -90,6 +92,7 @@ class LocalVncApi(VncApi):
             self.api_server_routes = []
 
         self.api_server_obj = api_server_obj
+        self.vnc_cache = VncCache()
         super(LocalVncApi, self).__init__(*args, **kwargs)
     # def __init__
 
