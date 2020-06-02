@@ -116,7 +116,8 @@ class DatabaseExim(object):
                 logger=self.log,
                 reset_config=False,
                 ssl_enabled=self._api_args.cassandra_use_ssl,
-                ca_certs=self._api_args.cassandra_ca_certs)
+                ca_certs=self._api_args.cassandra_ca_certs,
+                cassandra_driver='thrift')
         except NotFoundException:
             # in certain  multi-node setup, keyspace/CF are not ready yet when
             # we connect to them, retry later
@@ -129,7 +130,8 @@ class DatabaseExim(object):
                 logger=self.log,
                 reset_config=False,
                 ssl_enabled=self._api_args.cassandra_use_ssl,
-                ca_certs=self._api_args.cassandra_ca_certs)
+                ca_certs=self._api_args.cassandra_ca_certs,
+                cassandra_driver='thrift')
         try:
             self._get_cf = self._cassandra._cassandra_driver.get_cf
         except AttributeError:  # backward conpat before R2002
