@@ -86,12 +86,150 @@ class _CassandraFakeServerKeyspace(object):
             del self.__tables__[name]
 
 
-class _CassandraFakeServerTable(object):
+# This is adding CQL support to the server
+class _TableCQLSupport(object):
+    QueryType = collections.namedtuple('Query', (
+        'method', 'conditions', 'limit'))
+
+    def __init__(self, name):
+        # CQL driver related
+        self.cf_name = name
+
+    def prepare(self, cql):
+        query = self._parse_cql(cql)
+
+        class Prepare(object):
+
+            def __init__(self, query):
+                self.query = query
+
+            def bind(self, args):
+                self.args = args
+                for idx, condition in enumerate(self.query.conditions):
+                    # Apply bindings
+                    condition['value'] = args[idx]
+                return self
+
+        return Prepare(query)
+
+    def add_insert(self, key, cql, args):
+        return self.execute(self.prepare(cql).bind(args))
+
+    def add_remove(self, key, cql, args):
+        return self.execute(self.prepare(cql).bind(args))
+
+    def execute_async(self, prepare, args=None):
+        exc = self.execute
+
+        class Future(object):
+            def result(self):
+                return exc(prepare, args)
+        return Future()
+
+    def execute(self, prepare, args=None):
+        if args is not None:
+            return self.execute(self.prepare(prepare).bind(args))
+        query = prepare.query
+        if query.method == "insert":
+            return self.insert(
+                key=prepare.args[0],
+                col_dict={prepare.args[1]: prepare.args[2]})
+        elif query.method == "remove":
+            columns = None
+            if len(prepare.args) > 1:
+                columns = [prepare.args[1]]
+            return self.remove(key=prepare.args[0], columns=columns)
+
+        args = {}
+        if query.conditions:
+            for condition in query.conditions:
+                if condition["key"] == "key":
+                    args["key"] = condition["value"]
+                elif condition["operator"] == ">=":
+                    args["column_start"] = condition["value"]
+                elif condition["operator"] == "<=":
+                    args["column_finish"] = condition["value"]
+                if query.limit:
+                    args["column_count"] = query.limit
+            if query.method == "get":
+                args["include_timestamp"] = True
+                try:
+                    return [(c, v[0], v[1])
+                            for c, v in self.get(**args).items()]
+                except NotFoundException:
+                    return []
+            elif query.method == "get_count":
+
+                class Result(object):
+
+                    def __init__(self, result):
+                        self.result = result
+
+                    def one(self):
+                        return self.result
+
+                return Result([self.get_count(**args)])
+        else:
+            # Not an insert or a remove, and without condition, should
+            # be a get_range.
+            def generator():
+                args["include_timestamp"] = True
+                for key, col_dict in self.get_range(**args):
+                    for column, value in col_dict.items():
+                        yield key, column, value[0], value[1]
+            return generator()
+
+    def _parse_cql(self, cql):
+        limit, conditions = None, []
+
+        def cql_select(it):
+            while it:
+                curr = next(it).strip()
+                if curr.upper().startswith("FROM"):
+                    return "get"
+                if curr.upper().startswith("COUNT"):
+                    return "get_count"
+
+        def cql_from(it):
+            return next(it).strip('"')
+
+        def cql_condition(it):
+            return {'key': next(it),
+                    'operator': next(it),
+                    'value': next(it)}
+
+        def cql_limit(it):
+            return int(next(it))
+
+        it = iter(cql.split())
+        while it:
+            try:
+                curr = next(it).strip()
+            except StopIteration:
+                break
+
+            if "SELECT" in curr.upper():
+                method = cql_select(it)
+            if "INSERT" in curr.upper():
+                method = "insert"
+            if "DELETE" in curr.upper():
+                method = "remove"
+            if "WHERE" in curr.upper() or "AND" in curr.upper():
+                conditions.append(cql_condition(it))
+            if "LIMIT" in curr.upper():
+                limit = cql_from(it)
+
+        return self.QueryType(method, conditions, limit)
+
+
+class _CassandraFakeServerTable(_TableCQLSupport):
 
     ColumnFamilyDefType = collections.namedtuple(
         'ColumnFamilyDef', 'keyspace')
 
     def __init__(self, keyspace, name):
+        super(_CassandraFakeServerTable, self).__init__(name)
+
         self.keyspace = keyspace
         self.name = name
 
