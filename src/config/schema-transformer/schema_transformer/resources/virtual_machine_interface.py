@@ -161,6 +161,15 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         ri.virtual_machine_interfaces.discard(self.name)
     # end delete_routing_instance
 
+    def clean_routing_instance(self, si_name):
+        for ri_name in self.routing_instances.keys():
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
+            if ri and len(ri.virtual_machine_interfaces) > 1 and \
+                    getattr(ri.service_chain_info, 'service_instance',
+                            None) == si_name:
+                self.delete_routing_instance(ri)
+
     def get_virtual_machine_or_port_tuple(self):
         if self.port_tuples:
             pt_list = [ResourceBaseST.get_obj_type_map().get(
