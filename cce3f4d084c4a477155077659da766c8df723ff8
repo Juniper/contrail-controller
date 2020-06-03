@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "decba4f1_d904479f",
+        "filename": "src/config/utils/fabric_vpg_validator.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 90,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-03T16:28:23Z",
+      "side": 1,
+      "message": "I\u0027d suggest to use get on dict keys\nannotations \u003d vpg_dict.get(\u0027annotations\u0027) or {}\nkv_pairs \u003d annotations.get(\u0027key_value_pair\u0027) or []",
+      "revId": "cce3f4d084c4a477155077659da766c8df723ff8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
