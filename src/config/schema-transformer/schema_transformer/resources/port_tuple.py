@@ -25,6 +25,12 @@ class PortTupleST(ResourceBaseST):
     # end update
 
     def delete_obj(self):
+        if self.service_instance:
+            for vmi_ref in self.obj.get_virtual_machine_interface_back_refs() or []:
+                vmi_fq_name = ':'.join(vmi_ref['to'])
+                vmi = ResourceBaseST.get_obj_type_map().get(
+                    'virtual_machine_interface').get(vmi_fq_name)
+                vmi.clean_routing_instance(self.service_instance)
         self.update_multiple_refs('virtual_machine_interface', {})
         self.remove_from_parent()
     # end delete_obj
