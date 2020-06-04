@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a98cc4b7_ba8d51ac",
+        "filename": "src/config/schema-transformer/test-requirements.txt",
+        "patchSetId": 21
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-06-04T09:16:28Z",
+      "side": 1,
+      "message": "can you please point me where it\u0027s needed?",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
