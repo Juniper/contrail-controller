@@ -236,7 +236,8 @@ class AnsibleRoleCommon(AnsibleConf):
                     is_master_int_vn = lr.is_master
                     if is_internal_vn:
                         # set description only for interval VN/VRF
-                        ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
+                        ri.set_description("__contrail_%s_%s" % (
+                            DMUtils.sanitize_name(lr.name), lr_uuid))
 
             ri.set_is_master(is_master_int_vn)
 

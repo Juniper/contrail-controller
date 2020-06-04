@@ -93,7 +93,7 @@ class VnInterconnectFeature(FeatureBase):
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
         if lr_obj:
-            ri_name = "__contrail_%s_%s" % (lr_obj.name,
+            ri_name = "__contrail_%s_%s" % (DMUtils.sanitize_name(lr_obj.name),
                                             vn.logical_router)
 
         export_targets, import_targets = self._get_export_import_targets(
