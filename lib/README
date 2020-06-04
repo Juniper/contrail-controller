@@ -1,0 +1,22 @@
+RPM file generation for gperftools-2.7
+--------------------------------------
+
+gperftools package for version 2.7 is not available for el7, it requires RPM file
+generation locally. please follow the step to generate rpm file for gperftools-2.7
+
+1. Install rpm-build on centos-server with 7.x version
+     yum install rpm-build
+2. mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+3. echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros
+4. Get the gperftools spec from previous version gperftools 2.6.1
+    wget http://vault.centos.org/7.8.2003/os/Source/SPackages/gperftools-2.6.1-1.el7.src.rpm
+    extract files from rpm, 
+    rpm2cpio gperftools-2.6.1-1.el7.src.rpm | cpio -idmv
+    copy gperftools.spec to /root/rpmbuild/SPEC
+5. Edit spec file to change version to 2.7 and release to 6
+6. Run command rpmbuild -ba gperftools.spec
+7. rpm file is generated under /root/rpmbuild/RPMS/x86_64/
+8. rpm file:gperftools-libs-2.7-6.el7.x86_64.rpm
+    
+
+
