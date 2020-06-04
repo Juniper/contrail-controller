@@ -1668,7 +1668,7 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('port_tuple', obj)
         self.fq_name = obj['fq_name']
-        self.name = self.fq_name[-1]
+        self.name = DMUtils.sanitize_name(self.fq_name[-1])
     # end update
 
     def get_internal_vn_name(self):
