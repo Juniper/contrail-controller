@@ -178,6 +178,28 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "discover_os_computes_template"
+          ],
+          "name": "discover_os_computes_template",
+          "display_name": "Discover OS Computes",
+          "parent_type": "global-system-config",
+          "job_template_concurrency_level": "fabric",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "multi_device_playbook": false,
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_os_computes_template.yml",
+                "vendor": ""
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "discover_role_template"
           ],
           "name": "discover_role_template",
