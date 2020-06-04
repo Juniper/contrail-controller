@@ -1668,7 +1668,19 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('port_tuple', obj)
         self.fq_name = obj['fq_name']
+<<<<<<< HEAD   (f5bfee Merge "[R1912.LTS3, api-server] Added UT for missing pi case)
         self.name = self.fq_name[-1]
+=======
+        self.name = DMUtils.sanitize_name(self.fq_name[-1])
+        self.is_master = True if 'master-LR' == self.name else False
+        for rt_ref in obj.get('route_target_refs', []):
+            for rt in rt_ref.get('to', []):
+                if rt.lower().startswith('target:'):
+                    self.lr_route_target_for_dci = rt
+                    break
+            if self.lr_route_target_for_dci is not None:
+                break
+>>>>>>> CHANGE (3ca060 [DM] Changes for LR name with spaces Closes-jira-bug: CEM-16)
     # end update
 
     def get_internal_vn_name(self):
