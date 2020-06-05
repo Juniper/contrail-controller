@@ -1,0 +1,152 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "773fbc40_ebfa9015",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 218,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "not used?",
+      "range": {
+        "startLine": 218,
+        "startChar": 49,
+        "endLine": 218,
+        "endChar": 55
+      },
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0ed3287d_373df2b3",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 344,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "Can you add an informative log to explain we are waiting keyspace to be initialized. That is useful when we start service like ST before the API server ensures the config_db_uuid keyspace.",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "05e29c28_f75d4919",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 362,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "We have an issue here, like in the legacy code, where we cannot use the same CF name in different keyspaces. Could you add a check to verify the CF name is not already used and raise an error in that case? I know this is an improvement but should be simple toadd or at least set a TODO comment.",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "edb838f2_92b716b7",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 403,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "you should compare what properties a table has when it was created with pycassa/thirft driver to be sure we not changing anything.",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e31210f_916bde91",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 409,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "Should we do an alter request on the table to ensure properties when it already exists?",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "afc0401f_48acfbb3",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 442,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "Should we do an alter request on the keyspace to ensure properties when it already exists?",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "22143dc1_8e6f904c",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 653,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "you need to decorate the driver API methods to reproduce what it is done with the legacy. See in the thrift driver [1]. Perhaps that can be factorize in the driver API class.\n\n[1] https://review.opencontrail.org/c/Juniper/contrail-controller/+/58693/17/src/config/common/cfgm_common/datastore/drivers/cassandra_thrift.py#87",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "082d4ff2_c4d271d7",
+        "filename": "src/config/common/tox.ini",
+        "patchSetId": 17
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-06-05T13:29:49Z",
+      "side": 1,
+      "message": "nit: not sure we should ignore that pep8 recomendation",
+      "range": {
+        "startLine": 71,
+        "startChar": 54,
+        "endLine": 71,
+        "endChar": 58
+      },
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
