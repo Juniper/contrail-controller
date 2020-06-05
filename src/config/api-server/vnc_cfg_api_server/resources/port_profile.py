@@ -21,12 +21,42 @@ class PortProfileServer(ResourceMixin, PortProfile):
         return True, ''
     # end validate_storm_control_back_refs
 
+    @staticmethod
+    def validate_port_profile_params(obj_dict):
+
+        port_profile_params = obj_dict.get('port_profile_params') or {}
+        port_params = port_profile_params.get('port_params') or {}
+        port_mtu = port_params.get('port_mtu')
+
+        if port_mtu and (port_mtu < 256 or port_mtu > 9216):
+            return (False, (400, "Port mtu can be only within 256"
+                                 " - 9216"))
+
+        return True, ''
+    # end validate_port_profile_params
+
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls.validate_storm_control_back_refs(obj_dict)
+        ok, result = cls.validate_storm_control_back_refs(obj_dict)
+        if not ok:
+            return ok, result
+
+        ok, result = cls.validate_port_profile_params(obj_dict)
+        if not ok:
+            return ok, result
+
+        return True, ''
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.validate_storm_control_back_refs(obj_dict)
+        ok, result = cls.validate_storm_control_back_refs(obj_dict)
+        if not ok:
+            return ok, result
+
+        ok, result = cls.validate_port_profile_params(obj_dict)
+        if not ok:
+            return ok, result
+
+        return True, ''
     # end pre_dbe_update
