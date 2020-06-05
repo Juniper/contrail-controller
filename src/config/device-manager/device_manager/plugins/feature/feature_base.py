@@ -306,7 +306,7 @@ class FeatureBase(object):
                         AttrDict(pi_name=pi_name, li_name=pi_name + '.' + unit,
                                  unit=unit, vlan_tag=vlan_tag,
                                  port_vlan_tag=port_vlan_tag,
-                                 vpg_obj=vpg_obj))
+                                 vpg_obj=vpg_obj, pi_obj=pi_obj))
                     # In VPG we will have either regular interface or ae. if
                     #  multiple vpg_interfaces means it's LAG or MH, so one
                     # is sufficient.

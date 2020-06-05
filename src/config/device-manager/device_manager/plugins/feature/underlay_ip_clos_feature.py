@@ -56,12 +56,16 @@ class UnderlayIpClosFeature(FeatureBase):
             return
 
         pi_map = OrderedDict()
+        pi_obj_map = dict()
+
         for pi_obj, li_obj, iip_obj in self.\
                 _fetch_pi_li_iip(self._physical_router.physical_interfaces):
             if pi_obj and pi_obj.interface_type != 'service' and li_obj and \
                iip_obj and iip_obj.instance_ip_address:
                 pi, li_map = self._add_or_lookup_pi(
                     pi_map, pi_obj.name, 'regular')
+
+                pi_obj_map[pi_obj.name] = pi_obj
 
                 li = self._add_or_lookup_li(li_map, li_obj.name,
                                             int(li_obj.name.split('.')[-1]))
@@ -108,8 +112,28 @@ class UnderlayIpClosFeature(FeatureBase):
                     bgp.set_peers(list(peers.values()))
                     feature_config.add_bgp(bgp)
 
-        for pi, li_map in list(pi_map.values()):
+        for pi_name in pi_map:
+            pi, li_map = pi_map[pi_name]
+            pi_dm_obj = pi_obj_map[pi_name]
             pi.set_logical_interfaces(list(li_map.values()))
+            port_params = pi_dm_obj.get('port_params')
+            flow_control = pi_dm_obj.get('flow_control')
+            if flow_control:
+                pi.set_flow_control(True)
+            if port_params:
+                port_params_obj = PortParameters()
+                if port_params.get('port_disable'):
+                    port_params_obj.set_port_disable(True)
+                if port_params.get('port_mtu'):
+                    port_params_obj.set_port_mtu(
+                        port_params.get('port_mtu')
+                    )
+                if port_params.get('port_description'):
+                    port_params_obj.set_port_description(
+                        port_params.get('port_description')
+                    )
+                pi.set_port_params(port_params_obj)
+
             feature_config.add_physical_interfaces(pi)
     # end _build_underlay_bgp
 
