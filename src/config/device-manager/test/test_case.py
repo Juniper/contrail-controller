@@ -168,10 +168,12 @@ class DMTestCase(test_common.TestCase):
         return sc_profile
 
 
-    def create_port_profile(self, name, sc_obj=None):
+    def create_port_profile(self, name, sc_obj=None, pp_params=None):
         port_profile = PortProfile(name=name)
         if sc_obj:
             port_profile.set_storm_control_profile(sc_obj)
+        if pp_params:
+            port_profile.set_port_profile_params(pp_params)
         self._vnc_lib.port_profile_create(port_profile)
 
         return port_profile
