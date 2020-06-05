@@ -170,11 +170,19 @@ class VncKombuClientBase(object):
 
     def _connection_heartbeat(self):
         while self._running:
+            conn = 'no_conn'
             try:
                 if self._conn_drain.connected:
+                    conn = 'drain'
                     self._conn_drain.heartbeat_check()
+                if self._conn_publish.connected:
+                    conn = 'publish'
+                    # for publish connection use low level amqp library function `send_heartbeat`
+                    # kombu function `heartbeat_check` depends on data sent and received
+                    # if client doesn't send periodically data it will throw exception `Too many heartbeats missed`
+                    self._conn_publish.connection.send_heartbeat()
             except Exception as e:
-                msg = 'Error in rabbitmq heartbeat greenlet for drain: %s' %(str(e))
+                msg = 'Error in rabbitmq heartbeat greenlet for %s: %s' %(conn, str(e))
                 self._logger(msg, level=SandeshLevel.SYS_ERR)
             finally:
                 gevent.sleep(float(self._heartbeat_seconds/2))
