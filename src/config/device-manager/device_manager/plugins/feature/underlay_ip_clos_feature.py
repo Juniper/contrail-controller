@@ -22,6 +22,7 @@ class UnderlayIpClosFeature(FeatureBase):
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
+        self.pi_map = OrderedDict()
         super(UnderlayIpClosFeature, self).__init__(
             logger, physical_router, configs)
     # end __init__
@@ -48,6 +49,53 @@ class UnderlayIpClosFeature(FeatureBase):
                             yield pi_obj, li_obj, iip_obj
     # end _fetch_pi_li_iip
 
+    def _build_interfaces_config(self, feature_config):
+
+        for pi_uuid in self._physical_router.physical_interfaces:
+            pi_dm_obj = PhysicalInterfaceDM.get(pi_uuid)
+            if pi_dm_obj and pi_dm_obj.interface_type != 'access'\
+                    and pi_dm_obj.name not in self.pi_map:
+                pi, li_map = self._add_or_lookup_pi(
+                    self.pi_map, pi_dm_obj.name)
+                port_params = pi_dm_obj.port_params
+                flow_control = pi_dm_obj.flow_control
+                if flow_control:
+                    pi.set_flow_control(True)
+                if port_params:
+                    port_params_obj = PortParameters()
+                    if port_params.get('port_disable'):
+                        port_params_obj.set_port_disable(True)
+                    if port_params.get('port_mtu'):
+                        port_params_obj.set_port_mtu(
+                            port_params.get('port_mtu')
+                        )
+                    if port_params.get('port_description'):
+                        port_params_obj.set_port_description(
+                            port_params.get('port_description')
+                        )
+                    pi.set_port_params(port_params_obj)
+
+                for log_intf in pi_dm_obj.logical_interfaces or []:
+                    li_dm_obj = LogicalInterfaceDM.get(log_intf)
+                    li = self._add_or_lookup_li(
+                        li_map, li_dm_obj.name,
+                        int(li_dm_obj.name.split('.')[-1]))
+                    port_params = li_dm_obj.port_params
+                    if port_params:
+                        port_params_obj = PortParameters()
+                        if port_params.get('port_mtu'):
+                            port_params_obj.set_port_mtu(
+                                port_params.get('port_mtu')
+                            )
+                        if port_params.get('port_description'):
+                            port_params_obj.set_port_description(
+                                port_params.get('port_description')
+                            )
+                        li.set_port_params(port_params_obj)
+
+                pi.set_logical_interfaces(list(li_map.values()))
+                feature_config.add_physical_interfaces(pi)
+
     def _build_underlay_bgp(self, feature_config):
         if self._physical_router.allocated_asn is None:
             self._logger.error("physical router %s(%s) does not have asn"
@@ -56,12 +104,16 @@ class UnderlayIpClosFeature(FeatureBase):
             return
 
         pi_map = OrderedDict()
+        pi_obj_map = OrderedDict()
+
         for pi_obj, li_obj, iip_obj in self.\
                 _fetch_pi_li_iip(self._physical_router.physical_interfaces):
             if pi_obj and pi_obj.interface_type != 'service' and li_obj and \
                iip_obj and iip_obj.instance_ip_address:
                 pi, li_map = self._add_or_lookup_pi(
                     pi_map, pi_obj.name, 'regular')
+
+                pi_obj_map[pi_obj.name] = pi_obj
 
                 li = self._add_or_lookup_li(li_map, li_obj.name,
                                             int(li_obj.name.split('.')[-1]))
@@ -108,16 +160,57 @@ class UnderlayIpClosFeature(FeatureBase):
                     bgp.set_peers(list(peers.values()))
                     feature_config.add_bgp(bgp)
 
-        for pi, li_map in list(pi_map.values()):
+        for pi_name in pi_map:
+            pi, li_map = pi_map[pi_name]
+            pi_dm_obj = pi_obj_map[pi_name]
+            port_params = pi_dm_obj.port_params
+            flow_control = pi_dm_obj.flow_control
+            if flow_control:
+                pi.set_flow_control(True)
+            if port_params:
+                port_params_obj = PortParameters()
+                if port_params.get('port_disable'):
+                    port_params_obj.set_port_disable(True)
+                if port_params.get('port_mtu'):
+                    port_params_obj.set_port_mtu(
+                        port_params.get('port_mtu')
+                    )
+                if port_params.get('port_description'):
+                    port_params_obj.set_port_description(
+                        port_params.get('port_description')
+                    )
+                pi.set_port_params(port_params_obj)
+
+            for log_intf in pi_dm_obj.logical_interfaces or []:
+                li_dm_obj = LogicalInterfaceDM.get(log_intf)
+                li = self._add_or_lookup_li(
+                    li_map, li_dm_obj.name,
+                    int(li_dm_obj.name.split('.')[-1]))
+                port_params = li_dm_obj.port_params
+                if port_params:
+                    port_params_obj = PortParameters()
+                    if port_params.get('port_mtu'):
+                        port_params_obj.set_port_mtu(
+                            port_params.get('port_mtu')
+                        )
+                    if port_params.get('port_description'):
+                        port_params_obj.set_port_description(
+                            port_params.get('port_description')
+                        )
+                    li.set_port_params(port_params_obj)
+
             pi.set_logical_interfaces(list(li_map.values()))
             feature_config.add_physical_interfaces(pi)
+
+        self.pi_map = pi_map
+
     # end _build_underlay_bgp
 
     def feature_config(self, **kwargs):
-        if not self._physical_router.underlay_managed:
-            return None
         feature_config = Feature(name=self.feature_name())
-        self._build_underlay_bgp(feature_config)
+        if self._physical_router.underlay_managed:
+            self._build_underlay_bgp(feature_config)
+        self._build_interfaces_config(feature_config)
         return feature_config
     # end push_conf
 
