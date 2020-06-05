@@ -76,6 +76,33 @@ class DBBaseDM(DBBase):
         return dict((kvp['key'], kvp['value']) for kvp in kvps)
     # end kvp_to_dict
 
+    def _find_vmi_prs(self, vmi_id):
+        pr_id_list = set()
+        vmi_obj = VirtualMachineInterfaceDM.get(vmi_id)
+        if vmi_obj and vmi_obj.bindings:
+            kvps = vmi_obj.bindings['key_value_pair']
+            kvp_dict = self.kvp_to_dict(kvps)
+            prof_str = kvp_dict.get('profile')
+            if prof_str:
+                profile = json.loads(prof_str)
+                link_info = profile.get('local_link_information', [])
+                for link in link_info:
+                    pr_name = link['switch_info']
+                    pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pr_name)
+                    if pr_obj:
+                        pr_id_list.add(pr_obj.uuid)
+        return pr_id_list
+    # end _find_vmi_prs
+
+    @staticmethod
+    def _find_vpg_pis(vpg_id):
+        pi_id_list = set()
+        vpg_obj = VirtualPortGroupDM.get(vpg_id)
+        if vpg_obj:
+            pi_id_list.update(vpg_obj.physical_interfaces)
+        return pi_id_list
+    # end _find_vpg_pis
+
     def _get_single_ref(self, ref_type, obj):
         if isinstance(obj, dict):
             refs = (obj.get(ref_type + '_refs') or
@@ -1912,6 +1939,9 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.esi = None
         self.interface_type = None
         self.port = None
+        self.flow_control = False
+        self.lacp_force_up = False
+        self.port_params = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1927,8 +1957,13 @@ class PhysicalInterfaceDM(DBBaseDM):
         if self.name and re.search(r"[0-9]+_[0-9]+$", self.name):
             # For channelized ports
             self.name = self.name.replace("_", ":")
+
+        self.update_job_trans(old_pr_list=[self.physical_router])
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
+        self.flow_control = obj.get('physical_interface_flow_control')
+        self.lacp_force_up = obj.get('physical_interface_lacp_force_up')
+        self.port_params = obj.get('physical_interface_port_params')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
         self.update_single_ref('port', obj)
@@ -1939,6 +1974,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         return self.physical_router
 
     def delete_obj(self):
+        self.delete_job_trans(old_pr_list=[self.physical_router])
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('physical_interface', {})
         self.update_single_ref('port', None)
@@ -1957,6 +1993,7 @@ class LogicalInterfaceDM(DBBaseDM):
         self.vlan_tag = 0
         self.li_type = None
         self.instance_ip = None
+        self.port_params = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1965,19 +2002,21 @@ class LogicalInterfaceDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
-        if obj['parent_type'] == 'physical-router':
-            self.physical_router = self.get_parent_uuid(obj)
-            self.physical_interface = None
-        else:
-            self.physical_interface = self.get_parent_uuid(obj)
-            self.physical_router = None
-
         self.name = obj.get('display_name')
         if self.name and re.search(r"[0-9]+(_[0-9]+){2}$", self.name):
             # For channelized ports
             self.name = self.name.replace("_", ":")
+        if obj['parent_type'] == 'physical-router':
+            self.physical_router = self.get_parent_uuid(obj)
+            self.physical_interface = None
+            self.update_job_trans(old_pr_list=[self.physical_router])
+        else:
+            self.physical_interface = self.get_parent_uuid(obj)
+            self.physical_router = None
+            self.update_job_trans(old_pi_list=[self.physical_interface])
         self.vlan_tag = obj.get('logical_interface_vlan_tag', 0)
         self.li_type = obj.get('logical_interface_type', 0)
+        self.port_params = obj.get('logical_interface_port_params')
         self.update_single_ref('virtual_machine_interface', obj)
         return obj
     # end update
@@ -2018,8 +2057,10 @@ class LogicalInterfaceDM(DBBaseDM):
     def delete_obj(self):
         if self.physical_interface:
             parent = PhysicalInterfaceDM.get(self.physical_interface)
+            self.delete_job_trans(old_pi_list=[self.physical_interface])
         elif self.physical_router:
             parent = PhysicalRouterDM.get(self.physical_router)
+            self.delete_job_trans(old_pr_list=[self.physical_router])
         if parent:
             parent.logical_interfaces.discard(self.uuid)
         self.update_single_ref('virtual_machine_interface', {})
@@ -2218,23 +2259,6 @@ class SecurityGroupDM(DBBaseDM):
         self.set_children('access_control_list', obj)
     # end update
 
-    def _find_vmi_prs(self, vmi_id):
-        pr_id_list = set()
-        vmi_obj = VirtualMachineInterfaceDM.get(vmi_id)
-        if vmi_obj and vmi_obj.bindings:
-            kvps = vmi_obj.bindings['key_value_pair']
-            kvp_dict = self.kvp_to_dict(kvps)
-            prof_str = kvp_dict.get('profile')
-            if prof_str:
-                profile = json.loads(prof_str)
-                link_info = profile.get('local_link_information', [])
-                for link in link_info:
-                    pr_name = link['switch_info']
-                    pr_obj = PhysicalRouterDM.find_by_name_or_uuid(pr_name)
-                    if pr_obj:
-                        pr_id_list.add(pr_obj.uuid)
-        return pr_id_list
-
     def get_physical_router_ids(self):
         pr_id_list = set()
         for vmi_id in self.virtual_machine_interfaces:
@@ -2247,13 +2271,6 @@ class SecurityGroupDM(DBBaseDM):
             vmi_id = vmi_ref['uuid']
             pr_id_list.update(self._find_vmi_prs(vmi_id))
         return pr_id_list
-
-    def _find_vpg_pis(self, vpg_id):
-        pi_id_list = set()
-        vpg_obj = VirtualPortGroupDM.get(vpg_id)
-        if vpg_obj:
-            pi_id_list.update(vpg_obj.physical_interfaces)
-        return pi_id_list
 
     def get_physical_interface_ids(self):
         pi_id_list = set()
@@ -4411,12 +4428,45 @@ class PortProfileDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.update_job_trans(
+            old_pr_list=self.get_physical_router_ids(),
+            old_pi_list=self.get_physical_interface_ids(),
+            new_pr_list=self.get_obj_physical_router_ids(obj),
+            new_pi_list=self.get_obj_physical_interface_ids(obj))
+        self.port_profile_params = obj.get('port_profile_params')
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
     # end update
 
+    def get_physical_router_ids(self):
+        pr_id_list = set()
+        pr_id_list.update(self._find_vmi_prs(
+            self.virtual_machine_interface))
+        return pr_id_list
+
+    def get_obj_physical_router_ids(self, obj):
+        pr_id_list = set()
+        for vmi_ref in obj.get('virtual_machine_interface_back_refs', []):
+            vmi_id = vmi_ref['uuid']
+            pr_id_list.update(self._find_vmi_prs(vmi_id))
+        return pr_id_list
+
+    def get_physical_interface_ids(self):
+        pi_id_list = set()
+        for vpg_id in self.virtual_port_groups:
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
+    def get_obj_physical_interface_ids(self, obj):
+        pi_id_list = set()
+        for vpg_ref in obj.get('virtual_port_group_back_refs', []):
+            vpg_id = vpg_ref['uuid']
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
     def delete_obj(self):
+        self.delete_job_trans(old_pr_list=self.get_physical_router_ids())
         self.update_single_ref('storm_control_profile', {})
         self.update_single_ref('virtual_machine_interface', {})
         self.update_multiple_refs('virtual_port_group', {})
