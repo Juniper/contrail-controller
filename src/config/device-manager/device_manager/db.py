@@ -3884,6 +3884,7 @@ class PortProfileDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.port_profile_params = obj.get('port_profile_parameters')
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
