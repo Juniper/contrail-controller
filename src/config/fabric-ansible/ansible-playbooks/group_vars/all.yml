@@ -157,7 +157,7 @@ feature_based_plugin_roles:
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
-    - overlay_storm_control
+    - overlay_port_profile
     - overlay_telemetry
   CRB-Access@spine:
     - basic
@@ -169,7 +169,7 @@ feature_based_plugin_roles:
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
-    - overlay_storm_control
+    - overlay_port_profile
     - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
     - basic
@@ -184,7 +184,7 @@ feature_based_plugin_roles:
     - overlay_evpn_type5
     - overlay_evpn_ucast_gateway
     - overlay_dhcp_relay
-    - overlay_storm_control
+    - overlay_port_profile
     - overlay_telemetry
   CRB-Gateway@spine:
     - basic
@@ -324,7 +324,7 @@ feature_apply_order:
   - overlay_service_chain
   - overlay_assisted_replicator
   - overlay_assisted_replicator_client
-  - overlay_storm_control
+  - overlay_port_profile
   - overlay_telemetry
 
 DEVICE_FACTS_TIMEOUT: 120

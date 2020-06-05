@@ -217,7 +217,8 @@ class FilterModule(object):
         # Loop through all the features
         for feature in self.feature_apply_order:
             # If not managing underlay for this feature, skip
-            if 'underlay' in feature and not self.manage_underlay:
+            if 'underlay' in feature and not self.manage_underlay \
+                    and 'ip_clos' not in feature:
                 continue
             feature_based_only = feature not in legacy_feature_list
             apply_feature_based = feature in self.feature_based_list
