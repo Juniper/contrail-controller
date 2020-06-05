@@ -1678,6 +1678,9 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.esi = None
         self.interface_type = None
         self.port = None
+        self.flow_control = False
+        self.lacp_force_up = False
+        self.port_params = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1695,6 +1698,9 @@ class PhysicalInterfaceDM(DBBaseDM):
             self.name = self.name.replace("_", ":")
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
+        self.flow_control = obj.get('physical_interface_flow_control')
+        self.lacp_force_up = obj.get('physical_interface_lacp_force_up')
+        self.port_params = obj.get('physical_interface_port_params')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
         self.update_single_ref('port', obj)
@@ -1723,6 +1729,7 @@ class LogicalInterfaceDM(DBBaseDM):
         self.vlan_tag = 0
         self.li_type = None
         self.instance_ip = None
+        self.port_params = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1744,6 +1751,7 @@ class LogicalInterfaceDM(DBBaseDM):
             self.name = self.name.replace("_", ":")
         self.vlan_tag = obj.get('logical_interface_vlan_tag', 0)
         self.li_type = obj.get('logical_interface_type', 0)
+        self.port_params = obj.get('logical_interface_port_params')
         self.update_single_ref('virtual_machine_interface', obj)
         return obj
     # end update
@@ -3888,6 +3896,7 @@ class PortProfileDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.port_profile_params = obj.get('port_profile_parameters')
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
