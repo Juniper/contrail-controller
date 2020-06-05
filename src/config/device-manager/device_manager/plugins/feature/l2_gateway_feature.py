@@ -9,7 +9,8 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 
-from .db import LogicalRouterDM, PhysicalInterfaceDM, VirtualNetworkDM, \
+from .db import LogicalInterfaceDM, LogicalRouterDM,\
+    PhysicalInterfaceDM, PortProfileDM, VirtualNetworkDM, \
     VirtualPortGroupDM
 from .dm_utils import DMUtils
 from .feature_base import FeatureBase
@@ -25,6 +26,8 @@ class L2GatewayFeature(FeatureBase):
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
+        # Augment pi_map to also include
+        # member links of aes so as to add to feature config
         self.pi_map = None
         super(L2GatewayFeature, self).__init__(logger, physical_router,
                                                configs)
@@ -80,10 +83,12 @@ class L2GatewayFeature(FeatureBase):
     def _build_l2_evpn_interface_config(self, interfaces, vn, vlan):
         interface_map = OrderedDict()
         vpg_map = {}
+        phy_intf_map = dict()
 
         for interface in interfaces:
             interface_map.setdefault(interface.pi_name, []).append(interface)
-            vpg_map[interface.pi_name] = interface.vpg_obj.name
+            vpg_map[interface.pi_name] = interface.vpg_obj
+            phy_intf_map[interface.pi_name] = interface.pi_obj
 
         for pi_name, interface_list in list(interface_map.items()):
             untagged = set([int(i.port_vlan_tag) for i in interface_list if
@@ -112,8 +117,12 @@ class L2GatewayFeature(FeatureBase):
             if not pi_name.startswith('ae'):
                 # Handle only the regular interfaces here.
                 lag = LinkAggrGroup(description="Virtual Port Group : %s" %
-                                                vpg_map[pi_name])
+                                                vpg_map[pi_name].name)
                 pi.set_link_aggregation_group(lag)
+                pp_list = vpg_map[pi_name].port_profiles
+                pi_dm_obj = phy_intf_map[pi_name]
+                self._build_interfaces_config(pi, pi_dm_obj, pp_list,
+                                              li_map)
             for interface in interface_list:
                 if int(interface.vlan_tag) == 0:
                     is_tagged = False
@@ -192,6 +201,52 @@ class L2GatewayFeature(FeatureBase):
         return feature_config
     # end push_conf
 
+    def _build_interfaces_config(self, pi, pi_dm_obj, pp_list,
+                                 li_map):
+
+        # get the dm properties and add to a physical interface
+        # object to be attached to the feature_config
+        lacp_force_up = pi_dm_obj.lacp_force_up
+        port_params = pi_dm_obj.port_params
+
+        if lacp_force_up:
+            for pp_uuid in pp_list or []:
+                pp = PortProfileDM.get(pp_uuid)
+                pp_params = pp.port_profile_params
+                if pp_params:
+                    lacp_params = pp_params.get('lacp_params', {})
+                    if lacp_params:
+                        if lacp_params.get('lacp_enable'):
+                            pi.set_lacp_force_up(True)
+        if port_params:
+            port_params_obj = PortParameters()
+            if port_params.get('port_disable'):
+                port_params_obj.set_port_disable(True)
+            if port_params.get('port_description'):
+                port_params_obj.set_port_description(
+                    port_params.get('port_description')
+                )
+            pi.set_port_params(port_params_obj)
+
+        for log_intf in pi_dm_obj.logical_interfaces or []:
+            li_dm_obj = LogicalInterfaceDM.get(log_intf)
+            unit = str(li_dm_obj.vlan_tag)
+            li_name = pi_dm_obj.name + '.' + unit
+            li = self._add_or_lookup_li(li_map, li_name,
+                                        unit)
+            port_params = li_dm_obj.port_params
+            if port_params:
+                port_params_obj = PortParameters()
+                if port_params.get('port_mtu'):
+                    port_params_obj.set_port_mtu(
+                        port_params.get('port_mtu')
+                    )
+                if port_params.get('port_description'):
+                    port_params_obj.set_port_description(
+                        port_params.get('port_description')
+                    )
+                li.set_port_params(port_params_obj)
+
     def build_vpg_config(self):
         multi_homed = False
         pr = self._physical_router
@@ -220,6 +275,17 @@ class L2GatewayFeature(FeatureBase):
                     else:
                         ae_link_members[ae_intf_name] = []
                         ae_link_members[ae_intf_name].append(pi.name)
+
+                    pi_obj, li_map = self._add_or_lookup_pi(self.pi_map,
+                                                            pi.name)
+                    # setting comment here to be later used in description
+                    # and LACP force up
+                    pi_obj.set_comment("Virtual Port Group : %s, "
+                                       "AE interface: %s"
+                                       % (vpg_obj.name, ae_intf_name))
+                    self._build_interfaces_config(pi_obj, pi,
+                                                  vpg_obj.port_profiles,
+                                                  li_map)
 
             for ae_intf_name, link_members in list(ae_link_members.items()):
                 self._logger.info("LAG obj_uuid: %s, link_members: %s, "
