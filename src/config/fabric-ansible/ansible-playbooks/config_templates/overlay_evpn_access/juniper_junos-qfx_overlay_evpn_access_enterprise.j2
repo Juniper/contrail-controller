@@ -3,6 +3,21 @@
 {%         if phy_int.get('link_aggregation_group') %}
 set groups {{cfg_group}} interfaces {{name}} description "{{phy_int.get('link_aggregation_group').get('description')}}"
 {%         endif %}
+{%         if not name.startswith('ae') %}
+{#         this is for member interfaces of ae and single member interfaces of VPG #}
+{%             if phy_int.get('lacp_force_up', False) == True %}
+set groups {{cfg_group}} interfaces {{name}} ether-options 802.3ad lacp force-up
+{%             endif %}
+{%             if phy_int.get('port_params') %}
+{%                 set port_params = phy_int.get('port_params') %}
+{%                 if port_params.get('port_disable', False) == True %}
+set groups {{cfg_group}} interfaces {{name}} disable
+{%                 endif %}
+{%                 if port_params.get('port_description') and not (phy_int.get('link_aggregation_group', {}).get('description')) %}
+set groups {{cfg_group}} interfaces {{name}} description "{{port_params.get('port_description')}}"
+{%                 endif %}
+{%             endif %}
+{%         endif %}
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             if 'EVPN' in li.get('comment', '') %}
 {%                 set unit = li.get('unit') %}
@@ -11,6 +26,11 @@ set groups {{cfg_group}} interfaces {{name}} mtu 9192
 set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode trunk
 {%                 if li.get('is_tagged', false) == false %}
 set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
+{%                 endif %}
+{%                 if not li.get('name').startswith('ae')  %}
+{%                     if li.get('port_params', {}).get('port_description') %}
+set groups {{cfg_group}} interfaces {{name}} unit 0 description {{li.get('port_params').get('port_description')}}
+{%                     endif %}
 {%                 endif %}
 {%             endif %}
 {%         endfor %}
