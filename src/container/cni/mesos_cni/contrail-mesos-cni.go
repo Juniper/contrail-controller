@@ -36,7 +36,7 @@ func CmdAdd(skelArgs *skel.CmdArgs) error {
     }
 
     // Update UUID and Name for container
-    cni.Update(containerName, containerUuid, "")
+    cni.UpdateContainerInfo(containerName, containerUuid, "")
     cni.Log()
 
     // Handle Add command
@@ -66,7 +66,7 @@ func CmdDel(skelArgs *skel.CmdArgs) error {
     }
 
     // Update UUID and Name for container
-    cni.Update(containerName, containerUuid, "")
+    cni.UpdateContainerInfo(containerName, containerUuid, "")
     cni.Log()
 
     // Handle Del command

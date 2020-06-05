@@ -40,6 +40,7 @@ type VRouter struct {
     Dir           string `json:"config-dir"`
     PollTimeout   int    `json:"poll-timeout"`
     PollRetries   int    `json:"poll-retries"`
+    containerName string
     containerId   string
     containerUuid string
     containerVn   string
@@ -53,7 +54,7 @@ type vrouterJson struct {
 
 // Make filename to store config
 func (vrouter *VRouter) makeFileName(VmiUUID string) string {
-    fname := vrouter.Dir + "/" + vrouter.containerUuid
+    fname := vrouter.Dir + "/" + vrouter.containerName
     if VmiUUID != "" {
         fname = fname + "/" + VmiUUID
     }
@@ -61,10 +62,11 @@ func (vrouter *VRouter) makeFileName(VmiUUID string) string {
 }
 
 // Make URL for operation
-func (vrouter *VRouter) makeUrl(page, containerUuid, vmiUuid string) string {
+func (vrouter *VRouter) makeUrl(page, containerNameUuid,
+    vmiUuid string) string {
     url := "http://" + vrouter.Server + ":" + strconv.Itoa(vrouter.Port) + page
-    if len(containerUuid) > 0 {
-        url = url + "/" + vrouter.containerUuid
+    if len(containerNameUuid) > 0 {
+        url = url + "/" + containerNameUuid
     }
     if len(vmiUuid) > 0 {
         url = url + "/" + vmiUuid
@@ -73,10 +75,10 @@ func (vrouter *VRouter) makeUrl(page, containerUuid, vmiUuid string) string {
 }
 
 // Do a HTTP operation to VRouter
-func (vrouter *VRouter) doOp(op, page, containerUuid, vmiUuid string,
+func (vrouter *VRouter) doOp(op, page, containerNameUuid, vmiUuid string,
     msg []byte) (*http.Response, error) {
 
-    url := vrouter.makeUrl(page, containerUuid, vmiUuid)
+    url := vrouter.makeUrl(page, containerNameUuid, vmiUuid)
     log.Infof("VRouter request. Operation : %s Url :  %s", op, url)
     req, err := http.NewRequest(op, url, bytes.NewBuffer(msg))
     if err != nil {
@@ -156,9 +158,10 @@ func MakeCniResult(ifname string, vrouterResult *Result) *current.Result {
 }
 
 // Get operation from VRouter
-func (vrouter *VRouter) Get(url, containerUuid, vmiUuid string) (*[]Result, error) {
+func (vrouter *VRouter) Get(url, containerNameUuid,
+    vmiUuid string) (*[]Result, error) {
     var req []byte
-    resp, err := vrouter.doOp("GET", url, vrouter.containerUuid, vmiUuid, req)
+    resp, err := vrouter.doOp("GET", url, containerNameUuid, vmiUuid, req)
     if err != nil {
         log.Errorf("Failed HTTP GET operation")
         return nil, err
@@ -213,7 +216,8 @@ func (vrouter *VRouter) Get(url, containerUuid, vmiUuid string) (*[]Result, erro
 }
 
 // Poll response from VRouter
-func (vrouter *VRouter) PollVm(containerUuid, vmiUuid string) (*[]Result, error) {
+func (vrouter *VRouter) PollVm(containerUuid,
+    vmiUuid string) (*[]Result, error) {
     var msg string
     for i := 0; i < vrouter.PollRetries; i++ {
         results, err := vrouter.Get("/vm", containerUuid, vmiUuid)
@@ -270,7 +274,7 @@ func makeMsg(containerName, containerUuid, containerId, containerNamespace,
  */
 func (vrouter *VRouter) addVmFile(addMsg []byte, vmiUuid string) error {
     // Check if path to directory exists exists, else create directory
-    path := vrouter.Dir + "/" + vrouter.containerUuid
+    path := vrouter.Dir + "/" + vrouter.containerName
     if _, err := os.Stat(path); os.IsNotExist(err) {
         if err := os.Mkdir(path, 0644); err != nil {
             log.Errorf("Error creating VM directory %s. Error : %s", path, err)
@@ -312,6 +316,7 @@ func (vrouter *VRouter) addVmToAgent(addMsg []byte) error {
 func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
     containerId, containerNamespace, containerIfName,
     hostIfName, vmiUuid string, updateAgent bool) error {
+    vrouter.containerName = containerName
     vrouter.containerUuid = containerUuid
     vrouter.containerId = containerId
     vrouter.containerVn = containerVn
@@ -429,20 +434,22 @@ func (vrouter *VRouter) Del(containerId, containerUuid,
  * in this instance with one present in the config file. Ignore the request if
  * they do not match
  */
-func (vrouter *VRouter) CanDelete(containerId, containerUuid,
-    containerVn string) ([]string, []string, error) {
+func (vrouter *VRouter) CanDelete(containerName, containerId, containerUuid,
+    containerVn string) (string, []string, []string, error) {
+    vrouter.containerName = containerName
     vrouter.containerUuid = containerUuid
     vrouter.containerId = containerId
     vrouter.containerVn = containerVn
 
     var containerIntfNames []string
     var vmiUuids []string
+    var vmUuid string
     dirPath := vrouter.makeFileName("")
     files, err := getFilesinDir(dirPath)
     if err != nil {
         if err.Error() == FileNotExist {
             // Nothing to do
-            return containerIntfNames, vmiUuids, nil
+            return vmUuid, containerIntfNames, vmiUuids, nil
         }
     }
 
@@ -454,35 +461,35 @@ func (vrouter *VRouter) CanDelete(containerId, containerUuid,
                 // Nothing to do
                 continue
             }
-            return containerIntfNames, vmiUuids, err
+            return vmUuid, containerIntfNames, vmiUuids, err
         }
         if obj.Vm != vrouter.containerId {
             log.Infof("Mismatch in container-id between request and config file."+
                 "Expected %s got %s", vrouter.containerId, obj.Vm)
             err := fmt.Errorf("Mismatch in container-id between request and "+
                 " config file. Expected %s got %s", vrouter.containerId, obj.Vm)
-            return containerIntfNames, vmiUuids, err
+            return vmUuid, containerIntfNames, vmiUuids, err
         }
         containerIntfNames = append(containerIntfNames, obj.ContainerIfName)
         vmiUuids = append(vmiUuids, f.Name())
+        vmUuid = obj.VmUuid
     }
 
     log.Infof("Can delete the following interfaces - %s", containerIntfNames)
-    return containerIntfNames, vmiUuids, nil
+    return vmUuid, containerIntfNames, vmiUuids, nil
 }
 
 /****************************************************************************
  * POLL handling
  ****************************************************************************/
-func (vrouter *VRouter) PollVmCfg(containerUuid string) (*[]Result,
+func (vrouter *VRouter) PollVmCfg(containerName string) (*[]Result,
     error) {
     var msg string
-    vrouter.containerUuid = containerUuid
-
+    vrouter.containerName = containerName
     // Loop till we receive all the interfaces attached to the pod
     // in the Vrouter Response.
     for i := 0; i < vrouter.PollRetries; i++ {
-        results, err := vrouter.Get("/vm-cfg", containerUuid, "")
+        results, err := vrouter.Get("/vm-cfg", containerName, "")
         if err != nil {
             msg = err.Error()
             log.Infof("Iteration %d : Get vrouter failed", i)

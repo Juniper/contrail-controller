@@ -29,7 +29,7 @@ public:
                             const struct RESTServer::RESTData& data):
         Task((TaskScheduler::GetInstance()->GetTaskId("Agent::RestApi")), 0),
         pih_(pih),
-        vm_uuid_((*data.match)[1]),
+        vm_name_((*data.match)[1]),
         data_(data),
         context_(data_.session->get_context()) {
     }
@@ -41,7 +41,7 @@ public:
         if ((!data_.session->set_client_context(context_, client_ctx)) ||
             (context_.empty()))
             return true;
-        if (pih_->GetVmVnCfgPort(vm_uuid_, info)) {
+        if (pih_->GetVmVnCfgPort(vm_name_, info)) {
             REST::SendResponse(data_.session, info, 200, context_);
         } else {
             REST::SendErrorResponse(data_.session, "{ Not Found }", 404, context_);
@@ -51,7 +51,7 @@ public:
     std::string Description() const { return "RestServerGetVmCfgTask"; }
 private:
     const PortIpcHandler *pih_;
-    std::string vm_uuid_;
+    std::string vm_name_;
     const struct RESTServer::RESTData& data_;
     const std::string context_;
     DISALLOW_COPY_AND_ASSIGN(RestServerGetVmCfgTask);
@@ -287,8 +287,7 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         HTTP_GET,
         &RESTServer::VmVnPortGetHandler))
     (HandlerSpecifier(
-        regex("/vm-cfg/"
-            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"),
+        regex("/vm-cfg/([a-zA-Z0-9__-]+$)"),
         HTTP_GET,
         &RESTServer::VmVnPortCfgGetHandler))
     (HandlerSpecifier(
