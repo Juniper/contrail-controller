@@ -1,17 +1,45 @@
+{%     set device_product_name = device_abstract_config.get('system', {}).get('product_name', '') %}
 {%     for phy_int in device_abstract_config.features.get('l2-gateway').get('physical_interfaces', []) %}
 {%         set name = phy_int.get('name') %}
+{%         set desc =  namespace(description=phy_int.get('comment', ''))%}
 {%         if phy_int.get('link_aggregation_group') %}
 set groups {{cfg_group}} interfaces {{name}} description "{{phy_int.get('link_aggregation_group').get('description')}}"
+{%             set desc.description = desc.description + phy_int.get('link_aggregation_group').get('description', '') %}
+{%         endif %}
+{%         if not name.startswith('ae') %}
+{#         this is for member interfaces of ae and single member interfaces of VPG #}
+{%             if phy_int.get('port_params') %}
+{%                 set port_params = phy_int.get('port_params') %}
+{%                 if port_params.get('port_disable', False) == True %}
+set groups {{cfg_group}} interfaces {{name}} disable
+{%                 endif %}
+{%                 if port_params.get('port_description') %}
+{%                     set desc.description = desc.description + ' ' + port_params.get('port_description') %}
+set groups {{cfg_group}} interfaces {{name}} description "{{desc.description}}"
+{%                 endif %}
+{%             endif %}
 {%         endif %}
 {%         for li in phy_int.get('logical_interfaces', []) %}
-{%             set unit = li.get('unit') %}
-{%             set vlan_id = li.get('vlan_tag') %}
+{%             if 'EVPN' in li.get('comment', '')  and li.get('unit') <= 16385%}
+{%                 set unit = li.get('unit') %}
+{%                 set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
 set groups {{cfg_group}} interfaces {{name}} encapsulation extended-vlan-bridge
 set groups {{cfg_group}} interfaces {{name}} flexible-vlan-tagging
 set groups {{cfg_group}} interfaces {{name}} unit {{unit}} vlan-id {{vlan_id}}
-{%             if li.get('is_tagged', false) == false %}
+{%                 if li.get('is_tagged', false) == false %}
 set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
+{%                 endif %}
+{%                 if not li.get('name').startswith('ae') %}
+{%                     if li.get('port_params', {}).get('port_description') %}
+set groups {{cfg_group}} interfaces {{name}} unit {{unit}} description "{{li.get('port_params').get('port_description')}}"
+{%                     endif %}
+{%                     if li.get('port_params', {}).get('port_mtu') %}
+{%                         if li.get('port_params', {}).get('port_mtu') <= 9178 %}
+set groups {{cfg_group}} interfaces {{name}} unit {{unit}} family inet mtu {{li.get('port_params').get('port_mtu')}}
+{%                         endif %}
+{%                     endif %}
+{%                 endif %}
 {%             endif %}
 {%         endfor %}
 {%     endfor %}

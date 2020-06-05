@@ -50,13 +50,22 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                        "already occupied on %s physical router."
                        % (interface_name, ae_id, router_name))
                 return False, (403, msg)
+
+        ok, result = cls._check_physical_interface_properties(obj_dict)
+        if not ok:
+            return ok, result
+
         return (True, '')
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, read_result = cls.dbe_read(db_conn, 'physical_interface', id,
-                                       obj_fields=['display_name',
-                                                   'logical_interfaces'])
+                                       obj_fields=[
+                                           'display_name',
+                                           'logical_interfaces',
+                                           'physical_interface_type',
+                                           'physical_interface_flow_control',
+                                           'physical_interface_port_params'])
         if not ok:
             return ok, read_result
 
@@ -75,7 +84,65 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                                         read_result.get('logical_interfaces'))
             if not ok:
                 return ok, result
+
+        pi_type = read_result.get('physical_interface_type')
+        flow_control = read_result.get('physical_interface_flow_control')
+        port_params = read_result.get('physical_interface_port_params')
+        ok, result = cls._check_physical_interface_properties(obj_dict,
+                                                              pi_type,
+                                                              flow_control,
+                                                              port_params)
+        if not ok:
+            return ok, result
+
         return True, ""
+
+    @classmethod
+    def _check_physical_interface_properties(cls, obj_dict, pi_type=None,
+                                             exis_flow_control=None,
+                                             exis_port_params=None):
+
+        # check port mtu
+        port_params = obj_dict.get('physical_interface_port_params') or {}
+        exis_port_mtu = exis_port_params.get('port_mtu') \
+            if exis_port_params else None
+        port_mtu = port_params.get('port_mtu', exis_port_mtu)
+        flow_control = obj_dict.get('physical_interface_flow_control') or \
+            exis_flow_control
+        lacp_force_up = obj_dict.get('physical_interface_lacp_force_up')
+
+        if port_mtu and (port_mtu < 256 or port_mtu > 9216):
+            return (False, (400, "Port mtu can be only within 256"
+                                 " - 9216"))
+
+        # check flow-control and port mtu not enabled on access
+        # type interface
+        phy_intf_type = obj_dict.get('physical_interface_type',
+                                     pi_type)
+
+        if phy_intf_type == 'access':
+            if port_mtu or flow_control:
+                return (False, (400, "Cannot set mtu or flow_control"
+                                     "on access type interfaces"))
+        else:
+            # check if lacp-force-up is enabled on a non-access type
+            # interface
+            if lacp_force_up:
+                return (False, (400, "Cannot set LACP Force-Up on "
+                                     "an interface that is not of "
+                                     "the access type"))
+
+        # check editing the physical interface type if not already set
+        if obj_dict.get('physical_interface_type'):
+            if pi_type and (
+                    obj_dict.get('physical_interface_type') != pi_type):
+                return (False, (400, "Cannot set physical interface type: "
+                                     "%s on already existing %s "
+                                     "type interface "
+                                % (obj_dict.get('physical_interface_type'),
+                                   pi_type)))
+
+        return True, ''
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
