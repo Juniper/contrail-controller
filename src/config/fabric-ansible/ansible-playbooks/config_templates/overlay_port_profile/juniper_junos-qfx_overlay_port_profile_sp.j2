@@ -1,0 +1,90 @@
+{% set port_profiles = device_abstract_config.get('features', {}).get('port-profile',{}).get('port_profile', []) %}
+{% set device_product_name = device_abstract_config.get('system', {}).get('product_name', '') %}
+{% set pp_map = {} %}
+{% for port_profile in port_profiles %}
+{%     set sc_map = {} %}
+{%     set pp_name = port_profile.get('name') %}
+{%     set x= pp_map.update({pp_name: {}}) %}
+{%     set sc_profile = port_profile.get('storm_control_profile', {}) %}
+{%     if sc_profile %}
+{%         set sc_profile_name = sc_profile.get('name') %}
+{%         set sc_bw_percent = sc_profile.get('bandwidth_percent') %}
+{%         set sc_actions = sc_profile.get('actions', []) %}
+{%         set sc_traffic_types = sc_profile.get('traffic_type', []) | unique %}
+{%         set sc_recovery_timeout = sc_profile.get('recovery_timeout') %}
+{%         set x= sc_map.update({  'sc_profile_name': sc_profile_name,
+                                   'recovery_timeout': sc_recovery_timeout,
+                                   'actions': sc_actions
+                                 }) %}
+{%         set y= pp_map.get(pp_name, {}).update({'storm_control': sc_map}) %}
+{%         for action in sc_actions %}
+{%             if action == 'interface-shutdown' %}
+set groups {{cfg_group}} forwarding-options storm-control-profiles {{sc_profile_name}} action-shutdown
+{%             endif %}
+{%         endfor %}
+{%         set sc_traffic_options_str = ' '.join(sc_traffic_types) %}
+{%         if device_product_name.startswith('qfx5') %}
+{%             set regex_str = "^qfx51[12]+" %}
+{%             set regex_matched = device_product_name | regex_search(regex_str) %}
+{%             if not regex_matched %}
+{%                 set sc_traffic_options_str = sc_traffic_options_str.replace('no-registered-multicast', '') %}
+{%                 set sc_traffic_options_str = sc_traffic_options_str.replace('no-unregistered-multicast', '') %}
+{%                 set sc_traffic_options_str = sc_traffic_options_str.strip() %}
+{%             endif %}
+{%         endif %}
+set groups {{cfg_group}} forwarding-options storm-control-profiles {{sc_profile_name}} all bandwidth-percentage {{sc_bw_percent}} {{sc_traffic_options_str}}
+{%     endif %}
+{%     set port_params = port_profile.get('port_params', {}) %}
+{%     set lacp_params = port_profile.get('lacp_params', {}) %}
+{%     set flow_control = port_profile.get('flow_control') %}
+{%     set y= pp_map.get(pp_name, {}).update({
+                                          'port_params': port_params,
+                                          'lacp_params': lacp_params,
+                                          'flow_control': flow_control
+                                             }) %}
+{% endfor %}
+{% for phy_int in device_abstract_config.get('features', {}).get('port-profile', {}).get('physical_interfaces', []) %}
+{% set cmd_fmt = namespace(command_format='ether-options') %}
+{%     if phy_int.get('name').startswith('ae') %}
+{%         set cmd_fmt.command_format = 'aggregated-ether-options' %}
+{%     endif %}
+{%     set port_profile_name = phy_int.get('port_profile') %}
+{%     set sc_map = pp_map.get(port_profile_name, {}).get('storm_control', {}) %}
+{%     set port_params = pp_map.get(port_profile_name, {}).get('port_params', {})%}
+{%     set lacp_params = pp_map.get(port_profile_name, {}).get('lacp_params', {})%}
+{%     set flow_control = pp_map.get(port_profile_name, {}).get('flow_control') %}
+{%     if sc_map %}
+{%         set sc_profile_name = sc_map.get('sc_profile_name') %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching storm-control {{sc_profile_name}}
+{%        set sc_actions = sc_map.get('actions', []) %}
+{%        set sc_recovery_timeout = sc_map.get('recovery_timeout') %}
+{%        if 'interface-shutdown' in sc_actions %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching recovery-timeout {{sc_recovery_timeout | default(600, true) }}
+{%        endif %}
+{%     endif %}
+{%     if flow_control == True and device_product_name.startswith('qfx5')  %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} {{cmd_fmt.command_format}} flow-control
+{%     endif %}
+{%     if port_params %}
+{%         if port_params.get('port_disable') == True %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} disable
+{%         endif %}
+{%         if port_params.get('port_mtu') %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} mtu {{port_params.get('port_mtu')}}
+{%         endif %}
+{%         if port_params.get('port_description') %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} description "{{port_params.get('port_description')}}"
+{%         endif %}
+{%     endif %}
+{%     if lacp_params and phy_int.get('name').startswith('ae') %}
+{%         if lacp_params.get('lacp_enable') == True %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} {{cmd_fmt.command_format}} lacp
+{%         endif %}
+{%         if lacp_params.get('lacp_interval') %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} {{cmd_fmt.command_format}} lacp periodic {{lacp_params.get('lacp_interval')}}
+{%         endif %}
+{%         if lacp_params.get('lacp_mode') %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} {{cmd_fmt.command_format}} lacp {{lacp_params.get('lacp_mode')}}
+{%         endif %}
+{%     endif %}
+{% endfor %}

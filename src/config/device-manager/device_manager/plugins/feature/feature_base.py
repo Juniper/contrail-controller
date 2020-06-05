@@ -275,6 +275,7 @@ class FeatureBase(object):
 
     def _get_vn_li_map(self, mode):
         vn_dict = OrderedDict()
+        pi_obj = None
         for vpg_uuid in self._physical_router.virtual_port_groups or []:
             vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
             if not vpg_obj:
@@ -306,7 +307,7 @@ class FeatureBase(object):
                         AttrDict(pi_name=pi_name, li_name=pi_name + '.' + unit,
                                  unit=unit, vlan_tag=vlan_tag,
                                  port_vlan_tag=port_vlan_tag,
-                                 vpg_obj=vpg_obj))
+                                 vpg_obj=vpg_obj, pi_obj=pi_obj))
                     # In VPG we will have either regular interface or ae. if
                     #  multiple vpg_interfaces means it's LAG or MH, so one
                     # is sufficient.
