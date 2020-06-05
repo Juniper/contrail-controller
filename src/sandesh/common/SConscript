@@ -4,6 +4,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
+
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
@@ -58,9 +60,20 @@ env.Alias('nodemgr-full', sdist_gen)
 env.Alias('controller/sandesh/common:sdist', sdist_gen)
 env.Default(sdist_gen)
 
+def SymLink(target, source, env):
+    os.symlink(os.path.abspath(str(source[0])), os.path.abspath(str(target[0])))
+
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
-                              cd_cmd + 'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
-    env.Alias('install', install_cmd)
+    install_cmd_py2 = env.Command(None, 'setup.py',
+                                  cd_cmd + 'python setup.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd_py2, sdist_depends)
+    env.Alias('install', install_cmd_py2)
+
+    setup_link_cmd = env.Command("setup-py3.py", "setup.py", SymLink)
+    env.Depends(setup_link_cmd, sdist_depends)
+    install_cmd_py3 = env.Command(None, 'setup-py3.py',
+                                  cd_cmd + 'python3 setup-py3.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd_py3, sdist_depends)
+    env.Alias('install', install_cmd_py3)
