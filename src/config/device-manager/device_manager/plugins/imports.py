@@ -33,7 +33,7 @@ def import_feature_plugins():
     from .l3_gateway_feature import L3GatewayFeature
     from .vn_interconnect_feature import VnInterconnectFeature
     from .assisted_replicator_feature import AssistedReplicatorFeature
-    from .storm_control_feature import StormControlFeature
+    from .port_profile_feature import PortProfileFeature
     from .telemetry_feature import TelemetryFeature
     from .infra_bms_access_feature import InfraBMSAccessFeature
     from .security_group_feature import SecurityGroupFeature
