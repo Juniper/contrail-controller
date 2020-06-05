@@ -45,9 +45,11 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         gevent.sleep(1)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile',{}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
@@ -73,9 +75,11 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), 40)
@@ -111,9 +115,13 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         device_abstract_config = abstract_config.get('device_abstract_config')
 
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
+
+        pp_obj_fqname = pp_obj.get_fq_name()
         sc_obj_fqname = sc_obj.get_fq_name()
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
@@ -123,11 +131,11 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
 
         phy_interfaces = device_abstract_config.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+            'features', {}).get('port-profile', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
             if "xe-0/0/0" in phy_int.get('name'):
-                self.assertEqual(phy_int.get('storm_control_profile'),
-                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+                self.assertEqual(phy_int.get('port_profile'),
+                                 pp_obj_fqname[-1] + "-" + pp_obj_fqname[-2])
 
         self.delete_objects()
 
@@ -155,10 +163,10 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         abstract_config = self.check_dm_ansible_config_push()
 
         device_abstract_config = abstract_config.get('device_abstract_config')
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
 
-        self.assertEqual(storm_control_profiles, [])
+        self.assertEqual(port_profiles, [])
 
         self.delete_objects()
 
@@ -189,9 +197,12 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         device_abstract_config = abstract_config.get('device_abstract_config')
 
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
+
         sc_obj_fqname = sc_obj.get_fq_name()
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
@@ -213,17 +224,18 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
 
-        self.assertEqual(storm_control_profiles, [])
+
+        self.assertEqual(port_profiles, [])
 
 
         phy_interfaces = device_abstract_config.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+            'features', {}).get('port-profile', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
             if "xe-0/0/0" in phy_int.get('name'):
-                self.assertIsNone(phy_int.get('storm_control_profile'))
+                self.assertIsNone(phy_int.get('port_profile'))
 
         self.delete_objects()
 
@@ -252,10 +264,14 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         abstract_config = self.check_dm_ansible_config_push()
 
         device_abstract_config = abstract_config.get('device_abstract_config')
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
 
-        storm_control_profile = storm_control_profiles[-1]
+        pp_obj_fqname = pp_obj.get_fq_name()
+
         sc_obj_fqname = sc_obj.get_fq_name()
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
@@ -265,11 +281,11 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
 
         phy_interfaces = device_abstract_config.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+            'features', {}).get('port-profile', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
             if "xe-0/0/0" in phy_int.get('name'):
-                self.assertEqual(phy_int.get('storm_control_profile'),
-                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+                self.assertEqual(phy_int.get('port_profile'),
+                                 pp_obj_fqname[-1] + "-" + pp_obj_fqname[-2])
 
         self.delete_objects()
 
@@ -299,9 +315,15 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         device_abstract_config = abstract_config.get('device_abstract_config')
 
-        storm_control_profiles = device_abstract_config.get(
-            'features', {}).get('storm-control',{}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+        port_profiles = device_abstract_config.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
+
+        pp_obj_fqname = pp_obj.get_fq_name()
+
+
         sc_obj_fqname = sc_obj.get_fq_name()
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
@@ -311,11 +333,11 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
 
         phy_interfaces = device_abstract_config.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+            'features', {}).get('port-profile', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
             if "ae" in phy_int.get('name'):
-               self.assertEqual(phy_int.get('storm_control_profile'),
-                                sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+               self.assertEqual(phy_int.get('port_profile'),
+                                pp_obj_fqname[-1] + "-" + pp_obj_fqname[-2])
 
         self.delete_objects()
 
@@ -358,9 +380,15 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         self.assertEqual(device_abstract_config_1.get('system', {}).get(
             'management_ip'), "3.3.3.3")
-        storm_control_profiles = device_abstract_config_1.get(
-            'features', {}).get('storm-control', {}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+
+        port_profiles = device_abstract_config_1.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
+
+        pp_obj_fqname = pp_obj.get_fq_name()
+
         sc_obj_fqname = sc_obj.get_fq_name()
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
@@ -370,17 +398,22 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
 
         phy_interfaces = device_abstract_config_1.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+            'features', {}).get('port-profile', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
             if "ae" in phy_int.get('name'):
-                self.assertEqual(phy_int.get('storm_control_profile'),
-                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+                self.assertEqual(phy_int.get('port_profile'),
+                                 pp_obj_fqname[-1] + "-" + pp_obj_fqname[-2])
 
         self.assertEqual(device_abstract_config_2.get('system', {}).get(
             'management_ip'), "3.3.3.2")
-        storm_control_profiles = device_abstract_config_2.get(
-            'features', {}).get('storm-control', {}).get('storm_control', [])
-        storm_control_profile = storm_control_profiles[-1]
+        port_profiles = device_abstract_config_2.get(
+            'features', {}).get('port-profile', {}).get('port_profile', [])
+        port_profile = port_profiles[-1]
+        storm_control_profile = port_profile.get('storm_control_profile')
+        self.assertIsNotNone(storm_control_profile)
+
+        pp_obj_fqname = pp_obj.get_fq_name()
+
         self.assertEqual(storm_control_profile.get('name'),
                          sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
@@ -389,24 +422,24 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
 
         phy_interfaces = device_abstract_config_2.get(
-            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+            'features', {}).get('port-profile', {}).get('physical_interfaces', [])
         for phy_int in phy_interfaces:
             if "ae" in phy_int.get('name'):
-                self.assertEqual(phy_int.get('storm_control_profile'),
-                                 sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+                self.assertEqual(phy_int.get('port_profile'),
+                                 pp_obj_fqname[-1] + "-" + pp_obj_fqname[-2])
 
         self.delete_objects()
 
     def create_feature_objects_and_params(self, role='erb-ucast-gateway'):
-        self.create_features(['storm-control'])
+        self.create_features(['port-profile'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles([role])
         self.create_role_definitions([
             AttrDict({
-                'name': 'storm-control-role',
+                'name': 'port-profile-role',
                 'physical_role': 'leaf',
                 'overlay_role': role,
-                'features': ['storm-control'],
+                'features': ['port-profile'],
                 'feature_configs': None
             })
         ])

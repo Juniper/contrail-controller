@@ -1392,9 +1392,9 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "storm-control"
+            "default-global-system-config", "port-profile"
           ],
-          "name": "storm-control"
+          "name": "port-profile"
         },
         {
           "fq_name": [
@@ -2118,7 +2118,7 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "storm-control"]
+      "to_fq_name": [ "default-global-system-config", "port-profile"]
     },
     {
       "from_type": "role-definition",
@@ -2142,7 +2142,7 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "storm-control"]
+      "to_fq_name": [ "default-global-system-config", "port-profile"]
     },
     {
       "from_type": "role-definition",
@@ -2190,7 +2190,7 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "storm-control"]
+      "to_fq_name": [ "default-global-system-config", "port-profile"]
     },
     {
       "from_type": "role-definition",
