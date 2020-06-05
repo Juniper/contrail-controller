@@ -30,6 +30,10 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
         if not ok:
             return ok, result
 
+        ok, result = cls._check_port_mtu_range(obj_dict)
+        if not ok:
+            return ok, result
+
         return (True, '')
 
     @classmethod
@@ -80,7 +84,23 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
         if not ok:
             return ok, result
 
+        ok, result = cls._check_port_mtu_range(obj_dict)
+        if not ok:
+            return ok, result
+
         return True, ""
+
+    @classmethod
+    def _check_port_mtu_range(cls, obj_dict):
+
+        port_params = obj_dict.get('logical_interface_port_params') or {}
+        port_mtu = port_params.get('port_mtu')
+
+        if port_mtu and (port_mtu < 256 or port_mtu > 9216):
+            return (False, (400, "Port mtu can be only within 256"
+                                 " - 9216"))
+
+        return True, ''
 
     @classmethod
     def _check_esi(cls, obj_dict, db_conn, vlan, p_type, p_uuid):
