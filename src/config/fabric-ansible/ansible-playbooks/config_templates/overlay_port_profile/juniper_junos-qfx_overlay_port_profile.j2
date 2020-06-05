@@ -1,0 +1,5 @@
+{%    if enterprise_style == True %}
+{%        include "./config_templates/overlay_port_profile/juniper_junos-qfx_overlay_port_profile_enterprise.j2" %}
+{%    else %}
+{%        include "./config_templates/overlay_port_profile/juniper_junos-qfx_overlay_port_profile_sp.j2" %}
+{%    endif %}
