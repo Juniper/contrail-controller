@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "be385676_e443ebe8",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 218,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "Good catch, thanks",
+      "parentUuid": "773fbc40_ebfa9015",
+      "range": {
+        "startLine": 218,
+        "startChar": 49,
+        "endLine": 218,
+        "endChar": 55
+      },
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "0ed3287d_373df2b3",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 17
@@ -36,6 +60,24 @@
       "writtenOn": "2020-06-05T13:29:49Z",
       "side": 1,
       "message": "Can you add an informative log to explain we are waiting keyspace to be initialized. That is useful when we start service like ST before the API server ensures the config_db_uuid keyspace.",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "df7d3239_12ac98f0",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 344,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "Sure that makes sense",
+      "parentUuid": "0ed3287d_373df2b3",
       "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -59,6 +101,24 @@
     },
     {
       "key": {
+        "uuid": "3aa6d0fa_2861c243",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 362,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "Yes it\u0027s true if it\u0027s OK I will add a TODO comment. I think we should fix the issue in both of the drivers.",
+      "parentUuid": "05e29c28_f75d4919",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "edb838f2_92b716b7",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 17
@@ -70,6 +130,24 @@
       "writtenOn": "2020-06-05T13:29:49Z",
       "side": 1,
       "message": "you should compare what properties a table has when it was created with pycassa/thirft driver to be sure we not changing anything.",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8bb23142_41b9558c",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 403,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "You are right that should be done for the first implementation.",
+      "parentUuid": "edb838f2_92b716b7",
       "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -93,6 +171,24 @@
     },
     {
       "key": {
+        "uuid": "158b087d_9728363c",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 409,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "Looks like it\u0027s what we were doing aith thrift driver, let me fix that here",
+      "parentUuid": "9e31210f_916bde91",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "afc0401f_48acfbb3",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 17
@@ -110,6 +206,24 @@
     },
     {
       "key": {
+        "uuid": "3010ee74_349fb6cd",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 442,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "Yes probably thanks",
+      "parentUuid": "afc0401f_48acfbb3",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "22143dc1_8e6f904c",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 17
@@ -121,6 +235,24 @@
       "writtenOn": "2020-06-05T13:29:49Z",
       "side": 1,
       "message": "you need to decorate the driver API methods to reproduce what it is done with the legacy. See in the thrift driver [1]. Perhaps that can be factorize in the driver API class.\n\n[1] https://review.opencontrail.org/c/Juniper/contrail-controller/+/58693/17/src/config/common/cfgm_common/datastore/drivers/cassandra_thrift.py#87",
+      "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f31292c1_e6d9a0bb",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 17
+      },
+      "lineNbr": 653,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-05T15:28:07Z",
+      "side": 1,
+      "message": "++",
+      "parentUuid": "22143dc1_8e6f904c",
       "revId": "5568c7afd0121002a58442399099fbe3cdd8a8ad",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
