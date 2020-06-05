@@ -1,21 +1,107 @@
+{%     set device_product_name = device_abstract_config.get('system', {}).get('product_name', '') %}
+{%     set cmd_fmt = namespace(command_format='ether-options') %}
+{%     set pi_mtu = namespace(phy_mtu = 9192) %}
+{%     if device_product_name.startswith('mx') %}
+{%         set cmd_fmt.command_format = 'gigether-options' %}
+{%     endif %}
 {%     for ifd in device_abstract_config.get('features', {}).get('underlay-ip-clos',{}).get('physical_interfaces', []) %}
-{%         if ifd.name != 'lo0' %}
+{%         if ifd.get('interface_type', None) == 'regular' %}
+{%             if ifd.name != 'lo0' %}
 set groups {{cfg_group}} interfaces {{ifd.name}} mtu 9192
 delete protocols rstp interface {{ifd.name}}
-{%         endif %}
-{%         for ifl in ifd.get('logical_interfaces', []) %}
-{%             if ifd.get('interface_type','') != 'service' %}
+{%                 if ifd.get('flow_control') == True  %}
+set groups {{cfg_group}} interfaces {{ifd.name}} {{cmd_fmt.command_format}} flow-control
+{%                 endif %}
+{%             endif %}
+{%             if ifd.get('port_params')  %}
+{%                 set port_params = ifd.get('port_params') %}
+{%                 if port_params.get('port_description') %}
+set groups {{cfg_group}} interfaces {{ifd.name}} description "{{port_params.get('port_description')}}"
+{%                 endif %}
+{%                 if port_params.get('port_mtu') and ifd.name != 'lo0' %}
+{%                     if device_product_name.startswith('mx') %}
+{%                         if port_params.get('port_mtu') <= 9192 %}
+set groups {{cfg_group}} interfaces {{ifd.name}} mtu {{port_params.get('port_mtu')}}
+{%                             set pi_mtu.phy_mtu = port_params.get('port_mtu') %}
+{%                         endif%}
+{%                     else %}
+set groups {{cfg_group}} interfaces {{ifd.name}} mtu {{port_params.get('port_mtu')}}
+{%                         set pi_mtu.phy_mtu = port_params.get('port_mtu') %}
+{%                     endif %}
+{%                 endif %}
+{%                 if port_params.get('port_disable') == True %}
+set groups {{cfg_group}} interfaces {{ifd.name}} disable
+{%                 endif %}
+{%             endif %}
+{%             for ifl in ifd.get('logical_interfaces', []) %}
+{%                 if ifd.get('interface_type','') != 'service' %}
+{%                     if 'ip_addresses' in ifl %}
 delete interfaces {{ifd.name}} unit {{ifl.unit}}
 set interfaces {{ifd.name}} unit {{ifl.unit}} family inet
-{%                set address = ifl.ip_addresses[0].address %}
-{%                if ifl.name == 'lo0.0' %}
+{%                         set address = ifl.ip_addresses[0].address %}
+{%                         if ifl.name == 'lo0.0' %}
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32 primary
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32 preferred
-{%                else %}
+{%                         else %}
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/30
-{%                endif %}
+{%                         endif %}
+{%                     endif %}
+{%                 endif %}
+{%                 if ifl.get('port_params') %}
+{%                     set port_params = ifl.get('port_params') %}
+{%                     if ifl.unit == 0 %}
+{%                         if port_params.get('port_mtu') and ifl.name != 'lo0.0' %}
+{%                             if port_params.get('port_mtu') <= (pi_mtu.phy_mtu-14) %}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet mtu {{port_params.get('port_mtu')}}
+{%                             endif %}
+{%                         endif %}
+{%                         if port_params.get('port_description') %}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} description "{{port_params.get('port_description')}}"
+{%                         endif %}
+{%                     endif %}
+{%                 endif %}
+{%             endfor %}
+{%         else %}
+{%             set pi_mtu = namespace(phy_mtu = 1514)%}
+{%             if ifd.get('flow_control') == True and ifd.name != 'lo0' %}
+set groups {{cfg_group}} interfaces {{ifd.name}} {{cmd_fmt.command_format}} flow-control
 {%             endif %}
-{%         endfor %}
+{%             if ifd.get('port_params')  %}
+{%                 set port_params = ifd.get('port_params') %}
+{%                 if port_params.get('port_description') %}
+set groups {{cfg_group}} interfaces {{ifd.name}} description "{{port_params.get('port_description')}}"
+{%                 endif %}
+{%                 if port_params.get('port_mtu') and ifd.name != 'lo0' %}
+{%                     if device_product_name.startswith('mx') %}
+{%                         if port_params.get('port_mtu') <= 9192 %}
+set groups {{cfg_group}} interfaces {{ifd.name}} mtu {{port_params.get('port_mtu')}}
+{%                             set pi_mtu.phy_mtu = port_params.get('port_mtu') %}
+{%                         endif%}
+{%                     else %}
+set groups {{cfg_group}} interfaces {{ifd.name}} mtu {{port_params.get('port_mtu')}}
+{%                         set pi_mtu.phy_mtu = port_params.get('port_mtu') %}
+{%                     endif %}
+{%                 endif %}
+{%                 if port_params.get('port_disable') == True %}
+set groups {{cfg_group}} interfaces {{ifd.name}} disable
+{%                 endif %}
+{%             endif %}
+{%             for ifl in ifd.get('logical_interfaces', []) %}
+{%                 if ifl.get('port_params') %}
+{%                     set port_params = ifl.get('port_params') %}
+{%                     if ifl.unit == 0 %}
+{%                         if port_params.get('port_mtu') and ifl.name != 'lo0.0' %}
+{%                             if port_params.get('port_mtu') <= (pi_mtu.phy_mtu - 14) %}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet mtu {{port_params.get('port_mtu')}}
+{%                             endif %}
+{%                         endif %}
+{%                         if port_params.get('port_description') %}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} description "{{port_params.get('port_description')}}"
+{%                         endif %}
+{%                     endif %}
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
 {%     endfor %}
 
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
