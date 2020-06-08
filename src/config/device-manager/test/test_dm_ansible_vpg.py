@@ -68,9 +68,12 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
                                                               {}).get(
                 'l2-gateway', {}), name='ae0')
         self.assertEqual(phy_intf.get('interface_type'), 'lag')
-
-        log_intf = self.get_logical_interface(phy_intf,
-                                              name='ae0.' + str(vlan_tag))
+        if fabric.get_fabric_enterprise_style():
+            log_intf = self.get_logical_interface(phy_intf,
+                                                  name='ae0.0')
+        else:
+            log_intf = self.get_logical_interface(phy_intf,
+                                                  name='ae0.'+str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(vlan_tag))
         self.assertEqual(log_intf.get('unit'), str(vlan_tag))
         self.assertTrue(log_intf.get('is_tagged'))
@@ -186,8 +189,12 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         self.assertEqual(phy_intf.get('interface_type'), 'lag')
         self.assertIsNotNone(phy_intf.get('ethernet_segment_identifier'))
 
-        log_intf = self.get_logical_interface(phy_intf,
-                                              name='ae0.' + str(vlan_tag))
+        if fabric.get_fabric_enterprise_style():
+            log_intf = self.get_logical_interface(phy_intf,
+                                                  name='ae0.0')
+        else:
+            log_intf = self.get_logical_interface(phy_intf,
+                                                  name='ae0.' + str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(vlan_tag))
         self.assertEqual(log_intf.get('unit'), str(vlan_tag))
         self.assertTrue(log_intf.get('is_tagged'))
@@ -295,9 +302,13 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
                                                               {}).get(
                 'l2-gateway', {}), name='ae0')
         self.assertEqual(phy_intf.get('interface_type'), 'lag')
+        if fabric.get_fabric_enterprise_style():
+            log_intf = self.get_logical_interface(phy_intf,
+                                                  name='ae0.0')
+        else:
+            log_intf = self.get_logical_interface(phy_intf,
+                                                  name='ae0.' + str(vlan_tag))
 
-        log_intf = self.get_logical_interface(phy_intf,
-                                              name='ae0.' + str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(port_vlan_tag))
         self.assertEqual(log_intf.get('unit'), str(vlan_tag))
         self.assertFalse(log_intf.get('is_tagged'))

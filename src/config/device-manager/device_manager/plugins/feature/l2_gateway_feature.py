@@ -114,7 +114,6 @@ class L2GatewayFeature(FeatureBase):
                 lag = LinkAggrGroup(description="Virtual Port Group : %s" %
                                                 vpg_map[pi_name])
                 pi.set_link_aggregation_group(lag)
-
             for interface in interface_list:
                 if int(interface.vlan_tag) == 0:
                     is_tagged = False
@@ -122,12 +121,33 @@ class L2GatewayFeature(FeatureBase):
                 else:
                     is_tagged = True
                     vlan_tag = str(interface.vlan_tag)
-                unit = self._add_or_lookup_li(li_map, interface.li_name,
-                                              interface.unit)
-                unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(
-                    vn, is_tagged, vlan_tag))
-                unit.set_is_tagged(is_tagged)
-                unit.set_vlan_tag(vlan_tag)
+                # this is prevent creating multiple LI for PI in case
+                # enterprise profile. Today we support only one untagged
+                # LI on any PI so
+                if self._physical_router.device_family != 'junos' and\
+                    (self._is_enterprise_style(self._physical_router) or
+                     self._physical_router.is_erb_only() is True):
+                    intf = interface.pi_name + '.' + str(0)
+                    li_intf = li_map.get(intf, None)
+                    already_untagged = False
+                    if li_intf and li_intf.is_tagged is False\
+                       and already_untagged is False:
+                        already_untagged = True
+                    if already_untagged is False:
+                        unit = self._add_or_lookup_li(li_map, intf,
+                                                      interface.unit)
+                        unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(
+                                         vn, is_tagged, vlan_tag))
+                        unit.set_is_tagged(is_tagged)
+                        unit.set_vlan_tag(vlan_tag)
+                else:
+                    intf = interface.li_name
+                    unit = self._add_or_lookup_li(li_map, intf,
+                                                  interface.unit)
+                    unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(
+                        vn, is_tagged, vlan_tag))
+                    unit.set_is_tagged(is_tagged)
+                    unit.set_vlan_tag(vlan_tag)
                 if vlan:
                     vlan.set_vlan_id(int(vlan_tag))
                     self._add_ref_to_list(vlan.get_interfaces(),
