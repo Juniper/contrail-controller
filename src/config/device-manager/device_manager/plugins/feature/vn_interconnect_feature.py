@@ -130,7 +130,7 @@ class VnInterconnectFeature(FeatureBase):
             else:
                 ip_addr = '127.0.0.1'
 
-            lo0_unit = 1000 + int(network_id)
+            lo0_unit = int(network_id)
             self._build_loopback_intf_info(ip_addr, lo0_unit, ri)
         else:
             # create routing instance of type master, which represents inet.0
