@@ -3,20 +3,19 @@
 #
 
 from __future__ import print_function
-from __future__ import absolute_import
 
-import json
 import gevent
-from .kube_monitor import KubeMonitor
 from kube_manager.common.kube_config_db import PodKM
+from kube_manager.kube.kube_monitor import KubeMonitor
+
 
 class PodMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(PodMonitor, self).__init__(args, logger, q, PodKM,
-            resource_type='pod')
+        super(PodMonitor, self).__init__(
+            args, logger, q, PodKM, resource_type='pod')
         self.init_monitor()
-        self.logger.info("PodMonitor init done.");
+        self.logger.info("PodMonitor init done.")
 
     def process_event(self, event):
         pod_data = event['object']
@@ -46,10 +45,12 @@ class PodMonitor(KubeMonitor):
         else:
             pod_uuid = pod_data['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, pod_name, pod_uuid))
-        self.logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self.name, event_type, kind, namespace, pod_name, pod_uuid))
+        print(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, pod_name, pod_uuid))
+        self.logger.debug(
+            "%s - Got %s %s %s:%s:%s"
+            % (self.name, event_type, kind, namespace, pod_name, pod_uuid))
         self.q.put(event)
 
     def event_callback(self):

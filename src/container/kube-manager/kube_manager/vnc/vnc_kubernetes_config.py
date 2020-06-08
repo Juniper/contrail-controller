@@ -1,13 +1,14 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-from builtins import object
-from kube_manager.common.utils import (get_vn_fq_name_from_dict_string,
-                                     get_domain_name_from_vn_dict_string,
-                                     get_project_name_from_vn_dict_string,
-                                     get_vn_name_from_vn_dict_string,
-                                     get_domain_name_from_project_dict_string,
-                                     get_project_name_from_project_dict_string)
+
+from kube_manager.common.utils import (
+    get_domain_name_from_vn_dict_string,
+    get_project_name_from_vn_dict_string,
+    get_vn_name_from_vn_dict_string,
+    get_domain_name_from_project_dict_string,
+    get_project_name_from_project_dict_string)
+
 
 class VncKubernetesConfig(object):
     """VNC kubernetes common config.
@@ -103,7 +104,7 @@ class VncKubernetesConfig(object):
         args = cls.args()
         if cls.is_cluster_network_configured():
             return get_domain_name_from_vn_dict_string(
-                       args.cluster_network)
+                args.cluster_network)
         if cls.is_cluster_project_configured():
             return get_domain_name_from_project_dict_string(
                 args.cluster_project)
@@ -121,7 +122,7 @@ class VncKubernetesConfig(object):
         args = cls.args()
         if cls.is_cluster_network_configured():
             return get_project_name_from_vn_dict_string(
-                       args.cluster_network)
+                args.cluster_network)
         if cls.is_cluster_project_configured():
             return get_project_name_from_project_dict_string(
                 args.cluster_project)
