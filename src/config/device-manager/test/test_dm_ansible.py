@@ -15,12 +15,15 @@ from .test_dm_utils import FakeJobHandler
 class TestAnsibleDM(TestAnsibleCommonDM):
 
     @retries(5, hook=retry_exc_handler)
-    def check_li(self):
+    def check_li(self, fabric):
         ac = FakeJobHandler.get_job_input()
         self.assertIsNotNone(ac)
         fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
         pi_name = 'xe-0/0/1'
-        li_name = pi_name + '.101'
+        if fabric.get_fabric_enterprise_style():
+            li_name = pi_name + '.0'
+        else:
+            li_name = pi_name + '.101'
         pi = self.get_phy_interfaces(fc, name=pi_name)
         li = self.get_logical_interface(pi, name=li_name)
 
@@ -125,7 +128,7 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
 
-        self.check_li()
+        self.check_li(fabric)
 
         self._vnc_lib.logical_router_delete(fq_name=lr.get_fq_name())
 
