@@ -1113,9 +1113,11 @@ class VncCassandraClient(object):
 
         # Update fqname table
         fq_name_str = ':'.join(fq_name)
-        fq_name_col = utils.encode_string(fq_name_str) + ':' + obj_uuid
-        self._obj_fq_name_cf.remove(obj_type,
-                                    columns = [fq_name_col])
+        self._obj_fq_name_cf.remove(obj_type, columns=[
+            utils.encode_string(fq_name_str) + ':' + obj_uuid,
+            # backward compat: remove old encoding version of the fq-name
+            utils.old_encode_string(fq_name_str) + ':' + obj_uuid,
+        ])
 
         # Purge map naming cache
         self.cache_uuid_to_fq_name_del(obj_uuid)
@@ -1201,22 +1203,54 @@ class VncCassandraClient(object):
             return obj_type
     # end uuid_to_obj_type
 
-    def fq_name_to_uuid(self, obj_type, fq_name):
-        fq_name_str = utils.encode_string(':'.join(fq_name))
+    def fq_name_to_uuid(self, obj_type, req_fq_name):
+        old_encoding = False
 
-        col_infos = self._cassandra_driver.get(self._OBJ_FQ_NAME_CF_NAME,
-                             obj_type,
-                             start=fq_name_str + ':',
-                             finish=fq_name_str + ';')
+        # try to get column with encode fq-name string
+        req_fq_name_str = utils.encode_string(':'.join(req_fq_name))
+        col_infos = self._cassandra_driver.get(
+            self._OBJ_FQ_NAME_CF_NAME,
+            obj_type,
+            start=req_fq_name_str + ':',
+            finish=req_fq_name_str + ';')
+
+        # if not found and encoded version is different from the fq-name,
+        # try to find old encoded version of the fq-name
+        if not col_infos and req_fq_name_str != ':'.join(req_fq_name):
+            req_fq_name_str = utils.old_encode_string(':'.join(req_fq_name))
+            col_infos = self._cassandra_driver.get(
+                self._OBJ_FQ_NAME_CF_NAME,
+                obj_type,
+                start=req_fq_name_str + ':',
+                finish=req_fq_name_str + ';')
+            old_encoding = True
         if not col_infos:
-            raise NoIdError('%s %s' % (obj_type, fq_name_str))
+            raise NoIdError('%s %s' % (obj_type, ':'.join(req_fq_name)))
         if len(col_infos) > 1:
-            raise VncError('Multi match %s for %s' % (fq_name_str, obj_type))
-        fq_name_uuid = utils.decode_string(col_infos.popitem()[0]).split(':')
-        if obj_type != 'route_target' and fq_name_uuid[:-1] != fq_name:
-            raise NoIdError('%s %s' % (obj_type, fq_name_str))
-        return fq_name_uuid[-1]
-    # end fq_name_to_uuid
+            raise VncError(
+                'Multi match %s for %s' % (':'.join(req_fq_name), obj_type))
+
+        fq_name_str, _, uuid = col_infos.popitem()[0].rpartition(':')
+        if old_encoding:
+            fq_name = utils.old_decode_string(fq_name_str)
+        else:
+            fq_name = utils.decode_string(fq_name_str)
+
+        # route target use ':' in its name and cannot have parent, ignore them
+        if obj_type != 'route_target':
+            fq_name = fq_name.split(':')
+
+        if fq_name != req_fq_name:
+            raise NoIdError('%s %s' % (obj_type, ':'.join(req_fq_name)))
+
+        # update the fq-name column with the new encoded string version
+        if old_encoding:
+            self._obj_fq_name_cf.insert(obj_type, {
+                utils.encode_string(':'.join(req_fq_name)) + ':' + uuid:
+                    json.dumps(None),
+            })
+            # TODO(ethuleau): we could also remove old version from column
+        return uuid
 
     # return all objects shared with a (share_type, share_id)
     def get_shared(self, obj_type, share_id='', share_type='global'):

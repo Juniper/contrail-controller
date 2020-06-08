@@ -58,7 +58,7 @@ def detailed_traceback():
 # end detailed_traceback
 
 
-def encode_string(string, encoding='utf-8', safe=': = /'):
+def encode_string(string, encoding='utf-8', safe=':'):
     """Encode the string using urllib.quote_plus.
 
     Eg. @input:
@@ -71,6 +71,18 @@ def encode_string(string, encoding='utf-8', safe=': = /'):
     return urllib.parse.quote_plus(string, encoding=encoding, safe=safe)
 
 
+def old_encode_string(enc_str, encoding='utf-8'):
+    try:
+        enc_str.encode()
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        if type(enc_str) is str:
+            enc_str = enc_str.encode(encoding)
+        enc_str = urllib.parse.quote_plus(enc_str)
+    except Exception:
+        pass
+    return enc_str
+
+
 def decode_string(string, encoding='utf-8'):
     """Decode the string previously encoded using urllib.unquote_plus.
 
@@ -81,6 +93,17 @@ def decode_string(string, encoding='utf-8'):
             type - unicode (str in python 3)
     """
     return urllib.parse.unquote_plus(string, encoding=encoding)
+
+
+def old_decode_string(dec_str, encoding='utf-8'):
+    ret_dec_str = dec_str
+    try:
+        if type(ret_dec_str) is str:
+            ret_dec_str = str(ret_dec_str)
+        ret_dec_str = urllib.parse.unquote_plus(ret_dec_str)
+        return ret_dec_str.decode(encoding)
+    except Exception:
+        return dec_str
 
 
 class CacheContainer(object):
