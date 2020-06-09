@@ -1043,7 +1043,9 @@
               "juniper-qfx5110-48s-4c",
               "juniper-qfx5110-32q",
               "juniper-qfx5120-48y-8c",
+              "juniper-qfx5120-48t-6c",
               "juniper-qfx5120-32c",
+              "juniper-qfx5220-32cd",
               "juniper-qfx5200-32c-32q",
               "juniper-qfx5200-48y",
               "juniper-qfx5210-64c",
@@ -1768,11 +1770,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access","Route-Reflector","AR-Client","ERB-UCAST-Gateway"]
+                "rb_roles": ["CRB-Access","Route-Reflector","AR-Client","ERB-UCAST-Gateway", "CRB-Gateway", "PNF-Servicechain"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "Route-Reflector", "AR-Client"]
+                "rb_roles": ["null", "CRB-Gateway", "Route-Reflector", "AR-Client", "PNF-Servicechain"]
               }
             ]
           }
@@ -2996,7 +2998,7 @@
     },
     {
       "from_type": "node-profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-48y-8c" ]
     },
@@ -3005,6 +3007,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-32c" ]
+    },
+    {
+      "from_type": "node-profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5120-48t-6c" ]
     },
     {
       "from_type": "node-profile",
@@ -3023,6 +3031,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5210-64c" ]
+    },
+    {
+      "from_type": "node-profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5220-32cd" ]
     },
     {
       "from_type": "node-profile",
