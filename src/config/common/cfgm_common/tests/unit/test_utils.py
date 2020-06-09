@@ -49,13 +49,16 @@ class TestFqNameEncode(unittest.TestCase):
     def test_fq_name_encoding(self):
         test_suite = [
             ('only-ascii', 'only-ascii'),
-            ('only ascii with space', 'only+ascii+with+space'),
-            ('non-ascii-é', 'non-ascii-%C3%A9'),
-            ('non ascii with space é', 'non+ascii+with+space+%C3%A9'),
-            ('non-ascii-encoded-\xe9', 'non-ascii-encoded-%C3%A9'),
-            (b'binary', TypeError),
+            ('only ascii with space', 'only ascii with space'),
+            ('only/ascii/with/forward/slash', 'only/ascii/with/forward/slash'),
+            ('only!ascii!with!exclamatory', 'only!ascii!with!exclamatory'),
+            ('only~ascii~tilde', 'only~ascii~tilde'),
             ('foo=bar', 'foo=bar'),
             # (, ),
+            # ('non-ascii-é', 'non-ascii-%C3%A9'),
+            # ('non ascii with space é', 'non+ascii+with+space+%C3%A9'),
+            # ('non-ascii-encoded-\xe9', 'non-ascii-encoded-%C3%A9'),
+            # (b'binary', TypeError),
         ]
         for string, expected_result in test_suite:
             if (isinstance(expected_result, type) and

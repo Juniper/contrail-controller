@@ -58,29 +58,44 @@ def detailed_traceback():
 # end detailed_traceback
 
 
-def encode_string(string, encoding='utf-8', safe=': ='):
-    """Encode the string using urllib.quote_plus.
+def encode_string(enc_str, encoding='utf-8'):
+    """Encode the string using urllib.quote_plus
 
     Eg. @input:
-            enc_stringstr = 'neté '
+            enc_str = 'neté
             type - 'unicode' or 'str'
         @retval
-            enc_str = 'net%C3%A9+'
-            type - str (newstr in python 2)
+            enc_str = 'net%C3%A9%C3%B9'
+            type - str
     """
-    return urllib.parse.quote_plus(string, encoding=encoding, safe=safe)
+    try:
+        enc_str.encode()
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        if type(enc_str) is str:
+            enc_str = enc_str.encode(encoding)
+        enc_str = urllib.parse.quote_plus(enc_str)
+    except Exception:
+        pass
+    return enc_str
 
 
-def decode_string(string, encoding='utf-8'):
-    """Decode the string previously encoded using urllib.unquote_plus.
+def decode_string(dec_str, encoding='utf-8'):
+    """Decode the string previously encoded using urllib.quote_plus.
 
-    Eg. If string = 'net%C3%A9+'
-            type - 'unicode' or 'str'
+    Eg. If dec_str = 'net%C3%A9%C3%B9'
+           type - 'unicode' or 'str'
         @retval
             ret_dec_str = 'neté
-            type - unicode (str in python 3)
+            type - unicode
     """
-    return urllib.parse.unquote_plus(string, encoding=encoding)
+    ret_dec_str = dec_str
+    try:
+        if type(ret_dec_str) is str:
+            ret_dec_str = str(ret_dec_str)
+        ret_dec_str = urllib.parse.unquote_plus(ret_dec_str)
+        return ret_dec_str.decode(encoding)
+    except Exception:
+        return dec_str
 
 
 class CacheContainer(object):
