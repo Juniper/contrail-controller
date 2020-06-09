@@ -76,14 +76,13 @@ class LoadbalancerSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.delete_loadbalancer(obj)
         obj.update_single_ref('virtual_machine_interface', {})
         obj.update_single_ref('service_instance', {})
         obj.update_multiple_refs('loadbalancer_listener', {})
-        del cls._dict[uuid]
     # end delete
 # end class LoadbalancerSM
 
@@ -126,13 +125,12 @@ class LoadbalancerListenerSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.delete_listener(obj)
         obj.update_single_ref('loadbalancer', {})
         obj.update_single_ref('loadbalancer_pool', {})
-        del cls._dict[uuid]
     # end delete
 # end class LoadbalancerListenerSM
 
@@ -230,16 +228,15 @@ class LoadbalancerPoolSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.delete_loadbalancer_pool(obj)
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_ip', {})
         obj.update_single_ref('loadbalancer_listener', {})
         obj.update_single_ref('virtual_machine_interface', {})
         obj.update_multiple_refs('loadbalancer_healthmonitor', {})
-        del cls._dict[uuid]
     # end delete
 # end class LoadbalancerPoolSM
 
@@ -280,15 +277,14 @@ class LoadbalancerMemberSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.delete_loadbalancer_member(obj)
         if obj.loadbalancer_pool:
             parent = LoadbalancerPoolSM.get(obj.loadbalancer_pool)
         if parent:
             parent.members.discard(obj.uuid)
-        del cls._dict[uuid]
     # end delete
 # end class LoadbalancerMemberSM
 
@@ -322,13 +318,12 @@ class VirtualIpSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.delete_virtual_ip(obj)
         obj.update_single_ref('virtual_machine_interface', {})
         obj.update_single_ref('loadbalancer_pool', {})
-        del cls._dict[uuid]
     # end delete
 # end class VirtualIpSM
 
@@ -378,12 +373,11 @@ class HealthMonitorSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.delete_loadbalancer_health_monitor(obj)
         obj.update_multiple_refs('loadbalancer_pool', {})
-        del cls._dict[uuid]
     # end delete
 # end class HealthMonitorSM
 
@@ -429,13 +423,12 @@ class VirtualMachineSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -466,11 +459,9 @@ class VirtualRouterSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('virtual_machine', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_multiple_refs('virtual_machine', {})
     # end delete
 
     def set_agent_state(self, up):
@@ -568,9 +559,9 @@ class VirtualMachineInterfaceSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_single_ref('virtual_ip', {})
         obj.update_single_ref('loadbalancer', {})
         obj.update_single_ref('loadbalancer_pool', {})
@@ -585,7 +576,6 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_multiple_refs('port_tuple', {})
         obj.update_multiple_refs('tag', {})
         obj.remove_from_parent()
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -691,9 +681,9 @@ class ServiceInstanceSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_single_ref('service_template', {})
         obj.update_single_ref('loadbalancer', {})
         obj.update_single_ref('loadbalancer_pool', {})
@@ -703,7 +693,6 @@ class ServiceInstanceSM(DBBaseSM):
         obj.update_multiple_refs('instance_ip', {})
         obj.update_multiple_refs('virtual_machine', {})
         obj.remove_from_parent()
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -744,12 +733,11 @@ class ServiceTemplateSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_multiple_refs('service_instance', {})
         obj.update_single_ref('service_appliance_set', {})
-        del cls._dict[uuid]
     # end delete
 # end class ServiceTemplateSM
 
@@ -789,14 +777,13 @@ class VirtualNetworkSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('instance_ip', {})
         obj.update_multiple_refs('network_ipam', {})
         obj.remove_from_parent()
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -835,11 +822,9 @@ class FloatingIpSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_multiple_refs('virtual_machine_interface', {})
     # end delete
 
     def evaluate(self):
@@ -885,13 +870,12 @@ class InstanceIpSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_single_ref('service_instance', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('virtual_network', {})
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -935,9 +919,9 @@ class LogicalInterfaceSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         if obj.physical_interface:
             parent = PhysicalInterfaceSM.get(obj.physical_interface)
         elif obj.physical_router:
@@ -945,7 +929,6 @@ class LogicalInterfaceSM(DBBaseSM):
         if parent:
             parent.logical_interfaces.discard(obj.uuid)
         obj.update_single_ref('virtual_machine_interface', {})
-        del cls._dict[uuid]
     # end delete
 # end LogicalInterfaceSM
 
@@ -976,14 +959,13 @@ class PhysicalInterfaceSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         pr = PhysicalRouterSM.get(obj.physical_router)
         if pr:
             pr.physical_interfaces.discard(obj.uuid)
         obj.update_multiple_refs('virtual_machine_interface',{})
-        del cls._dict[uuid]
     # end delete
 # end PhysicalInterfaceSM
 
@@ -1012,10 +994,7 @@ class PhysicalRouterSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        del cls._dict[uuid]
+        cls._dict.pop(uuid, None)
     # end delete
 # end PhysicalRouterSM
 
@@ -1043,11 +1022,9 @@ class ProjectSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('service_instance', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_multiple_refs('service_instance', {})
     # end delete
 # end ProjectSM
 
@@ -1070,10 +1047,7 @@ class DomainSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        del cls._dict[uuid]
+        cls._dict.pop(uuid, None)
     # end delete
 # end DomainSM
 
@@ -1098,11 +1072,9 @@ class SecurityGroupSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_multiple_refs('virtual_machine_interface', {})
     # end delete
 
     def evaluate(self):
@@ -1139,12 +1111,11 @@ class InterfaceRouteTableSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs_with_attr('service_instance', {})
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -1190,14 +1161,13 @@ class ServiceApplianceSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         if obj.service_appliance_set:
             parent = ServiceApplianceSetSM.get(obj.service_appliance_set)
         if parent:
             parent.service_appliances.discard(obj.uuid)
-        del cls._dict[uuid]
     # end delete
 # end ServiceApplianceSM
 
@@ -1240,12 +1210,11 @@ class ServiceApplianceSetSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.loadbalancer_agent.unload_driver(obj)
         obj.update_single_ref("service_template",{})
-        del cls._dict[uuid]
     # end delete
 # end ServiceApplianceSetSM
 
@@ -1287,14 +1256,13 @@ class LogicalRouterSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         cls._manager.snat_agent.delete_snat_instance(obj)
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -1324,12 +1292,11 @@ class PortTupleSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
+        obj = cls._dict.pop(uuid, None)
+        if not obj:
             return
-        obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.remove_from_parent()
-        del cls._dict[uuid]
     # end delete
 
     def evaluate(self):
@@ -1357,11 +1324,9 @@ class ServiceHealthCheckSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs_with_attr('service_instance', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_multiple_refs_with_attr('service_instance', {})
     # end delete
 # end ServiceHealthCheckSM
 
@@ -1385,11 +1350,9 @@ class NetworkIpamSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('virtual_network', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_multiple_refs('virtual_network', {})
     # end delete
 # end NetworkIpamSM
 
@@ -1411,9 +1374,7 @@ class TagSM(DBBaseSM):
 
     @classmethod
     def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_single_ref('tag_type', {})
-        del cls._dict[uuid]
+        obj = cls._dict.pop(uuid, None)
+        if obj:
+            obj.update_single_ref('tag_type', {})
 # end class TagSM
