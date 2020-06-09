@@ -1,10 +1,12 @@
 #
 # Copyright (c) 2020 Juniper Networks, Inc. All rights reserved.
 #
+import inspect
 import logging
 import os
 
 from cfgm_common.tests.test_common import TestCase
+from vnc_api import vnc_api
 from vnc_api.exceptions import RefsExistError
 
 
@@ -19,6 +21,36 @@ class InPlaceUpgradeTestCase(TestCase):
         logger.addHandler(cls.console_handler)
         kwargs['in_place_upgrade_path'] = cls._get_golden_json()
         super(InPlaceUpgradeTestCase, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        super(InPlaceUpgradeTestCase, cls).tearDownClass(*args, **kwargs)
+
+        golden_json_filename = cls._get_golden_json()
+        with open(golden_json_filename, 'r') as f:
+            golden_json = f.read()
+
+        missing_objs = set()
+        for obj_type in cls._get_all_vnc_obj_types():
+            if obj_type not in golden_json:
+                missing_objs.add(obj_type)
+
+        if missing_objs:
+            raise Exception(
+                'In-place-upgrade assertion error. '
+                '{} schema object types have not been tested: "{}" '
+                'These objects are not visible '
+                'in golden json db-dump: {}'.format(len(missing_objs),
+                                                    missing_objs,
+                                                    golden_json_filename))
+
+    @classmethod
+    def _get_all_vnc_obj_types(cls):
+        obj_types = set()
+        for name, obj in inspect.getmembers(vnc_api):
+            if inspect.isclass(obj) and hasattr(obj, 'object_type'):
+                obj_types.add(obj.object_type)
+        return obj_types
 
     @classmethod
     def _get_golden_json(cls):
@@ -52,14 +84,12 @@ class InPlaceUpgradeTestCase(TestCase):
                     prop_not_found.append(prop)
                     continue
 
-                set_method = getattr(obj, 'set_%s' % prop)
-                set_method(prop_map[prop])
         if len(prop_not_found) > 0:
             raise Exception(
                 'Properties nod defined in prop_map: '
                 '{} for object: {}'.format(', '.join(prop_not_found),
                                            obj.__class__.__name__))
-        return obj
+        return obj(**prop_map)
 
     def assertSchemaObjCreateOrUpdate(self, obj):
         """Create schema object and assert that uuid has been assigned.
@@ -69,7 +99,6 @@ class InPlaceUpgradeTestCase(TestCase):
         # Create and verify that uuid exists
         create = getattr(self.api, '{}_create'.format(obj.object_type))
         update = getattr(self.api, '{}_update'.format(obj.object_type))
-        # read = getattr(self.api, '{}_read'.format(obj.object_type))
 
         try:
             uuid = create(obj)
