@@ -25,7 +25,7 @@ and this template generates configs to extend VN to the box.#}
 {%         endif %}
 {%     endfor%}
 {%     set ns = namespace(public_network='no') %}
-{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%     for bgp_elem in device_abstract_config.get('features', {}).get('overlay-bgp',{}).get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         if 'evpn' in families %}
 {%             set route_distinguisher = bgp_elem.get('ip_address') %}

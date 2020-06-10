@@ -1,0 +1,9 @@
+set groups {{cfg_group}} forwarding-options multicast-replication evpn irb local-remote
+{% for ri in device_abstract_config.get('features', {}).get('vn-interconnect', {}).get('routing_instances', []) %}
+{%     set master = ri.get('is_master', false) %}
+{%     if master != true %}
+{%         set name = ri.get('description', '')[:127] %}
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface all family inet
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface all mode sparse-dense
+{%     endif %}
+{% endfor %}
