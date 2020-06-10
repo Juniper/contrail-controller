@@ -52,7 +52,7 @@ set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{ns.tagged_vlan_id}}
 {%         endif %}
 {%     endfor %}
 
-{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%     for bgp_elem in device_abstract_config.get('features', {}).get('overlay-bgp',{}).get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         for fam in families %}
 {%             if fam == 'evpn' %}
