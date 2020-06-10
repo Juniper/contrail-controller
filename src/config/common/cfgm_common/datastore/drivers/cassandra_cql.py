@@ -508,7 +508,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
             msg.format(keyspace, props), level=SandeshLevel.SYS_NOTICE)
 
     def _cql_select(self, cf_name, key, start='', finish='', limit=None,
-                    columns=None, include_timestamp=False, decode_json=None):
+                    columns=None, include_timestamp=False, decode_json=None, async=False):
         ses = self.get_cf(cf_name)
         arg, cql = [StringType(key)], """
         SELECT blobAsText(column1), value, WRITETIME(value)
@@ -531,35 +531,53 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
             # automatically.
             decode_json = ses.keyspace.endswith(
                 datastore_api.UUID_KEYSPACE_NAME)
-        return Iter(ses.execute(pre.bind(arg)),
-                    # Filtering the columns using cassandra adds
-                    # performance degradation, letting Python
-                    # processes doing that job locally, see: ALLOW
-                    # FILTERING.
-                    columns=columns,
-                    include_timestamp=include_timestamp,
-                    decode_json=decode_json,
-                    logger=self.options.logger,
-                    key=key,
-                    cf_name=cf_name)
+        def iterize(r):
+            return Iter(r,
+                        # Filtering the columns using cassandra adds
+                        # performance degradation, letting Python
+                        # processes doing that job locally, see: ALLOW
+                        # FILTERING.
+                        columns=columns,
+                        include_timestamp=include_timestamp,
+                        decode_json=decode_json,
+                        logger=self.options.logger,
+                        key=key,
+                        cf_name=cf_name)
+        if async:
+            future = ses.execute_async(pre.bind(arg))
+            # When using 'async=True', the result will be obtened when
+            # executing the function.
+            # f = drv.multiget(keys, ..., async=True)
+            # ...
+            # result = f()
+            return lambda: iterize(future.result())
+        else:
+            return iterize(ses.execute(pre.bind(arg)))
 
     def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         return self.BatchClass(context=self, cf_name=cf_name)
 
     def _Multiget(self, cf_name, keys, columns=None, start='', finish='',
                   timestamp=False, num_columns=None):
+        print("multiget", keys)
         try:
             num_columns = max(int(num_columns), num_columns)
         except (ValueError, TypeError):
             num_columns = MAX_COLUMNS
         res = {}
-        # TODO(sahid): An importante optimisation is to execute the
-        # requests in parallel. see: future/asyncio.
+
+        futures = []
         for key in keys:
-            row = self._cql_select(
-                cf_name, key=key, start=start, finish=finish,
-                columns=columns, include_timestamp=timestamp,
-                limit=num_columns).all()
+            # non blocking process of executing queries...
+            futures.append(
+                (key,
+                 self._cql_select(
+                     cf_name, key=key, start=start, finish=finish,
+                     columns=columns, include_timestamp=timestamp,
+                     limit=num_columns, async=True)))
+        for key, future in futures:
+            # Retrieving result
+            row = future().all()
             if row:
                 # We should have used a generator but legacy does not
                 # handle it.

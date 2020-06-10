@@ -118,6 +118,14 @@ class _TableCQLSupport(object):
     def add_remove(self, key, cql, args):
         return self.execute(self.prepare(cql).bind(args))
 
+    def execute_async(self, prepare):
+        exc = self.execute
+
+        class Future(object):
+            def result(self):
+                return exc(prepare)
+        return Future()
+
     def execute(self, prepare):
         query = prepare.query
         if query.method == "insert":
