@@ -1970,3 +1970,10 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
         }
         obj = self.set_properties(DataCenterInterconnect, prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
+
+    def test_hbs_create(self):
+        project = self._project_fetch_or_create(self.id())
+        project.set_quota(QuotaType(host_based_service=1))
+        self.api.project_update(project)
+        hbs = HostBasedService('hbs-%s' % self.id(), parent_obj=project)
+        self.api.host_based_service_create(hbs)
