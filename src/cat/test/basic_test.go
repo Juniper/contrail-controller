@@ -39,12 +39,12 @@ func TestIntrospectForSchemaValidation(t *testing.T) {
         agents       int
         crpds        int
     }{
-                {
-            desc:         "Check Global System Config",
-            controlNodes: len(ConNodes),
-            agents:       0,
-            crpds:        0,
-        }}
+    {
+        desc:         "Check Global System Config",
+        controlNodes: len(ConNodes),
+        agents:       0,
+        crpds:        0,
+    }}
 
     for _, tt := range tests {
         t.Run(tt.desc, func(t *testing.T) {
@@ -68,7 +68,12 @@ func TestIntrospectForSchemaValidation(t *testing.T) {
 
             // Verify that introspect page has correct config
             if err := verifyIntrospectGlobalSystemConfig(c, 645120); err != nil {
-                t.Fatalf("bgp routers did not come back up after admin up: %v", err)
+                t.Fatalf("global system config is not applied correctly: %v", err)
+            }
+
+            // Verify that there are not xmpp flaps
+            if err := verifyIntrospectXmppFlaps(c); err != nil {
+                t.Fatalf("There are unexpected xmpp flaps: %v", err)
             }
 
             return;
@@ -351,6 +356,18 @@ func verifyIntrospectGlobalSystemConfig(c *cat.CAT, asn uint32) error {
    for _, cn := range c.ControlNodes {
        if err := cn.CheckGlobalSystemConfig(asn); err != nil {
            log.Infof("check global system config failed for cn %s", cn.Name)
+           return err
+       }
+   }
+
+   return nil
+}
+
+// checks for xmpp flaps in introspect page
+func verifyIntrospectXmppFlaps(c *cat.CAT) error {
+   for _, cn := range c.ControlNodes {
+       if err := cn.CheckXmppFlaps(); err != nil {
+           log.Infof("check xmpp flaps failed for cn %s", cn.Name)
            return err
        }
    }

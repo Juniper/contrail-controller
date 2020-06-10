@@ -204,6 +204,19 @@ func (c *ControlNode) CheckGlobalSystemConfig(asn uint32) error {
 	return nil
 }
 
+// checks if there is any xmpp flap
+func (c *ControlNode) CheckXmppFlaps() error {
+	// Check if there is any xmpp flap
+	url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_ShowBgpNeighborSummaryReq?search_string= | xmllint --format - | grep -iw flap_count | grep 0", c.IPAddress, c.Config.HTTPPort)
+	flaps, err := exec.Command("/bin/bash", "-c", url).Output()
+	log.Infof("Command %s completed %s with status %v\n", url, flaps , err)
+	if err != nil {
+		return fmt.Errorf("There are %d flaps", flaps)
+	}
+
+	return nil
+}
+
 // CheckBGPConnection checks whether BGP connection to an agent has reached
 // ESTABLISHED sate (up) (or DOWN) as requested in the down bool parameter.
 func (c *ControlNode) CheckBGPConnection(name string, down bool) error {
