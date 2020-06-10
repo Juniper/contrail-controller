@@ -1454,15 +1454,19 @@ class AnsibleRoleCommon(AnsibleConf):
     def set_common_config(self):
         # This Abstract code generation needs to be skipped for ERB-UCAST-GW or
         # CRB-Access roles alone.
-        if self.is_erb_ucast_only() or self.is_crb_access_only():
-            self._logger.debug(
-                "Not executing set_common_config for : {}".format(
-                    self.physical_router.routing_bridging_roles))
-            return
+        rb_roles = self.physical_router.routing_bridging_roles
+        is_continue_execution = False
+        if rb_roles:
+            if 'DC-Gateway' in rb_roles or 'DCI-Gateway' in rb_roles or \
+                    'PNF-Servicechain' in rb_roles:
 
+                is_continue_execution = True
+        if not is_continue_execution:
+            # Execute this if and only if the above roles present else run
+            # the feature based way.
+            return
         if not self.ensure_bgp_config():
             return
-        self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
         self.set_internal_vn_routed_vn_config()
@@ -1472,20 +1476,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
-
-    def is_erb_ucast_only(self):
-        return self.physical_router.is_erb_only()
-    # end is_erb_ucast_only
-
-    # check crb-access only assigned.
-    def is_crb_access_only(self):
-        if self.physical_router.routing_bridging_roles:
-            gw_role = any('gateway' in r.lower() for r in
-                       self.physical_router.routing_bridging_roles)
-            if 'CRB-Access' in self.physical_router.routing_bridging_roles \
-                    and not gw_role:
-                return True
-        return False
 
     @staticmethod
     def get_subnet_for_cidr(cidr):
