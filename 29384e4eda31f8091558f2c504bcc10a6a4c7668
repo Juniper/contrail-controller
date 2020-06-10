@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "215042b0_07a55545",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1167,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-06-10T18:26:17Z",
+      "side": 1,
+      "message": "What if there are no subnets under ipam_subnets, This will fail",
+      "revId": "29384e4eda31f8091558f2c504bcc10a6a4c7668",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
