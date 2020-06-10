@@ -508,8 +508,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
             msg.format(keyspace, props), level=SandeshLevel.SYS_NOTICE)
 
     def _cql_select(self, cf_name, key, start='', finish='', limit=None,
-                    columns=None, include_timestamp=False, decode_json=None,
-                    use_async=False):
+                    columns=None, include_timestamp=False, decode_json=None, async=False):
         ses = self.get_cf(cf_name)
         arg, cql = [StringType(key)], """
         SELECT blobAsText(column1), value, WRITETIME(value)
@@ -532,7 +531,6 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
             # automatically.
             decode_json = ses.keyspace.endswith(
                 datastore_api.UUID_KEYSPACE_NAME)
-
         def iterize(r):
             return Iter(r,
                         # Filtering the columns using cassandra adds
@@ -545,11 +543,11 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
                         logger=self.options.logger,
                         key=key,
                         cf_name=cf_name)
-        if use_async:
+        if async:
             future = ses.execute_async(pre.bind(arg))
-            # When using 'use_async=True', the result will be obtened when
+            # When using 'async=True', the result will be obtened when
             # executing the function.
-            # f = drv.multiget(keys, ..., use_async=True)
+            # f = drv.multiget(keys, ..., async=True)
             # ...
             # result = f()
             return lambda: iterize(future.result())
@@ -561,6 +559,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
 
     def _Multiget(self, cf_name, keys, columns=None, start='', finish='',
                   timestamp=False, num_columns=None):
+        print("multiget", keys)
         try:
             num_columns = max(int(num_columns), num_columns)
         except (ValueError, TypeError):
@@ -575,7 +574,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
                  self._cql_select(
                      cf_name, key=key, start=start, finish=finish,
                      columns=columns, include_timestamp=timestamp,
-                     limit=num_columns, use_async=True)))
+                     limit=num_columns, async=True)))
         for key, future in futures:
             # Retrieving result
             row = future().all()
