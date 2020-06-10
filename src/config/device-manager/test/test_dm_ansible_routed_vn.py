@@ -139,6 +139,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self.idle_patch.stop()
         super(TestAnsibleRoutedVNDM, self).tearDown()
 
+    @retries(5, hook=retry_exc_handler)
     def _delete_objects(self):
         for obj in self.physical_routers:
             self._vnc_lib.physical_router_delete(id=obj.get_uuid())
@@ -167,7 +168,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
         ac1 = self.check_dm_ansible_config_push()
         dac = ac1.get('device_abstract_config')
-        ri = self.get_routing_instance_from_description(dac, ri_name)
+        vn_inc = dac.get('features', {}).get('vn-interconnect', {})
+        ri = self.get_routing_instance_from_description(vn_inc, ri_name)
         ri_protocols = ri.get('protocols', None)
         self.assertIsNotNone(ri_protocols)
         for proto in ri_protocols or []:
@@ -204,7 +206,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
         ac1 = self.check_dm_ansible_config_push()
         dac = ac1.get('device_abstract_config')
-        ri = self.get_routing_instance_from_description(dac, ri_name)
+        vn_inc = dac.get('features', {}).get('vn-interconnect', {})
+        ri = self.get_routing_instance_from_description(vn_inc, ri_name)
         ri_protocols = ri.get('protocols', None)
         self.assertIsNotNone(ri_protocols)
         import_rp_name_cpy = import_rp_name[:]
@@ -238,7 +241,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             for v in rp_cfg.get('export_routing_policies'):
                 self.assertIn(v, export_rp_name)
                 export_rp_name_cpy.remove(v)
-        self.verify_routing_policy_in_abstract_cfg(dac, rp_inputdict)
+        self.verify_routing_policy_in_abstract_cfg(vn_inc, rp_inputdict)
 
     @retries(2, hook=retry_exc_handler)
     def _verify_abstract_config_static_routes(self, cpr, prnew_name, ri_name,
@@ -249,7 +252,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
         ac1 = self.check_dm_ansible_config_push()
         dac = ac1.get('device_abstract_config')
-        ri = self.get_routing_instance_from_description(dac, ri_name)
+        vn_inc = dac.get('features', {}).get('vn-interconnect', {})
+        ri = self.get_routing_instance_from_description(vn_inc, ri_name)
         irt_prefixs_cpy = irt_prefixs[:]
         ri_static_routes = ri.get('static_routes', None)
         self.assertIsNotNone(ri_static_routes)
@@ -277,7 +281,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
         ac1 = self.check_dm_ansible_config_push()
         dac = ac1.get('device_abstract_config')
-        ri = self.get_routing_instance_from_description(dac, ri_name)
+        vn_inc = dac.get('features', {}).get('vn-interconnect', {})
+        ri = self.get_routing_instance_from_description(vn_inc, ri_name)
 
         ri_protocols = ri.get('protocols', None)
         self.assertIsNotNone(ri_protocols)
@@ -318,7 +323,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 self.assertEqual(bgp.get('authentication_key'), auth_key)
                 self.assertEqual(bgp.get('autonomous_system'),
                                  bgp_param.local_asn)
-        self.verify_routing_policy_in_abstract_cfg(dac, rp_inputdict)
+        self.verify_routing_policy_in_abstract_cfg(vn_inc, rp_inputdict)
     # end _verify_abstract_config_rp_and_bgp
 
     def _create_route_props_static_route(self, irt_uuids, irt_next_hopes, pr,
@@ -350,9 +355,21 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self.role_configs = []
         self.physical_routers = []
         self.bgp_routers = []
-
+        self.create_features(['overlay-bgp', 'l2-gateway', 'l3-gateway',
+                              'vn-interconnect'])
         self.create_physical_roles(['spine'])
         self.create_overlay_roles(['crb-gateway'])
+
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'crb-gateway@spine',
+                'physical_role': 'spine',
+                'overlay_role': 'crb-gateway',
+                'features': ['overlay-bgp', 'l2-gateway', 'l3-gateway',
+                              'vn-interconnect'],
+                'feature_configs': {}
+            })
+        ])
 
         jt = self.create_job_template('job-template-' + name + self.id())
         self.job_templates.append(jt)
