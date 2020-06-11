@@ -4,6 +4,8 @@
 from builtins import range
 from builtins import str
 import copy
+import ipaddress
+from netaddr import IPNetwork, IPAddress
 import uuid
 
 from cfgm_common import get_bgp_rtgt_max_id
@@ -569,6 +571,106 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         return True, ""
 
     @classmethod
+    def _validate_ipv4(cls, ipaddr):
+        try:
+            ipaddress.ip_address(ipaddr)
+        except ValueError as e:
+            return False, e
+        return True, ipaddr
+
+    @classmethod
+    def _routed_vn_bgp_validation(cls, bgp_info):
+        if bgp_info.get('peer_ip_address_list', None):
+            for peer_ip in bgp_info.get('peer_ip_address_list') or []:
+                status, ret = cls._validate_ipv4(peer_ip)
+                if status is False:
+                    return status, ret
+        else:
+            return cls._validate_ipv4(bgp_info.get('peer_ip_address'))
+
+        return True, ""
+
+    @classmethod
+    def __routed_vn_pim_validation(cls, pim_info):
+        rp_ips = pim_info.get('rp_ip_address', None)
+        for rp_ip in rp_ips or []:
+            status, ret = cls._validate_ipv4(rp_ip)
+            if status is False:
+                return status, ret
+        mode = pim_info.get('mode', None)
+        if mode and mode != 'sparse-dense':
+            return False, "PIM mode only sparse-dense supported"
+
+        True, ""
+
+    @classmethod
+    def _routed_vn_ospf_validation(cls, ospf_info):
+        area_id = ospf_info.get('area_id', None)
+        area_type = ospf_info.get('area_type', None)
+        if area_id == '0' or area_id == "0.0.0.0":
+            if area_type != 'backbone':
+                return False, "Area id zero should have area type as backbone"
+        else:
+            if area_type == 'backbone':
+                return False, "Area type backbone is only supported with area"\
+                              " id zero"
+        return True, ""
+
+    @classmethod
+    def _routed_ip_address_validation(cls, ip_addr, ipam_refs):
+        for ipam in ipam_refs:
+            attr = ipam.get('attr') or {}
+            ipam_subnets = attr.get('ipam_subnets') or []
+            for ipam in ipam_subnets or []:
+                subnet = ipam.get('subnet', None)
+                if subnet:
+                    ip_prefix = subnet.get('ip_prefix')
+                    ip_len = str(subnet.get('ip_prefix_len'))
+                    cidr = ip_prefix + '/' + ip_len
+                    if IPAddress(ip_addr) in IPNetwork(cidr):
+                        return True, ""
+        return False, ip_addr
+
+    @classmethod
+    def _validate_routed_vn_payload(cls, vn_dict, vn_obj):
+        status = True
+        result = ""
+        if vn_dict.get('virtual_network_routed_properties', None):
+            vn_routed_prop = vn_dict.get('virtual_network_routed_properties',
+                                         {})
+            for routed_param in vn_routed_prop.get('routed_properties', []):
+                if not routed_param.get('physical_router_uuid', None):
+                    return False, "Physical router Id not present for "\
+                                  "routed VN"
+                if not routed_param.get('logical_router_uuid', None):
+                    return False, "Logical Router Id not present for routed VN"
+                rvn_ip_addr = routed_param.get('routed-interface-ip-address',
+                                               None)
+                if not rvn_ip_addr:
+                    return False, "routed-interface-ip-address is mandatory"
+
+                ipam_refs = vn_obj.get('network_ipam_refs', [])
+                status, result = cls._routed_ip_address_validation(rvn_ip_addr,
+                                                                   ipam_refs)
+                if status is False:
+                    msg = "IP %s does not belong to any subnet" % result
+                    return False, msg
+
+                if routed_param.get('routing_protocol') == 'bgp':
+                    bgp_info = routed_param.get('bgp_params', None)
+                    status, result = cls._routed_vn_bgp_validation(bgp_info)
+                elif routed_param.get('routing_protocol') == 'pim':
+                    pim_info = routed_param.get('pim_params', None)
+                    status, result = cls._routed_vn_pim_validation(pim_info)
+                elif routed_param.get('routing_protocol') == 'ospf':
+                    ospf_info = routed_param.get('ospf_params', None)
+                    status, result = cls._routed_vn_ospf_validation(ospf_info)
+
+                if status is False:
+                    return status, result
+        return status, result
+
+    @classmethod
     def _check_if_overlay_loopback_vn(cls, vn_obj):
         # this check to reduce unnecessary checks for all routed
         # VNs currently overlay loopback vn is internally set
@@ -775,12 +877,13 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         # Check if VN is routed and has overlay-loopback in name alloc
         # and de-alloc instance IPs
         vn_category = read_result.get('virtual_network_category', None)
-        if vn_category == 'routed' and\
-           cls._check_if_overlay_loopback_vn(read_result):
-            (ok, error) = cls._check_and_alloc_loopback_instance_ip(
-                obj_dict,
-                db_conn,
-                read_result)
+        if vn_category == 'routed':
+            ok, error = cls._validate_routed_vn_payload(obj_dict, read_result)
+            if ok and cls._check_if_overlay_loopback_vn(read_result):
+                (ok, error) = cls._check_and_alloc_loopback_instance_ip(
+                    obj_dict,
+                    db_conn,
+                    read_result)
             if not ok:
                 return (False, (409, error))
         try:
