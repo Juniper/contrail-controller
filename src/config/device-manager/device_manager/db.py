@@ -2176,13 +2176,13 @@ class LogicalRouterDM(DBBaseDM):
                 vn_obj = VirtualNetworkDM.get(vmi.virtual_network)
                 if vn_obj:
                     if vn_obj.virtual_network_category == 'routed':
-                        if 'overlay-loopback' in vn_obj.name:
+                        if vn_obj.is_loopback_vn is True:
                             self._create_pr_loopback_ip_map(pr_uuid,
                                                             vn_obj)
                             self.loopback_vn_uuid = vn_obj.uuid
                             continue
                         if self.is_pruuid_in_routed_vn(pr_uuid,
-                                                       vn_obj) == False:
+                                                       vn_obj) is False:
                             continue
                 vn_list.append(vmi.virtual_network)
         return vn_list
@@ -2333,6 +2333,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.virtual_network_category = None
         self.routed_properties = None
         self.intent_maps = set()
+        self.is_loopback_vn = False
         self.update(obj_dict)
     # end __init__
 
@@ -2438,6 +2439,15 @@ class VirtualNetworkDM(DBBaseDM):
             DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
         self.virtual_network_category = obj.get('virtual_network_category')
         if self.virtual_network_category == 'routed':
+            if "overlay-loopback" in self.name:
+                fab_back_ref = obj.get('fabric_back_refs', [])
+                for ref in fab_back_ref:
+                    attr = ref.get('attr', None)
+                    if attr:
+                        network_type = attr.get('network_type', None)
+                        if network_type == 'overlay-loopback':
+                            self.is_loopback_vn = True
+
             self.get_routed_properties(obj)
             # hack need to be removed once API sever code is fixed.
             # for routed VN DM should not get default gateway

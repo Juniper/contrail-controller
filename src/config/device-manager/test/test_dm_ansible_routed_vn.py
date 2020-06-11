@@ -29,7 +29,7 @@ class BgpRoutedParam:
         self.bfd_multiplier = bfd_multiplier
         self.rp_params = rp_params
 
-    def create_bgp_routed_properties(self, pr_uuid):
+    def create_bgp_routed_properties(self, pr_uuid, lr_uuid):
         bgp_params = BgpParameters(
             peer_autonomous_system=self.peer_asn,
             peer_ip_address=self.peer_ip,
@@ -40,6 +40,7 @@ class BgpRoutedParam:
             local_autonomous_system=self.local_asn, hold_time=self.hold_time)
 
         return RoutedProperties(
+            logical_router_uuid=lr_uuid,
             physical_router_uuid=pr_uuid,
             routed_interface_ip_address=self.routed_ip,
             routing_protocol='bgp',
@@ -71,7 +72,7 @@ class OspfRoutedParam:
         self.bfd_multiplier = bfd_multiplier
         self.rp_params = rp_params
 
-    def create_ospf_routed_properties(self, pr_uuid):
+    def create_ospf_routed_properties(self, pr_uuid, lr_uuid):
         ospf_params = OspfParameters(
             name=self.name,
             authentication_key=AuthenticationData(
@@ -84,6 +85,7 @@ class OspfRoutedParam:
             orignate_summary_lsa=self.orignate_summary_lsa)
 
         return RoutedProperties(
+            logical_router_uuid=lr_uuid,
             physical_router_uuid=pr_uuid,
             routed_interface_ip_address=self.routed_ip,
             routing_protocol='ospf',
@@ -108,13 +110,14 @@ class PimRoutedParam:
         self.bfd_time = bfd_time
         self.bfd_multiplier = bfd_multiplier
 
-    def create_pim_routed_properties(self, pr_uuid):
+    def create_pim_routed_properties(self, pr_uuid, lr_uuid):
         pim_params = PimParameters(
             rp_ip_address=self.rp_address,
             mode=self.mode,
             enable_all_interfaces=self.eoai)
 
         return RoutedProperties(
+            logical_router_uuid=lr_uuid,
             physical_router_uuid=pr_uuid,
             routed_interface_ip_address=self.routed_ip,
             routing_protocol='pim',
@@ -322,12 +325,13 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
     # end _verify_abstract_config_rp_and_bgp
 
     def _create_route_props_static_route(self, irt_uuids, irt_next_hopes, pr,
-                                         interface_ip='41.1.1.10'):
+                                         interface_ip='41.1.1.10', lr_uuid=None):
         static_route_params = StaticRouteParameters(
             interface_route_table_uuid=irt_uuids,
             next_hop_ip_address=irt_next_hopes
         )
         return RoutedProperties(
+            logical_router_uuid=lr_uuid,
             physical_router_uuid=pr.get_uuid(),
             routed_interface_ip_address=interface_ip,
             routing_protocol='static-routes',
@@ -416,6 +420,16 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         _, _, pr1, pr2 = self._create_fabrics_two_pr('lr', two_fabric)
         # create 1 routed VN with Static Routes with interface_route_table
         # for PR1 and bgp with routing policys for PR2
+        # Create LR
+        lr_name = 'lr-routed1-' + self.id()
+        lr_fq_name1 = ['default-domain', 'default-project', lr_name]
+        lr1 = LogicalRouter(fq_name=lr_fq_name1, parent_type='project',
+                            logical_router_type='vxlan-routing')
+
+
+        lr_uuid = self._vnc_lib.logical_router_create(lr1)
+        gevent.sleep(3)
+
         vn_obj1 = self.create_vn(vn_id, '41.1.1.0')
         irt_obj1 = None
         rp_obj_dic = {}
@@ -433,7 +447,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                                        mode="sparse-dense",
                                        bfd_time=30,
                                        bfd_multiplier=100)
-            pim_routed_props = pimParams.create_pim_routed_properties(pr1.get_uuid())
+            pim_routed_props = pimParams.create_pim_routed_properties(pr1.get_uuid(),
+                                                                      lr_uuid)
             vn_routed_props.add_routed_properties(pim_routed_props)
 
         if test_static_route == True:
@@ -442,7 +457,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                                                  prefix_list=irt_prefix1)
             irt_next_hopes = ['41.1.1.20']
             static_routed_props = self._create_route_props_static_route(
-                [irt_obj1.get_uuid()], irt_next_hopes, pr1, '41.1.1.10')
+                [irt_obj1.get_uuid()], irt_next_hopes, pr1, '41.1.1.10', lr_uuid)
             vn_routed_props.add_routed_properties(static_routed_props)
 
         rp_inputdict = {
@@ -517,7 +532,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                                          bfd_time=30, bfd_multiplier=100,
                                          rp_params=rp_parameters)
             ospf_routed_props = ospfParams.create_ospf_routed_properties(
-                pr2.get_uuid())
+                pr2.get_uuid(), lr_uuid)
             vn_routed_props.add_routed_properties(ospf_routed_props)
 
         if test_bgp == True:
@@ -527,17 +542,15 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 auth_key_id=0, routed_ip='41.1.1.11', bfd_time=30,
                 bfd_multiplier=100, rp_params=rp_parameters)
             bgp_routed_props = bgp_param.create_bgp_routed_properties(
-                pr2.get_uuid())
+                pr2.get_uuid(), lr_uuid)
             vn_routed_props.add_routed_properties(bgp_routed_props)
         #  End of Routing Protocol definition
 
         vn_obj1.set_virtual_network_category('routed')
         vn_obj1.set_virtual_network_routed_properties(vn_routed_props)
         self._vnc_lib.virtual_network_update(vn_obj1)
-        lr_name = 'lr-routed1-' + self.id()
-        lr_fq_name1 = ['default-domain', 'default-project', lr_name]
-        lr1 = LogicalRouter(fq_name=lr_fq_name1, parent_type='project',
-                            logical_router_type='vxlan-routing')
+        # update LR obj
+        lr1 = self._vnc_lib.logical_router_read(id=lr_uuid)
         if test_static_route == True or test_pim == True:
             lr1.add_physical_router(pr1)
         if test_bgp == True or test_ospf == True:
@@ -550,7 +563,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self._vnc_lib.virtual_machine_interface_create(vmi1)
 
         lr1.add_virtual_machine_interface(vmi1)
-        lr_uuid = self._vnc_lib.logical_router_create(lr1)
+
+        self._vnc_lib.logical_router_update(lr1)
         gevent.sleep(3)
 
         # update each PR separately to get the abstract config
@@ -585,7 +599,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             # change routed VN static routes next hops and verify abstactCfg
             irt_next_hopes_chng = ['41.1.1.15']
             static_routed_props = self._create_route_props_static_route(
-                [irt_obj1.get_uuid()], irt_next_hopes_chng, pr1, '41.1.1.10')
+                [irt_obj1.get_uuid()], irt_next_hopes_chng, pr1, '41.1.1.10', lr_uuid)
             route_list = []
             route_list.append(static_routed_props)
             if test_bgp == True:
@@ -635,7 +649,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                 auth_key_id=0, routed_ip='42.1.1.12', bfd_time=40,
                 bfd_multiplier=50, rp_params=rp_parameters)
             bgp_routed_props = bgp_param_change.create_bgp_routed_properties(
-                pr2.get_uuid())
+                pr2.get_uuid(), lr_uuid)
             route_list = []
             if test_static_route == True:
                 route_list.append(static_routed_props)
