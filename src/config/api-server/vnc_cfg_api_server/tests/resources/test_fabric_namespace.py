@@ -363,6 +363,7 @@ class TestFabricNamespace(TestFabricNamespaceBase):
             self.api.virtual_network_update(vn)
             gevent.sleep(3)
         except Exception as e:
-            self.assertEqual(str(e), "PR/LR UUID is None for loopback VN")
+            self.assertEqual(str(e),
+                             "Physical router Id not present for routed VN")
         # delete Fabric Namespace
         self._delete_fabric_namespace(fn_uuid)
