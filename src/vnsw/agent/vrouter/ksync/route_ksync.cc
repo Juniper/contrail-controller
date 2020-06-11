@@ -422,13 +422,18 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
 
     const NextHop *tmp = NULL;
     tmp = GetActiveNextHop(route);
-    if (tmp == NULL) {
+
+    // NHs should not be delete marked here. Interface NHs are an exception. If
+    // an NH is found to be delete marked here, dont go ahead and initialize the
+    // ksync entry with a delete marked NH. Make the route ksync entry use the
+    // Discard NH's ksync entry until an update is received for the route.
+    if (tmp == NULL ||
+        ((tmp->GetType() != NextHop::INTERFACE) && tmp->IsDeleted())) {
         DiscardNHKey key;
         tmp = static_cast<NextHop *>(agent->nexthop_table()->
              FindActiveEntry(&key));
     }
     NHKSyncEntry nexthop(nh_object, tmp);
-
     nh_ = static_cast<NHKSyncEntry *>(nh_object->GetReference(&nexthop));
     if (old_nh != nh()) {
         ret = true;
