@@ -249,6 +249,7 @@ void Agent::SetAgentTaskPolicy() {
         "io::ReaderTask",
         "Agent::PktFlowResponder",
         "Agent::Profile",
+        "BFD",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME,
         AGENT_SANDESH_TASKNAME
