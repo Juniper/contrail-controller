@@ -114,6 +114,15 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
 
+    // The following check deliberately hardcodes 512 which is the current value
+    // of Agent::kMaxOtherOpenFds. Any change in Agent::kMaxOtherOpenFds should
+    // trigger a failure of this check. This is done to draw attention to
+    // implications of raising soft limit as noted found in CEM-16332
+    struct rlimit rl;
+    int result = getrlimit(RLIMIT_NOFILE, &rl);
+    EXPECT_EQ(result, 0);
+    EXPECT_TRUE(rl.rlim_cur == (512 + 1 + 2048));
+
     std::vector<string>servers;
     EXPECT_EQ(param.controller_server_list().size(), 2);
     boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
