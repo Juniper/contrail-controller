@@ -606,7 +606,7 @@ private:
     friend class AgentParamTest;
     void UpdateBgpAsaServicePortRange();
     void UpdateBgpAsaServicePortRangeValue();
-    void ComputeFlowLimits();
+    void ComputeFlowAndFileLimits();
     void ComputeVrWatermark();
     static std::map<string, std::map<string, string> > ParseDerivedStats(
         const std::vector<std::string> &dsvec);
