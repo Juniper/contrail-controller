@@ -1168,7 +1168,7 @@ void AgentParam::ComputeVrWatermark() {
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
 // linklocal_system_flows + kMaxOtherOpenFds files
-void AgentParam::ComputeFlowLimits() {
+void AgentParam::ComputeFlowAndFileLimits() {
     if (max_vm_flows_ > 100) {
         cout << "Updating flows configuration max-vm-flows to : 100%\n";
         max_vm_flows_ = 100;
@@ -1193,26 +1193,31 @@ void AgentParam::ComputeFlowLimits() {
             cout << "Updating linklocal-system-flows configuration to : " <<
                 linklocal_system_flows_ << "\n";
         }
-        if (rl.rlim_cur < linklocal_system_flows_ +
-                          Agent::kMaxOtherOpenFds + 1) {
-            struct rlimit new_rl;
-            new_rl.rlim_max = rl.rlim_max;
-            new_rl.rlim_cur = linklocal_system_flows_ +
-                              Agent::kMaxOtherOpenFds + 1;
-            result = setrlimit(RLIMIT_NOFILE, &new_rl);
-            if (result != 0) {
-                if (rl.rlim_cur <= Agent::kMaxOtherOpenFds + 1) {
-                    linklocal_system_flows_ = 0;
-                } else {
-                    linklocal_system_flows_ = rl.rlim_cur -
-                                              Agent::kMaxOtherOpenFds - 1;
-                }
-                cout << "Unable to set Max open files limit to : " <<
-                    new_rl.rlim_cur <<
-                    " Updating linklocal-system-flows configuration to : " <<
-                    linklocal_system_flows_ << "\n";
+
+        /* Set the rlimit here for max open files to the required value of
+         * linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1. Note that
+         * soft limit is set to the required value even if the existing soft
+         * limit is higher than the required value. This is done to avoid long
+         * close() FD loops following any fork or vfork() agent may do in case
+         * the soft value is set to max allowed value of 1M */
+        struct rlimit new_rl;
+        new_rl.rlim_max = rl.rlim_max;
+        new_rl.rlim_cur = linklocal_system_flows_ +
+                          Agent::kMaxOtherOpenFds + 1;
+        result = setrlimit(RLIMIT_NOFILE, &new_rl);
+        if (result != 0) {
+            if (rl.rlim_cur <= Agent::kMaxOtherOpenFds + 1) {
+                linklocal_system_flows_ = 0;
+            } else {
+                linklocal_system_flows_ = rl.rlim_cur -
+                                          Agent::kMaxOtherOpenFds - 1;
             }
+            cout << "Unable to set Max open files limit to : " <<
+                new_rl.rlim_cur <<
+                " Updating linklocal-system-flows configuration to : " <<
+                linklocal_system_flows_ << "\n";
         }
+
         if (linklocal_vm_flows_ > linklocal_system_flows_) {
             linklocal_vm_flows_ = linklocal_system_flows_;
             cout << "Updating linklocal-vm-flows configuration to : " <<
@@ -1346,7 +1351,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     ProcessTraceArguments();
     InitVhostAndXenLLPrefix();
     UpdateBgpAsaServicePortRangeValue();
-    ComputeFlowLimits();
+    ComputeFlowAndFileLimits();
     ComputeVrWatermark();
     vgw_config_table_->InitFromConfig(tree_);
 }
