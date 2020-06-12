@@ -1,0 +1,142 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1d5aca0f_3879ecf2",
+        "filename": "src/bgp/bgp_config_ifmap.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 2098,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:40:40Z",
+      "side": 1,
+      "message": "Not sure what will be the value if top level field is false? Should this not be checked only if fc_enabled is true? and disable it if top level field is disabled",
+      "range": {
+        "startLine": 2097,
+        "startChar": 15,
+        "endLine": 2098,
+        "endChar": 19
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "689a3f8e_ace096ac",
+        "filename": "src/bgp/bgp_server.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 120,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:40:40Z",
+      "side": 1,
+      "message": "here also, this check should be done only if top level field is set as I am not sure what will be the value of this field otherwise.",
+      "range": {
+        "startLine": 119,
+        "startChar": 27,
+        "endLine": 120,
+        "endChar": 28
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "60b8fffa_6bfbafdb",
+        "filename": "src/bgp/bgp_server.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 693,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:40:40Z",
+      "side": 1,
+      "message": "default return should be 90?",
+      "range": {
+        "startLine": 692,
+        "startChar": 12,
+        "endLine": 693,
+        "endChar": 13
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f919469c_6c9d71ec",
+        "filename": "src/bgp/test/bgp_config_test.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 3846,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:40:40Z",
+      "side": 1,
+      "message": "range is 0-90 so you may want to change these",
+      "range": {
+        "startLine": 3846,
+        "startChar": 23,
+        "endLine": 3846,
+        "endChar": 32
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a3a44b9b_d850c9a5",
+        "filename": "src/bgp/testdata/config_test_fc_xmpp_b.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:40:40Z",
+      "side": 1,
+      "message": "range is till 90, right?",
+      "range": {
+        "startLine": 7,
+        "startChar": 28,
+        "endLine": 7,
+        "endChar": 31
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a28cda01_0bbf977d",
+        "filename": "src/bgp/testdata/config_test_fc_xmpp_c.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:40:40Z",
+      "side": 1,
+      "message": "max value is 100.",
+      "range": {
+        "startLine": 7,
+        "startChar": 28,
+        "endLine": 7,
+        "endChar": 32
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
