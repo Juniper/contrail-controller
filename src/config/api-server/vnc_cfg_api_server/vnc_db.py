@@ -1072,6 +1072,11 @@ class VncDbClient(object):
             health_check_interval, **kwargs)
 
     def log_db_response_time(self, db, response_time, oper, level=SandeshLevel.SYS_DEBUG):
+        if not bool(int(
+                # Computing DB response time is CPU cycles consuming
+                # and should be enabled for purpose of debugging only.
+                os.getenv('CONTRAIL_LOG_DB_RESPONSE_TIME', 0))):
+            return
         response_time_in_usec = ((response_time.days*24*60*60) +
                                  (response_time.seconds*1000000) +
                                  response_time.microseconds)
