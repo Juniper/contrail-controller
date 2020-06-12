@@ -49,6 +49,30 @@
     },
     {
       "key": {
+        "uuid": "541f3999_0982994b",
+        "filename": "src/bgp/bgp_config_ifmap.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 2098,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-12T05:54:49Z",
+      "side": 1,
+      "message": "what about direct api calls? even there, value is false if we just disable top level field only? I am talking about the case where both are enabled initially and then only top level is set to false. Will this also be set to false automatically? I think from UI, it should work but what about direct api calls? If you have verified, then its fine.",
+      "parentUuid": "1dd0dfb5_3910b15d",
+      "range": {
+        "startLine": 2097,
+        "startChar": 15,
+        "endLine": 2098,
+        "endChar": 19
+      },
+      "revId": "03431cb72279f24b8e421415a737baed03a7fba5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "689a3f8e_ace096ac",
         "filename": "src/bgp/bgp_server.cc",
         "patchSetId": 1
