@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f6d26dc6_a14fcd7c",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 106,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-12T23:34:38Z",
+      "side": 1,
+      "message": "Change BGP_IFMAP_XMPP to CAT_ something here and everywhere else.",
+      "revId": "d61e17fd92a25d99f46edd553c4808563b8da2c2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7ecb59b7_b18daa2e",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 138,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-12T23:34:38Z",
+      "side": 1,
+      "message": "Change BGP_IFMAP_XMPP to CAT_ something here and everywhere else.",
+      "revId": "d61e17fd92a25d99f46edd553c4808563b8da2c2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
