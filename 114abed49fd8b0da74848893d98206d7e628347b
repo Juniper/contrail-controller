@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3f0529e6_90c8392d",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2020-06-12T12:01:24Z",
+      "side": 1,
+      "message": "Can you add a testcase to ensure that it will fail if this exclusion is broken?",
+      "revId": "114abed49fd8b0da74848893d98206d7e628347b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
