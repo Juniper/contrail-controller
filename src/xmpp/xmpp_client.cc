@@ -286,3 +286,19 @@ int XmppClient::SetDscpValue(uint8_t value, const char *conn_id) {
     }
     return 0;
 }
+
+void XmppClient::UpdateTimeOut(uint8_t time_out, const char *conn_id) {
+    XmppClientConnection *connection = FindConnection(conn_id);
+    if (connection) {
+        return connection->UpdateKeepAliveTimer(time_out);
+    }
+}
+
+uint32_t XmppClient::XmppTimeOut(const char *conn_id) {
+    XmppClientConnection *connection = FindConnection(conn_id);
+    if (connection) {
+        return connection->state_machine()->hold_time();
+    }
+    return 0;
+}
+

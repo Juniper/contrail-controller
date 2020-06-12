@@ -117,6 +117,29 @@ static const char *cluster_seed_config_template = "\
 </config>\
 ";
 
+static const char *xmpp_hold_time_config_template = "\
+<config>\
+    <global-system-config>\
+        <fast-convergence-parameters><xmpp-hold-time>%d</xmpp-hold-time>\
+        </fast-convergence-parameters>\
+    </global-system-config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 //
 // 1 BGP and XMPP server X.
 // Agents A, B, C.
@@ -705,6 +728,53 @@ TEST_P(BgpXmppBasicParamTest, ChangeClusterSeed) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
+    DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, ChangeXmppHoldTime) {
+    Configure(xmpp_hold_time_config_template, 90, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(90, bs_x_->global_config()->xmpp_hold_time());
+
+    CreateAgents();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    const XmppConnectionEndpoint *ep =
+            xs_x_->FindConnectionEndpoint(agent_a_->hostname());
+    TASK_UTIL_EXPECT_EQ(90, ep->connection()->state_machine()->hold_time());
+    TASK_UTIL_EXPECT_EQ(30000, ep->connection()->keepalive_timer()->time());
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+
+    Configure(xmpp_hold_time_config_template, 20, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(20, bs_x_->global_config()->xmpp_hold_time());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() == client_flap_a);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() == client_flap_b);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() == client_flap_c);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->hostname()) == server_flap_a);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->hostname()) == server_flap_b);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->hostname()) == server_flap_c);
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    TASK_UTIL_EXPECT_EQ(20, ep->connection()->state_machine()->hold_time());
+    TASK_UTIL_EXPECT_EQ(6666, ep->connection()->keepalive_timer()->time());
     DestroyAgents();
 }
 

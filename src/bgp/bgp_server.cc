@@ -124,6 +124,13 @@ public:
               new_config->rd_cluster_seed());
         }
 
+        // Process a change in xmpp-hold-time knob.
+        if (server_->global_config()->xmpp_hold_time() !=
+            new_config->xmpp_hold_time()) {
+          server_->global_config()->set_xmpp_hold_time(
+              new_config->xmpp_hold_time());
+        }
+
         bool clear_bgpaas_peers = false;
 
         // Clear bgpaas peers if there's a change in bgpaas-port-start.

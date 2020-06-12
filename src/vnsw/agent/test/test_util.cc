@@ -3280,6 +3280,20 @@ void DelBgpaasPortRange() {
     DelNode("global-system-config", "system-config");
 }
 
+void AddFastConvergenceParameters(bool enable, const int tout) {
+    std::stringstream str;
+    str << "<fast-convergence-parameters>" << endl;
+    str << "    <enable>" << "true" << "</enable>";
+    str << "    <xmpp-hold-time>" << tout << "</xmpp-hold-time>";
+    str << "</fast-convergence-parameters>";
+
+    AddNode("global-system-config", "system-config", 1, str.str().c_str());
+}
+
+void DelFastConvergenceParameters() {
+    DelNode("global-system-config", "system-config");
+}
+
 void DelHealthCheckService(const char *name) {
     DelNode("service-health-check", name);
 }

@@ -103,6 +103,7 @@ public:
 
     void StartKeepAliveTimer();
     void StopKeepAliveTimer();
+    void UpdateKeepAliveTimer(uint8_t time_out);
 
     void set_session(XmppSession *session);
     void clear_session();

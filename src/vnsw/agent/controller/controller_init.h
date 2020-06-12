@@ -147,6 +147,8 @@ public:
 
     void XmppServerDisConnect();
     void DnsXmppServerDisConnect();
+    void XmppServerUpdate(uint8_t time_out);
+    bool VerifyXmppServerTimeout(uint32_t to);
 
     void DisConnectControllerIfmapServer(uint8_t idx);
     void DisConnectDnsServer(uint8_t idx);
