@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6811f547_5db964f9",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1468,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-06-12T00:45:43Z",
+      "side": 1,
+      "message": "we don\u0027t need this check here now - I believe we are building BGP config for all overlay roles in feature based?",
+      "revId": "36f115c728c173b775786b92071742002824753f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
