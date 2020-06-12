@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b36bafff_3ef8e78c",
+        "filename": "src/vnsw/agent/oper/global_system_config.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-06-12T00:34:41Z",
+      "side": 1,
+      "message": "Is there any macro defined for default timer value?",
+      "revId": "b4c6f3491d8ff2b963d274e1ee10572f69cb61e5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "83590885_b87bfec6",
+        "filename": "src/vnsw/agent/oper/global_system_config.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 132,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-06-12T00:34:41Z",
+      "side": 1,
+      "message": "If fc_params.enable changes from \"true\" to \"false\", what is the value for cfg-\u003efast_convergence_parameters().xmpp_hold_time? should\u0027t XmppServerUpdate be called with default_timer value (90 sec)?",
+      "revId": "b4c6f3491d8ff2b963d274e1ee10572f69cb61e5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7a463918_1cdd0e66",
+        "filename": "src/xmpp/xmpp_config.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-06-12T00:34:41Z",
+      "side": 1,
+      "message": "Any macro available for default time out value?",
+      "revId": "b4c6f3491d8ff2b963d274e1ee10572f69cb61e5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
