@@ -36,6 +36,11 @@ class AnalyticsDatabaseEventManager(EventManager):
     def do_periodic_events(self):
         self.cassandra_mgr.database_periodic(self)
         # Perform nodetool repair every cassandra_repair_interval hours
-        if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
-            self.cassandra_mgr.repair(self)
+        idx = self.cassandra_mgr.get_cassandra_node_idx(self)
+        if idx >= 0:
+            # We need to make sure that we run don't repair on all nodes
+            # at the same time to prevent Cassandra db going to problematic state
+            # Hence we need to run repair in all nodes at interval gap of 2hr
+            if (self.tick_count + idx * 2 * 60) % (60 * self.cassandra_repair_interval) == 0:
+                self.cassandra_mgr.repair(self)
         super(AnalyticsDatabaseEventManager, self).do_periodic_events()
