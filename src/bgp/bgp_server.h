@@ -74,6 +74,7 @@ public:
 
     uint16_t GetGracefulRestartTime() const;
     uint32_t GetLongLivedGracefulRestartTime() const;
+    uint16_t GetXmppHoldTime() const;
     uint32_t GetEndOfRibReceiveTime() const;
     uint32_t GetEndOfRibSendTime() const;
 
