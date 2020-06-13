@@ -1,24 +1,21 @@
 from __future__ import absolute_import
+import vnc_openstack
+from . import fake_neutron
+from cfgm_common.tests.test_common import TestCase, setup_extra_flexmock
+from cfgm_common.tests.test_utils import get_keystone_client
+from cfgm_common.tests.test_utils import FakeExtensionManager
+from vnc_cfg_api_server import api_server
+import stevedore.extension
+from testtools.matchers import Equals, Contains, Not
+from flexmock import flexmock, Mock
+import bottle
+from six.moves import configparser
+import json
+import uuid
+import sys
+from builtins import range
 from future import standard_library
 standard_library.install_aliases()
-from builtins import range
-import sys
-import uuid
-import json
-from six.moves import configparser
-
-import bottle
-from flexmock import flexmock, Mock
-from testtools.matchers import Equals, Contains, Not
-import stevedore.extension
-
-from vnc_cfg_api_server import api_server
-from cfgm_common.tests.test_utils import FakeExtensionManager
-from cfgm_common.tests.test_utils import get_keystone_client
-from cfgm_common.tests.test_common import TestCase, setup_extra_flexmock
-
-from . import fake_neutron
-import vnc_openstack
 
 
 @bottle.hook('after_request')
@@ -32,17 +29,18 @@ def after_request():
 
 class VncOpenstackTestCase(TestCase):
     _config_knobs = [
-            ('DEFAULTS', '', ''),
-            ('KEYSTONE', 'admin_user', ''),
-            ('KEYSTONE', 'admin_password', ''),
-            ('KEYSTONE', 'admin_tenant_name', ''),
-            ('KEYSTONE', 'admin_token', ''),
-            ('KEYSTONE', 'auth_host', ''),
-            ('KEYSTONE', 'auth_port', ''),
-            ('KEYSTONE', 'auth_protocol', 'http'),
-            ('KEYSTONE', 'default_domain_id', 'default'),
+        ('DEFAULTS', '', ''),
+        ('KEYSTONE', 'admin_user', ''),
+        ('KEYSTONE', 'admin_password', ''),
+        ('KEYSTONE', 'admin_tenant_name', ''),
+        ('KEYSTONE', 'admin_token', ''),
+        ('KEYSTONE', 'auth_host', ''),
+        ('KEYSTONE', 'auth_port', ''),
+        ('KEYSTONE', 'auth_protocol', 'http'),
+        ('KEYSTONE', 'default_domain_id', 'default'),
     ]
     _entry_pt_to_classes = FakeExtensionManager._entry_pt_to_classes
+
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         # below code is needed due to different behaviour
@@ -58,10 +56,14 @@ class VncOpenstackTestCase(TestCase):
                 break
         else:
             setup_extra_flexmock([(keystone, 'Client', get_keystone_client)])
-        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [vnc_openstack.OpenstackDriver]
-        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [vnc_openstack.ResourceApiDriver]
-        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [vnc_openstack.NeutronApiDriver]
-        setup_extra_flexmock([(stevedore.extension.ExtensionManager, '__new__', FakeExtensionManager)])
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [
+            vnc_openstack.OpenstackDriver]
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [
+            vnc_openstack.ResourceApiDriver]
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [
+            vnc_openstack.NeutronApiDriver]
+        setup_extra_flexmock(
+            [(stevedore.extension.ExtensionManager, '__new__', FakeExtensionManager)])
         super(VncOpenstackTestCase, cls).setUpClass(*args, **kwargs)
     # end setUp
 
@@ -70,7 +72,7 @@ class VncOpenstackTestCase(TestCase):
         try:
             with open('vnc_openstack.err') as f:
                 cls.assertThat(len(f.read()), Equals(0),
-                                "Error log in vnc_openstack.err")
+                               "Error log in vnc_openstack.err")
         except IOError:
             # vnc_openstack.err not created, No errors.
             pass
@@ -134,7 +136,7 @@ class NeutronBackendTestCase(VncOpenstackTestCase):
                         is_admin=False, **kwargs):
         if not extra_res_fields:
             extra_res_fields = {'name': '%s-%s' % (res_type, self.id())}
-        elif not 'name' in extra_res_fields:
+        elif 'name' not in extra_res_fields:
             extra_res_fields['name'] = '%s-%s' % (res_type, self.id())
         extra_res_fields['tenant_id'] = proj_id
 
@@ -168,7 +170,7 @@ class NeutronBackendTestCase(VncOpenstackTestCase):
             },
         }
         resp = self._api_svr_app.post_json(
-            '/neutron/%s' % res_type, body,**kwargs)
+            '/neutron/%s' % res_type, body, **kwargs)
         return json.loads(resp.text or 'null')
 
     def update_resource(self, res_type, res_id, proj_id, extra_res_fields=None,

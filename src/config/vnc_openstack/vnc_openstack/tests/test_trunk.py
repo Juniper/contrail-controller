@@ -13,6 +13,7 @@ import webtest.app
 
 from tests import test_case
 
+
 class TestTrunk(test_case.NeutronBackendTestCase):
 
     VMI_NUM = 2
@@ -32,7 +33,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
             ]
         }
         if vlan_tag:
-           extra_res_fields['sub_ports'][0]['segmentation_id'] = vlan_tag
+            extra_res_fields['sub_ports'][0]['segmentation_id'] = vlan_tag
 
         return self.update_resource(
             'trunk',
@@ -69,9 +70,9 @@ class TestTrunk(test_case.NeutronBackendTestCase):
                    'user_id': '',
                    'is_admin': True,
                    'roles': ''}
-        data = {'resource':{'name': 'trunk-%s' % (self.id()),
-                            'tenant_id': self.project_id,
-                            'port_id': vmi_id}}
+        data = {'resource': {'name': 'trunk-%s' % (self.id()),
+                             'tenant_id': self.project_id,
+                             'port_id': vmi_id}}
         body = {'context': context, 'data': data}
         # Create Trunk
         resp = self._api_svr_app.post_json('/neutron/trunk', body)
@@ -82,7 +83,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         self.assertEquals(trunk_dict['id'], trunk_read_dict['id'])
 
         # Update Trunk
-        extra_res_fields = { 'name': 'trunk_update'}
+        extra_res_fields = {'name': 'trunk_update'}
         trunk_update_dict = self.update_resource(
             'trunk',
             trunk_dict['id'],
@@ -112,10 +113,11 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         for i in range(self.VMI_NUM):
             sub_vmi_dict = {}
             sub_vmi_obj = vnc_api.VirtualMachineInterface(
-                'sub-port-%s' %(i),
+                'sub-port-%s' % (i),
                 parent_obj=self.project)
             sub_vmi_obj.set_virtual_network(vn)
-            sub_port_id = self._vnc_lib.virtual_machine_interface_create(sub_vmi_obj)
+            sub_port_id = self._vnc_lib.virtual_machine_interface_create(
+                sub_vmi_obj)
             sub_vmi_dict['port_id'] = sub_port_id
             sub_vmi_dict['segmentation_id'] = 10
             sub_ports.append(sub_vmi_dict)
@@ -124,10 +126,10 @@ class TestTrunk(test_case.NeutronBackendTestCase):
                    'user_id': '',
                    'is_admin': True,
                    'roles': ''}
-        data = {'resource':{'name': 'trunk-%s' % (self.id()),
-                            'tenant_id': self.project_id,
-                            'port_id': vmi_id,
-                            'sub_ports': sub_ports}}
+        data = {'resource': {'name': 'trunk-%s' % (self.id()),
+                             'tenant_id': self.project_id,
+                             'port_id': vmi_id,
+                             'sub_ports': sub_ports}}
         body = {'context': context, 'data': data}
         # Create Trunk should fail since sub ports have same vlan tag
         try:
@@ -138,7 +140,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         # Clean the resources
         for i in range(self.VMI_NUM):
             self._vnc_lib.virtual_machine_interface_delete(
-                                  id=sub_ports[i].get('port_id'))
+                id=sub_ports[i].get('port_id'))
         self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
 
@@ -155,9 +157,9 @@ class TestTrunk(test_case.NeutronBackendTestCase):
                    'user_id': '',
                    'is_admin': True,
                    'roles': ''}
-        data = {'resource':{'name': 'trunk-%s' % (self.id()),
-                            'tenant_id': self.project_id,
-                            'port_id': vmi_id}}
+        data = {'resource': {'name': 'trunk-%s' % (self.id()),
+                             'tenant_id': self.project_id,
+                             'port_id': vmi_id}}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/trunk', body)
         trunk_dict = json.loads(resp.text)
@@ -165,7 +167,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         sub_port = vnc_api.VirtualMachineInterface(
             'trunk-sub-port-%s' % (self.id()), parent_obj=self.project)
         vmi_prop = vnc_api.VirtualMachineInterfacePropertiesType(
-                     sub_interface_vlan_tag=10)
+            sub_interface_vlan_tag=10)
         sub_port.set_virtual_machine_interface_properties(vmi_prop)
         sub_port.set_virtual_network(vn)
         sub_port_id = self._vnc_lib.virtual_machine_interface_create(sub_port)
@@ -179,7 +181,8 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         sub_port_neg = vnc_api.VirtualMachineInterface(
             'trunk-sub-port-neg-%s' % (self.id()), parent_obj=self.project)
         sub_port_neg.set_virtual_network(vn)
-        sub_port_id_neg = self._vnc_lib.virtual_machine_interface_create(sub_port_neg)
+        sub_port_id_neg = self._vnc_lib.virtual_machine_interface_create(
+            sub_port_neg)
         # Adding sub port with the vlan tag that already exists in a trunk
         # should return an exception.
         try:
@@ -191,8 +194,8 @@ class TestTrunk(test_case.NeutronBackendTestCase):
             self.assertIsNot(re.search('DuplicateSubPort', str(e)), None)
 
         neutron_trunk = self._remove_subports(self.project_id,
-                                           trunk_dict['id'],
-                                           sub_port_id)
+                                              trunk_dict['id'],
+                                              sub_port_id)
         self.assertEquals(neutron_trunk['sub_ports'], [])
         # Clean the resources
         self.delete_resource('trunk', self.project_id, trunk_dict['id'])
@@ -251,23 +254,23 @@ class TestTrunk(test_case.NeutronBackendTestCase):
                    'user_id': '',
                    'is_admin': True,
                    'roles': ''}
-        data = {'resource':{'name': 'trunk-%s' % (self.id()),
-                            'tenant_id': self.project_id,
-                            'port_id': vmi_id}}
+        data = {'resource': {'name': 'trunk-%s' % (self.id()),
+                             'tenant_id': self.project_id,
+                             'port_id': vmi_id}}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/trunk', body)
         trunk_dict = json.loads(resp.text)
 
         try:
             self.create_resource(
-                        'trunk',
-                        self.project_id,
-                        extra_res_fields={
-                            'name': 'trunk-negative-%s' % (self.id()),
+                'trunk',
+                self.project_id,
+                extra_res_fields={
+                    'name': 'trunk-negative-%s' % (self.id()),
                             'tenant_id': self.project_id,
                             'port_id': vmi_id
-                        },
-                ),
+                },
+            ),
         except webtest.app.AppError as e:
             self.assertIsNot(re.search('TrunkPortInUse', str(e)), None)
 

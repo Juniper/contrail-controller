@@ -51,13 +51,12 @@ Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
-#Keystone SSL support
-_DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
+# Keystone SSL support
+_DEFAULT_KS_CERT_BUNDLE = "/tmp/keystonecertbundle.pem"
 
 DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
 
 RETRIES_BEFORE_LOG = 100
-
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -72,8 +71,8 @@ def fill_keystone_opts(obj, conf_sections):
         except configparser.NoOptionError:
             obj._region_name = 'RegionOne'
     try:
-        obj._keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
-                                               'keystone_sync_on_demand')
+        obj._keystone_sync_on_demand = conf_sections.getboolean(
+            'KEYSTONE', 'keystone_sync_on_demand')
     except configparser.NoOptionError:
         obj._keystone_sync_on_demand = True
 
@@ -93,18 +92,19 @@ def fill_keystone_opts(obj, conf_sections):
         obj._keyfile = ''
 
     try:
-        obj._cafile= conf_sections.get('KEYSTONE', 'cafile')
+        obj._cafile = conf_sections.get('KEYSTONE', 'cafile')
     except configparser.NoOptionError:
         obj._cafile = ''
 
-    obj._kscertbundle=''
-    obj._use_certs=False
+    obj._kscertbundle = ''
+    obj._use_certs = False
     if obj._cafile:
         certs = [obj._cafile]
         if obj._keyfile and obj._certfile:
-            certs=[obj._certfile,obj._keyfile,obj._cafile]
-        obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
-        obj._use_certs=True
+            certs = [obj._certfile, obj._keyfile, obj._cafile]
+        obj._kscertbundle = cfgmutils.getCertKeyCaBundle(
+            _DEFAULT_KS_CERT_BUNDLE, certs)
+        obj._use_certs = True
 
     try:
         obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
@@ -157,13 +157,15 @@ def fill_keystone_opts(obj, conf_sections):
 
     try:
         # Get the user_domain_name for keystone v3
-        obj._user_domain_name = conf_sections.get('KEYSTONE', 'admin_user_domain_name')
+        obj._user_domain_name = conf_sections.get(
+            'KEYSTONE', 'admin_user_domain_name')
     except configparser.NoOptionError:
         obj._user_domain_name = 'Default'
 
     try:
         # Get the project_domain_name for keystone v3
-        obj._project_domain_name = conf_sections.get('KEYSTONE', 'project_domain_name')
+        obj._project_domain_name = conf_sections.get(
+            'KEYSTONE', 'project_domain_name')
     except configparser.NoOptionError:
         obj._project_domain_name = 'Default'
 
@@ -184,6 +186,7 @@ def fill_keystone_opts(obj, conf_sections):
             'KEYSTONE', 'default_domain_id')
     except configparser.NoOptionError:
         obj._keystone_default_domain_id = 'default'
+
 
 def _create_default_security_group(vnc_lib, proj_obj):
     def _get_rule(ingress, sg, prefix, ethertype):
@@ -391,13 +394,13 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         try:
             with open(self._err_file, 'a'):
                 handler = logging.handlers.RotatingFileHandler(
-                    self._err_file, maxBytes=64*1024, backupCount=5)
+                    self._err_file, maxBytes=64 * 1024, backupCount=5)
                 self._vnc_os_logger.addHandler(handler)
         except IOError:
             self._sandesh_logger.error("Failed to open trace file %s" %
                                        self._err_file)
         self.q = queue.Queue(maxsize=Q_MAX_ITEMS)
-    #end __init__
+    # end __init__
 
     def _cgitb_error_log(self):
         tmp_file = StringIO()
@@ -407,7 +410,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def __call__(self):
         pass
-    #end __call__
+    # end __call__
 
     def _get_vnc_conn(self):
         if self._vnc_lib:
@@ -434,7 +437,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # remove default-domain:default-project from audit list
         default_proj_fq_name = ['default-domain', 'default-project']
         vnc_project_ids = set([proj['uuid'] for proj in vnc_all_projects
-                            if proj['fq_name'] != default_proj_fq_name])
+                               if proj['fq_name'] != default_proj_fq_name])
         self._vnc_project_ids = vnc_project_ids
 
     def _get_keystone_conn(self):
@@ -450,19 +453,25 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 'password': self._auth_passwd,
             }
             # Add user domain info
-            kwargs.update(**cfgmutils.get_user_domain_kwargs(self._config_sections))
+            kwargs.update(
+                **cfgmutils.get_user_domain_kwargs(self._config_sections))
             # Get project scope auth params
-            scope_kwargs = cfgmutils.get_project_scope_kwargs(self._config_sections)
+            scope_kwargs = cfgmutils.get_project_scope_kwargs(
+                self._config_sections)
             if not scope_kwargs:
                 # Default to domain scoped auth
-                scope_kwargs = cfgmutils.get_domain_scope_kwargs(self._config_sections)
+                scope_kwargs = cfgmutils.get_domain_scope_kwargs(
+                    self._config_sections)
             kwargs.update(**scope_kwargs)
             auth = kauth.password.Password(self._auth_url, **kwargs)
 
         sess = ksession.Session(auth=auth, verify=verify)
 
         try:
-            self._ks = kclient.Client(session=sess, auth_url=self._auth_url, region_name=self._region_name)
+            self._ks = kclient.Client(
+                session=sess,
+                auth_url=self._auth_url,
+                region_name=self._region_name)
         except kexceptions.DiscoveryFailure:
             # Probably a v2 Keytone API, remove v3 args and try again
             v3_args = ['user_domain_name', 'project_domain_name', 'domain_id']
@@ -471,7 +480,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             kwargs['project_name'] = self._admin_tenant
             auth = kauth.password.Password(self._auth_url, **kwargs)
             sess = ksession.Session(auth=auth, verify=verify)
-            self._ks = kclient.Client(session=sess, auth_url=self._auth_url, region_name=self._region_name)
+            self._ks = kclient.Client(
+                session=sess,
+                auth_url=self._auth_url,
+                region_name=self._region_name)
 
         if self._endpoint_type and auth.auth_ref.service_catalog:
             self._ks.management_url = \
@@ -503,10 +515,15 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def _reset_keystone_connection(self, exc):
         if self._ks is not None:
             self._ks = None
-            ConnectionState.update(conn_type=ConnType.OTHER,
-                name='Keystone', status=ConnectionStatus.DOWN,
-                message='Error: %s at UTC %s'%(exc, datetime.utcnow()),
-                server_addrs=[self._auth_url])
+            ConnectionState.update(
+                conn_type=ConnType.OTHER,
+                name='Keystone',
+                status=ConnectionStatus.DOWN,
+                message='Error: %s at UTC %s' %
+                (exc,
+                 datetime.utcnow()),
+                server_addrs=[
+                    self._auth_url])
             self._ks_domains_list = None
             self._ks_domain_get = None
             self._ks_projects_list = None
@@ -547,7 +564,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         for tenant in self._ks.tenants.list():
             if tenant.name == name:
                 return {'name': name, 'id': tenant.id}
-        raise Exception("Project {} couldn't be found in keystone".format(name))
+        raise Exception(
+            "Project {} couldn't be found in keystone".format(name))
     # end _ksv2_project_get
 
     def _ksv2_sync_project_to_vnc(self, id=None):
@@ -576,9 +594,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 pass
             except vnc_api.RefsExistError:
                 if self._resync_stale_mode == 'new_unique_fqn':
-                    proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                    proj_name = '%s-%s' % (display_name, str(uuid.uuid4()))
                 else:
-                    errmsg = "Old project %s fqn %s exists and not empty" %(
+                    errmsg = "Old project %s fqn %s exists and not empty" % (
                         old_id, fq_name)
                     self._sandesh_logger.error(errmsg)
                     raise Exception(errmsg)
@@ -644,18 +662,25 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if id:
             try:
                 project = self._ks.projects.get(id)
-                return {'id': project.id, 'name': project.name, 'domain_id': project.domain_id}
+                return {
+                    'id': project.id,
+                    'name': project.name,
+                    'domain_id': project.domain_id}
             except Exception as e:
                 self._reset_keystone_connection(e)
                 self._get_keystone_conn()
                 project = self._ks.projects.get(id)
-                return {'id': project.id, 'name': project.name, 'domain_id': project.domain_id}
+                return {
+                    'id': project.id,
+                    'name': project.name,
+                    'domain_id': project.domain_id}
 
         id = None
         for tenant in self._ks.projects.list():
             if tenant.name == name:
                 return {'name': name, 'id': tenant.id}
-        raise Exception("Project {} couldn't be found in keystone".format(name))
+        raise Exception(
+            "Project {} couldn't be found in keystone".format(name))
     # end _ksv3_project_get
 
     def _ksv3_sync_project_to_vnc(self, id=None):
@@ -688,9 +713,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 pass
             except vnc_api.RefsExistError:
                 if self._resync_stale_mode == 'new_unique_fqn':
-                    project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                    project_name = '%s-%s' % (display_name, str(uuid.uuid4()))
                 else:
-                    errmsg = "Old project %s fqn %s exists and not empty" %(
+                    errmsg = "Old project %s fqn %s exists and not empty" % (
                         old_id, fq_name)
                     self._sandesh_logger.error(errmsg)
                     raise Exception(errmsg)
@@ -757,9 +782,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 pass
             except vnc_api.RefsExistError:
                 if self._resync_stale_mode == 'new_unique_fqn':
-                    domain_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                    domain_name = '%s-%s' % (display_name, str(uuid.uuid4()))
                 else:
-                    errmsg = "Old domain %s fqn %s exists and not empty" %(
+                    errmsg = "Old domain %s fqn %s exists and not empty" % (
                         old_id, fq_name)
                     self._sandesh_logger.error(errmsg)
                     raise Exception(errmsg)
@@ -875,7 +900,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 self._sandesh_logger.error(
                     "Connection to API server failed: {}".format(e))
                 gevent.sleep(self._resync_interval_secs)
-        #end while True
+        # end while True
 
         # Get domains/projects from Keystone and audit with api-server
         while True:
@@ -890,9 +915,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 self._reset_keystone_connection(e)
 
             gevent.sleep(self._resync_interval_secs)
-        #end while True
+        # end while True
 
-    #end _resync_domains_projects_forever
+    # end _resync_domains_projects_forever
 
     def resync_domains_projects(self):
         # add asynchronously
@@ -900,7 +925,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._worker_glets = []
         for x in range(self._resync_number_workers):
             self._worker_glets.append(gevent.spawn(self._resync_worker))
-    #end resync_domains_projects
+    # end resync_domains_projects
 
     def _resync_worker(self):
         while True:
@@ -913,7 +938,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                         self._del_project_from_vnc(obj_id)
                     else:
                         raise KeyError("An invalid obj_type was specified: %s",
-                                        obj_type)
+                                       obj_type)
                 elif oper == Q_CREATE:
                     if obj_type == 'domain':
                         self._add_domain_to_vnc(obj_id)
@@ -921,9 +946,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                         self._add_project_to_vnc(obj_id)
                     else:
                         raise KeyError("An invalid obj_type was specified: %s",
-                                        obj_type)
+                                       obj_type)
                 else:
-                    raise KeyError("An invalid operation was specified: %s", oper)
+                    raise KeyError(
+                        "An invalid operation was specified: %s", oper)
             except (ValueError, KeyError, Exception) as e:
                 # For an unpack error or and invalid kind.
                 self._sandesh_logger.error(
@@ -932,7 +958,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 self.q.task_done()
     # end _resync_worker
 
-#end class OpenstackResync
+# end class OpenstackResync
 
 
 class ResourceApiDriver(vnc_plugin_base.ResourceApi):
@@ -973,10 +999,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 tries = tries + 1
                 vnc_kw_args = {'api_server_host': self._vnc_api_ip,
                                'api_server_port': self._vnc_api_port}
-                #connect with username and password if auth not noauth
+                # connect with username and password if auth not noauth
                 if (getattr(self, '_auth_user', None) and
                     getattr(self, '_auth_passwd', None) and
-                    getattr(self, '_admin_tenant', None)):
+                        getattr(self, '_admin_tenant', None)):
                     vnc_kw_args.update({'password': self._auth_passwd,
                                         'username': self._auth_user,
                                         'tenant_name': self._admin_tenant})
@@ -985,21 +1011,21 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
                 vnc_lib = self._vnc_lib
                 domain_id = vnc_lib.fq_name_to_id(
-                        'domain', ['default-domain'])
+                    'domain', ['default-domain'])
                 project_id = vnc_lib.fq_name_to_id(
-                        'project', ['default-domain', 'default-project'])
+                    'project', ['default-domain', 'default-project'])
                 break
             except Exception as e:
                 if tries % RETRIES_BEFORE_LOG == 0:
                     err_msg = "Connect error to contrail api %s tries: %s" \
-                              %(tries, e)
+                              % (tries, e)
                     self._sandesh_logger.error(err_msg)
                 gevent.sleep(1)
     # end _get_api_connection
 
     def __call__(self):
         pass
-    #end __call__
+    # end __call__
 
     def _create_default_security_group(self, proj_dict):
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
@@ -1045,12 +1071,13 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         if not self._resync_extension_manager:
             # resync extension manager is not initialized...
             return
-        if not self._keystone_sync_on_demand or fq_name == None:
+        if not self._keystone_sync_on_demand or fq_name is None:
             # project added via poll
             return
         name = fq_name[-1]
 
         projects = list()
+
         def ks_project_get_stub(ext):
             try:
                 if hasattr(ext.obj, 'ks_project_get'):
@@ -1059,7 +1086,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 pass
         self._resync_extension_manager.map(ks_project_get_stub)
         if not projects:
-            raise Exception('project %s is not present in keystone' %(name))
+            raise Exception('project %s is not present in keystone' % (name))
         id = projects[0]['id']
         proj_obj = vnc_api.Project(name)
         proj_obj.fq_name = list(fq_name)
@@ -1069,7 +1096,8 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             self._vnc_lib.project_create(proj_obj)
         except RefsExistError as e:
             pass
-        self._resync_extension_manager.map_method('add_project_id_to_cache', id)
+        self._resync_extension_manager.map_method(
+            'add_project_id_to_cache', id)
 
     @wait_for_api_server_connection
     def pre_project_read(self, id):
@@ -1088,7 +1116,8 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             return
         # follow through, and sync project to contrail
         try:
-            self._resync_extension_manager.map_method('sync_project_to_vnc', id)
+            self._resync_extension_manager.map_method(
+                'sync_project_to_vnc', id)
         except vnc_api.RefsExistError as e:
             # another api server has brought syncd it
             pass
@@ -1170,8 +1199,8 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                             prefix = subnet_dict['ip_prefix']
                             prefix_len = subnet_dict['ip_prefix_len']
                         else:
-                            #flat subnet where, subnet-uuid is unique,
-                            #representing all subnets on ipam
+                            # flat subnet where, subnet-uuid is unique,
+                            # representing all subnets on ipam
                             prefix = '0.0.0.0'
                             prefix_len = 0
                         network = IPNetwork('%s/%s' % (prefix, prefix_len))
@@ -1196,7 +1225,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
     @wait_for_api_server_connection
     def post_virtual_network_create(self, vn_dict):
-        self._update_subnet_id(vn_dict['uuid'], vn_dict.get('network_ipam_refs'), None)
+        self._update_subnet_id(
+            vn_dict['uuid'],
+            vn_dict.get('network_ipam_refs'),
+            None)
     # end post_virtual_network_create
 
     @wait_for_api_server_connection
@@ -1205,7 +1237,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         if ipam_refs is None:
             return
         self._update_subnet_id(vn_uuid, vn_dict.get('network_ipam_refs'),
-                              old_dict.get('network_ipam_refs'))
+                               old_dict.get('network_ipam_refs'))
     # end post_virtual_network_update
 
     @wait_for_api_server_connection
@@ -1215,8 +1247,15 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
 # end class ResourceApiDriver
 
+
 class NeutronApiDriver(vnc_plugin_base.NeutronApi):
-    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh, **kwargs):
+    def __init__(
+            self,
+            api_server_ip,
+            api_server_port,
+            conf_sections,
+            sandesh,
+            **kwargs):
         self._logger = sandesh.logger()
         self.api_server_obj = kwargs.get('api_server_obj')
         try:
@@ -1225,60 +1264,64 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         except (configparser.NoSectionError, configparser.NoOptionError):
             self._neutron_fwaas_enabled = False
 
-        self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
-            conf_sections, sandesh, api_server_obj=self.api_server_obj)
+        self._npi = npi.NeutronPluginInterface(
+            api_server_ip,
+            api_server_port,
+            conf_sections,
+            sandesh,
+            api_server_obj=self.api_server_obj)
 
         # Bottle callbacks for network operations
         self.route('/neutron/network',
-                     'POST', self._npi.plugin_http_post_network)
+                   'POST', self._npi.plugin_http_post_network)
 
         # Bottle callbacks for subnet operations
         self.route('/neutron/subnet',
-                     'POST', self._npi.plugin_http_post_subnet)
+                   'POST', self._npi.plugin_http_post_subnet)
 
         # Bottle callbacks for port operations
         self.route('/neutron/port',
-                     'POST', self._npi.plugin_http_post_port)
+                   'POST', self._npi.plugin_http_post_port)
 
         # Bottle callbacks for floating IP operations
         self.route('/neutron/floatingip',
-                     'POST', self._npi.plugin_http_post_floatingip)
+                   'POST', self._npi.plugin_http_post_floatingip)
 
         # Bottle callbacks for security group operations
         self.route('/neutron/security_group',
-                     'POST', self._npi.plugin_http_post_securitygroup)
+                   'POST', self._npi.plugin_http_post_securitygroup)
 
         # Bottle callbacks for security group rule operations
         self.route('/neutron/security_group_rule',
-                     'POST', self._npi.plugin_http_post_securitygrouprule)
+                   'POST', self._npi.plugin_http_post_securitygrouprule)
 
         # Bottle callbacks for router operations
         self.route('/neutron/router',
-                     'POST', self._npi.plugin_http_post_router)
+                   'POST', self._npi.plugin_http_post_router)
 
         # Bottle callbacks for ipam operations
         self.route('/neutron/ipam',
-                     'POST', self._npi.plugin_http_post_ipam)
+                   'POST', self._npi.plugin_http_post_ipam)
 
         # Bottle callbacks for Policy operations
         self.route('/neutron/policy',
-                     'POST', self._npi.plugin_http_post_policy)
+                   'POST', self._npi.plugin_http_post_policy)
 
         # Bottle callbacks for route-table operations
         self.route('/neutron/route_table',
-                     'POST', self._npi.plugin_http_post_route_table)
+                   'POST', self._npi.plugin_http_post_route_table)
 
         # Bottle callbacks for svc-instance operations
         self.route('/neutron/nat_instance',
-                     'POST', self._npi.plugin_http_post_svc_instance)
+                   'POST', self._npi.plugin_http_post_svc_instance)
 
         # Bottle callbacks for virtual-router operations
         self.route('/neutron/virtual_router',
-                     'POST', self._npi.plugin_http_post_virtual_router)
+                   'POST', self._npi.plugin_http_post_virtual_router)
 
         # Bottle callbacks for trunk operations
         self.route('/neutron/trunk',
-                     'POST', self._npi.plugin_http_post_trunk)
+                   'POST', self._npi.plugin_http_post_trunk)
 
         # Bottle callbacks for tags operations
         self.route('/neutron/tags',
@@ -1307,19 +1350,19 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
                 bottle.abort(401, str(e))
             except vnc_exc.PermissionDenied as e:
                 npd._raise_contrail_exception(
-                          'NotAuthorized', msg=str(e))
+                    'NotAuthorized', msg=str(e))
             except vnc_exc.BadRequest as e:
                 npd._raise_contrail_exception(
-                          'BadRequest', msg=str(e))
+                    'BadRequest', msg=str(e))
             except vnc_exc.RefsExistError as e:
                 npd._raise_contrail_exception(
-                          'Conflict', msg=str(e))
+                    'Conflict', msg=str(e))
             except vnc_exc.OverQuota as e:
                 npd._raise_contrail_exception(
-                          'OverQuota', msg=str(e))
+                    'OverQuota', msg=str(e))
             except vnc_exc.NoIdError as e:
                 npd._raise_contrail_exception(
-                          'NotFound', msg=str(e))
+                    'NotFound', msg=str(e))
             except Exception as e:
                 # don't log details of bottle.abort i.e handled error cases
                 if not isinstance(e, bottle.HTTPError):
@@ -1330,7 +1373,8 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
 
                 raise
 
-        self.api_server_obj.api_bottle.route(uri, method, handler_trap_exception)
+        self.api_server_obj.api_bottle.route(
+            uri, method, handler_trap_exception)
 
     def __call__(self):
         pass
