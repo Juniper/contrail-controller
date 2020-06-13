@@ -47,7 +47,29 @@ class CassandraManager(object):
         # and this is not allowed in micrioservices setup
         pass
 
+    def get_cassandra_node_idx(self, event_mgr):
+        cmd = "nodetool -p {} status".format(self.db_jmx_port)
+        nodelist = []
+        try:
+            res = self.exec_cmd(cmd)
+            nodes = res.splitlines()[5:-2]
+            for node in nodes:
+                nodelist.append(node.split()[1])
+            nodelist.sort()
+            idx = nodelist.index(self.hostip)
+        except Exception as e:
+            err_msg = "Failed to run cmd: {}.\nError: {}".format(cmd, e)
+            event_mgr.msg_log(err_msg, level=SandeshLevel.SYS_ERR)
+            return -1
+        else:
+            return idx
+
     def repair(self, event_mgr):
+        pending_tasks = self.get_pending_compaction_count()
+        if pending_tasks > 0:
+            msg = "Can't run repair as there are still {} pending tasks" .format(pending_tasks)
+            event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
+            return
         keyspaces = []
         if self._db_owner == 'analytics':
             keyspaces = AnalyticsRepairNeededKeyspaces
@@ -124,7 +146,9 @@ class CassandraManager(object):
         return False
     # end has_cassandra_status_changed
 
-    def get_pending_compaction_count(self, pending_count_output):
+    def get_pending_compaction_count(self):
+        base_cmd = "nodetool -p {}".format(self.db_jmx_port)
+        pending_count_output = self.exec_cmd(base_cmd + " compactionstats")
         lines = pending_count_output.split('\n')
         pending_count = next(iter(
             [i for i in lines if i.startswith('pending tasks:')]), None)
@@ -208,9 +232,8 @@ class CassandraManager(object):
         # Get compactionstats
         base_cmd = "nodetool -p {}".format(self.db_jmx_port)
         try:
-            res = self.exec_cmd(base_cmd + " compactionstats")
             status.cassandra_compaction_task.pending_compaction_tasks = \
-                self.get_pending_compaction_count(res)
+                self.get_pending_compaction_count()
         except Exception as e:
             msg = "Failed to get nodetool compactionstats: {}".format(e)
             event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
