@@ -29,7 +29,7 @@ type Agent struct {
 }
 
 // New instatiates a mock contrail-vrouter-agent process.
-func New(m sut.Manager, name, test string, endpoints []sut.Endpoint) (*Agent, error) {
+func New(m sut.Manager, name, binary, test string, endpoints []sut.Endpoint) (*Agent, error) {
 	a := &Agent{
 		Component: sut.Component{
 			Name:    name,
@@ -52,14 +52,18 @@ func New(m sut.Manager, name, test string, endpoints []sut.Endpoint) (*Agent, er
 		return nil, fmt.Errorf("failed to make log directory: %v", err)
 	}
 	a.writeConfiguration()
-	if err := a.start(); err != nil {
+	if err := a.start(binary); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
 // start starts the mock contrail-vrouter-agent process in the background.
-func (a *Agent) start() error {
+func (a *Agent) start(binary string) error {
+	if binary == "" {
+		binary = agentBinary
+	}
+
 	if _, err := os.Stat(agentBinary); err != nil {
 		return err
 	}

@@ -57,7 +57,7 @@ func TestIntrospectForSchemaValidation(t *testing.T) {
             }
 
             // Bring up control-nodes, agents and crpds.
-            if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
+            if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, "", tt.crpds, ConNodes); err != nil {
                 t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
             }
 
@@ -78,6 +78,69 @@ func TestIntrospectForSchemaValidation(t *testing.T) {
 
             return;
         })
+    }
+}
+
+func TestRunZIUTestcase(t *testing.T) {
+
+    err := cat.CheckIfApplicable()
+    if err != nil {
+        log.Infof("ZIU test-case NOT applicable since svl-artifactory is not reachable \n")
+    }
+
+    var ConNodes map[string]interface{}
+    ConNodes, _ = cat.GetNumOfControlNodes()
+    Releases, _ := cat.GetPreviousReleases()
+
+    k := 6
+    if k > Releases.Len() {
+        k = Releases.Len()
+    }
+
+    for i,j:=1,Releases.Front(); i<=k; i,j=i+1,j.Next() {
+        tests := []struct {
+            desc         string
+            controlNodes int
+            agents       int
+            crpds        int
+        }{
+                    {
+                desc:         fmt.Sprintf("Check N-%d to N upgrade", i),
+                controlNodes: len(ConNodes),
+                agents:       2,
+                crpds:        0,
+            }}
+
+        for _, tt := range tests {
+            t.Run(tt.desc, func(t *testing.T) {
+                log.Infof("Started test %s", tt.desc)
+
+                // Create basic CAT object first to hold all objects managed.
+                c, err := cat.New()
+                if err != nil {
+                    t.Fatalf("Failed to create CAT struct: %v", err)
+                }
+
+                agent_binary := cat.GetAgentBinary(c, j.Value.(string))
+                //control_binary := cat.GetControlBinary(c, j.Value.(string))
+
+                // Bring up control-nodes, agents and crpds.
+                if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, agent_binary, tt.crpds, ConNodes); err != nil {
+                    t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
+                }
+
+                // Verify that control-node bgp router configurations are added.
+                if err := verifyControlNodeBgpRoutersConfiguration(c, tt.controlNodes+tt.crpds); err != nil {
+                    t.Fatalf("BGP Connections are not Established")
+                }
+
+
+                if err := c.Teardown(); err != nil {
+                        t.Fatalf("CAT cects cleanup failed: %v", err)
+                }
+                return;
+            })
+        }
     }
 }
 
@@ -245,7 +308,7 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 	generateConfiguration(c)
 
 	for i := 0; i < na; i++ {
-		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
+		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), "", c.ControlNodes); err != nil {
 			return err
 		}
 	}
@@ -265,7 +328,7 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 }
 
 // setup as many control-nods, agents and crpds as requested.
-func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]interface{}) error {
+func setupFromFile(c *cat.CAT, desc string, nc, na int, agent_binary string, ncrpd int, ConNodes map[string]interface{}) error {
 	log.Debugf("%s: Creating %d control-nodes, %d c.Agents and %d c.CRPDs\n", desc, nc, na, ncrpd)
 
 	for key, value := range ConNodes {
@@ -282,7 +345,7 @@ func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[stri
 	}
 
 	for i := 0; i < na; i++ {
-		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
+		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), agent_binary, c.ControlNodes); err != nil {
 			return err
 		}
 	}
