@@ -5,11 +5,16 @@
 package cat
 
 import (
+	"archive/tar"
+	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +27,7 @@ import (
 	"cat/controlnode"
 	"cat/crpd"
 	"cat/sut"
+	"container/list"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -127,7 +133,7 @@ func (c *CAT) setHostIP() error {
 
 // AddAgent creates a contrail-vrouter-agent object and starts the mock agent
 // process in background.
-func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.ControlNode) (*agent.Agent, error) {
+func (c *CAT) AddAgent(test string, name, binary string, control_nodes []*controlnode.ControlNode) (*agent.Agent, error) {
 	endpoints := []sut.Endpoint{}
 	for _, control_node := range control_nodes {
 		endpoints = append(endpoints, sut.Endpoint{
@@ -135,7 +141,7 @@ func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.Co
 			Port: control_node.Config.XMPPPort,
 		})
 	}
-	agent, err := agent.New(c.SUT.Manager, name, test, endpoints)
+	agent, err := agent.New(c.SUT.Manager, name, binary, test, endpoints)
 	if err != nil {
 		return nil, fmt.Errorf("failed create agent: %v", err)
 	}
@@ -286,4 +292,121 @@ func GetNumOfControlNodes() (ConNodesDS map[string]interface{}, err error) {
 	err = ioutil.WriteFile(confile, write, os.ModePerm)
 	jsonFile.Sync()
 	return ConNodesDS, nil
+}
+
+func GetPreviousReleases() (Releases list.List, err error) {
+    //var Releases list.List
+    file, err := os.Open("../../../../controller/src/cat/release_list")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer file.Close()
+
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        rel := scanner.Text()
+        Releases.PushFront(rel)
+    }
+
+    if err := scanner.Err(); err != nil {
+        log.Fatal(err)
+    }
+    return Releases, nil
+}
+
+func GetAgentBinary(c *CAT, release string) (binary_path string) {
+    path := fmt.Sprintf("http://svl-artifactory.juniper.net/artifactory/contrail-static-prod/%s/contrail-vrouter-agent.tgz", release)
+    out := fmt.Sprintf("%s/contrail-vrouter-agent.tgz", c.SUT.Manager.RootDir)
+
+    err := DownloadFile(path, out)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    err = os.Chmod(out, 0777)
+    r, err := os.Open(out)
+    if err != nil {
+        fmt.Println("error")
+    }
+    ExtractTarGz(c.SUT.Manager.RootDir, r)
+    ext := strings.ReplaceAll(release, "/", ".")
+    ext = strings.ReplaceAll(ext, "R", "")
+    name := strings.ReplaceAll("contrail-vrouter-agent", "-", ".")
+    binary_path = fmt.Sprintf("%s/%s.%s", c.SUT.Manager.RootDir, name, ext)
+    return
+}
+
+func ExtractTarGz(path string, gzipStream io.Reader) {
+    uncompressedStream, err := gzip.NewReader(gzipStream)
+    if err != nil {
+        log.Fatal("ExtractTarGz: NewReader failed")
+    }
+
+    tarReader := tar.NewReader(uncompressedStream)
+
+    for true {
+        header, err := tarReader.Next()
+
+        if err == io.EOF {
+            break
+        }
+
+        if err != nil {
+            log.Fatalf("ExtractTarGz: Next() failed: %s", err.Error())
+        }
+
+        switch header.Typeflag {
+        case tar.TypeDir:
+            if err := os.Mkdir(fmt.Sprintf("%s/%s", path, strings.ReplaceAll(header.Name, "-", ".")), 0755); err != nil {
+                log.Fatalf("ExtractTarGz: Mkdir() failed: %s", err.Error())
+            }
+        case tar.TypeReg:
+            name := fmt.Sprintf("%s/%s", path, strings.ReplaceAll(header.Name, "-", "."))
+            outFile, err := os.Create(name)
+            if err != nil {
+                log.Fatalf("ExtractTarGz: Create() failed: %s", err.Error())
+            }
+            if _, err := io.Copy(outFile, tarReader); err != nil {
+                log.Fatalf("ExtractTarGz: Copy() failed: %s", err.Error())
+            }
+            outFile.Close()
+
+        default:
+            log.Fatalf(
+                "ExtractTarGz: uknown type: %s in %s",
+                header.Typeflag,
+                header.Name)
+        }
+
+    }
+}
+
+func DownloadFile(url string, filepath string) error {
+    // Create the file
+    out, err := os.Create(filepath)
+    if err != nil {
+        return err
+    }
+    defer out.Close()
+
+    // Get the data
+    resp, err := http.Get(url)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // Write the body to file
+    _, err = io.Copy(out, resp.Body)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func CheckIfApplicable() (err error) {
+    path := "http://svl-artifactory.juniper.net/artifactory/contrail-static-prod/"
+    _, err = http.Get(path)
+    return err
 }
