@@ -27,60 +27,6 @@ func setupSubTest(t *testing.T, c *cat.CAT) func(t *testing.T, c *cat.CAT) {
 	}
 }
 
-// TestIntrospectForSchemaValidation tests various combination of control-nodes,
-// Agent receiving config changes to do schema validation
-func TestIntrospectForSchemaValidation(t *testing.T) {
-    var ConNodes map[string]interface{}
-    ConNodes, _ = cat.GetNumOfControlNodes()
-
-    tests := []struct {
-        desc         string
-        controlNodes int
-        agents       int
-        crpds        int
-    }{
-    {
-        desc:         "Check Global System Config",
-        controlNodes: len(ConNodes),
-        agents:       0,
-        crpds:        0,
-    }}
-
-    for _, tt := range tests {
-        t.Run(tt.desc, func(t *testing.T) {
-            log.Infof("Started test %s", tt.desc)
-
-            // Create basic CAT object first to hold all objects managed.
-            c, err := cat.New()
-            if err != nil {
-                t.Fatalf("Failed to create CAT cect: %v", err)
-            }
-
-            // Bring up control-nodes, agents and crpds.
-            if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
-                t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
-            }
-
-            // Verify that control-node bgp router configurations are added.
-            if err := verifyControlNodeBgpRoutersConfiguration(c, tt.controlNodes+tt.crpds); err != nil {
-                t.Fatalf("Cannot verify bgp routers configuration")
-	    }
-
-            // Verify that introspect page has correct config
-            if err := verifyIntrospectGlobalSystemConfig(c, 645120); err != nil {
-                t.Fatalf("global system config is not applied correctly: %v", err)
-            }
-
-            // Verify that there are not xmpp flaps
-            if err := verifyIntrospectXmppFlaps(c); err != nil {
-                t.Fatalf("There are unexpected xmpp flaps: %v", err)
-            }
-
-            return;
-        })
-    }
-}
-
 // TestConnectivityWithConfiguration tests various combination of control-nodes,
 // agents, and CRPDs. It also injects basic configuration necessary in order to
 // add mock vmi in the agent and exchange routing information.
@@ -245,7 +191,7 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 	generateConfiguration(c)
 
 	for i := 0; i < na; i++ {
-		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
+		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), " ", c.ControlNodes); err != nil {
 			return err
 		}
 	}
@@ -265,7 +211,7 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 }
 
 // setup as many control-nods, agents and crpds as requested.
-func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]interface{}) error {
+func setupFromFile(c *cat.CAT, desc string, nc, na int, agent_binary string, ncrpd int, ConNodes map[string]interface{}) error {
 	log.Debugf("%s: Creating %d control-nodes, %d c.Agents and %d c.CRPDs\n", desc, nc, na, ncrpd)
 
 	for key, value := range ConNodes {
@@ -282,7 +228,7 @@ func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[stri
 	}
 
 	for i := 0; i < na; i++ {
-		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
+		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), agent_binary, c.ControlNodes); err != nil {
 			return err
 		}
 	}
@@ -290,32 +236,6 @@ func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[stri
 		return err
 	}
 
-	return nil
-}
-
-// deleteControlNodeBgpRouters deletes all control-node bgp-router objects from
-// contrail configuration (mocked) database.
-func deleteControlNodeBgpRouters(c *cat.CAT) error {
-	for _, cn := range c.ControlNodes {
-		if err := cn.ContrailConfig.Delete(&c.FqNameTable, &c.UuidTable); err != nil {
-			return fmt.Errorf("bgp-router configuration deletion failed: %v", err)
-		}
-	}
-
-	// Invoke UpdateConfigDB in order to regenerate database and notify all
-	// control-nodes processes.
-	if err := controlnode.UpdateConfigDB(c.SUT.Manager.RootDir, c.ControlNodes, &c.FqNameTable, &c.UuidTable); err != nil {
-		return err
-	}
-	return nil
-}
-
-func verifyControlNodeBgpRoutersConfiguration(c *cat.CAT, count int) error {
-	for _, cn := range c.ControlNodes {
-		if err := cn.CheckConfiguration("bgp-router", count, 5, 3); err != nil {
-			return fmt.Errorf("bgp-router configuration check failed: %v", err)
-		}
-	}
 	return nil
 }
 
