@@ -14,6 +14,8 @@
 #include <cfg/cfg_init.h>
 #include "oper/bgp_as_service.h"
 
+#define DEFAULT_XMPP_HOLD_TIME 90
+
 void BGPaaServiceParameters::Reset() {
     port_start = 0;
     port_end = 0;
@@ -29,7 +31,7 @@ void GracefulRestartParameters::Reset() {
 
 void FastConvergenceParameters::Reset() {
     enable = false;
-    xmpp_hold_time = 90;
+    xmpp_hold_time = DEFAULT_XMPP_HOLD_TIME;
 }
 
 void GracefulRestartParameters::Update(autogen::GlobalSystemConfig *cfg) {
@@ -128,6 +130,9 @@ void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
         fc_params_.enable = cfg->fast_convergence_parameters().enable;
         fc_params_.xmpp_hold_time =
                     cfg->fast_convergence_parameters().xmpp_hold_time;
+        // if fc_enabled is not set, use default hold time
+        if (!fc_params_.enable)
+            fc_params_.xmpp_hold_time = DEFAULT_XMPP_HOLD_TIME;
         // update hold time in existing xmpp sessions
         agent()->controller()->XmppServerUpdate(fc_params_.xmpp_hold_time);
     }

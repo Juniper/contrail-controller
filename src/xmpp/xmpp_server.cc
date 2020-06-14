@@ -160,8 +160,13 @@ public:
         config_.set_gr_xmpp_helper(system->gr_xmpp_helper());
 
         // Process any change in xmpp-hold-time
-        if (config_.xmpp_hold_time() != system->xmpp_hold_time()) {
+        if (config_.fc_enabled() != system->fc_enabled() ||
+            config_.xmpp_hold_time() != system->xmpp_hold_time()) {
             config_.set_xmpp_hold_time(system->xmpp_hold_time());
+            config_.set_fc_enabled(system->fc_enabled());
+            // if fc_enabled is not set, use default hold time
+            if (!system->fc_enabled())
+                config_.set_xmpp_hold_time(DEFAULT_XMPP_HOLD_TIME);
             update_peers = true;
         }
 

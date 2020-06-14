@@ -27,6 +27,7 @@ class XmppConnectionEndpoint;
 class XmppServer;
 class XmppSession;
 
+#define DEFAULT_XMPP_HOLD_TIME 90
 class XmppConnection {
 public:
     struct ProtoStats {

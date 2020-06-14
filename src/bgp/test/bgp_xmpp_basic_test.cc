@@ -120,7 +120,9 @@ static const char *cluster_seed_config_template = "\
 static const char *xmpp_hold_time_config_template = "\
 <config>\
     <global-system-config>\
-        <fast-convergence-parameters><xmpp-hold-time>%d</xmpp-hold-time>\
+        <fast-convergence-parameters>\
+            <enable>true</enable>\
+            <xmpp-hold-time>%d</xmpp-hold-time>\
         </fast-convergence-parameters>\
     </global-system-config>\
     <bgp-router name=\'X\'>\
