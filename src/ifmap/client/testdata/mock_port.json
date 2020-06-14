@@ -1,0 +1,196 @@
+[
+    {
+        "operation": "db_sync",
+        "db": {
+            "f988ad61-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-domain\",\"default-project\",\"vn1\",\"vn1\"]", 
+                "parent_type": "\"virtual_network\"", 
+                "parent:virtual_network:f988b4e1-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:routing_instance_has_pnf": "false", 
+                "prop:static_route_entries": "{\"route\": []}", 
+                "prop:id_perms": "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980812146320609770}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "prop:routing_instance_is_default": "true", 
+                "ref:route_target:f98876d2-7278-11ea-bf6e-02486f9480e0": "{\"attr\": {\"import_export\": null}}", 
+                "type": "\"routing_instance\""
+            }, 
+            "f98876d2-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"target:100:80000000\"]", 
+                "prop:display_name": "\"target:100:80000000\"", 
+                "backref:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": "{\"attr\": {\"import_export\": null}}", 
+                "prop:id_perms": "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980752158512386538}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "type": "\"route_target\""
+            }, 
+            "f988e7d0-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-global-system-config\",\"Agent1\"]", 
+                "parent_type": "\"global-system-config\"", 
+                "parent:global_system_config:f9880b44-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:display_name": "\"Agent1\"", 
+                "prop:id_perms": "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980876394736390634}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "prop:virtual_router_dpdk_enabled": "false", 
+                "prop:virtual_router_ip_address": "\"127.0.0.3\"", 
+                "ref:virtual_machine:f9885c6f-7278-11ea-bf6e-02486f9480e0": "{\"attr\":null}", 
+                "type": "\"virtual_router\""
+            }, 
+            "f9886e9f-7278-11ea-bf6e-02486f9480e0": {
+                "fq_name": "[\"default-domain\",\"default-project\"]", 
+                "META:latest_col_ts": "null", 
+                "prop:quota": "{\"defaults\": -1}", 
+                "parent_type": "\"domain\"", 
+                "parent:domain:f9886b57-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:id_perms": "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980743143376032234}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "type": "\"project\""
+            }, 
+            "f9885c6f-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"f9885c6f-7278-11ea-bf6e-02486f9480e0\"]", 
+                "prop:display_name": "\"f9885c6f-7278-11ea-bf6e-02486f9480e0\"", 
+                "prop:id_perms": "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980723146008302058}}", 
+                "prop:perms2": "{\"owner\": \"f9886e9f-7278-11ea-bf6e-02486f9480e0\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "type": "\"virtual_machine\""
+            }, 
+            "f988b4e1-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "children:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": "null", 
+                "fq_name": "[\"default-domain\",\"default-project\",\"vn1\"]", 
+                "parent_type": "\"project\"", 
+                "parent:project:f9886e9f-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:virtual_network_network_id": "1", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980820392657818090},\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "ref:network_ipam:f98871df-7278-11ea-bf6e-02486f9480e0": "{\"attr\": {\"ipam_subnets\": [{\"subnet\": {\"ip_prefix\": \"1.1.1.0\", \"ip_prefix_len\": 24}, \"addr_from_start\": true, \"enable_dhcp\": true, \"default_gateway\": \"1.1.1.1\", \"dns_nameservers\": [], \"alloc_unit\": 1, \"subnet_uuid\": \"f988b86d-7278-11ea-bf6e-02486f9480e0\", \"dhcp_option_list\": null, \"host_routes\": null, \"dns_server_address\": \"1.1.1.2\", \"subnet_name\": \"\", \"allocation_pools\":[]}], \"host_routes\": null}}", 
+                "type": "\"virtual_network\""
+            }, 
+            "f98903fb-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "prop:ecmp_hashing_include_fields": "{}", 
+                "fq_name": "[\"default-domain\",\"default-project\",\"f98903fb-7278-11ea-bf6e-02486f9480e0\"]", 
+                "parent_type": "\"project\"", 
+                "prop:display_name": "\"f98903fb-7278-11ea-bf6e-02486f9480e0\"", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"neutron\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"_member_\", \"group_access\": 7}, \"description\": null,\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980907365745562090}}", 
+                "prop:perms2": "{\"owner\": \"f9886e9f-7278-11ea-bf6e-02486f9480e0\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "prop:port_security_enable": "true", 
+                "parent:project:f9886e9f-7278-11ea-bf6e-02486f9480e0": "null", 
+                "ref:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": {\"direction\": \"both\"}}", 
+                "ref:virtual_machine:f9885c6f-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": null}", 
+                "ref:virtual_network:f988b4e1-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": null}", 
+                "type": "\"virtual_machine_interface\""
+            }, 
+            "f9886b57-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-domain\"]", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null},\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980739535603503594}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": [{\"tenant_access\": 6, \"tenant\": \"domain:f9886b57-7278-11ea-bf6e-02486f9480e0\"}]}", 
+                "type": "\"domain\""
+            }, 
+            "f9880b44-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-global-system-config\"]", 
+                "prop:graceful_restart_parameters": "{\"long_lived_restart_time\": 300, \"end_of_rib_timeout\": 30, \"enable\": false, \"restart_time\": 60, \"bgp_helper_enable\": false}", 
+                "prop:config_version": "\"1.0\"", 
+                "prop:ibgp_auto_mesh": "true", 
+                "prop:autonomous_system": "\"100\"", 
+                "prop:display_name": "\"default-global-system-config\"", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null},\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980633900882858474}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "type": "\"global_system_config\""
+            }, 
+            "f98918a7-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"f98918a7-7278-11ea-bf6e-02486f9480e0\"]", 
+                "prop:display_name": "\"f98918a7-7278-11ea-bf6e-02486f9480e0\"", 
+                "prop:instance_ip_secondary": "false", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"neutron\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"_member_\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2020-03-30 07:24:09.637497757 -0400 EDT m=+2.123126653\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980930094712492522}}", 
+                "prop:instance_ip_address": "\"1.1.1.4\"", 
+                "prop:instance_ip_family": "\"v4\"", 
+                "prop:service_instance_ip": "false", 
+                "prop:service_health_check_ip": "false", 
+                "prop:instance_ip_local_ip": "false", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "ref:virtual_machine_interface:f98903fb-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": null}", 
+                "ref:virtual_network:f988b4e1-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": null}", 
+                "type": "\"instance_ip\""
+            }, 
+            "f988c2a6-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-domain\",\"default-project\",\"ip-fabric\",\"__default__\",\"control-node1\"]", 
+                "parent_type": "\"routing_instance\"", 
+                "parent:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:bgp_router_parameters": "{\"vendor\": \"contrail\", \"admin_down\": false, \"ipv6_gateway_address\": null, \"local_autonomous_system\": null, \"auth_data\": null, \"autonomous_system\": 100, \"address\": \"127.0.0.1\", \"source_port\": null, \"router_type\": \"control-node\", \"identifier\": \"127.0.0.1\", \"hold_time\": 0, \"port\": 53634, \"address_families\": {\"family\": [\"route-target\", \"inet-vpn\", \"e-vpn\", \"erm-vpn\", \"inet6-vpn\"]}, \"gateway_address\": null}", 
+                "prop:display_name": "\"control-node1\"", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980835532417536490},\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "ref:bgp_router:f988d041-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": {\"session\": [{\"attributes\": [{\"auth_data\": null, \"admin_down\": false, \"hold_time\": 0, \"passive\": false, \"family_attributes\": [], \"loop_count\": 0}], \"uuid\":null}]}}", 
+                "type": "\"bgp_router\""
+            }, 
+            "f988d041-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-domain\",\"default-project\",\"ip-fabric\",\"__default__\",\"control-node2\"]", 
+                "parent_type": "\"routing_instance\"", 
+                "parent:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:bgp_router_parameters": "{\"vendor\": \"contrail\", \"admin_down\": false, \"ipv6_gateway_address\": null, \"local_autonomous_system\": null, \"auth_data\": null, \"autonomous_system\": 100, \"address\": \"127.0.0.2\", \"source_port\": null, \"router_type\": \"control-node\", \"identifier\": \"127.0.0.2\", \"hold_time\": 0, \"port\": 57400, \"address_families\": {\"family\": [\"route-target\", \"inet-vpn\", \"e-vpn\", \"erm-vpn\", \"inet6-vpn\"]}, \"gateway_address\": null}", 
+                "prop:display_name": "\"control-node2\"", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980850491788628458},\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}", 
+                "ref:bgp_router:f988c2a6-7278-11ea-bf6e-02486f9480e0": "{\"is_weakref\": false, \"attr\": {\"session\": [{\"attributes\": [{\"auth_data\": null, \"admin_down\": false, \"hold_time\": 0, \"passive\": false, \"family_attributes\": [], \"loop_count\": 0}], \"uuid\":null}]}}", 
+                "type": "\"bgp_router\""
+            }, 
+            "f98871df-7278-11ea-bf6e-02486f9480e0": {
+                "META:latest_col_ts": "null", 
+                "fq_name": "[\"default-domain\",\"default-project\",\"default-network-ipam\"]", 
+                "parent_type": "\"project\"", 
+                "parent:project:f9886e9f-7278-11ea-bf6e-02486f9480e0": "null", 
+                "prop:network_ipam_mgmt": "{\"ipam_dns_method\": \"virtual-dns-server\", \"ipam_dns_server\": {\"tenant_dns_server_address\": {}, \"virtual_dns_server_name\": \"default-domain:vdns1\"}}", 
+                "prop:id_perms": "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980746716788822506}}", 
+                "prop:perms2": "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 5, \"share\": []}", 
+                "type": "\"network_ipam\""
+            }
+        },
+        "OBJ_FQ_NAME_TABLE": {
+            "route_target": {
+                "target:100:80000000:f98876d2-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "domain": {
+                "default-domain:f9886b57-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "instance_ip": {
+                "f98918a7-7278-11ea-bf6e-02486f9480e0:f98918a7-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "virtual_machine": {
+                "f9885c6f-7278-11ea-bf6e-02486f9480e0:f9885c6f-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "network_ipam": {
+                "default-domain:default-project:default-network-ipam:f98871df-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "bgp_router": {
+                "default-domain:default-project:ip-fabric:__default__:control-node1:f988c2a6-7278-11ea-bf6e-02486f9480e0": "null", 
+                "default-domain:default-project:ip-fabric:__default__:control-node2:f988d041-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "virtual_router": {
+                "default-global-system-config:Agent1:f988e7d0-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "project": {
+                "default-domain:default-project:f9886e9f-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "route_aggregate": {}, 
+            "routing_instance": {
+                "default-domain:default-project:vn1:vn1:f988ad61-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "virtual_network": {
+                "default-domain:default-project:vn1:f988b4e1-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "global_system_config": {
+                "default-global-system-config:f9880b44-7278-11ea-bf6e-02486f9480e0": "null"
+            }, 
+            "virtual_machine_interface": {
+                "default-domain:default-project:f98903fb-7278-11ea-bf6e-02486f9480e0:f98903fb-7278-11ea-bf6e-02486f9480e0": "null"
+            }
+        }
+    }
+]

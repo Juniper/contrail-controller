@@ -600,7 +600,7 @@ void Agent::InitCollector() {
     if (params_->cat_is_agent_mocked()) {
         std::cout << "Agent Name: " << params_->agent_name()
         << " Introspect Port: " << Sandesh::http_port() << std::endl;
-        std::string sub("{\"introspectport\":");
+        std::string sub("{\"HTTPPort\":");
         std::string pidstring = integerToString(getpid());
 
         pidstring += ".json";

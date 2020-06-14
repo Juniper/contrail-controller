@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
+        "os/exec"
 	"cat"
 	"cat/config"
 	"cat/controlnode"
@@ -25,6 +25,71 @@ func setupSubTest(t *testing.T, c *cat.CAT) func(t *testing.T, c *cat.CAT) {
 			t.Fatalf("CAT cects cleanup failed: %v", err)
 		}
 	}
+}
+
+func TestAgentMockPortForSchemaValidation(t *testing.T) {
+    var ConNodes map[string]interface{}
+    ConNodes, _ = cat.GetNumOfControlNodes()
+
+    tests := []struct {
+        desc         string
+        controlNodes int
+        agents       int
+        crpds        int
+    }{
+                {
+            desc:         "Test Agent Mock Port",
+            controlNodes: len(ConNodes),
+            agents:       1,
+            crpds:        0,
+        }}
+
+    for _, tt := range tests {
+        t.Run(tt.desc, func(t *testing.T) {
+            log.Infof("Started test %s", tt.desc)
+
+            // Create basic CAT object first to hold all objects managed.
+            c, err := cat.New()
+            if err != nil {
+                t.Fatalf("Failed to create CAT cect: %v", err)
+            }
+
+            // Bring up control-nodes, with config file for port add .
+            if _, err := c.AddControlNode(tt.desc, fmt.Sprintf("control-node%d", 1),
+                fmt.Sprintf("%d.0.0.%d", 127, 1), "../../../../controller/src/ifmap/client/testdata/mock_port.json", 0); err != nil {
+                t.Fatalf("Failed to create control node: %v", err)
+            }
+
+            // Bring up agent
+            if _, err := c.AddAgent(tt.desc, fmt.Sprintf("Agent%d", 1), c.ControlNodes); err != nil {
+                t.Fatalf("Failed to create vrouter agent: %v", err)
+            }
+
+            if err := verifyControlNodesAndAgents(c); err != nil {
+                t.Fatalf("Failed to verify control-nodes, agents: %v", err)
+            }
+
+            // Add Mock Port
+            const agentAddPortBinary = "../../../../controller/src/vnsw/agent/port_ipc/vrouter-port-control"
+            cmd := fmt.Sprintf(`sudo %s --oper=add --uuid=f98903fb-7278-11ea-bf6e-02486f9480e0 --instance_uuid=f98903fb-7278-11ea-bf6e-02486f9480e0 \
+                    --vn_uuid=f988b4e1-7278-11ea-bf6e-02486f9480e0 --vm_project_uuid=f988b4e1-7278-11ea-bf6e-02486f9480e0 --ip_address=1.1.1.10 \
+                    --ipv6_address= --vm_name=f9885c6f-7278-11ea-bf6e-02486f9480e0  --tap_name=tap10  --mac=90:e2:ff:ff:94:9d --rx_vlan_id=0 \
+                    --tx_vlan_id=0 --agent_port=9091`, agentAddPortBinary)
+
+            log.Infof("AddVirtualPort: %q", cmd)
+            out, err := exec.Command("/bin/bash", "-c", cmd).Output()
+
+            if err != nil {
+                t.Fatalf("Failed to create port: %v , out: %s", err, out)
+            }
+
+            // Verify interface for port is set to active in agent introspect
+            if err := c.Agents[0].VerifyIntrospectInterfaceState("tap10", true); err != nil {
+                t.Fatalf("Interface not set to Active in agent: %v", err)
+            }
+            return;
+        })
+    }
 }
 
 // TestIntrospectForSchemaValidation tests various combination of control-nodes,
