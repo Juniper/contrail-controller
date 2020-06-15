@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "508aba34_ee5cfac8",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-15T15:03:02Z",
+      "side": 1,
+      "message": "Nit: please keep them in alphabetical order",
+      "range": {
+        "startLine": 14,
+        "startChar": 9,
+        "endLine": 14,
+        "endChar": 13
+      },
+      "revId": "e8976d227d7e36e68ad9a9cf7d4c86ca5f50dc95",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
