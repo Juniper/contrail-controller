@@ -1,0 +1,96 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "89d34323_33e0c02d",
+        "filename": "src/bgp/bgp_table.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 889,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-15T06:42:09Z",
+      "side": 1,
+      "message": "So, every added path will need to be resolved if this flag is set, right? What about ERMVPN routes? There are some global routes there that get created based on local routes. Even for them resolution will be done? Do we plan to measure the impact in scale scenarios or something?",
+      "range": {
+        "startLine": 888,
+        "startChar": 16,
+        "endLine": 889,
+        "endChar": 16
+      },
+      "revId": "a5af316b75571256c04392acc169f7b727d65f42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ac460501_2dd5dc09",
+        "filename": "src/bgp/bgp_table.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 914,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-15T06:42:09Z",
+      "side": 1,
+      "message": "What is the difference in DeletePath and RemovePath? Just curious.",
+      "range": {
+        "startLine": 914,
+        "startChar": 17,
+        "endLine": 914,
+        "endChar": 25
+      },
+      "revId": "a5af316b75571256c04392acc169f7b727d65f42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "89019d7b_84ef71db",
+        "filename": "src/bgp/routing-instance/path_resolver.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-15T06:42:09Z",
+      "side": 1,
+      "message": "Nit: please keep it sorted",
+      "range": {
+        "startLine": 18,
+        "startChar": 11,
+        "endLine": 18,
+        "endChar": 20
+      },
+      "revId": "a5af316b75571256c04392acc169f7b727d65f42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0a50aa40_7d7bf77a",
+        "filename": "src/bgp/routing-instance/path_resolver.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 1029,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-06-15T06:42:09Z",
+      "side": 1,
+      "message": "Nit: I think there is an API IsMaster() or something that you can use instead.",
+      "range": {
+        "startLine": 1029,
+        "startChar": 11,
+        "endLine": 1029,
+        "endChar": 39
+      },
+      "revId": "a5af316b75571256c04392acc169f7b727d65f42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
