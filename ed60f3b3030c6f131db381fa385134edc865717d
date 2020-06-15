@@ -16,6 +16,24 @@
       "revId": "ed60f3b3030c6f131db381fa385134edc865717d",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "98fb4975_2f3d0e57",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1203,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-06-15T05:42:11Z",
+      "side": 1,
+      "message": "This value is set at init time to a value based on configured link local flows and the max open files Agent expects. If later Agent finds that it needs to have more FDs than this, it can use setrlimit to increase the soft limit to a value within hard limit. That should be ok although we don\u0027t currently have Agent code where it increases the limit later.",
+      "parentUuid": "453dd71a_fe5b8734",
+      "revId": "ed60f3b3030c6f131db381fa385134edc865717d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
