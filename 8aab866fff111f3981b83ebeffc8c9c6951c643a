@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "677e46ec_22672095",
+        "filename": "src/config/schema-transformer/schema_transformer/tests/test_policy.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-15T18:56:30Z",
+      "side": 0,
+      "message": "I see self._vnc_lib being used at many places. With this removed, is self._vnc_lib being setup at a different place?",
+      "revId": "8aab866fff111f3981b83ebeffc8c9c6951c643a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

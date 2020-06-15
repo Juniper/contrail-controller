@@ -2,6 +2,57 @@
   "comments": [
     {
       "key": {
+        "uuid": "bd973f7f_6a5d2bb8",
+        "filename": "src/config/schema-transformer/requirements.txt",
+        "patchSetId": 21
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-15T18:56:30Z",
+      "side": 1,
+      "message": "Please pin it to a known working version",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e938c3f8_42313a7e",
+        "filename": "src/config/schema-transformer/schema_transformer/tests/test_bgp.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-15T18:56:30Z",
+      "side": 1,
+      "message": "Could you document why we need to increase retries?",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "07e99583_c874d982",
+        "filename": "src/config/schema-transformer/schema_transformer/tests/test_bgpvpn.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 101,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-15T18:56:30Z",
+      "side": 1,
+      "message": "Could you document why these sleeps are required for py3 UT?",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "a98cc4b7_ba8d51ac",
         "filename": "src/config/schema-transformer/test-requirements.txt",
         "patchSetId": 21
@@ -13,6 +64,23 @@
       "writtenOn": "2020-06-04T09:16:28Z",
       "side": 1,
       "message": "can you please point me where it\u0027s needed?",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b66c0d82_c0a4f2e1",
+        "filename": "src/config/schema-transformer/test-requirements.txt",
+        "patchSetId": 21
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-15T18:56:30Z",
+      "side": 1,
+      "message": "Is this a new requires?",
       "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
