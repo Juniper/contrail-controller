@@ -6,6 +6,44 @@
 alarm_list = [
     {
         "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "ContrailConfig.elements",
+                            "operation": "size!=",
+                            "operand2": {
+                                "json_value": "1"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "system-defined-conf-elements-inconsistency"
+        ],
+        "id_perms": {
+            "description": "ContrailConfig has a list of elements - it should be a dict. Controllers have inconsistency in their data."
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
+                "config-node",
+                "control-node",
+                "database-node",
+                "config-database-node",
+                "vrouter"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
             "or_list" : [
                 {
                     "and_list": [
