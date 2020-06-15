@@ -27,6 +27,8 @@ struct FlowRateComputeInfo {
     }
 };
 
+#define DEFAULT_FUVE_REQUEST_QUEUE_SIZE (4*1024*1024)
+
 // The container class for storing stats queried from vrouter
 // Defines routines for storing and managing (add, delete and query)
 // interface, vrf and drop statistics
