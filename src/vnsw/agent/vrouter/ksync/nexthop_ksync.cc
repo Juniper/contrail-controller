@@ -609,6 +609,16 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
 
     case NextHop::TUNNEL: {
         ret = true;
+
+        // If the nh IDs of KSyncEntry and NextHop objects dont match, sync them
+        // along with nh_ pointer. It can happen if the NHKSyncEntry got
+        // created in TEMP state with previous incarnation of this Tunnel NH
+        if (nh_id_ != nh->id()) {
+            nh_id_ = nh->id();
+            nh_ = nh;
+            ret = true;
+        }
+
         // Invalid nexthop, no valid interface or mac info
         // present, just return
         if (valid_ == false) {
