@@ -32,7 +32,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         self._vnc_lib.route_table_create(rt)
         vn1.add_route_table(rt)
         self._vnc_lib.virtual_network_update(vn1)
-        comm_attr = CommunityAttributes(community_attribute=['1:1'])
+        comm_attr = CommunityAttributes(community_attribute=['color:1:1'])
         routes = RouteTableType()
         route = RouteType(prefix="1.1.1.1/0",
                           next_hop="10.10.10.10", next_hop_type="ip-address",
@@ -62,12 +62,13 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
                 raise Exception("route %s %s not found" % (prefix, next_hop))
             return
 
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1'])
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['color:1:1'])
 
-        route.community_attributes.community_attribute.append('1:2')
+        route.community_attributes.community_attribute.append('color:1:2')
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10",
+                           ['color:1:1', 'color:1:2'])
 
         route = RouteType(prefix="2.2.2.2/0",
                           next_hop="20.20.20.20", next_hop_type="ip-address")
@@ -75,15 +76,18 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         rt.set_routes(routes)
 
         self._vnc_lib.route_table_update(rt)
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10",
+                           ['color:1:1', 'color:1:2'])
         _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", [])
 
         vn2.add_route_table(rt)
         self._vnc_lib.virtual_network_update(vn2)
 
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10",
+                           ['color:1:1', 'color:1:2'])
         _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", [])
-        _match_route_table(vn2, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn2, "1.1.1.1/0", "10.10.10.10",
+                           ['color:1:1', 'color:1:2'])
         _match_route_table(vn2, "2.2.2.2/0", "20.20.20.20", [])
 
         # delete second route and check vn ri sr entries
@@ -104,7 +108,8 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
 
         vn2.del_route_table(rt)
         self._vnc_lib.virtual_network_update(vn2)
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10",
+                           ['color:1:1', 'color:1:2'])
         _match_route_table_cleanup(vn2)
 
         # delete first route and check vn ri sr entries
