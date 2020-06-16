@@ -32,7 +32,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         self._vnc_lib.route_table_create(rt)
         vn1.add_route_table(rt)
         self._vnc_lib.virtual_network_update(vn1)
-        comm_attr = CommunityAttributes(community_attribute=['1:1'])
+        comm_attr = CommunityAttributes(community_attribute=['color:1:1'])
         routes = RouteTableType()
         route = RouteType(prefix="1.1.1.1/0",
                           next_hop="10.10.10.10", next_hop_type="ip-address",

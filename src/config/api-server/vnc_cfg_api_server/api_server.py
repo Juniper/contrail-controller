@@ -357,14 +357,14 @@ class VncApiServer(object):
         if value in poss_values:
             return
 
-        res = re.match('[0-9]+:[0-9]+', value)
+        res = re.match('^color:[0-9]{1,5}:[0-9]{1,10}$', value)
         if res is None:
             raise ValueError('Invalid community format %s. '
-                             'Change to \'number:number\''
-                              % value)
+                             'Change to \'color:number:number\''
+                             % value)
 
-        asn = value.split(':')
-        if int(asn[0]) > 65535:
+        _, asn, _ = value.split(':')
+        if int(asn) > 65535:
             raise ValueError('Out of range ASN value %s. '
                              'ASN values cannot exceed 65535.'
                              % value)
