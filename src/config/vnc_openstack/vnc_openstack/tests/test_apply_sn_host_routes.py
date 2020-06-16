@@ -8,6 +8,7 @@ from vnc_openstack.neutron_plugin_db import DBInterface
 
 load_tests = testscenarios.load_tests_apply_scenarios
 
+
 class FakeRouteTable(object):
     def __init__(self, prefix, next_hop):
         self.prefix = prefix
@@ -21,6 +22,7 @@ class FakeRouteTable(object):
 
     def set_next_hop(self, next_hop):
         self.next_hop = next_hop
+
 
 _SUBNET_CIDR = '10.0.0.0/24'
 
@@ -64,6 +66,7 @@ indirect_expected_route_dict['10.0.0.4'] = ['9.0.0.0/24', '15.0.0.0/24',
                                             '22.0.0.0/24', '11.0.0.0/24',
                                             '19.0.0.0/24']
 
+
 class TestGetHostPrefixes(testtools.TestCase):
     scenarios = [
         ('empty', dict(hostroutes=[],
@@ -81,6 +84,7 @@ class TestGetHostPrefixes(testtools.TestCase):
          dict(hostroutes=indirect_host_routes,
               expected=indirect_expected_route_dict)),
     ]
+
     def setUp(self):
         super(TestGetHostPrefixes, self).setUp()
 
@@ -89,18 +93,18 @@ class TestGetHostPrefixes(testtools.TestCase):
 
     def test_port_get_host_prefixes(self):
         def db_fake_init(self, admin_name, admin_password, admin_tenant_name,
-                 api_srvr_ip, api_srvr_port, user_info=None,
-                 contrail_extensions_enabled=True,
-                 list_optimization_enabled=False,
-                 apply_subnet_host_routes=False):
+                         api_srvr_ip, api_srvr_port, user_info=None,
+                         contrail_extensions_enabled=True,
+                         list_optimization_enabled=False,
+                         apply_subnet_host_routes=False):
             pass
 
         orig_init = DBInterface.__init__
         try:
             DBInterface.__init__ = db_fake_init
-            dbiface = DBInterface("","","","","")
+            dbiface = DBInterface("", "", "", "", "")
             host_route_dict = dbiface._port_get_host_prefixes(self.hostroutes,
-                                                          _SUBNET_CIDR)
+                                                              _SUBNET_CIDR)
             self.assertEqual(host_route_dict, self.expected)
         finally:
             DBInterface.__init__ = orig_init

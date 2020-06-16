@@ -1642,4 +1642,3 @@ class TestNeutronTagsPerms(NeutronTagsTestCase):
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
         self.api.tag_delete(id=tag_obj.uuid)
-

@@ -3,31 +3,31 @@
 #
 
 from __future__ import absolute_import
+from cfgm_common.utils import CacheContainer
+from .neutron_plugin_db import DBInterface
+from pysandesh.sandesh_logger import *
+from pysandesh.sandesh_base import *
+from six.moves import configparser
+import six
+from pprint import pformat
+from cfgm_common import jsonutils as json
+import bottle
+from builtins import object
+from builtins import str
+import collections
 from future import standard_library
 standard_library.install_aliases()
 
-import collections
-
-from builtins import str
-from builtins import object
-import bottle
-from cfgm_common import jsonutils as json
-from pprint import pformat
-import six
-from six.moves import configparser
-
-from pysandesh.sandesh_base import *
-from pysandesh.sandesh_logger import *
-from .neutron_plugin_db import DBInterface
-from cfgm_common.utils import CacheContainer
 
 @bottle.error(400)
 def error_400(err):
     return err.body
 
+
 @bottle.error(404)
 def error_404(err):
     return err.body
+
 
 @bottle.error(409)
 def error_409(err):
@@ -53,15 +53,15 @@ class NeutronPluginInterface(object):
         self._api_server_obj = api_server_obj
 
         try:
-            exts_enabled = conf_sections.getboolean('NEUTRON',
-                'contrail_extensions_enabled')
+            exts_enabled = conf_sections.getboolean(
+                'NEUTRON', 'contrail_extensions_enabled')
         except (configparser.NoSectionError, configparser.NoOptionError):
             exts_enabled = True
         self._contrail_extensions_enabled = exts_enabled
 
         try:
             strict = conf_sections.getboolean('NEUTRON',
-                'strict_compliance')
+                                              'strict_compliance')
         except (configparser.NoSectionError, configparser.NoOptionError):
             strict = False
         self._strict_compliance = strict
@@ -73,7 +73,8 @@ class NeutronPluginInterface(object):
             _vnc_connection_cache_size = 0
 
         try:
-            self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
+            self._multi_tenancy = conf_sections.get(
+                'DEFAULTS', 'multi_tenancy')
         except configparser.NoOptionError:
             self._multi_tenancy = True
 
@@ -106,19 +107,19 @@ class NeutronPluginInterface(object):
             # Initialize connection to DB and add default entries
             exts_enabled = self._contrail_extensions_enabled
             apply_sn_route = self._sn_host_route
-            self._cfgdb = DBInterface(self,
-                                      self._auth_user,
-                                      self._auth_passwd,
-                                      self._auth_tenant,
-                                      self._vnc_api_ip,
-                                      self._vnc_api_port,
-                                      api_server_obj=self._api_server_obj,
-                                      contrail_extensions_enabled=exts_enabled,
-                                      list_optimization_enabled=\
-                                      self._list_optimization_enabled,
-                                      apply_subnet_host_routes=apply_sn_route,
-                                      strict_compliance=self._strict_compliance)
-    #end _connect_to_db
+            self._cfgdb = DBInterface(
+                self,
+                self._auth_user,
+                self._auth_passwd,
+                self._auth_tenant,
+                self._vnc_api_ip,
+                self._vnc_api_port,
+                api_server_obj=self._api_server_obj,
+                contrail_extensions_enabled=exts_enabled,
+                list_optimization_enabled=self._list_optimization_enabled,
+                apply_subnet_host_routes=apply_sn_route,
+                strict_compliance=self._strict_compliance)
+    # end _connect_to_db
 
     def _get_user_cfgdb(self, context):
         """
@@ -131,9 +132,9 @@ class NeutronPluginInterface(object):
         # expect a user-token and allow for cases where api-server
         # might be running without authentication checks with a
         # descriptive message/token if there is an error
-        user_token = bottle.request.headers.get('X_AUTH_TOKEN',
-            'no user token for %s %s' %(bottle.request.method,
-                                        bottle.request.url))
+        user_token = bottle.request.headers.get(
+            'X_AUTH_TOKEN', 'no user token for %s %s' %
+            (bottle.request.method, bottle.request.url))
         self._cfgdb._vnc_lib.set_auth_token(user_token)
         return self._cfgdb
 
@@ -547,7 +548,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.floatingip_delete(floatingip['id'])
         LOG.debug("plugin_delete_floatingip(): " +
-            pformat(floatingip['id']))
+                  pformat(floatingip['id']))
 
     def plugin_get_floatingips(self, context, floatingip):
         """
@@ -687,7 +688,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.security_group_rule_delete(context, sg_rule['id'])
         LOG.debug("plugin_delete_sec_group_rule(): " +
-            pformat(sg_rule['id']))
+                  pformat(sg_rule['id']))
 
     def plugin_get_sec_group_rules(self, context, sg_rule):
         """
@@ -756,7 +757,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.router_delete(router['id'])
         LOG.debug("plugin_delete_router(): " +
-            pformat(router['id']))
+                  pformat(router['id']))
 
     def plugin_get_routers(self, context, router):
         """
@@ -790,7 +791,8 @@ class NeutronPluginInterface(object):
         router_id = interface_info['id']
         if 'port_id' in interface_info['resource']:
             port_id = interface_info['resource']['port_id']
-            return cfgdb.add_router_interface(context, router_id, port_id=port_id)
+            return cfgdb.add_router_interface(
+                context, router_id, port_id=port_id)
         elif 'subnet_id' in interface_info['resource']:
             subnet_id = interface_info['resource']['subnet_id']
             return cfgdb.add_router_interface(context, router_id,
@@ -835,8 +837,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELINTERFACE':
             return self.plugin_del_router_interface(context, router)
 
-
     # IPAM API Handling
+
     def plugin_get_ipam(self, context, ipam):
         """
         IPAM get request
@@ -873,7 +875,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.ipam_delete(ipam['id'])
         LOG.debug("plugin_delete_ipam(): " +
-            pformat(ipam['id']))
+                  pformat(ipam['id']))
 
     def plugin_get_ipams(self, context, ipam):
         """
@@ -955,7 +957,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.policy_delete(policy['id'])
         LOG.debug("plugin_delete_policy(): " +
-            pformat(policy['id']))
+                  pformat(policy['id']))
 
     def plugin_get_policys(self, context, policy):
         """
@@ -1037,7 +1039,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.route_table_delete(route_table['id'])
         LOG.debug("plugin_delete_route_table(): " +
-            pformat(route_table['id']))
+                  pformat(route_table['id']))
 
     def plugin_get_route_tables(self, context, route_table):
         """
@@ -1108,7 +1110,7 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         cfgdb.svc_instance_delete(svc_instance['id'])
         LOG.debug("plugin_delete_svc_instance(): " +
-            pformat(svc_instance['id']))
+                  pformat(svc_instance['id']))
 
     def plugin_get_svc_instances(self, context, svc_instance):
         """
@@ -1193,7 +1195,7 @@ class NeutronPluginInterface(object):
                 cfgdb.firewall_policy_list(context, filters, fields))
         elif context['operation'] == 'UPDATE':
             return cfgdb.firewall_policy_update(context, firewall_policy['id'],
-                                               firewall_policy['resource'])
+                                                firewall_policy['resource'])
         elif context['operation'] == 'DELETE':
             return cfgdb.firewall_policy_delete(context, firewall_policy['id'])
         elif context['operation'] == 'INSERT_RULE':
@@ -1216,7 +1218,7 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'READ':
             fields = firewall_rule['fields']
             return cfgdb.firewall_rule_read(context, firewall_rule['id'],
-                                             fields)
+                                            fields)
         elif context['operation'] == 'READALL':
             filters = firewall_rule['filters']
             fields = firewall_rule['fields']
@@ -1250,8 +1252,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'REMOVE_SUBPORTS':
             return self.plugin_remove_subports(context, trunk)
 
-
     # Trunk API Handling
+
     def plugin_get_trunk(self, context, trunk):
         """
         Trunk get request
