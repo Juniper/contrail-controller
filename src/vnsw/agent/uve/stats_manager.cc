@@ -12,10 +12,12 @@ StatsManager::StatsManager(Agent* agent)
     : vrf_listener_id_(DBTableBase::kInvalidId),
       intf_listener_id_(DBTableBase::kInvalidId), agent_(agent),
       request_queue_(agent->task_scheduler()->GetTaskId("Agent::Uve"), 0,
-                     boost::bind(&StatsManager::RequestHandler, this, _1)),
+                     boost::bind(&StatsManager::RequestHandler, this, _1),
+                     DEFAULT_FUVE_REQUEST_QUEUE_SIZE),
       timer_(TimerManager::CreateTimer
         (*(agent->event_manager())->io_service(), "IntfFlowStatsUpdateTimer",
          TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsUpdate), 1)) {
+    request_queue_.SetBounded(true);
     AddNamelessVrfStatsEntry();
 }
 
