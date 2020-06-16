@@ -72,10 +72,10 @@ class VrouterPortControl(object):
                    Agent will write to file if file is not already present
                 '''
                 r = requests.post(url, data=json_dump, headers=headers)
-                print "Request : %s" % json_dump
+                print ("Request : %s" % json_dump)
                 '''Overwrite the ret_code based on agent response '''
                 if r.status_code != 200:
-                    print "Request failed: %s" % r.text
+                    print ("Request failed: %s" % r.text)
                     ret_code = 4
                 else:
                     ret_code = 0
@@ -99,7 +99,7 @@ class VrouterPortControl(object):
             try:
                 r = requests.delete(url, data=None, headers=headers)
                 if r.status_code != 200:
-                    print "Request failed: %s" % r.text
+                    print ("Request failed: %s" % r.text)
                     ret_code = 1
             except ConnectionError:
                 pass
@@ -112,12 +112,12 @@ class VrouterPortControl(object):
             url = base_url + "/enable-port/" + self._args.uuid
             try:
                 r = requests.put(url, data=None, headers=headers)
-                print "Request : %s" % r.text
+                print ("Request : %s" % r.text)
                 if r.status_code != 200:
-                    print "Request failed: %s" % r.text
+                    print ("Request failed: %s" % r.text)
                     ret_code = 1
             except ConnectionError:
-                print "connection error"
+                print ("connection error")
                 pass
         elif self._args.oper == "disable":
             if not self._args.no_persist:
@@ -130,7 +130,7 @@ class VrouterPortControl(object):
             try:
                 r = requests.put(url, data=None, headers=headers)
                 if r.status_code != 200:
-                    print "Request failed: %s" % r.text
+                    print ("Request failed: %s" % r.text)
                     ret_code = 1
             except ConnectionError:
                 pass
@@ -240,33 +240,33 @@ class VrouterPortControl(object):
             PORT_PATH = self._args.port_json_path
         oper_list = ['add', 'delete', 'enable', 'disable']
         if self._args.oper not in oper_list:
-            print "Invalid argument for oper %s" % (self._args.oper)
+            print ("Invalid argument for oper %s" % (self._args.oper))
             sys.exit(1)
 
         if self._args.oper == "add":
             port_type_list = ['NovaVMPort', 'NameSpacePort', 'ESXiPort']
             if self._args.port_type not in port_type_list:
-                print "Invalid argument for port_type %s" % (
-                    self._args.port_type)
+                print ("Invalid argument for port_type %s" % (
+                    self._args.port_type))
                 sys.exit(1)
 
             vif_type_list = ['VhostUser', 'Vrouter']
             if self._args.vif_type not in vif_type_list:
-                print "Invalid argument for vif_type %s" % (
-                    self._args.vif_type)
+                print ("Invalid argument for vif_type %s" % (
+                    self._args.vif_type))
                 sys.exit(1)
 
             if self._args.rx_vlan_id:
                 if not self.IsNumber(self._args.rx_vlan_id):
-                    print "Invalid argument for rx_vlan_id %s" % (
-                        self._args.rx_vlan_id)
+                    print ("Invalid argument for rx_vlan_id %s" % (
+                        self._args.rx_vlan_id))
                     sys.exit(1)
                 self._args.rx_vlan_id = int(self._args.rx_vlan_id)
 
             if self._args.tx_vlan_id:
                 if not self.IsNumber(self._args.tx_vlan_id):
-                    print "Invalid argument for tx_vlan_id %s" % (
-                        self._args.tx_vlan_id)
+                    print ("Invalid argument for tx_vlan_id %s" % (
+                        self._args.tx_vlan_id))
                     sys.exit(1)
                 self._args.tx_vlan_id = int(self._args.tx_vlan_id)
 
@@ -312,7 +312,7 @@ class VrouterPortControl(object):
 
     def WriteToFile(self, data):
         filename = ("%s%s" % (PORT_PATH, self._args.uuid))
-        print "JSON data written to %s" % filename
+        print ("JSON data written to %s" % filename)
         try:
             with open(filename, 'w') as outfile:
                 json.dump(data, outfile, True)
