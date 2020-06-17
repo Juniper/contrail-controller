@@ -229,6 +229,32 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
 
     @property
     def BatchClass(self):
+        # This is an optimized usage of the batch model. The queries
+        # are going to be executed when added in the "Batch" object
+        # but without to block to the process. When `send()` is called
+        # the "Batch" willblock the process to get all the responses.
+        class AsyncBatch(object):
+            def __init__(self, context, cf_name):
+                self.context = context
+                self.session = context.get_cf(cf_name)
+                self.cf_name = cf_name
+                self.futures = []
+
+            def _exec_async(self, cql, args):
+                self.futures.append(
+                    self.session.execute_async(cql, args))
+
+            def add_insert(self, key, cql, args, *a, **k):
+                self._exec_async(cql, args)
+
+            def add_remove(self, key, cql, args, *a, **k):
+                self._exec_async(cql, args)
+
+            def send(self):
+                """block until queries responded"""
+                [f.result() for f in self.futures]
+                self.futures = []
+
         # This is encapsulating `Batch` statement of DataStax
         # connector that to make it to have same behavior of `Batch`
         # type form pycassa which is what legacy is using. It also adds
@@ -291,7 +317,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
                 self.clear()
 
         if self.__batch_class__ is None:
-            self.__batch_class__ = Batch
+            self.__batch_class__ = AsyncBatch
         return self.__batch_class__
 
     __batch_class__ = None
