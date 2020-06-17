@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "946d3900_6f6057e3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 224,
+      "author": {
+        "id": 854
+      },
+      "writtenOn": "2020-06-17T21:52:41Z",
+      "side": 1,
+      "message": "change this def to return line 219 instead of return output of now redundand _process_file_for_group \n\n    def _accept_routine(self, pr_commit_item,\n                        device_mgmt_ip):\n        contrail_cli_group \u003d CLI_GROUP\n        user_commited_config \u003d pr_commit_item.get(\u0027config_changes\u0027)\n        partial_accepted_config \u003d self._accept_config(user_commited_config,\n                                                      contrail_cli_group,\n                                                      device_mgmt_ip)\n        return partial_accepted_config",
+      "range": {
+        "startLine": 215,
+        "startChar": 0,
+        "endLine": 224,
+        "endChar": 44
+      },
+      "revId": "a50c14f6b797d0c03d2551d89d9ff1ed34f208b3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e69deeca_69f417dc",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 854
+      },
+      "writtenOn": "2020-06-17T21:52:41Z",
+      "side": 1,
+      "message": "this definition is no longer needed if Contrail is not creating custom group to store configuration.\nas result def _accept_routine needs small change",
+      "revId": "a50c14f6b797d0c03d2551d89d9ff1ed34f208b3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
