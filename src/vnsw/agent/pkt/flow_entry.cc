@@ -1491,6 +1491,22 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
         data_.source_plen = rt->plen();
         data_.source_tag_id_l = path->tag_list();
     }
+
+    /* Handle case when default route NextHop points to vrf */
+    if (rt && rt->GetActiveNextHop()->GetType() == NextHop::VRF) {
+        const VrfNH *nh =
+            static_cast<const VrfNH *>(rt->GetActiveNextHop());
+        AgentRoute *new_rt = GetUcRoute(nh->GetVrf(), key_.src_addr);
+        if (new_rt) {
+            path = new_rt->GetActivePath();
+            if (path) {
+                if (!path->origin_vn().empty()) {
+                    data_.source_vn_match= path->origin_vn();
+                    data_.source_vn_list.insert(path->origin_vn());
+                }
+            }
+        }
+    }
 }
 
 // Get dst-vn/sg-id/plen from route
@@ -1543,6 +1559,22 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
         data_.dest_tag_id_l = path->tag_list();
+    }
+
+    /* Handle case when default route NextHop points to vrf */
+    if (rt && rt->GetActiveNextHop()->GetType() == NextHop::VRF) {
+        const VrfNH *nh =
+            static_cast<const VrfNH *>(rt->GetActiveNextHop());
+        AgentRoute *new_rt = GetUcRoute(nh->GetVrf(), key_.dst_addr);
+        if (new_rt) {
+            path = new_rt->GetActivePath();
+            if (path) {
+                if (!path->origin_vn().empty()) {
+                    data_.dest_vn_match = path->origin_vn();
+                    data_.dest_vn_list.insert(path->origin_vn());
+                }
+            }
+        }
     }
 }
 
