@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "48c79c89_6068c8e3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/utils.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-17T15:57:47Z",
+      "side": 1,
+      "message": "Will this check restrict CQL support only with Py3?",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "807340ee_997205d0",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 120,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-17T15:57:47Z",
+      "side": 1,
+      "message": "Could you write a new ticket to get db-manage work with CQL in the same thrift does (compatible across R3.2)",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
