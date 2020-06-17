@@ -11,6 +11,7 @@ from gevent import monkey
 monkey.patch_all()
 import gevent
 import gevent.event
+from six import StringIO
 
 import time
 from pprint import pformat
@@ -294,7 +295,7 @@ class VncServerKombuClient(VncKombuClient):
 
             trace_msg([trace], 'MessageBusNotifyTraceBuf', self._sandesh)
         except Exception:
-            string_buf = cStringIO.StringIO()
+            string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             errmsg = string_buf.getvalue()
             self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
