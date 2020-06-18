@@ -19,6 +19,74 @@
     },
     {
       "key": {
+        "uuid": "7c740c7f_e82bf2fc",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-18T01:18:24Z",
+      "side": 1,
+      "message": "Will this usage result in TLS negotiation? From API-server, we want to stick to only TLSv1.2 or higher. not lower.",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "90651107_ab2d5367",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 567,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-18T01:18:24Z",
+      "side": 1,
+      "message": "I suppose we need to add a warn message if len(keys) !\u003d len(res.keys).\nMost of the client which uses multiget do not have any idea about count of objects. Its API-server internally get the counts and UUIDs and request data via multiget. \n\nRef: CEM-8595",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "672e7e8e_83bf7b9d",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 592,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-18T01:18:24Z",
+      "side": 1,
+      "message": "I see _cql_select returns an Iter obj. In which case it\u0027ll set as None?",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5f6f024f_5d5a6881",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 602,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-18T01:18:24Z",
+      "side": 1,
+      "message": "instead of hardcoding 100000 in the function arg, can the column_count be from a variable similar to the MAX_COLUMNS. I see its a miss in legacy implementation.",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "807340ee_997205d0",
         "filename": "src/config/common/cfgm_common/db_json_exim.py",
         "patchSetId": 21
