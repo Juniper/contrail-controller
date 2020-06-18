@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "33173d37_0a8d4eea",
+        "filename": "src/config/common/cfgm_common/vnc_amqp.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 147,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-06-18T09:33:30Z",
+      "side": 1,
+      "message": "in line 119 \u0027request_id\u0027 is used, self.create_msgbus_trace(self.oper_info.get(\u0027request_id\u0027),\n\nin line 147 \u0027request-id\u0027 used.\n\nany typo here?",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8c430bf0_64efb24c",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-06-18T09:33:30Z",
+      "side": 1,
+      "message": "How about creating this on demand/in Feature DM it self? seems it\u0027s referenced only from the FeatureDM.",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "41363d35_f6f90831",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 177,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-06-18T09:33:30Z",
+      "side": 1,
+      "message": "In case of update operation - looks we are fetching the same PR objects again (in the above API _calc_pr_id_set and here).\n\nif yes, is there any scope for fetching only one time - not sure of the impact.",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d5cf765c_7739666b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/module_utils/filter_utils.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-06-18T09:33:30Z",
+      "side": 1,
+      "message": "Do we need to take care in case of failure - either by clearing/adding a transaction info?",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
