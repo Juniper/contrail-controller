@@ -1,8 +1,0 @@
----
-prouter_uuid: "{{playbook_input.device_id}}"
-prouter_name: "{{playbook_input.device_fqname[-1]}}"
-prouter_vendor: "{{playbook_input.vendor | lower}}"
-prouter_family: "{{playbook_input.device_family | lower}}"
-username: "{{playbook_input.device_username}}"
-password: "{{playbook_input.device_password}}"
-timeout: "{{JUNOS_COMMIT_TIMEOUT | int}}"

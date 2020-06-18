@@ -1,3 +1,0 @@
----
-# defaults file for device health check
-abort_upon_failure: False

@@ -1,5 +1,0 @@
-contrail-config-common
-contrail-api-client
-sandesh
-sandesh-common
-ansible==2.6.13
