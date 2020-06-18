@@ -49,7 +49,7 @@
 - name: Reset vmhost flag
   set_fact:
     vmhost_flag: true
-  when: pr_product == "qfx10002-60c"
+  when: filename is search('vmhost')
 
 # continue workflow even if upgrade fails
 - name: Vendor specific image upgrade and device bring up for ztp

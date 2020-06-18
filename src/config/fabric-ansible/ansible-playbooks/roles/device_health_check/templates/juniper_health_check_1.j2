@@ -64,6 +64,7 @@ routing_engine:
   - command: show chassis routing-engine
   - item:
       xpath: '/route-engine-information/route-engine'
+      id: './slot'
       tests:
         - in-range: cpu-idle, {{advanced_parameters.Juniper.routing_engine.routing_engine_cpu_idle}},99
           err: "Test Failed!! cpu-idle of {% raw %}<{{post['cpu-idle']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.routing_engine.routing_engine_cpu_idle}}."
@@ -80,6 +81,7 @@ fpc:
         - in-range: cpu-5min-avg, 0,{{advanced_parameters.Juniper.fpc.fpc_cpu_5min_avg}}
           err: "Test Failed!! cpu-5min-avg of {% raw %}<{{post['cpu-5min-avg']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.fpc.fpc_cpu_5min_avg}}."
           info: "Test succeeded!! cpu-5min-avg is equal to {% raw %}<{{post['cpu-5min-avg']}}>{% endraw %}"
+          ignore-null: True
 {% endif %}
 {% if advanced_parameters.Juniper.fpc.fpc_memory_heap_util_check == True %}
   - item:
@@ -89,6 +91,7 @@ fpc:
         - in-range: memory-heap-utilization, 0,{{advanced_parameters.Juniper.fpc.fpc_memory_heap_util}}
           err: "Test Failed!! memory-heap-utilization of {% raw %}<{{post['memory-heap-utilization']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.fpc.fpc_memory_heap_util}}."
           info: "Test succeeded!! memory-heap-utilization is equal to {% raw %}<{{post['memory-heap-utilization']}}>{% endraw %}"
+          ignore-null: True
 {% endif %}
 {% endif %}
 {% if advanced_parameters.Juniper.storm_control_flag_check == True %}

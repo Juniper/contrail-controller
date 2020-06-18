@@ -157,7 +157,7 @@ class SanityBase(object):
         return namespace
     # end _add_asn_namespace
 
-    def create_image(self, img_name, img_uri, img_version,
+    def create_image(self, img_name, img_filename, img_uri, img_version,
                                 img_family, img_vendor):
 
         """create image"""
@@ -170,6 +170,7 @@ class SanityBase(object):
                 name=img_name,
                 fq_name=img_fqname,
                 parent_type='global-system-config',
+                device_image_file_name=img_filename,
                 device_image_file_uri=img_uri,
                 device_image_os_version=img_version,
                 device_image_device_family=img_family,

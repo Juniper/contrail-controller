@@ -97,6 +97,7 @@ class SanityTestHitless(SanityBase):
     def test_maintenance_mode(self):
         for image_obj in self._image_details:
             image_name = image_obj.get('image_name')
+            image_filename = image_obj.get('image_name')
             image_version = image_obj.get('image_version')
             image_family_name = image_obj.get('image_family_name')
             image_vendor_name = image_obj.get('image_vendor_name')
@@ -106,12 +107,13 @@ class SanityTestHitless(SanityBase):
                 md5 = self._getmd5(temp_file)
                 sha1 = self._getsha1(temp_file)
                 self._logger.info("Uploading image to swift")
-                img_uri = self._fileutilobj.createObjectFile(image_name,
+                img_uri = self._fileutilobj.createObjectFile(image_filename,
                                                              temp_file, md5, sha1)
                 if not img_uri:
                     self._exit_with_error(
                         "Test failed due to swift uri being None after upload")
                 image = self.create_image(image_name,
+                                          image_filename,
                                           img_uri,
                                           image_version,
                                           image_family_name,
