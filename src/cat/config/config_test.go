@@ -83,7 +83,7 @@ func TestConfig(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("vmi%d", i)
-		if _, err := config.NewVirtualMachineInterface(&fqNameTable, &uuidTable, name); err != nil {
+		if _, err := config.NewVirtualMachineInterface(&fqNameTable, &uuidTable, name, ""); err != nil {
 			t.Errorf("Cannot create virtual-machine-interface %s: %v", name, err)
 		}
 	}

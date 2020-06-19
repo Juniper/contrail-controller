@@ -30,8 +30,9 @@ type ControlNode struct {
 }
 
 const controlNodeName = "control-node"
-const controlNodeBinary = "../../../../build/debug/bgp/test/bgp_ifmap_xmpp_integration_test"
-const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/exmp_gen_config.json"
+const controlNodeBinary = "../../../../build/debug/bgp/test/bgp_cat_control_node_test"
+const controlNodeConfFile = "../../../../build/debug/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db-dump.json"
+const defaultConfFile = "../../../../controller/src/ifmap/client/testdata/pre_final.json"
 
 // New creates a ControlNode object and starts the process to run in background.
 // This routine shall not return until the launched control-node's server ports
@@ -82,7 +83,7 @@ func (c *ControlNode) start() error {
 	}
 
 	if c.ConfFile == "" {
-		c.ConfFile = controlNodeConfFile
+		c.ConfFile = GetConfFile()
 	}
 
 	output, err := os.Create(c.Component.LogDir + "/log")
@@ -94,17 +95,17 @@ func (c *ControlNode) start() error {
 	c.Cmd = exec.Command(controlNodeBinary, "--config_file="+c.Component.ConfFile)
 	env := sut.EnvMap{
 		"USER": os.Getenv("USER"),
-		"BGP_IFMAP_XMPP_INTEGRATION_TEST_SELF_NAME":  c.Name,
-		"CAT_BGP_IP_ADDRESS":                         c.IPAddress,
-		"CAT_BGP_PORT":                               strconv.Itoa(c.Config.BGPPort),
-		"CAT_XMPP_PORT":                              strconv.Itoa(c.Config.XMPPPort),
-		"BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT": strconv.Itoa(c.Config.HTTPPort),
-		"BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE":      "1",
-		//"LOG_DISABLE" : strconv.FormatBool(c.Verbose),
-		"BGP_IFMAP_XMPP_INTEGRATION_TEST_DATA_FILE": c.ConfFile,
-		"LD_LIBRARY_PATH":                           "../../../../build/lib",
-		"CONTRAIL_CAT_FRAMEWORK":                    "1",
-		"USER_DIR":                                  c.ConfDir + "/..",
+		"CAT_CONTROL_NODE_TEST_SELF_NAME":      c.Name,
+                "CAT_BGP_IP_ADDRESS":                   c.IPAddress,
+                "CAT_BGP_PORT":                         strconv.Itoa(c.Config.BGPPort),
+                "CAT_XMPP_PORT":                        strconv.Itoa(c.Config.XMPPPort),
+                "CAT_CONTROL_NODE_TEST_INTROSPECT":     strconv.Itoa(c.Config.HTTPPort),
+                "CAT_CONTROL_NODE_TEST_PAUSE":          "1",
+                //"LOG_DISABLE" :                       strconv.FormatBool(c.Verbose),
+                "CAT_CONTROL_NODE_TEST_DATA_FILE":      c.ConfFile,
+                "LD_LIBRARY_PATH":                      "../../../../build/lib",
+                "CONTRAIL_CAT_FRAMEWORK":               "1",
+                "USER_DIR":                             c.ConfDir + "/..",
 	}
 
 	c.Cmd.Stdout = output
@@ -306,5 +307,17 @@ func UpdateConfigDB(rootdir string, controlNodes []*ControlNode, fqNameTable *co
 }
 
 func GetConfFile() (string) {
-	return controlNodeConfFile
+	if fileExists(controlNodeConfFile) {
+		return controlNodeConfFile
+	} else {
+		return defaultConfFile
+	}
+}
+
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename) 
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
