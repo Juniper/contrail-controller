@@ -31,7 +31,7 @@ type ControlNode struct {
 
 const controlNodeName = "control-node"
 const controlNodeBinary = "../../../../build/debug/bgp/test/bgp_ifmap_xmpp_integration_test"
-const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/exmp_gen_config.json"
+const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/pre_final.json"
 
 // New creates a ControlNode object and starts the process to run in background.
 // This routine shall not return until the launched control-node's server ports
