@@ -5,6 +5,7 @@
 from builtins import str
 import re
 
+from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import VncError
 from vnc_api.gen.resource_common import RoutingPolicy
 
@@ -36,6 +37,7 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                    "should be in format '/minlength-/maxlength'" % rfvalue)
             return False, (400, msg)
         return True, ''
+    # end _check_routefilter_range_string
 
     @staticmethod
     def _check_aspath_string(aspath, aspath_type):
@@ -59,6 +61,7 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                        (aspath_type, aspath))
                 return False, (400, msg)
         return True, ''
+    # end _check_aspath_string
 
     @staticmethod
     def _check_rp_term_route_filter(cls, route_filter):
@@ -115,6 +118,7 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                                "string." % route_type)
                     return False, (400, msg)
         return True, ""
+    # end _check_rp_term_route_filter
 
     @staticmethod
     def _check_rp_term_match_condition(cls, match_condition, db_conn):
@@ -159,6 +163,7 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
 
         route_filter_type = match_condition.get('route_filter')
         return cls._check_rp_term_route_filter(cls, route_filter_type)
+    # end _check_rp_term_match_condition
 
     @staticmethod
     def _check_network_device_routing_policy_term(cls, term, term_type,
@@ -197,6 +202,7 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                 return ok, result
 
         return True, ''
+    # end _check_network_device_routing_policy_term
 
     @staticmethod
     def _validate_term_and_get_asnlist(cls, obj_dict, db_conn):
@@ -226,6 +232,60 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                                 if tasn_list:
                                     asn_list.extend(tasn_list)
         return True, asn_list, ''
+    # end _validate_term_and_get_asnlist
+
+    @staticmethod
+    def _update_irt_refs_pre_dbe(cls, obj_dict, db_conn):
+        """Update routing policy refs to interface route table.
+
+        This function adds or removes routing policy refs to interface route
+        table based on irt exist in term_match_condition->prefix_list's
+        interface_route_table_uuid property.
+        Add or remove Refs for rp to irt in current obj_dict object only. this
+        way at pre dbe operation time only same obj_dict gets updated with
+        proper refs. This is optmized way and gives better scale performance
+        to handle ref updates causes it does not creates extra db update calls
+        for refs update which saves vnc change notification cycles in DM also.
+        : Args:
+        : cls: current class
+        : obj_dict: routing policy db object
+        : db_conn: db connection handler
+        : return:
+        : returns nothing.
+        :
+        """
+        rp_entries = obj_dict.get('routing_policy_entries')
+        if not rp_entries:
+            return
+        irt_uuid_list = set()
+        # scan and find all irt uuid exists
+        for term in rp_entries.get('term') or []:
+            match_condition = term.get('term_match_condition')
+            if not match_condition:
+                continue
+            prefix_list = match_condition.get('prefix_list')
+            for prefix in prefix_list or []:
+                irt_list = prefix.get('interface_route_table_uuid', [])
+                irt_uuid_list.update(irt_list)
+
+        # create new irt_refs keys inside current obj dict and
+        # add all valid irt_uuid in this refs.
+        # Note: if irt_uuid removed then this irt_ref will not be added so
+        # it will get removed from db also.
+
+        # Ignore error during updating ref as its not a fatal and next update
+        # will retry failure ref update. DM module handles this scenerio.
+        irt_refs = []
+        for irt_uuid in irt_uuid_list:
+            try:
+                ref_fq_name = db_conn.uuid_to_fq_name(irt_uuid)
+            except NoIdError:
+                continue
+            irt_refs.append(
+                {'to': ref_fq_name, 'attr': None, 'uuid': irt_uuid})
+
+        obj_dict['interface_route_table_refs'] = irt_refs
+    # end _update_irt_refs_pre_dbe
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -246,7 +306,10 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
         if asn_list and global_asn in asn_list:
             msg = ("ASN can't be same as global system config asn")
             return False, (400, msg)
+
+        cls._update_irt_refs_pre_dbe(cls, obj_dict, db_conn)
         return True, ""
+    # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
@@ -271,4 +334,7 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                 return False, result
         except Exception as e:
             return False, (400, str(e))
+
+        cls._update_irt_refs_pre_dbe(cls, obj_dict, db_conn)
         return True, ""
+    # end pre_dbe_update
