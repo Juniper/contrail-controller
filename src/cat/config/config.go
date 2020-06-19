@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -42,7 +43,7 @@ type ContrailConfig struct {
 	ParentType string   `json:"parent_type"`
 	FqName     []string `json:"fq_name"`
 
-	Perms2      types.PermType    `json:"prop:perms2"`
+	Perms2      types.PermType2    `json:"prop:perms2"`
 	IdPerms     types.IdPermsType `json:"prop:id_perms"`
 	DisplayName string            `json:"prop:display_name"`
 }
@@ -52,8 +53,14 @@ type ConfigMap map[string]*ContrailConfig
 // Map creates a contrail configuration map.
 func (c *ContrailConfig) Map(b []byte) (map[string]string, error) {
 	v := map[string]interface{}{}
-	json.Unmarshal(b, &v)
 	conf := map[string]string{}
+
+	d := json.NewDecoder(bytes.NewBuffer(b))
+	d.UseNumber()
+	if err := d.Decode(&v); err != nil {
+		return nil, err
+	}
+
 	for key, _ := range v {
 		switch {
 		case strings.HasSuffix(key, "_refs"):
@@ -116,15 +123,17 @@ func createContrailConfig(fqNameTable *FQNameTableType, tp, name, parentType str
 	if (*fqNameTable)[tp] == nil {
 		(*fqNameTable)[tp] = map[string]string{}
 	}
-	ts := time.Now().String()
+	t := time.Now().String()
+	ts := strings.ReplaceAll(t, " ", "T")
 	c := ContrailConfig{
 		UUID:        us,
 		Type:        tp,
 		ParentType:  parentType,
 		DisplayName: name,
-		Perms2: types.PermType{
-			Owner:       "cloud-admin",
-			OwnerAccess: 0,
+		Perms2: types.PermType2{
+			Owner:        "cloud-admin",
+			OwnerAccess:  7,
+			GlobalAccess: 5,
 		},
 		IdPerms: types.IdPermsType{
 			Enable: true,
@@ -135,6 +144,15 @@ func createContrailConfig(fqNameTable *FQNameTableType, tp, name, parentType str
 			Created:      ts,
 			LastModified: ts,
 			UserVisible:  true,
+			Permissions:  &types.PermType{
+				Owner:       "cloud-admin",
+				OwnerAccess: 7,
+				OtherAccess: 7,
+				Group:       "cloud-admin-group",
+				GroupAccess: 7,
+			},
+			Description:  "",
+			Creator:      "",
 		},
 		FqName: fqName,
 	}
@@ -157,7 +175,7 @@ func GenerateDB(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, confFile
 	if err != nil {
 		return nil
 	}
-	conf := fmt.Sprintf("[{ \"operation\": \"db_sync\", \"db\": %s, \"OBJ_FQ_NAME_TABLE\": %s}]\n", string(b1), string(b2))
+	conf := fmt.Sprintf("{ \"cassandra\": { \"config_db_uuid\": { \"obj_uuid_table\": %s, \"obj_shared_table\": {}, \"obj_fq_name_table\": %s }, \"dm_keyspace\": { \"dm_pnf_resource_table\": {}, \"dm_pr_ae_id_table\": {}, \"dm_pr_vn_ip_table\": {} }, \"svc_monitor_keyspace\": { \"healthmonitor_table\": {}, \"loadbalancer_table\": {}, \"pool_table\": {}, \"service_instance_table\": {}}}, \"zookeeper\": \"[]\"}\n", string(b1), string(b2))
 	_, err = io.WriteString(file, conf)
 	return file.Sync()
 }
