@@ -1,0 +1,615 @@
+{
+    "cassandra": {
+        "config_db_uuid": {
+            "obj_fq_name_table": {
+                "bgp_router": {
+                    "default-domain:default-project:ip-fabric:__default__:control-node1:f988c2a6-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "default-domain:default-project:ip-fabric:__default__:control-node2:f988d041-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "domain": {
+                    "default-domain:f9886b57-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "global_system_config": {
+                    "default-global-system-config:bb32edd2-ab05-11ea-a066-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "instance_ip": {
+                    "f98918a7-7278-11ea-bf6e-02486f9480e0:f98918a7-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "network_ipam": {
+                    "default-domain:default-project:default-network-ipam:f98871df-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "project": {
+                    "default-domain:default-project:f9886e9f-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "route_aggregate": {},
+                "route_target": {
+                    "target:64512:80000000:f98876d2-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "routing_instance": {
+                    "default-domain:default-project:vn1:vn1:f988ad61-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "virtual_machine": {
+                    "f9885c6f-7278-11ea-bf6e-02486f9480e0:f9885c6f-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "virtual_machine_interface": {
+                    "default-domain:default-project:f98903fb-7278-11ea-bf6e-02486f9480e0:f98903fb-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "virtual_network": {
+                    "default-domain:default-project:vn1:f988b4e1-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                },
+                "virtual_router": {
+                    "default-global-system-config:Agent1:f988e7d0-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ]
+                }
+            },
+            "obj_shared_table": {},
+            "obj_uuid_table": {
+                "bb32edd2-ab05-11ea-a066-02486f9480e0": {
+                    "UUID": [
+                        "\"bb32edd2-ab05-11ea-a066-02486f9480e0\"",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-global-system-config\"]",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"\"",
+                        1592899701292475
+                    ],
+                    "prop:autonomous_system": [
+                        "\"64512\"",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"default-global-system-config\"",
+                        1592899701292475
+                    ],
+                    "prop:enable_4byte_as": "\"true\"",
+                    "prop:id_perms": [
+                        "{\"created\":\"2020-06-10T06:32:49.209551396T-0400TEDTTm=+4.299972239\",\"enable\":true,\"last_modified\":\"2020-06-10T06:32:49.209551396T-0400TEDTTm=+4.299972239\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":11557928003825860832,\"uuid_mslong\":13489105322996208106}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\":\"cloud-admin\"}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"global_system_config\"",
+                        1592899701292475
+                    ]
+                },
+                "f9885c6f-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"f9885c6f-7278-11ea-bf6e-02486f9480e0\"]",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"f9885c6f-7278-11ea-bf6e-02486f9480e0\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980723146008302058}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"f9886e9f-7278-11ea-bf6e-02486f9480e0\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"virtual_machine\"",
+                        1592899701292475
+                    ]
+                },
+                "f9886b57-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\"]",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null},\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980739535603503594}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": [{\"tenant_access\": 6, \"tenant\": \"domain:f9886b57-7278-11ea-bf6e-02486f9480e0\"}]}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"domain\"",
+                        1592899701292475
+                    ]
+                },
+                "f9886e9f-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\"]",
+                        1592899701292475
+                    ],
+                    "parent:domain:f9886b57-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"domain\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980743143376032234}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "prop:quota": [
+                        "{\"defaults\": -1}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"project\"",
+                        1592899701292475
+                    ]
+                },
+                "f98871df-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\",\"default-network-ipam\"]",
+                        1592899701292475
+                    ],
+                    "parent:project:f9886e9f-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"project\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980746716788822506}}",
+                        1592899701292475
+                    ],
+                    "prop:network_ipam_mgmt": [
+                        "{\"ipam_dns_method\": \"virtual-dns-server\", \"ipam_dns_server\": {\"tenant_dns_server_address\": {}, \"virtual_dns_server_name\": \"default-domain:vdns1\"}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 5, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"network_ipam\"",
+                        1592899701292475
+                    ]
+                },
+                "f98876d2-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "backref:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"attr\": {\"import_export\": null}}",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"target:64512:80000000\"]",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"target:64512:80000000\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980752158512386538}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"route_target\"",
+                        1592899701292475
+                    ]
+                },
+                "f988ad61-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\",\"vn1\",\"vn1\"]",
+                        1592899701292475
+                    ],
+                    "parent:virtual_network:f988b4e1-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"virtual_network\"",
+                        1592899701292475
+                    ],
+                    "prop:evpn_service_chain_information": [
+                        "{\"prefix\": [\"20.0.0.0/24\"], \"service_chain_address\": \"0.255.255.250\", \"source_routing_instance\": null, \"sc_head\": true, \"service_instance\": \"default-domain:default-project:test_service\", \"service_chain_id\": \"default-domain:project-vnc_cfg_api_server.tests.in_place_upgrade.test_r2002.TestInPlaceUpgradeR2002.test_routing_instance_create:vn-vnc_cfg_api_server.tests.in_place_upgrade.test_r2002.TestInPlaceUpgradeR2002.test_routing_instance_create:default-routing-instance\", \"routing_instance\": \"default-routing-instance\"}",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980812146320609770}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "prop:routing_instance_has_pnf": [
+                        "false",
+                        1592899701292475
+                    ],
+                    "prop:routing_instance_is_default": [
+                        "true",
+                        1592899701292475
+                    ],
+                    "prop:static_route_entries": [
+                        "{\"route\": []}",
+                        1592899701292475
+                    ],
+                    "ref:route_target:f98876d2-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"attr\": {\"import_export\": null}}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"routing_instance\"",
+                        1592899701292475
+                    ]
+                },
+                "f988b4e1-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "children:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\",\"vn1\"]",
+                        1592899701292475
+                    ],
+                    "parent:project:f9886e9f-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"project\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980820392657818090},\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "prop:virtual_network_network_id": [
+                        "1",
+                        1592899701292475
+                    ],
+                    "ref:network_ipam:f98871df-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"attr\": {\"ipam_subnets\": [{\"subnet\": {\"ip_prefix\": \"1.1.1.0\", \"ip_prefix_len\": 24}, \"addr_from_start\": true, \"enable_dhcp\": true, \"default_gateway\": \"1.1.1.1\", \"dns_nameservers\": [], \"alloc_unit\": 1, \"subnet_uuid\": \"f988b86d-7278-11ea-bf6e-02486f9480e0\", \"dhcp_option_list\": null, \"host_routes\": null, \"dns_server_address\": \"1.1.1.2\", \"subnet_name\": \"\", \"allocation_pools\":[]}], \"host_routes\": null}}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"virtual_network\"",
+                        1592899701292475
+                    ]
+                },
+                "f988c2a6-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\",\"ip-fabric\",\"__default__\",\"control-node1\"]",
+                        1592899701292475
+                    ],
+                    "parent:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"routing_instance\"",
+                        1592899701292475
+                    ],
+                    "prop:bgp_router_parameters": [
+                        "{\"vendor\": \"contrail\", \"admin_down\": false, \"ipv6_gateway_address\": null, \"local_autonomous_system\": null, \"auth_data\": null, \"autonomous_system\": 64512, \"address\": \"127.0.0.1\", \"source_port\": null, \"router_type\": \"control-node\", \"identifier\": \"127.0.0.1\", \"hold_time\": 0, \"port\":38474, \"address_families\": {\"family\": [\"route-target\", \"inet-vpn\", \"e-vpn\", \"erm-vpn\", \"inet6-vpn\"]}, \"gateway_address\": null}",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"control-node1\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980835532417536490},\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "ref:bgp_router:f988d041-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": {\"session\": [{\"attributes\": [{\"auth_data\": null, \"admin_down\": false, \"hold_time\": 0, \"passive\": false, \"family_attributes\": [], \"loop_count\": 0}], \"uuid\":null}]}}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"bgp_router\"",
+                        1592899701292475
+                    ]
+                },
+                "f988d041-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\",\"ip-fabric\",\"__default__\",\"control-node2\"]",
+                        1592899701292475
+                    ],
+                    "parent:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"routing_instance\"",
+                        1592899701292475
+                    ],
+                    "prop:bgp_router_parameters": [
+                        "{\"vendor\": \"contrail\", \"admin_down\": false, \"ipv6_gateway_address\": null, \"local_autonomous_system\": null, \"auth_data\": null, \"autonomous_system\": 64512, \"address\": \"127.0.0.2\", \"source_port\": null, \"router_type\": \"control-node\", \"identifier\": \"127.0.0.2\", \"hold_time\": 0, \"port\":38845, \"address_families\": {\"family\": [\"route-target\", \"inet-vpn\", \"e-vpn\", \"erm-vpn\", \"inet6-vpn\"]}, \"gateway_address\": null}",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"control-node2\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980850491788628458},\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "ref:bgp_router:f988c2a6-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": {\"session\": [{\"attributes\": [{\"auth_data\": null, \"admin_down\": false, \"hold_time\": 0, \"passive\": false, \"family_attributes\": [], \"loop_count\": 0}], \"uuid\":null}]}}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"bgp_router\"",
+                        1592899701292475
+                    ]
+                },
+                "f988e7d0-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-global-system-config\",\"Agent1\"]",
+                        1592899701292475
+                    ],
+                    "parent:global_system_config:bb32edd2-ab05-11ea-a066-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"global-system-config\"",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"Agent1\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"creator\": null,\"permissions\": {\"owner\": \"cloud-admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"cloud-admin-group\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980876394736390634}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "prop:virtual_router_dpdk_enabled": [
+                        "false",
+                        1592899701292475
+                    ],
+                    "prop:virtual_router_ip_address": [
+                        "\"127.0.0.3\"",
+                        1592899701292475
+                    ],
+                    "ref:virtual_machine:f9885c6f-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"attr\":null}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"virtual_router\"",
+                        1592899701292475
+                    ]
+                },
+                "f98903fb-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"default-domain\",\"default-project\",\"f98903fb-7278-11ea-bf6e-02486f9480e0\"]",
+                        1592899701292475
+                    ],
+                    "parent:project:f9886e9f-7278-11ea-bf6e-02486f9480e0": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "parent_type": [
+                        "\"project\"",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"f98903fb-7278-11ea-bf6e-02486f9480e0\"",
+                        1592899701292475
+                    ],
+                    "prop:ecmp_hashing_include_fields": [
+                        "{}",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"neutron\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"_member_\", \"group_access\": 7}, \"description\": null,\"enable\":true,\"last_modified\":\"2019-10-01T17:04:34.118644\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980907365745562090}}",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"f9886e9f-7278-11ea-bf6e-02486f9480e0\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "prop:port_security_enable": [
+                        "true",
+                        1592899701292475
+                    ],
+                    "ref:routing_instance:f988ad61-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": {\"direction\": \"both\"}}",
+                        1592899701292475
+                    ],
+                    "ref:virtual_machine:f9885c6f-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": null}",
+                        1592899701292475
+                    ],
+                    "ref:virtual_network:f988b4e1-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": null}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"virtual_machine_interface\"",
+                        1592899701292475
+                    ]
+                },
+                "f98918a7-7278-11ea-bf6e-02486f9480e0": {
+                    "META:latest_col_ts": [
+                        "null",
+                        1592899701292475
+                    ],
+                    "fq_name": [
+                        "[\"f98918a7-7278-11ea-bf6e-02486f9480e0\"]",
+                        1592899701292475
+                    ],
+                    "prop:display_name": [
+                        "\"f98918a7-7278-11ea-bf6e-02486f9480e0\"",
+                        1592899701292475
+                    ],
+                    "prop:id_perms": [
+                        "{\"created\":\"2019-10-01T17:04:34.118644\",\"creator\": null,\"permissions\": {\"owner\": \"neutron\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"_member_\", \"group_access\": 7}, \"description\": null,\"created\":\"2019-10-01T17:04:34.118644\",\"enable\":true,\"last_modified\":\"2020-03-30 07:24:09.637497757 -0400 EDT m=+2.123126653\",\"user_visible\":true,\"uuid\":{\"uuid_lslong\":13793965218815312096,\"uuid_mslong\":17980930094712492522}}",
+                        1592899701292475
+                    ],
+                    "prop:instance_ip_address": [
+                        "\"1.1.1.4\"",
+                        1592899701292475
+                    ],
+                    "prop:instance_ip_family": [
+                        "\"v4\"",
+                        1592899701292475
+                    ],
+                    "prop:instance_ip_local_ip": [
+                        "false",
+                        1592899701292475
+                    ],
+                    "prop:instance_ip_secondary": [
+                        "false",
+                        1592899701292475
+                    ],
+                    "prop:perms2": [
+                        "{\"owner\": \"cloud-admin\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
+                        1592899701292475
+                    ],
+                    "prop:service_health_check_ip": [
+                        "false",
+                        1592899701292475
+                    ],
+                    "prop:service_instance_ip": [
+                        "false",
+                        1592899701292475
+                    ],
+                    "ref:virtual_machine_interface:f98903fb-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": null}",
+                        1592899701292475
+                    ],
+                    "ref:virtual_network:f988b4e1-7278-11ea-bf6e-02486f9480e0": [
+                        "{\"is_weakref\": false, \"attr\": null}",
+                        1592899701292475
+                    ],
+                    "type": [
+                        "\"instance_ip\"",
+                        1592899701292475
+                    ]
+                }
+            }
+        },
+        "dm_keyspace": {
+            "dm_pnf_resource_table": {},
+            "dm_pr_ae_id_table": {},
+            "dm_pr_vn_ip_table": {}
+        },
+        "svc_monitor_keyspace": {
+            "healthmonitor_table": {},
+            "loadbalancer_table": {},
+            "pool_table": {},
+            "service_instance_table": {}
+        }
+    },
+    "zookeeper": "[]"
+}

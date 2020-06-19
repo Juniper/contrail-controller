@@ -27,7 +27,7 @@ func TestAgent(t *testing.T) {
 			Port: 2,
 		},
 	}
-	a, err := agent.New(c.SUT.Manager, "agent", "test", endpoints)
+	a, err := agent.New(c.SUT.Manager, "agent", " ", "test", endpoints)
 	if err != nil {
 		t.Errorf("Failed to create agent: %v", err)
 	}
