@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-        "os/exec"
 	"cat"
 	"cat/config"
 	"cat/controlnode"
@@ -27,132 +26,10 @@ func setupSubTest(t *testing.T, c *cat.CAT) func(t *testing.T, c *cat.CAT) {
 	}
 }
 
-func TestAgentMockPortForSchemaValidation(t *testing.T) {
-    var ConNodes map[string]interface{}
-    ConNodes, _ = cat.GetNumOfControlNodes()
-
-    tests := []struct {
-        desc         string
-        controlNodes int
-        agents       int
-        crpds        int
-    }{
-                {
-            desc:         "Test Agent Mock Port",
-            controlNodes: len(ConNodes),
-            agents:       1,
-            crpds:        0,
-        }}
-
-    for _, tt := range tests {
-        t.Run(tt.desc, func(t *testing.T) {
-            log.Infof("Started test %s", tt.desc)
-
-            // Create basic CAT object first to hold all objects managed.
-            c, err := cat.New()
-            if err != nil {
-                t.Fatalf("Failed to create CAT cect: %v", err)
-            }
-
-            // Bring up control-nodes, with config file for port add .
-            if _, err := c.AddControlNode(tt.desc, fmt.Sprintf("control-node%d", 1),
-                fmt.Sprintf("%d.0.0.%d", 127, 1), "../../../../controller/src/ifmap/client/testdata/mock_port.json", 0); err != nil {
-                t.Fatalf("Failed to create control node: %v", err)
-            }
-
-            // Bring up agent
-            if _, err := c.AddAgent(tt.desc, fmt.Sprintf("Agent%d", 1), c.ControlNodes); err != nil {
-                t.Fatalf("Failed to create vrouter agent: %v", err)
-            }
-
-            if err := verifyControlNodesAndAgents(c); err != nil {
-                t.Fatalf("Failed to verify control-nodes, agents: %v", err)
-            }
-
-            // Add Mock Port
-            const agentAddPortBinary = "../../../../controller/src/vnsw/agent/port_ipc/vrouter-port-control"
-            cmd := fmt.Sprintf(`sudo %s --oper=add --uuid=f98903fb-7278-11ea-bf6e-02486f9480e0 --instance_uuid=f98903fb-7278-11ea-bf6e-02486f9480e0 \
-                    --vn_uuid=f988b4e1-7278-11ea-bf6e-02486f9480e0 --vm_project_uuid=f988b4e1-7278-11ea-bf6e-02486f9480e0 --ip_address=1.1.1.10 \
-                    --ipv6_address= --vm_name=f9885c6f-7278-11ea-bf6e-02486f9480e0  --tap_name=tap10  --mac=90:e2:ff:ff:94:9d --rx_vlan_id=0 \
-                    --tx_vlan_id=0 --agent_port=9091`, agentAddPortBinary)
-
-            log.Infof("AddVirtualPort: %q", cmd)
-            out, err := exec.Command("/bin/bash", "-c", cmd).Output()
-
-            if err != nil {
-                t.Fatalf("Failed to create port: %v , out: %s", err, out)
-            }
-
-            // Verify interface for port is set to active in agent introspect
-            if err := c.Agents[0].VerifyIntrospectInterfaceState("tap10", true); err != nil {
-                t.Fatalf("Interface not set to Active in agent: %v", err)
-            }
-            return;
-        })
-    }
-}
-
-// TestIntrospectForSchemaValidation tests various combination of control-nodes,
-// Agent receiving config changes to do schema validation
-func TestIntrospectForSchemaValidation(t *testing.T) {
-    var ConNodes map[string]interface{}
-    ConNodes, _ = cat.GetNumOfControlNodes()
-
-    tests := []struct {
-        desc         string
-        controlNodes int
-        agents       int
-        crpds        int
-    }{
-    {
-        desc:         "Check Global System Config",
-        controlNodes: len(ConNodes),
-        agents:       0,
-        crpds:        0,
-    }}
-
-    for _, tt := range tests {
-        t.Run(tt.desc, func(t *testing.T) {
-            log.Infof("Started test %s", tt.desc)
-
-            // Create basic CAT object first to hold all objects managed.
-            c, err := cat.New()
-            if err != nil {
-                t.Fatalf("Failed to create CAT cect: %v", err)
-            }
-
-            // Bring up control-nodes, agents and crpds.
-            if err := setupFromFile(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
-                t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
-            }
-
-            // Verify that control-node bgp router configurations are added.
-            if err := verifyControlNodeBgpRoutersConfiguration(c, tt.controlNodes+tt.crpds); err != nil {
-                t.Fatalf("Cannot verify bgp routers configuration")
-	    }
-
-            // Verify that introspect page has correct config
-            if err := verifyIntrospectGlobalSystemConfig(c, 645120); err != nil {
-                t.Fatalf("global system config is not applied correctly: %v", err)
-            }
-
-            // Verify that there are not xmpp flaps
-            if err := verifyIntrospectXmppFlaps(c); err != nil {
-                t.Fatalf("There are unexpected xmpp flaps: %v", err)
-            }
-
-            return;
-        })
-    }
-}
-
 // TestConnectivityWithConfiguration tests various combination of control-nodes,
 // agents, and CRPDs. It also injects basic configuration necessary in order to
 // add mock vmi in the agent and exchange routing information.
 func TestConnectivityWithConfiguration(t *testing.T) {
-	var ConNodes map[string]interface{}
-	ConNodes, _ = cat.GetNumOfControlNodes()
-
 	tests := []struct {
 		desc         string
 		controlNodes int
@@ -190,11 +67,6 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			controlNodes: 2,
 			agents:       3,
 			crpds:        2,
-		}, {
-			desc:         "ZIUTestcase",
-			controlNodes: len(ConNodes),
-			agents:       3,
-			crpds:        2,
                 },
 	}
 
@@ -216,7 +88,7 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			}
 
 			// Bring up control-nodes, agents and crpds.
-			if err := setup(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds, ConNodes); err != nil {
+			if err := setup(c, tt.desc, tt.controlNodes, tt.agents, tt.crpds); err != nil {
 				t.Fatalf("Failed to create control-nodes, agents and/or c.CRPDs: %v", err)
 			}
 
@@ -241,12 +113,6 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 			// state after restart.
 			if err := verifyControlNodesAndAgents(c); err != nil {
 				t.Fatalf("Failed to verify control-nodes, agents and/or c.CRPDs after restart: %v", err)
-			}
-
-			// Return if running pre loaded config file since ConfigMap is not populated 
-			// at this moment
-			if tt.desc == "ZIUTestcase" {
-				return
 			}
 
 			// Disable bgp-router (admin: down) and ensure that session indeed
@@ -287,7 +153,7 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 }
 
 // setup as many control-nods, agents and crpds as requested.
-func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]interface{}) error {
+func setup(c *cat.CAT, desc string, nc, na, ncrpd int) error {
 	log.Debugf("%s: Creating %d control-nodes, %d c.Agents and %d c.CRPDs\n", desc, nc, na, ncrpd)
 
 	ipOctet := 127
@@ -310,7 +176,7 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 	generateConfiguration(c)
 
 	for i := 0; i < na; i++ {
-		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
+		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), " ", c.ControlNodes); err != nil {
 			return err
 		}
 	}
@@ -323,35 +189,6 @@ func setup(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]inter
 	}
 
 	if err := addVirtualPorts(c); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setup as many control-nods, agents and crpds as requested.
-func setupFromFile(c *cat.CAT, desc string, nc, na, ncrpd int, ConNodes map[string]interface{}) error {
-	log.Debugf("%s: Creating %d control-nodes, %d c.Agents and %d c.CRPDs\n", desc, nc, na, ncrpd)
-
-	for key, value := range ConNodes {
-		v := value.(map[string]interface{})
-		if _, err := c.AddControlNode(desc, key, v["address"].(string), controlnode.GetConfFile(), v["port"].(int)); err != nil {
-			return err
-		}
-	}
-
-	for i := 0; i < ncrpd; i++ {
-		if _, err := c.AddCRPD(desc, fmt.Sprintf("crpd%d", i+1)); err != nil {
-			return err
-		}
-	}
-
-	for i := 0; i < na; i++ {
-		if _, err := c.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), c.ControlNodes); err != nil {
-			return err
-		}
-	}
-	if err := verifyControlNodesAndAgents(c); err != nil {
 		return err
 	}
 
@@ -414,30 +251,6 @@ func verifyControlNodeBgpSessions(c *cat.CAT, down bool) error {
 		}
 	}
 	return nil
-}
-
-// checks global system config in introspect page
-func verifyIntrospectGlobalSystemConfig(c *cat.CAT, asn uint32) error {
-   for _, cn := range c.ControlNodes {
-       if err := cn.CheckGlobalSystemConfig(asn); err != nil {
-           log.Infof("check global system config failed for cn %s", cn.Name)
-           return err
-       }
-   }
-
-   return nil
-}
-
-// checks for xmpp flaps in introspect page
-func verifyIntrospectXmppFlaps(c *cat.CAT) error {
-   for _, cn := range c.ControlNodes {
-       if err := cn.CheckXmppFlaps(); err != nil {
-           log.Infof("check xmpp flaps failed for cn %s", cn.Name)
-           return err
-       }
-   }
-
-   return nil
 }
 
 // verifyControlNodesAndAgents verifies that bgp and xmpp connections
@@ -604,7 +417,7 @@ func generateConfiguration(c *cat.CAT) error {
 	vr2.AddRef(&c.UuidTable, vm3)
 	vr2.AddRef(&c.UuidTable, vm4)
 
-	vmi1, err := config.NewVirtualMachineInterface(&c.FqNameTable, &c.UuidTable, "vmi1")
+	vmi1, err := config.NewVirtualMachineInterface(&c.FqNameTable, &c.UuidTable, "vmi1", project.UUID)
 	if err != nil {
 		return err
 	}
@@ -673,10 +486,12 @@ func verifyConfiguration(c *cat.CAT) error {
 
 func addVirtualPorts(c *cat.CAT) error {
 	for i := range c.Agents {
-		if err := c.Agents[i].AddVirtualPort(c.ConfigMap["virtual_machine_interface:vmi1"], c.ConfigMap["virtual_machine:vm1"], c.ConfigMap["virtual_network:vn1"], c.ConfigMap["project:default-project"], "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1", "9091"); err != nil {
-			return nil //return err when add_port is fixed
+		if err := c.Agents[i].AddVirtualPort(c.ConfigMap["virtual_machine_interface:vmi1"].UUID, c.ConfigMap["virtual_machine:vm1"].UUID, c.ConfigMap["virtual_network:vn1"].UUID, c.ConfigMap["project:default-project"].UUID, "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1", "9091", "vm1"); err != nil {
+			return err
 		}
-		// TODO: Add a virtual port to one agent for now.
+		if err := c.Agents[i].VerifyIntrospectInterfaceState("tap1", true); err != nil {
+			return err
+		}
 		break
 	}
 	return nil

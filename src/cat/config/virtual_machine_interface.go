@@ -29,15 +29,15 @@ func (vmi *VirtualMachineInterface) AddRef(uuidTable *UUIDTableType, obj *Contra
 	case "routing_instance":
 		ref := Ref{
 			UUID: obj.UUID, Type: obj.Type,
-			Attr: map[string]interface{}{"attr": nil, "is_weakref": false},
+			Attr: map[string]interface{}{"attr": map[string]string{"direction": "both"}, "is_weakref": false},
 		}
 		vmi.RoutingInstanceRefs = append(vmi.RoutingInstanceRefs, ref)
 	}
 	vmi.UpdateDB(uuidTable)
 }
 
-func NewVirtualMachineInterface(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, name string) (*VirtualMachineInterface, error) {
-	co, err := createContrailConfig(fqNameTable, "virtual_machine_interface", name, "project", []string{"default-domain", "default-project", name})
+func NewVirtualMachineInterface(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, name, project_uuid string) (*VirtualMachineInterface, error) {
+	co, err := createContrailConfig(fqNameTable, "virtual_machine_interface", name, "project:"+project_uuid, []string{"default-domain", "default-project", name})
 	if err != nil {
 		return nil, err
 	}
