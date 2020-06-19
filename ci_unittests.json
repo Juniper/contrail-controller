@@ -62,6 +62,7 @@
             "src/contrail-api-client/schema:test",
             "controller/src/container/kube-manager:test",
             "controller/src/config/common:test"
+            "controller/src/cat:test_upgrade",
         ],
         "misc_test_targets" : [ ]
     },
@@ -221,6 +222,7 @@
             "controller/src/config/api-server:test",
             "controller/src/config/vnc_openstack:test",
             "controller/src/config/common:test"
+            "controller/src/cat:test_upgrade",
         ],
         "misc_test_targets" : [
             "contrail-collector",
