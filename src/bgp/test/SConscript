@@ -804,6 +804,18 @@ env.Depends(bgp_cat_test, dependency = [
     'contrail-vrouter-agent'
 ])
 
+bgp_cat_test_upgrade = env.UnitTest('bgp_cat_test_upgrade', ['bgp_cat_test_upgrade.cc'])
+env.Alias('src/bgp:bgp_cat_test_upgrade', bgp_cat_test_upgrade)
+cat_test_upgrade_env = env.Clone()
+cat_test_upgrade_env['ENV']['CONTRAIL_UT_TEST_TIMEOUT'] = '1200'
+cat_tests_upgrade = cat_test_upgrade_env.TestSuite('cat-test-upgrade', [ bgp_cat_test_upgrade ])
+cat_test_upgrade_env.Alias('controller/src/cat:test_upgrade', [ cat_tests_upgrade ])
+
+env.Depends(bgp_cat_test_upgrade, dependency = [
+    'src/bgp:bgp_ifmap_xmpp_integration_test',
+    'contrail-vrouter-agent'
+])
+
 flaky_test_suite = [
 ]
 flaky_test_suite += graceful_restart_flaky_tests
