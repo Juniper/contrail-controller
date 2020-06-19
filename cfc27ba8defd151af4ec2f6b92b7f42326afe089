@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "2d54aa1d_8f6cdcc7",
+        "filename": "src/config/common/cfgm_common/vnc_amqp.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 147,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-06-19T16:40:43Z",
+      "side": 1,
+      "message": "Yes, that\u0027s a bug on line 119 which I\u0027d noticed before. Apparently its not used.",
+      "parentUuid": "33173d37_0a8d4eea",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8c430bf0_64efb24c",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 7
@@ -33,6 +51,24 @@
       "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6a800d2c_f7741e5a",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-06-19T16:40:43Z",
+      "side": 1,
+      "message": "I will test this on a live system as soon as a system becomes available. If the code gets repeated, we can move it to a method as a bug fix in another review.",
+      "parentUuid": "8c430bf0_64efb24c",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "8c946f67_0f1a1f2e",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 177,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-06-19T16:40:43Z",
+      "side": 1,
+      "message": "There is indeed a chance that the old list and new list both contain the same pr_id. That would have been resolved in line 174 so that the loop at line 176 will only go through each PR one time.",
+      "parentUuid": "41363d35_f6f90831",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d5cf765c_7739666b",
         "filename": "src/config/fabric-ansible/ansible-playbooks/module_utils/filter_utils.py",
         "patchSetId": 7
@@ -67,6 +121,24 @@
       "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a83d81fe_e639beb0",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/module_utils/filter_utils.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-06-19T16:40:43Z",
+      "side": 1,
+      "message": "Since job transactions are a best effort attempt, I felt that ignoring any failure here would be better that failing an entire job (fabric delete, device delete, or role assignment).",
+      "parentUuid": "d5cf765c_7739666b",
+      "revId": "cfc27ba8defd151af4ec2f6b92b7f42326afe089",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
