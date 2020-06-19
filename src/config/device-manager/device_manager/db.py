@@ -4248,6 +4248,7 @@ class RoutingPolicyDM(DBBaseDM):
         self.term_type = 'vrouter'
         self.virtual_networks = set()
         self.data_center_interconnects = set()
+        self.interface_route_tables = set()
         self.update(obj_dict)
     # end __init__
 
@@ -4262,6 +4263,7 @@ class RoutingPolicyDM(DBBaseDM):
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_network', obj)
         self.update_multiple_refs('data_center_interconnect', obj)
+        self.update_multiple_refs('interface_route_table', obj)
     # end update
 
     @classmethod
@@ -4455,6 +4457,7 @@ class RoutingPolicyDM(DBBaseDM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_network', {})
         obj.update_multiple_refs('data_center_interconnect', {})
+        obj.update_multiple_refs('interface_route_table', {})
         del cls._dict[uuid]
     # end delete
 # end RoutingPolicyDM
@@ -4468,6 +4471,7 @@ class InterfaceRouteTableDM(DBBaseDM):
         self.uuid = uuid
         self.prefix = {}
         self.virtual_machine_interfaces = set()
+        self.routing_policys = set()
         self.update(obj_dict)
     # end __init__
 
@@ -4483,13 +4487,20 @@ class InterfaceRouteTableDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.get_route_prefix(obj.get('interface_route_table_routes', {}))
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('routing_policy', obj)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
     # end update
 
-    def delete_obj(self):
-        self.update_multiple_refs('virtual_machine_interface', {})
-    # end delete_obj
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('routing_policy', {})
+        del cls._dict[uuid]
+    # end delete
 # end InterfaceRouteTableDM
 
 
