@@ -31,7 +31,7 @@ type Agent struct {
 }
 
 // New instatiates a mock contrail-vrouter-agent process.
-func New(m sut.Manager, name, test string, endpoints []sut.Endpoint) (*Agent, error) {
+func New(m sut.Manager, name, binary, test string, endpoints []sut.Endpoint) (*Agent, error) {
 	a := &Agent{
 		Component: sut.Component{
 			Name:    name,
@@ -64,7 +64,10 @@ func New(m sut.Manager, name, test string, endpoints []sut.Endpoint) (*Agent, er
 }
 
 // start starts the mock contrail-vrouter-agent process in the background.
-func (a *Agent) start() error {
+func (a *Agent) start(binary string) error {
+	if binary == " " {
+		binary = agentBinary
+	}
 	if _, err := os.Stat(agentBinary); err != nil {
 		return err
 	}
