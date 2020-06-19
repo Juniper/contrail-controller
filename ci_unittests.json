@@ -53,6 +53,7 @@
             "src/contrail-api-client/schema"
         ],
         "scons_test_targets" : [
+            "controller/src/cat:test_upgrade",
             "controller/src/config/svc_monitor:test",
             "controller/src/config/schema-transformer:test",
             "controller/src/config/device-manager:test",
@@ -207,6 +208,7 @@
             "src/contrail-common/sandesh"
         ],
         "scons_test_targets" : [
+            "controller/src/cat:test_upgrade",
             "src/contrail-common/base:test",
             "src/contrail-common/io:test",
             "controller/src/db:test",

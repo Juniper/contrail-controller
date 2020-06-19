@@ -5,11 +5,17 @@
 package cat
 
 import (
+	"archive/tar"
+	"bufio"
+	"compress/gzip"
+	"container/list"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -127,7 +133,7 @@ func (c *CAT) setHostIP() error {
 
 // AddAgent creates a contrail-vrouter-agent object and starts the mock agent
 // process in background.
-func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.ControlNode) (*agent.Agent, error) {
+func (c *CAT) AddAgent(test string, name, binary string, control_nodes []*controlnode.ControlNode) (*agent.Agent, error) {
 	endpoints := []sut.Endpoint{}
 	for _, control_node := range control_nodes {
 		endpoints = append(endpoints, sut.Endpoint{
@@ -135,7 +141,7 @@ func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.Co
 			Port: control_node.Config.XMPPPort,
 		})
 	}
-	agent, err := agent.New(c.SUT.Manager, name, test, endpoints)
+	agent, err := agent.New(c.SUT.Manager, name, binary, test, endpoints)
 	if err != nil {
 		return nil, fmt.Errorf("failed create agent: %v", err)
 	}
@@ -231,31 +237,31 @@ func GetNumOfControlNodes() (ConNodesDS map[string]interface{}, err error) {
 
 	defer jsonFile.Close()
 	byteValue, _ := ioutil.ReadAll(jsonFile)
-	//var result map[string]interface{}
-	var result interface{}
+	var result map[string]interface{}
+	//var result interface{}
 	json.Unmarshal([]byte(byteValue), &result)
 
 	ConNodesDS = make(map[string]interface{})
 
-	//res := result["cassandra"].(map[string]interface{})
-	res := result.([]interface{})
-	res1 := res[0].(map[string]interface{})
-	res2 := res1["OBJ_FQ_NAME_TABLE"].(map[string]interface{})
-	//res1 := res["config_db_uuid"].(map[string]interface{})
-	//res2 := res1["obj_fq_name_table"].(map[string]interface{})
+	res := result["cassandra"].(map[string]interface{})
+	//res := result.([]interface{})
+	//res1 := res[0].(map[string]interface{})
+	//res2 := res1["OBJ_FQ_NAME_TABLE"].(map[string]interface{})
+	res1 := res["config_db_uuid"].(map[string]interface{})
+	res2 := res1["obj_fq_name_table"].(map[string]interface{})
 	res3 := res2["bgp_router"].(map[string]interface{})
-	//res4 := res1["obj_uuid_table"].(map[string]interface{})
-	res4 := res1["db"].(map[string]interface{})
+	res4 := res1["obj_uuid_table"].(map[string]interface{})
+	//res4 := res1["db"].(map[string]interface{})
 	i := 1
 	ipoctet := 127
 	for key := range res3 {
 		re := regexp.MustCompile(":")
 		val := re.Split(key, -1)
 		res5 := res4[val[5]].(map[string]interface{})
-		//res6 := res5["prop:bgp_router_parameters"].([]interface{})
-		res6 := res5["prop:bgp_router_parameters"]
-		//res7 := fmt.Sprintf("%v", res6[0])
-		res7 := fmt.Sprintf("%v", res6)
+		res6 := res5["prop:bgp_router_parameters"].([]interface{})
+		//res6 := res5["prop:bgp_router_parameters"]
+		res7 := fmt.Sprintf("%v", res6[0])
+		//res7 := fmt.Sprintf("%v", res6)
 		port, _ := GetFreePort()
 		address := fmt.Sprintf("%d.0.0.%d", ipoctet, i)
 
@@ -265,8 +271,8 @@ func GetNumOfControlNodes() (ConNodesDS map[string]interface{}, err error) {
 		//Replace address and identifier
 		val3 := ReplaceAddress(val2, address)
 
-		res6 = val3
-		//res6[0] = val2
+		//res6 = val3
+		res6[0] = val3
 		res5["prop:bgp_router_parameters"] = res6
 		res4[val[5]] = res5
 		m := make(map[string]interface{})
@@ -275,15 +281,176 @@ func GetNumOfControlNodes() (ConNodesDS map[string]interface{}, err error) {
 		ConNodesDS[val[4]] = m
 		i++
 	}
-	res1["db"] = res4
-	//res1["obj_uuid_table"] = res4
-	res[0] = res1
-	//res["config_db_uuid"] = res1
-	//result["cassandra"] = res
-	result = res
+	//res1["db"] = res4
+	res1["obj_uuid_table"] = res4
+	//res[0] = res1
+	res["config_db_uuid"] = res1
+	result["cassandra"] = res
+	//result = res
 
 	write, _ := json.Marshal(result)
 	err = ioutil.WriteFile(confile, write, os.ModePerm)
 	jsonFile.Sync()
 	return ConNodesDS, nil
 }
+
+func GetPreviousReleases() (Releases list.List, err error) {
+    //var Releases list.List
+    file, err := os.Open("../../../../controller/src/cat/release_list")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer file.Close()
+
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        rel := scanner.Text()
+        Releases.PushBack(rel)
+    }
+
+    if err := scanner.Err(); err != nil {
+        log.Fatal(err)
+    }
+    return Releases, nil
+}
+
+func GetAgentBinary(c *CAT, release string) (binary_path string) {
+    path := fmt.Sprintf("http://svl-artifactory.juniper.net/artifactory/contrail-static-prod/%s/contrail-vrouter-agent.tgz", release)
+    out := fmt.Sprintf("%s/contrail-vrouter-agent.tgz", c.SUT.Manager.RootDir)
+
+    err := DownloadFile(path, out)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    err = os.Chmod(out, 0777)
+    r, err := os.Open(out)
+    if err != nil {
+        fmt.Println("error")
+    }
+    ExtractTarGz(c.SUT.Manager.RootDir, r)
+    ext := strings.ReplaceAll(release, "/", ".")
+    ext = strings.ReplaceAll(ext, "R", "")
+    name := strings.ReplaceAll("contrail-vrouter-agent", "-", ".")
+    binary_path = fmt.Sprintf("%s/%s.%s", c.SUT.Manager.RootDir, name, ext)
+    return
+}
+
+func ExtractTarGz(path string, gzipStream io.Reader) {
+    uncompressedStream, err := gzip.NewReader(gzipStream)
+    if err != nil {
+        log.Fatal("ExtractTarGz: NewReader failed")
+    }
+
+    tarReader := tar.NewReader(uncompressedStream)
+
+    for true {
+        header, err := tarReader.Next()
+
+        if err == io.EOF {
+            break
+        }
+
+        if err != nil {
+            log.Fatalf("ExtractTarGz: Next() failed: %s", err.Error())
+        }
+
+        switch header.Typeflag {
+        case tar.TypeDir:
+            if err := os.Mkdir(fmt.Sprintf("%s/%s", path, strings.ReplaceAll(header.Name, "-", ".")), 0755); err != nil {
+                log.Fatalf("ExtractTarGz: Mkdir() failed: %s", err.Error())
+            }
+        case tar.TypeReg:
+            name := fmt.Sprintf("%s/%s", path, strings.ReplaceAll(header.Name, "-", "."))
+            outFile, err := os.Create(name)
+            if err != nil {
+                log.Fatalf("ExtractTarGz: Create() failed: %s", err.Error())
+            }
+            if _, err := io.Copy(outFile, tarReader); err != nil {
+                log.Fatalf("ExtractTarGz: Copy() failed: %s", err.Error())
+            }
+            outFile.Close()
+
+        default:
+            log.Fatalf(
+                "ExtractTarGz: uknown type: %s in %s",
+                header.Typeflag,
+                header.Name)
+        }
+
+    }
+}
+
+func DownloadFile(url string, filepath string) error {
+    // Create the file
+    out, err := os.Create(filepath)
+    if err != nil {
+        return err
+    }
+    defer out.Close()
+
+    // Get the data
+    resp, err := http.Get(url)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // Write the body to file
+    _, err = io.Copy(out, resp.Body)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func CheckIfApplicable() (err error) {
+    path := "http://svl-artifactory.juniper.net/artifactory/contrail-static-prod/"
+    _, err = http.Get(path)
+    return err
+}
+
+func GetParamsAddPort() (vmi_id, vm_id, vn_id, proj_id, vm_name string, err error) {
+        confile := controlnode.GetConfFile()
+        jsonFile, err := os.Open(confile)
+        if err != nil {
+                return "", "", "", "", "", fmt.Errorf("failed to open ConfFile: %v", err)
+        }
+
+        byteValue, _ := ioutil.ReadAll(jsonFile)
+        jsonFile.Close()
+        var result map[string]interface{}
+
+        json.Unmarshal([]byte(byteValue), &result)
+        res := result["cassandra"].(map[string]interface{})
+        res1 := res["config_db_uuid"].(map[string]interface{})
+        res2 := res1["obj_fq_name_table"].(map[string]interface{})
+        res3 := res2["virtual_machine_interface"].(map[string]interface{})
+        re := regexp.MustCompile(":")
+        for key := range res3 {
+                val := re.Split(key, -1)
+                vmi_id = val[3]
+        }
+        res4 := res1["obj_uuid_table"].(map[string]interface{})
+        res5 := res4[vmi_id].(map[string]interface{})
+        for key := range res5 {
+                if strings.Contains(key, "ref:virtual_machine") {
+                        val1 := re.Split(key, -1)
+                        vm_id = val1[2]
+                        vm_name = "vm1"
+                        continue
+                }
+                if strings.Contains(key, "ref:virtual_network") {
+                        val1 := re.Split(key, -1)
+                        vn_id = val1[2]
+                }
+        }
+        res6 := res2["project"].(map[string]interface{})
+        for key := range res6 {
+                val2 := re.Split(key, -1)
+                proj_id = val2[2]
+        }
+        return vmi_id, vm_id, vn_id, proj_id, vm_name, nil
+}
+
