@@ -308,10 +308,11 @@ class DeviceManager(object):
             'tag': ['physical_interface'],
         },
         'interface_route_table': {
-            'self': ['virtual_machine_interface'],
+            'self': ['virtual_machine_interface', 'routing_policy'],
         },
         'routing_policy': {
             'self': ['virtual_network', 'data_center_interconnect'],
+            'interface_route_table': ['data_center_interconnect'],
         },
         'intent_map': {
             'self': ['physical_router'],
