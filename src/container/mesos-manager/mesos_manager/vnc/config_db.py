@@ -10,7 +10,6 @@ from builtins import range
 import json
 
 from cfgm_common.vnc_db import DBBase
-from bitstring import BitArray
 from vnc_api.vnc_api import (KeyValuePair)
 from mesos_manager.vnc.vnc_mesos_config import VncMesosConfig as vnc_mesos_config
 from mesos_manager.sandesh.mesos_introspect import ttypes as introspect

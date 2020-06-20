@@ -2,4 +2,3 @@ requests >= 2.20.0
 contrail-config-common
 future
 six
-
