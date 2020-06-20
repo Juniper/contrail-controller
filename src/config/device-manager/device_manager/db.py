@@ -2478,8 +2478,9 @@ class VirtualNetworkDM(DBBaseDM):
         self.update_multiple_refs('intent_map', obj)
     # end update
 
-    def get_prefixes(self, pr_uuid=None):
+    def get_prefixes(self, pr_uuid=None, only_routedvn_prefix=False):
         lr = None
+        prefix_set = set()
         # This is for DM restart scenario. Currently Logical router update
         # comes after Virtual network update so logical_router field is not
         # properly set in certain scenarios.
@@ -2487,17 +2488,25 @@ class VirtualNetworkDM(DBBaseDM):
         if self.logical_router:
             lr = LogicalRouterDM.get(self.logical_router)
         if not lr or not lr.logical_router_gateway_external:
+            if only_routedvn_prefix == True:
+                if self.virtual_network_category == 'routed':
+                    return set(self.gateways.keys())
+                else:
+                    return prefix_set
             return set(self.gateways.keys())
         vn_list = lr.get_connected_networks(include_internal=False,
                                             pr_uuid=pr_uuid)
-        prefix_set = set()
         # Since we fetched all tenant VNs from LR its not required
         # to call get_prefixes recursively. Just add all prefixes
         # from VN list.
         for vn in vn_list:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj and list(vn_obj.gateways.keys()):
-                prefix_set = prefix_set.union(vn_obj.gateways.keys())
+                if only_routedvn_prefix == True:
+                    if vn_obj.virtual_network_category == 'routed':
+                        prefix_set = prefix_set.union(vn_obj.gateways.keys())
+                else:
+                    prefix_set = prefix_set.union(vn_obj.gateways.keys())
         return prefix_set
     # end get_prefixes
 

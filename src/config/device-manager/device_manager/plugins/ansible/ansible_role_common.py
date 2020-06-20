@@ -263,8 +263,17 @@ class AnsibleRoleCommon(AnsibleConf):
                     for interface in interfaces:
                         self.add_ref_to_list(ri.get_interfaces(), interface.name)
                     if prefixes:
+                        # for DC-gateway, skip routed vn prefix for public LR
+                        routed_vn_prefix = set()
+                        if vn:
+                            routed_vn_prefix = vn.get_prefixes(
+                                pr_uuid=self.physical_router.uuid,
+                                only_routedvn_prefix=True)
                         for prefix in prefixes:
                             ri.add_static_routes(self.get_route_for_cidr(prefix))
+                            if router_external and prefix in routed_vn_prefix:
+                                # skip DC-gateway prefix for routed vn
+                                continue
                             ri.add_prefixes(self.get_subnet_for_cidr(prefix))
         else:
             if highest_encapsulation == "VXLAN":
