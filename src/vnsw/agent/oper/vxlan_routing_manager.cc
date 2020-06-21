@@ -679,6 +679,25 @@ bool VxlanRoutingManager::EvpnType5RouteNotify(DBTablePartBase *partition,
                      Clone());
     nh_req.data.reset(new InterfaceNHData(vrf->GetName()));
     const AgentPath *p = evpn_rt->GetActivePath();
+
+    std::string origin_vn = "";
+    if (vrf->vn()) {
+        VxlanRoutingVrfMapper::RoutedVrfInfo &lr_vrf_info =
+            vrf_mapper_.lr_vrf_info_map_[vrf->vn()->logical_router_uuid()];
+        VxlanRoutingVrfMapper::RoutedVrfInfo::BridgeVnListIter it =
+            lr_vrf_info.bridge_vn_list_.begin();
+        while (it != lr_vrf_info.bridge_vn_list_.end()) {
+            InetUnicastRouteEntry *rt =
+                (*it)->GetVrf()->GetUcRoute(evpn_rt->ip_addr());
+            if (rt && rt->addr() == evpn_rt->ip_addr() &&
+                    rt->plen() == evpn_rt->plen()) {
+                origin_vn = (*it)->GetName();
+                break;
+            }
+            it++;
+        }
+    }
+
     inet_table->AddEvpnRoutingRoute(evpn_rt->ip_addr(),
                                     evpn_rt->GetVmIpPlen(),
                                     vrf,
@@ -690,8 +709,8 @@ bool VxlanRoutingManager::EvpnType5RouteNotify(DBTablePartBase *partition,
                                     p->tag_list(),
                                     nh_req,
                                     p->vxlan_id(),
-                                    p->peer()->GetType() == Peer::BGP_PEER ?
-                                    p->dest_vn_list() : p->evpn_dest_vn_list());
+                                    p->dest_vn_list(),
+                                    origin_vn);
     return true;
 }
 
