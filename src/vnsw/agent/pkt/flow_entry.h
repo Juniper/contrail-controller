@@ -286,19 +286,19 @@ struct FlowData {
     void Reset();
     std::vector<std::string> SourceVnList() const;
     std::vector<std::string> DestinationVnList() const;
-    std::vector<std::string> EvpnSourceVnList() const;
-    std::vector<std::string> EvpnDestinationVnList() const;
+    std::vector<std::string> OriginVnSrcList() const;
+    std::vector<std::string> OriginVnDstList() const;
 
     MacAddress smac;
     MacAddress dmac;
     std::string source_vn_match;
     std::string dest_vn_match;
-    std::string evpn_source_vn_match;
-    std::string evpn_dest_vn_match;
+    std::string origin_vn_src;
+    std::string origin_vn_dst;
     VnListType source_vn_list;
     VnListType dest_vn_list;
-    VnListType evpn_source_vn_list;
-    VnListType evpn_dest_vn_list;
+    VnListType origin_vn_src_list;
+    VnListType origin_vn_dst_list;
     SecurityGroupList source_sg_id_l;
     SecurityGroupList dest_sg_id_l;
     TagList source_tag_id_l;

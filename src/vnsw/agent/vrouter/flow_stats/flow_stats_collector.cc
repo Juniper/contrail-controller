@@ -1101,14 +1101,16 @@ static void FlowExportInfoToSandesh(const FlowExportInfo &value,
     if (rflow) {
         info.set_rev_flow_uuid(to_string(rflow->uuid()));
     }
-    if (!flow->data().source_vn_match.empty())
+    if (!flow->data().origin_vn_src.empty()) {
+        info.set_source_vn(flow->data().origin_vn_src);
+    } else {
         info.set_source_vn(flow->data().source_vn_match);
-    else
-        info.set_source_vn(flow->data().evpn_source_vn_match);
-    if (!flow->data().dest_vn_match.empty())
+    }
+    if (!flow->data().origin_vn_dst.empty()) {
+        info.set_dest_vn(flow->data().origin_vn_dst);
+    } else {
         info.set_dest_vn(flow->data().dest_vn_match);
-    else
-        info.set_dest_vn(flow->data().evpn_dest_vn_match);
+    }
     info.set_sg_rule_uuid(flow->sg_rule_uuid());
     info.set_nw_ace_uuid(flow->nw_ace_uuid());
     info.set_teardown_time(value.teardown_time());

@@ -244,9 +244,8 @@ public:
             return Agent::NullString();
     }
     const VnListType &dest_vn_list() const {return dest_vn_list_;}
-    const VnListType &evpn_dest_vn_list() const {return evpn_dest_vn_list_;}
+    const std::string &origin_vn() const {return origin_vn_;}
     void GetDestinationVnList(std::vector<std::string> *vn_list) const;
-    void GetEvpnDestinationVnList(std::vector<std::string> *vn_list) const;
     uint32_t GetActiveLabel() const;
     NextHop *nexthop() const;
     const Peer *peer() const {return peer_.get();}
@@ -270,8 +269,7 @@ public:
     void set_vxlan_id(uint32_t vxlan_id) {vxlan_id_ = vxlan_id;}
     void set_label(uint32_t label) {label_ = label;}
     void set_dest_vn_list(const VnListType &dest_vn_list) {dest_vn_list_ = dest_vn_list;}
-    void set_evpn_dest_vn_list(const VnListType &evpn_dest_vn_list) {
-        evpn_dest_vn_list_ = evpn_dest_vn_list;}
+    void set_origin_vn(const std::string &origin_vn) {origin_vn_ = origin_vn;}
     void set_unresolved(bool unresolved) {unresolved_ = unresolved;};
     void set_gw_ip(const IpAddress &addr) {gw_ip_ = addr;}
     void set_force_policy(bool force_policy) {force_policy_ = force_policy;}
@@ -433,8 +431,8 @@ private:
     uint32_t vxlan_id_;
     // destination vn-name used in policy lookups
     VnListType dest_vn_list_;
-    // EVPN  route VN name to be populated in flows
-    VnListType evpn_dest_vn_list_;
+    // Origin VN name to be populated in flows
+    std::string origin_vn_;
 
     // sync_ flag says that any change in this path sholud result in re-sync
     // of all paths in the route. This can be used in cases where some
@@ -1132,7 +1130,8 @@ public:
                     const TagList &tag_list,
                     VrfEntryConstRef vrf_entry,
                     uint32_t vxlan_id,
-                    const VnListType& vn_list);
+                    const VnListType& vn_list,
+                    const std::string& origin_vn = "");
     virtual ~EvpnRoutingData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -1154,6 +1153,7 @@ private:
     VrfEntryConstRef routing_vrf_;
     uint32_t vxlan_id_;
     const VnListType dest_vn_list_;
+    const std::string origin_vn_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRoutingData);
 };
 
