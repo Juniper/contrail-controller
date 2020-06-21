@@ -1,6 +1,0 @@
-flexmock==0.10.4 
-kombu==4.0.2
-mock<=4.0.2
-python-novaclient==16.0.0 
-testtools==2.4.0 
-WebTest==2.0.34 
