@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "41c9840a_bd1ca9c5",
+        "filename": "src/config/common/cfgm_common/vnc_object_db.py",
+        "patchSetId": 22
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-06-21T18:18:52Z",
+      "side": 1,
+      "message": "Can both drivers (CQL and thrift) can be active at the same time ? ie some clients use CQL and some others use thrift ?",
+      "revId": "733784bdfb0df518bc8667e3ed5d613354150134",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
