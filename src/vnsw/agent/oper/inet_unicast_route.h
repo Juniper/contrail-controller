@@ -416,7 +416,8 @@ public:
                              const TagList &tag_list,
                              DBRequest &nh_req,
                              uint32_t vxlan_id,
-                             const VnListType& vn_list);
+                             const VnListType& vn_list,
+                             const std::string& origin_vn = "");
 
 private:
     Agent::RouteTableType type_;

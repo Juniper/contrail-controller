@@ -51,7 +51,7 @@ bool RebakeLabel(MplsTable *table, uint32_t label, NextHop *nh) {
 AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
     vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_list_(),
-    sync_(false), force_policy_(false), sg_list_(),
+    origin_vn_(""), sync_(false), force_policy_(false), sg_list_(),
     tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(), unresolved_(true),
@@ -1679,6 +1679,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     std::vector<std::string> evpn_vn_list;
     GetEvpnDestinationVnList(&evpn_vn_list);
     pdata.set_evpn_dest_vn_list(evpn_vn_list);
+    pdata.set_origin_vn(origin_vn());
     pdata.set_unresolved(unresolved() ? "true" : "false");
 
     if (!gw_ip().is_unspecified()) {
@@ -2041,7 +2042,8 @@ EvpnRoutingData::EvpnRoutingData(DBRequest &nh_req,
                                  const TagList &tag_list,
                                  VrfEntryConstRef vrf_entry,
                                  uint32_t vxlan_id,
-                                 const VnListType& vn_list) :
+                                 const VnListType& vn_list,
+                                 const std::string& origin_vn) :
     AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
     sg_list_(sg_list),
     communities_(communities),
@@ -2049,7 +2051,8 @@ EvpnRoutingData::EvpnRoutingData(DBRequest &nh_req,
     ecmp_load_balance_(ecmp_load_balance),
     tag_list_(tag_list),
     routing_vrf_(vrf_entry), vxlan_id_(vxlan_id),
-    dest_vn_list_(vn_list) {
+    dest_vn_list_(vn_list),
+    origin_vn_(origin_vn) {
         nh_req_.Swap(&nh_req);
 }
 
@@ -2093,6 +2096,12 @@ bool EvpnRoutingData::AddChangePathExtended(Agent *agent,
     // lookup
     if (path->evpn_dest_vn_list() != dest_vn_list_) {
         path->set_evpn_dest_vn_list(dest_vn_list_);
+        ret = true;
+    }
+
+    /* Setting the origin_vn in the route path */
+    if (path->origin_vn() != origin_vn_) {
+        path->set_origin_vn(origin_vn_);
         ret = true;
     }
 
