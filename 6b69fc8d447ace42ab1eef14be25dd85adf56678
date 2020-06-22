@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "445d4073_31de5e45",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 685,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-06-22T06:44:23Z",
+      "side": 1,
+      "message": "Nit: Please remove trailing space",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1c6e69cb_1cd182ff",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 690,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-06-22T06:44:23Z",
+      "side": 1,
+      "message": "Is it needed to be done even if peer is local?",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fad64ecd_1c419be9",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 699,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-06-22T06:44:23Z",
+      "side": 1,
+      "message": "Need two strings?",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5a6a2372_bc17233a",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 713,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-06-22T06:44:23Z",
+      "side": 1,
+      "message": "Can we get rid of even_dest_vn_list completely and use only origin_vn?",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
