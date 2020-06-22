@@ -42,7 +42,6 @@
 
     - import_role:
         name: read_re_information
-      when: "prouter_family == 'junos'"
 
     - import_role:
         name: read_interfaces_info

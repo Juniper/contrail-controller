@@ -16,6 +16,11 @@
         - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
       when: p.stat.exists == True
 
+    - name: Execute commands from vendor specific template
+      block:
+        - include_tasks: "{{prouter_vendor}}.yml"
+      when: p.stat.exists == False
+
   rescue:
     - name: Perform the necessary error handling while trying to execute command
       include_tasks: error_handler.yml

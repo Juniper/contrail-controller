@@ -71,7 +71,7 @@ execute_script()
 EOF
 }
 
-execute_script_re2()
+execute_script_re2_mx()
 {
     cli <<EOF
     configure
@@ -81,25 +81,32 @@ execute_script_re2()
 EOF
 }
 
+execute_script_re2_qfx()
+{
+    cli <<EOF
+    configure
+    load merge /tmp/juniper.config relative
+    set groups re1 interfaces em0 disable
+    commit synchronize and-quit
+EOF
+}
+
 # Actual execution happens here
 
-if [ "$family" = "mx" ]; then
-    res=$(echo "show chassis routing-engine" | cli | grep "Routing Engine status" | wc -l | xargs)
+res=$(echo "show chassis routing-engine" | cli | grep "Routing Engine status" | wc -l | xargs)
 
-    if [ "$res" = "2" ]; then
-        # MX dual RE case only we will add the "commit synchronize"
+if [ "$res" = "2" ]; then
+    # Juniper dual RE case we will add the "commit synchronize"
 
-        generate_basic_config
-        add_dual_re_specific_config
-        execute_script_re2
+    generate_basic_config
+    add_dual_re_specific_config
+    if [ "$family" = "mx" ]; then
+        execute_script_re2_mx
     else
-        # MX with single RE
-
-        generate_basic_config
-        execute_script
+        execute_script_re2_qfx
     fi
 else
-    # Other than MX family
+    # MX or QX with single RE
 
     generate_basic_config
     execute_script
