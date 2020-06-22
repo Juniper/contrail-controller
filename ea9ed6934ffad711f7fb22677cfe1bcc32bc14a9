@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "231f204f_e84d6920",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 550,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-06-22T14:25:57Z",
+      "side": 1,
+      "message": "How aync mode here works with gevent and monkey patch ? In sync mode operation it would have resulted a I/O operation greenlet context switch.If we are using async mode then greenlet can make multiple requests with without a greenlet context switch ?",
+      "revId": "ea9ed6934ffad711f7fb22677cfe1bcc32bc14a9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
