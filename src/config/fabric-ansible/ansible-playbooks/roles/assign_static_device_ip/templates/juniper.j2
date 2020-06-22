@@ -30,6 +30,7 @@ protocols {
         interface all;
     }
 }
+{%  if routing_engines|length < 2 %}
 interfaces {
     {{ interface_configuration.get('name') }} {
         unit {{ interface_configuration.get('unit') }} {
@@ -39,9 +40,46 @@ interfaces {
         }
     }
 }
+{%  endif %}
 routing-options {
     static {
         route {{ subnet.cidr }} next-hop {{ subnet.gateway }};
         route {{ subnet.intf_subnet }} next-hop {{ subnet.gateway }};
     }
 }
+
+{%  if routing_engines|length == 2 %}
+apply-groups [{{ routing_engines | join(' ') }}];
+groups {
+{%      for re in routing_engines %}
+    {{ re }} {
+        system {
+            host-name "{{ prouter_name }}";
+        }
+        interfaces {
+            {{ interface_configuration.get('name') }} {
+                unit {{ interface_configuration.get('unit') }} {
+                    family inet {
+                        address {{ prouter_mgmt_ip }}/{{ interface_configuration.get('prefix') }} {
+                            master-only;
+                        }
+                    }
+                }
+            }
+        }
+    }
+{%      endfor %}
+}
+{#  Dual RE specific configuration #}
+    system {
+        commit synchronize;
+    }
+    chassis {
+        redundancy {
+            graceful-switchover;
+        }
+    }
+    routing-options {
+        nonstop-routing;
+    }
+{%  endif %}
