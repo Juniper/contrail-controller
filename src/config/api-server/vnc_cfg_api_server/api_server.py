@@ -187,6 +187,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'amqp_request_http_post'},
     {'uri': '/hbs-get', 'link_name': 'hbs-get',
      'method': 'POST', 'method_name': 'hbs_get'},
+    {'uri': '/debug', 'link_name': 'debug',
+     'method': 'POST', 'method_name': 'debug_http_post'},
 ]
 
 _MANDATORY_PROPS = [
@@ -244,6 +246,9 @@ class VncApiServer(object):
     """
     This is the manager class co-ordinating all classes present in the package
     """
+    # Debugging attributes set via /debug API
+    CONTRAIL_LOG_DB_RESPONSE_TIME = 0
+
     _INVALID_NAME_CHARS = set(':')
     _GENERATE_DEFAULT_INSTANCE = [
         'namespace',
@@ -383,6 +388,22 @@ class VncApiServer(object):
             raise ValueError('Invalid service interface type %s. '
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
+
+    def debug_http_post(self):
+        ''' Payload of debug
+            log_db_response_time (Type Integer) (optional): log the db response time
+        '''
+        self.config_log("Entered ",
+                        level=SandeshLevel.SYS_INFO)
+
+        body = get_request().json
+        msg = "Configure debugging %s " % json.dumps(body)
+        self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+        self.CONTRAIL_LOG_DB_RESPONSE_TIME = body.get('log_db_response_time', 0)
+        bottle.response.status = 202
+        self.config_log("Exiting debug", level=SandeshLevel.SYS_DEBUG)
+    # end debug_http_post
 
     def validate_execute_job_input_params(self, request_params):
         device_list = None
