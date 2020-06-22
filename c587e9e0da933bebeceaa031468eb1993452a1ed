@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "f8e2eb26_e1e21d8f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/utils.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-22T18:27:57Z",
+      "side": 1,
+      "message": "No no it sets thrift\u0027s driver the default for python2 and cql\u0027s driver the default for python3",
+      "parentUuid": "48c79c89_6068c8e3",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "7c740c7f_e82bf2fc",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
@@ -30,6 +48,24 @@
       "writtenOn": "2020-06-18T01:18:24Z",
       "side": 1,
       "message": "Will this usage result in TLS negotiation? From API-server, we want to stick to only TLSv1.2 or higher. not lower.",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6f4661eb_9d95de30",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-22T18:27:57Z",
+      "side": 1,
+      "message": "It\u0027s basically what\u0027s going to happen with this new variable introduced",
+      "parentUuid": "7c740c7f_e82bf2fc",
       "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "d4530c58_95cbfed5",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 567,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-22T18:27:57Z",
+      "side": 1,
+      "message": "If we really want to do that I would prefer to add this warning in a new change since we probably want that for both of the driver and I would prefer to have this implemetation to follow the same behavior as thrift\u0027s driver.",
+      "parentUuid": "90651107_ab2d5367",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "672e7e8e_83bf7b9d",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
@@ -70,6 +124,24 @@
     },
     {
       "key": {
+        "uuid": "deb37a4e_65661553",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 592,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-22T18:27:57Z",
+      "side": 1,
+      "message": "In that case, we use \u0027all\u0027 which could return an empty element. Where the base code is looking for None",
+      "parentUuid": "672e7e8e_83bf7b9d",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "5f6f024f_5d5a6881",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
@@ -81,6 +153,24 @@
       "writtenOn": "2020-06-18T01:18:24Z",
       "side": 1,
       "message": "instead of hardcoding 100000 in the function arg, can the column_count be from a variable similar to the MAX_COLUMNS. I see its a miss in legacy implementation.",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6e8b83d6_4f18f163",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 602,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-22T18:27:57Z",
+      "side": 1,
+      "message": "Sure.",
+      "parentUuid": "5f6f024f_5d5a6881",
       "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
