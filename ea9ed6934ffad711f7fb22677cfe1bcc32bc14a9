@@ -34,6 +34,24 @@
       "revId": "ea9ed6934ffad711f7fb22677cfe1bcc32bc14a9",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6be13fa5_96942c4f",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 550,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-06-22T14:42:05Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "231f204f_e84d6920",
+      "revId": "ea9ed6934ffad711f7fb22677cfe1bcc32bc14a9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
