@@ -16,6 +16,24 @@
       "revId": "ea9ed6934ffad711f7fb22677cfe1bcc32bc14a9",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8298a95e_54249da4",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 550,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-22T14:41:49Z",
+      "side": 1,
+      "message": "The connector is handling several kind of concurrent mech. Since our code is using gevent. The library is using it so we are passing via gevent scheduler to handle async operations.\n\nhttps://github.com/datastax/python-driver/blob/master/cassandra/cluster.py#L130",
+      "parentUuid": "231f204f_e84d6920",
+      "revId": "ea9ed6934ffad711f7fb22677cfe1bcc32bc14a9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
