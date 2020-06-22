@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "76ebf3a5_cc7dbd5f",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2491,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-06-22T18:33:51Z",
+      "side": 1,
+      "message": "Please check if this is required. IMU returning set(self.gateways.keys()) would suffice in either condition.",
+      "revId": "fef4ce298d3332135671cdd4c45de72e7b7a2a21",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
