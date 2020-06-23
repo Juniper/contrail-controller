@@ -506,7 +506,9 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             aap_mac_list_.swap(aap_mac_list);
             ret = true;
         }
-        pbb_mac_ = vm_intf->vm_mac();
+        if (vm_intf->pbb_interface()) {
+            pbb_mac_ = vm_intf->vm_mac();
+        }
     }
     case Interface::PACKET:
         dmac = table->agent()->vrrp_mac();
