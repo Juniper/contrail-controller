@@ -310,7 +310,8 @@ class FakeColumnFamily(object):
         if key not in self._rows:
             self._rows[key] = {}
 
-        tstamp = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
+        tstamp_sec = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
+        tstamp = int(tstamp_sec * 1000)  # uint milliseconds
         for col_name in list(col_dict.keys()):
             self._rows[key][col_name] = (col_dict[col_name], tstamp, ttl)
 
