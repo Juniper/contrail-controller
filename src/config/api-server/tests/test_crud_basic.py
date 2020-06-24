@@ -963,7 +963,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         max_pend_upd = 10
         api_server._args.rabbit_max_pending_updates = str(max_pend_upd)
         orig_rabbitq_pub = api_server._db_conn._msgbus._producer.publish
-        orig_rabbitq_conn = api_server._db_conn._msgbus._conn.connect
+        orig_rabbitq_conn_drain = api_server._db_conn._msgbus._conn_drain.connect
+        orig_rabbitq_conn_publish = api_server._db_conn._msgbus._conn_publish.connect
         try:
             def err_rabbitq_pub(*args, **kwargs):
                 raise Exception("Faking Rabbit publish failure")
@@ -973,7 +974,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 raise Exception("Faking RabbitMQ connection failure")
 
             api_server._db_conn._msgbus._producer.publish = err_rabbitq_pub
-            api_server._db_conn._msgbus._conn.connect = err_rabbitq_conn
+            api_server._db_conn._msgbus._conn_publish.connect = err_rabbitq_conn
 
             logger.info("Creating objects to hit max rabbit pending.")
             # every VN create, creates RI too
@@ -1017,7 +1018,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         finally:
             api_server._args.rabbit_max_pending_updates = orig_max_pending_updates
             api_server._db_conn._msgbus._producer.publish = orig_rabbitq_pub
-            api_server._db_conn._msgbus._conn.connect = orig_rabbitq_conn
+            api_server._db_conn._msgbus._conn_drain.connect = orig_rabbitq_conn_drain
+            api_server._db_conn._msgbus._conn_publish.connect  = orig_rabbitq_conn_publish
 
     def test_reconnect_to_rabbit(self):
         self.ignore_err_in_log = True
