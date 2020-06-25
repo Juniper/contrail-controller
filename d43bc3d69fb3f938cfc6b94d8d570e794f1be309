@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7438aff3_17abd792",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 247,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-25T19:13:29Z",
+      "side": 1,
+      "message": "please remove commented lines if not needed",
+      "revId": "d43bc3d69fb3f938cfc6b94d8d570e794f1be309",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
