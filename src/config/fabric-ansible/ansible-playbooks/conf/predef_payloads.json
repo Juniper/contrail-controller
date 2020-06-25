@@ -1190,6 +1190,24 @@
         },
         {
           "fq_name": [
+            "juniper-qfx5120-48t-6c"
+          ],
+          "name": "juniper-qfx5120-48t-6c"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5220-32cd"
+          ],
+          "name": "juniper-qfx5220-32cd"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5220-128c"
+          ],
+          "name": "juniper-qfx5220-128c"
+        },
+        {
+          "fq_name": [
             "juniper-qfx5200-32c-32q"
           ],
           "name": "juniper-qfx5200-32c-32q"
@@ -2906,6 +2924,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48sh-afi" ]
+    },
+    {
+      "from_type": "node-profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5120-48t-6c" ]
     },
     {
       "from_type": "node-profile",
