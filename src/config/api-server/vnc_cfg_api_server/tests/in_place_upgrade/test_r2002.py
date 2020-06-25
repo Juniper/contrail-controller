@@ -562,6 +562,11 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
             'logical_interface_type': 'l3',
             'annotations': {},
             'display_name': 'some string',
+            'logical_interface_port_params': PortParameters(
+                port_disable=False,
+                port_mtu=700,
+                port_description='sample port desc'
+            )
         }
         obj = self.set_properties(LogicalInterface, prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
@@ -1221,11 +1226,28 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
         self.assertSchemaObjCreateOrUpdate(obj)
 
     def test_port_profile_create(self):
+        port_prof_params = PortProfileParameters(
+            bpdu_loop_protection=False,
+            flow_control=False,
+            lacp_params=LacpParams(
+                lacp_enable=False,
+                lacp_interval='slow',
+                lacp_mode='passive'
+
+            ),
+            port_cos_untrust=False,
+            port_params=PortParameters(
+                port_disable=False,
+                port_mtu=700,
+                port_description='sample port desc'
+            )
+        )
         prop_map = {
             'parent_obj': self._project_fetch_or_create(self.id()),
             'parent_type': 'project',
             'annotations': {},
             'display_name': 'some string',
+            'port_profile_params': port_prof_params
         }
         obj = self.set_properties(PortProfile, prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
@@ -1765,6 +1787,13 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
             'physical_interface_port_id': 'some string with ID',
             'annotations': {},
             'display_name': 'some string',
+            'physical_interface_flow_control': False,
+            'physical_interface_lacp_force_up': False,
+            'physical_interface_port_params': PortParameters(
+                port_disable=False,
+                port_mtu=700,
+                port_description='sample port desc'
+            )
         }
         obj = self.set_properties(PhysicalInterface, prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
