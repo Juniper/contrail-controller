@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "69f0fa95_68884ec5",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 685,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-06-25T04:17:14Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "445d4073_31de5e45",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1c6e69cb_1cd182ff",
         "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
         "patchSetId": 3
@@ -30,6 +48,24 @@
       "writtenOn": "2020-06-22T06:44:23Z",
       "side": 1,
       "message": "Is it needed to be done even if peer is local?",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1215f2da_2da57902",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 690,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-06-25T04:17:14Z",
+      "side": 1,
+      "message": "On responding node, the source lookup happens in LR vrf. There is no source vn information in evpn type 5 route for local peer also. So, this is needed for local peer also.",
+      "parentUuid": "1c6e69cb_1cd182ff",
       "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "155631b5_34e0fff8",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 699,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-06-25T04:17:14Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fad64ecd_1c419be9",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5a6a2372_bc17233a",
         "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
         "patchSetId": 3
@@ -67,6 +121,24 @@
       "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0dee7c05_1f8964bc",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 713,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-06-25T04:17:14Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5a6a2372_bc17233a",
+      "revId": "6b69fc8d447ace42ab1eef14be25dd85adf56678",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
