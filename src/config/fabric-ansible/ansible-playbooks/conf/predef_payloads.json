@@ -1190,6 +1190,24 @@
         },
         {
           "fq_name": [
+            "juniper-qfx5120-48t-6c"
+          ],
+          "name": "juniper-qfx5120-48t-6c"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5220-32cd"
+          ],
+          "name": "juniper-qfx5220-32cd"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5220-128c"
+          ],
+          "name": "juniper-qfx5220-128c"
+        },
+        {
+          "fq_name": [
             "juniper-qfx5200-32c-32q"
           ],
           "name": "juniper-qfx5200-32c-32q"
