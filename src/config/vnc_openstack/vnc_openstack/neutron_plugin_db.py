@@ -784,7 +784,42 @@ class DBInterface(object):
     # end _subnet_add_tags
 
     def _subnet_del_tags(self, subnet_id, tags):
-        pass  # todo
+        sub_to_tag_key = _SUBNET_TO_NEUTRON_TAGS
+        try:
+            subnet_to_neutron_tags = self._vnc_lib.kv_retrieve(sub_to_tag_key)
+            subnet_to_neutron_tags = json.loads(subnet_to_neutron_tags)
+        except vnc_exc.NoIdError:
+            subnet_to_neutron_tags = {}
+
+        if subnet_id in subnet_to_neutron_tags:
+            new_tags = [tag for tag in subnet_to_neutron_tags[subnet_id]
+                        if tag not in tags]
+            if new_tags:
+                subnet_to_neutron_tags[subnet_id] = new_tags
+            else:
+                del subnet_to_neutron_tags[subnet_id]
+            self._vnc_lib.kv_store(sub_to_tag_key,
+                                   json.dumps(subnet_to_neutron_tags))
+
+        tag_to_sub_key = _NEUTRON_TAG_TO_SUBNETS
+        try:
+            neutron_tags_to_subnet = self._vnc_lib.kv_retrieve(tag_to_sub_key)
+            neutron_tags_to_subnet = json.loads(neutron_tags_to_subnet)
+        except vnc_exc.NoIdError:
+            neutron_tags_to_subnet = {}
+
+        if neutron_tags_to_subnet:
+            for tag in tags:
+                if tag not in neutron_tags_to_subnet:
+                    continue
+                new_subs = [sub for sub in neutron_tags_to_subnet[tag]
+                            if sub != subnet_id]
+                if new_subs:
+                    neutron_tags_to_subnet[tag] = new_subs
+                else:
+                    del neutron_tags_to_subnet[tag]
+            self._vnc_lib.kv_store(tag_to_sub_key,
+                                   json.dumps(subnet_to_neutron_tags))
 
     def _tag_get_for_subnet(self, subnet_id):
         """Tag get for subnet method is a part of OpenStack TAG support.
@@ -866,26 +901,30 @@ class DBInterface(object):
 
     def tag_remove(self, context, parent_id, tag):
         tag = self._vnc_lib.tag_read(fq_name=['neutron_tag={}'.format(tag)])
+
         vnc_obj = self._resource_read(parent_id)
-        vnc_obj.del_tag(tag)
-        self._resource_update(vnc_obj.object_type, vnc_obj)
+        if isinstance(vnc_obj, dict):
+            tags = [tag.fq_name[0]]
+            self._subnet_del_tags(parent_id, tags)
+        else:
+            vnc_obj.del_tag(tag)
+            self._resource_update(vnc_obj.object_type, vnc_obj)
 
     def tags_remove_all(self, context, parent_id):
         vnc_obj = self._resource_read(parent_id)
         if isinstance(vnc_obj, dict):
             all_tags = self._vnc_lib.tags_list(fields=['fq_name'])['tags']
-            tags = [t['fq_name'][0].split(
-                '=')[1] for t in all_tags if 'neutron_tag' in t['fq_name'][0]]
+            tags = [t['fq_name'][0] for t in all_tags
+                    if 'neutron_tag' in t['fq_name'][0]]
             self._subnet_del_tags(parent_id, tags)
-            return
-
-        tags_set = []
-        for tag_ref in vnc_obj.get_tag_refs() or []:
-            if 'neutron_tag' not in tag_ref['to'][0]:
-                tag = self._vnc_lib.tag_read(fq_name=tag_ref['to'])
-                tags_set.append(tag)
-        vnc_obj.set_tag_list(tags_set)
-        self._resource_update(vnc_obj.object_type, vnc_obj)
+        else:
+            tags_set = []
+            for tag_ref in vnc_obj.get_tag_refs() or []:
+                if 'neutron_tag' not in tag_ref['to'][0]:
+                    tag = self._vnc_lib.tag_read(fq_name=tag_ref['to'])
+                    tags_set.append(tag)
+            vnc_obj.set_tag_list(tags_set)
+            self._resource_update(vnc_obj.object_type, vnc_obj)
 
     def tags_create_or_update(self, context, parent_id, tags):
         self.tags_remove_all(context, parent_id)

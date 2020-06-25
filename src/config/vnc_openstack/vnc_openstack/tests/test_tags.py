@@ -1435,6 +1435,100 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
         self.api.virtual_network_delete(id=vn.uuid)
         self.api.tag_delete(fq_name=['neutron_tag=purple'])
 
+    def test_delete_tag_from_subnet(self):
+        subnet_green = self.sns[TAG_GREEN]
+
+        # ensure subnet green has only one tag 'green'
+        result = self.list_resource(
+            'tags',
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'parent_id': subnet_green.uuid,
+            },
+        )
+        expected_length = 1
+        self.assertEqual(expected_length, len(result))
+        self.assertEqual(TAG_GREEN, result[0])
+
+        # delete the tag
+        body = {
+            'context': {
+                'operation': 'DELETE',
+                'user_id': '',
+                'is_admin': False,
+                'roles': '',
+                'tenant_id': self.project.uuid,
+            },
+            'data': {
+                'resource': {
+                    'parent_id': subnet_green.uuid,
+                    'tag': TAG_GREEN,
+                },
+            },
+        }
+        self._api_svr_app.post_json('/neutron/tags', body)
+        gevent.sleep(1)
+
+        # check if subnet green has no tags
+        result = self.list_resource(
+            'tags',
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'parent_id': subnet_green.uuid,
+            },
+        )
+        expected_length = 0
+        self.assertEqual(expected_length, len(result))
+
+    def test_delete_all_tags_from_subnet(self):
+        subnet = self.sns[TAG_GREEN]
+        tags = [TAG_GREEN, 'orange', 'purple']
+        result = self.create_resource(
+            'tags',
+            self.project.uuid,
+            extra_res_fields={
+                'resource': {
+                    'parent_id': subnet.uuid,
+                    'tags': tags,
+                }
+            },
+        )
+        expected_length = 3
+        self.assertEqual(expected_length, len(result))
+        self.assertEqual(sorted(tags), sorted(result))
+
+        body = {
+            'context': {
+                'operation': 'DELETEALL',
+                'user_id': '',
+                'is_admin': False,
+                'roles': '',
+                'tenant_id': self.project.uuid,
+            },
+            'data': {
+                'resource': {
+                    'parent_id': subnet.uuid,
+                },
+            },
+        }
+        self._api_svr_app.post_json('/neutron/tags', body)
+        gevent.sleep(1)
+
+        # check if subnet green has no tags
+        result = self.list_resource(
+            'tags',
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'parent_id': subnet.uuid,
+            },
+        )
+        expected_length = 0
+        self.assertEqual(expected_length, len(result))
+
+        # cleanup
+        self.api.tag_delete(fq_name=['neutron_tag=purple'])
+        self.api.tag_delete(fq_name=['neutron_tag=orange'])
+
     def test_list_tags_for_subnet(self):
         result = self.list_resource(
             'tags',
