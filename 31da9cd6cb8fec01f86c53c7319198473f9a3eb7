@@ -1,0 +1,78 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d34df8ce_960e521c",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-25T19:11:27Z",
+      "side": 1,
+      "message": "Can you make sure you only include header files that are necessary and eliminate the ones you don\u0027t need.",
+      "revId": "31da9cd6cb8fec01f86c53c7319198473f9a3eb7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bd9c0deb_5ada7072",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-25T19:11:27Z",
+      "side": 1,
+      "message": "Also please keep the list sorted",
+      "revId": "31da9cd6cb8fec01f86c53c7319198473f9a3eb7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b869afe9_5a0faae1",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-25T19:11:27Z",
+      "side": 1,
+      "message": "What is this static initialization for?",
+      "range": {
+        "startLine": 137,
+        "startChar": 8,
+        "endLine": 137,
+        "endChar": 14
+      },
+      "revId": "31da9cd6cb8fec01f86c53c7319198473f9a3eb7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "30d9dd0e_d1ab9273",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 268,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-06-25T19:11:27Z",
+      "side": 1,
+      "message": "Can we make this test a little more meaningful than just check for non-zero. For instance, parse the customer config file for number of virtul-network objects and check accordingly. You could also check other objects. Also, what if the input file has no virtual-networks?",
+      "revId": "31da9cd6cb8fec01f86c53c7319198473f9a3eb7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
