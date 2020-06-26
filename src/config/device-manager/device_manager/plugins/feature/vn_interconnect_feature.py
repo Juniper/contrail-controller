@@ -186,9 +186,18 @@ class VnInterconnectFeature(FeatureBase):
                 prefixes = vn_obj.get_prefixes(self._physical_router.uuid)
                 if not fip_map:
                     if prefixes:
+                        # for DC-gateway, skip routed vn prefix for public LR
+                        routed_vn_prefix = set()
+                        if vn_obj:
+                            routed_vn_prefix = vn_obj.get_prefixes(
+                                pr_uuid=self._physical_router.uuid,
+                                only_routedvn_prefix=True)
                         for prefix in prefixes:
                             ri.add_static_routes(
                                 self._get_route_for_cidr(prefix))
+                            if prefix in routed_vn_prefix:
+                                # skip DC-gateway prefix for routed vn
+                                continue
                             ri.add_prefixes(
                                 self._get_subnet_for_cidr(prefix))
 
