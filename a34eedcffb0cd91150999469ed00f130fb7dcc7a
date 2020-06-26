@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "26fc4b16_53a33b97",
+        "filename": "src/config/schema-transformer/requirements.txt",
+        "patchSetId": 21
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-06-26T15:01:46Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bd973f7f_6a5d2bb8",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "480589f4_f59107b6",
         "filename": "src/config/schema-transformer/schema_transformer/resources/route_target.py",
         "patchSetId": 21
@@ -30,6 +48,24 @@
       "writtenOn": "2020-06-25T20:35:19Z",
       "side": 1,
       "message": "Whats the significance of this change? Am trying to understand why it matters to Py3 UTs",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "602c14c8_276346a0",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/route_target.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-06-26T15:01:46Z",
+      "side": 1,
+      "message": "In python3 you can\u0027t remove items of an iterating list - it gives an error. This line was breaking ST setup in some situations.",
+      "parentUuid": "480589f4_f59107b6",
       "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -101,6 +137,42 @@
       "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6f0ab98f_57a84a7f",
+        "filename": "src/config/schema-transformer/test-requirements.txt",
+        "patchSetId": 21
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-06-26T15:01:46Z",
+      "side": 1,
+      "message": "For some reason, it was added by Pawel Zadrozny in the past of this PR, but he doesn\u0027t remember why. Actually removing it is not affecting any UT, so I get rid of it.",
+      "parentUuid": "a98cc4b7_ba8d51ac",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "093d12b0_56543cf3",
+        "filename": "src/config/schema-transformer/test-requirements.txt",
+        "patchSetId": 21
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 889
+      },
+      "writtenOn": "2020-06-26T15:01:46Z",
+      "side": 1,
+      "message": "For some reason, it was added by Pawel Zadrozny in the past of this PR, but he doesn\u0027t remember why. Actually removing it is not affecting any UT, so I get rid of it.",
+      "parentUuid": "b66c0d82_c0a4f2e1",
+      "revId": "a34eedcffb0cd91150999469ed00f130fb7dcc7a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
