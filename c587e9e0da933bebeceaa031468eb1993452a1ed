@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "596e3f6b_52c3645b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/utils.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-27T01:51:10Z",
+      "side": 1,
+      "message": "OK, when performance validation is complete, this needs to be adjusted so CQL can work with py2 env by default.",
+      "parentUuid": "f8e2eb26_e1e21d8f",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "7c740c7f_e82bf2fc",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
@@ -69,6 +87,24 @@
       "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9bcee631_4fa718cf",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-27T01:51:10Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "6f4661eb_9d95de30",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -107,6 +143,24 @@
     },
     {
       "key": {
+        "uuid": "75d735ee_1e978351",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 567,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-27T01:51:10Z",
+      "side": 1,
+      "message": "thrift driver already has warnings. If you want to do in next change, thats fine. Just write a new task and ensure you follow up.",
+      "parentUuid": "d4530c58_95cbfed5",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "672e7e8e_83bf7b9d",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
@@ -142,6 +196,24 @@
     },
     {
       "key": {
+        "uuid": "c0563f00_1070192b",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 592,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-27T01:51:10Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "deb37a4e_65661553",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5f6f024f_5d5a6881",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
@@ -174,6 +246,24 @@
       "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c8cfb90f_a9fdbcb4",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 602,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-27T01:51:10Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "6e8b83d6_4f18f163",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
