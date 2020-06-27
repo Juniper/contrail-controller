@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "edbeb741_6ae0eb53",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-06-27T02:04:03Z",
+      "side": 1,
+      "message": "Will this work with previous contrail releases say R3.2? db-manage and db_json_exim is supposed to be version agnostic",
+      "revId": "a4383c489e92c289179de09b26b98b07c94016d3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
