@@ -13,10 +13,8 @@ set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
-
 {%     for vlan in device_abstract_config.features.get('l2-gateway').get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
-{%         set ns = namespace(tagged_vlan_id='', untagged_vlan_id='') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
 set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
@@ -24,27 +22,17 @@ set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('descriptio
 {%             set int_name = each.get('name', '') %}
 {%             for phy_intf in device_abstract_config.features.get('l2-gateway').get('physical_interfaces', []) %}
 {%                 for li in phy_intf.get('logical_interfaces', []) %}
-{%                     if li.get('name', '') == int_name %}
-{%                         set ifd_name = int_name.split('.')[0] %}
+{%                     set ifd_name = int_name.split('.')[0] %}
+{%                     if ifd_name == phy_intf.name %}
 set groups {{cfg_group}} interfaces {{ifd_name}} unit 0 family ethernet-switching vlan members {{vlan_name}}
-{%                         if li.get('is_tagged', false) != false %}
-{%                             set ns.tagged_vlan_id = li.get('vlan_tag') %}
-{%                         else %}
-{%                             set ns.untagged_vlan_id = li.get('vlan_tag') %}
-{%                         endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%                         set vlan_id = vlan.get('vlan_id') %} 
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
 {%                     endif %}
 {%                 endfor %}
 {%             endfor %}
 {%         endfor %}
-{%         if ns.tagged_vlan_id == '' and ns.untagged_vlan_id != '' %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{ns.untagged_vlan_id}}
-{%         endif %}
-{%         if ns.tagged_vlan_id != '' %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{ns.tagged_vlan_id}}
-{%         endif %}
 {%     endfor %}
-
 {%     for bgp_elem in device_abstract_config.features.get('overlay-bgp').get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         for fam in families %}
