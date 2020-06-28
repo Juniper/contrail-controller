@@ -30,6 +30,10 @@ def is_running_in_kubepod():
     with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
         return 'kubepods' in ifh.read()
 
+def is_running_in_containerd():
+    pid = os.getpid()
+    with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
+        return 'containerd' in ifh.read()
 
 def get_memory_cgroup(pid_):
     with open('/proc/{}/cgroup'.format(pid_), 'r') as f:
