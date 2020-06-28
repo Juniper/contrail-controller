@@ -33,7 +33,7 @@ from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common import utils
 import os
 try:
-    from nodemgr.common.cri_containers import CriOContainersInterface
+    from nodemgr.common.cri_containers import CriContainersInterface
     from nodemgr.common.docker_containers import DockerContainersInterface
     from nodemgr.common.podman_containers import PodmanContainersInterface
     from nodemgr.common.container_process_manager import ContainerProcessInfoManager
@@ -126,7 +126,9 @@ class EventManager(object):
             elif utils.is_running_in_podman():
                 S = PodmanContainersInterface()
             elif utils.is_running_in_kubepod():
-                S = CriOContainersInterface()
+                S = CriContainersInterface.craft_crio_peer()
+            elif utils.is_running_in_containerd():
+                S = CriContainersInterface.craft_containerd_peer()
 
             if S:
                 self.process_info_manager = ContainerProcessInfoManager(
