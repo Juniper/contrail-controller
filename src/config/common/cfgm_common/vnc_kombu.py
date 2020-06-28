@@ -14,6 +14,7 @@ import gevent.monkey
 gevent.monkey.patch_all()
 import time
 import signal
+import socket
 from gevent.queue import Queue
 try:
     from gevent.lock import Semaphore
@@ -155,8 +156,18 @@ class VncKombuClientBase(object):
         self.prepare_to_consume()
         while self._running:
             try:
+                # TODO(sahid): This should be called one time only
+                # after initialization of the connection.
                 self._consumer.consume()
-                self._conn_drain.drain_events()
+                try:
+                    # This is blocking scheduling of greenthreads. We
+                    # are using a reasonable timeout to give chance of
+                    # the other greenthreads to be scheduled.
+                    self._conn_drain.drain_events(timeout=3)
+                except socket.timeout:
+                    # Would check the connection and raises an
+                    # exception if lost.
+                    self._conn_drain.heartbeat_check()
             except self._conn_drain.connection_errors + self._conn_drain.channel_errors as e:
                 self._reconnect_drain()
     # end _connection_watch
