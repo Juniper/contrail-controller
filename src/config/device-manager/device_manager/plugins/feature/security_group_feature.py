@@ -24,6 +24,7 @@ class SecurityGroupFeature(FeatureBase):
         self.pi_map = None
         self.sg_pis = None
         self.firewall_config = None
+        self.firewall_acl_list = []
         super(SecurityGroupFeature, self).__init__(
             logger, physical_router, configs)
     # end __init__
@@ -72,16 +73,41 @@ class SecurityGroupFeature(FeatureBase):
                 else:
                     is_tagged = True
                     vlan_tag = str(interface.vlan_tag)
-                unit_name = pi_name + "." + str(interface.unit)
-                unit = self._add_or_lookup_li(li_map, unit_name,
-                                              interface.unit)
-                com = DMUtils.l2_evpn_intf_unit_comment(vn, is_tagged,
-                                                        vlan_tag)
-                unit.set_comment(com)
-                unit.set_is_tagged(is_tagged)
-                unit.set_vlan_tag(vlan_tag)
-                # attach acls
-                self.attach_acls(interface, unit)
+                # this is prevent creating multiple LI for PI in case
+                # enterprise profile and erb gateway. Today we support
+                # only one untagged VN per VPG so if interface is untagged
+                # update only once.
+                if self._physical_router.device_family != 'junos' and\
+                    (self._is_enterprise_style() or
+                     self._physical_router.is_erb_only() is True):
+                    intf = interface.pi_name + '.' + str(0)
+                    li_intf = li_map.get(intf, None)
+                    already_untagged = False
+                    if li_intf and li_intf.is_tagged is False\
+                       and already_untagged is False:
+                        already_untagged = True
+                    if already_untagged is False:
+                        unit = self._add_or_lookup_li(li_map, intf,
+                                                      interface.unit)
+                        unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(
+                                         vn, is_tagged, vlan_tag))
+                        unit.set_is_tagged(is_tagged)
+                        unit.set_vlan_tag(vlan_tag)
+                    if not li_intf:
+                        self.attach_acls(interface, unit)
+
+                else:
+                    intf = pi_name + "." + str(interface.unit)
+                    unit = self._add_or_lookup_li(li_map, intf,
+                                                  interface.unit)
+                    com = DMUtils.l2_evpn_intf_unit_comment(vn, is_tagged,
+                                                            vlan_tag)
+                    unit.set_comment(com)
+                    unit.set_is_tagged(is_tagged)
+                    unit.set_vlan_tag(vlan_tag)
+                    # attach acls
+                    self.attach_acls(interface, unit)
+
     # end build_l2_evpn_interface_config
 
     def attach_acls(self, interface, unit):
@@ -151,6 +177,10 @@ class SecurityGroupFeature(FeatureBase):
                 continue
             acl_rule_present = True
             break
+
+        if acl.uuid in self.firewall_acl_list:
+            return
+        self.firewall_acl_list.append(acl.uuid)
 
         if acl_rule_present:
             filter_name = DMUtils.make_sg_firewall_name(sg.name, acl.uuid)
@@ -358,6 +388,7 @@ class SecurityGroupFeature(FeatureBase):
     def feature_config(self, **kwargs):
         self.pi_map = OrderedDict()
         self.sg_pis = OrderedDict()
+        self.firewall_acl_list = []
         feature_config = Feature(name=self.feature_name())
 
         vn_dict = self._get_connected_vn_li_map()
