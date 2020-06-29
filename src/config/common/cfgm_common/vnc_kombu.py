@@ -110,6 +110,8 @@ class VncKombuClientBase(object):
             self._consumer = kombu.Consumer(self._channel_drain,
                                            queues=self._update_queue_obj,
                                            callbacks=[self._subscribe])
+            self._consumer.consume()
+
     # end _reconnect_drain
 
     def _reconnect_publish(self):
@@ -151,9 +153,6 @@ class VncKombuClientBase(object):
         self.prepare_to_consume()
         while self._running:
             try:
-                # TODO(sahid): This should be called one time only
-                # after initialization of the connection.
-                self._consumer.consume()
                 try:
                     # This could block scheduling of
                     # greenthreads. Using reasonable timeout ensure to
