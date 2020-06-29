@@ -34,6 +34,24 @@
       "revId": "fffe2749a61f5a71bed39171ac7ec8f3fa433e98",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4d14b413_07db736f",
+        "filename": "src/config/common/cfgm_common/vnc_kombu.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-06-29T06:07:27Z",
+      "side": 1,
+      "message": "That would be my thinking in case of https://github.com/celery/kombu/issues/131. We enter in an infinity loop.",
+      "parentUuid": "26845ce4_ef4c7333",
+      "revId": "fffe2749a61f5a71bed39171ac7ec8f3fa433e98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
