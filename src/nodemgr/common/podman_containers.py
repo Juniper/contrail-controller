@@ -4,6 +4,7 @@ import subprocess
 from nodemgr.common import utils
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
+
 class PodmanContainerMemoryCpuUsage:
     def __init__(self, query_, pid_):
         self._query = query_
@@ -21,10 +22,10 @@ class PodmanContainerMemoryCpuUsage:
         try:
             with open(self._cgroup, 'r') as f:
                 while True:
-                    l = f.readline()
-                    if not l:
+                    ll = f.readline()
+                    if not ll:
                         break
-                    v = l.partition('rss ')[2]
+                    v = ll.partition('rss ')[2]
                     if v:
                         return int(v.strip())
         except Exception:
@@ -33,7 +34,7 @@ class PodmanContainerMemoryCpuUsage:
         return 0
 
     def get_process_mem_cpu_info(self):
-        y = self._query();
+        y = self._query()
         if not y:
             return None
 
@@ -50,25 +51,26 @@ class PodmanContainerMemoryCpuUsage:
             m, _ = y['mem_usage'].split('/', 1)
             m = m.rstrip()
         if m and m.endswith('kB'):
-            u = int((2**10)*float(m[0:-2]))
+            u = int((2**10) * float(m[0:-2]))
         if m and m.endswith('MB'):
-            u = int((2**20)*float(m[0:-2]))
+            u = int((2**20) * float(m[0:-2]))
         if m and m.endswith('GB'):
-            u = int((2**30)*float(m[0:-2]))
+            u = int((2**30) * float(m[0:-2]))
 
         output.mem_virt = u // 1024
         output.mem_res = self._get_rss_from_cgroup() // 1024
 
         return output
 
+
 class PodmanContainersInterface:
-    def _execute(self, arguments_, timeout_ = 10):
+    def _execute(self, arguments_, timeout_=10):
         a = ["podman"]
         a.extend(arguments_)
-        p = subprocess.Popen(a, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        p = subprocess.Popen(a, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             o, e = p.communicate(timeout_)
-        except TimeoutExpired:
+        except subprocess.TimeoutExpired:
             p.kill()
             o, e = p.communicate()
         p.wait()
@@ -98,12 +100,13 @@ class PodmanContainersInterface:
                 container_['Id'] = container_['ID']
             if 'State' in container_:
                 s = container_['State']
-                container_['State'] = ['unknown', 'configured', 'created',
-                        'running', 'stopped', 'paused', 'exited', 'removing'][s]
+                container_['State'] = [
+                    'unknown', 'configured', 'created',
+                    'running', 'stopped', 'paused', 'exited', 'removing'][s]
 
         return container_
 
-    def list(self, all_ = True):
+    def list(self, all_=True):
         a = ["ps"]
         if all_:
             a.append("-a")
@@ -125,14 +128,14 @@ class PodmanContainersInterface:
     def execute(self, id_, line_):
         return self._execute(["exec", id_, '/usr/bin/sh', '-c', line_])
 
-    def query_usage(self, id_, last_cpu_ = None, last_time_ = None):
+    def query_usage(self, id_, last_cpu_=None, last_time_=None):
         i = format(id_, 'x').zfill(12)
         s = self.inspect(i)
         if not s:
             raise LookupError(i)
 
         def do_query():
-            _, x = self._parse_json(["stats", "--no-stream", i]);
+            _, x = self._parse_json(["stats", "--no-stream", i])
             if not x or len(x) == 0:
                 return None
 

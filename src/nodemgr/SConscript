@@ -123,9 +123,11 @@ common_cri_sources = [
 for file in common_cri_sources:
     common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common/cri"), file))
 
-supervisor_events_pkg = OpEnv.SandeshGenPy('#controller/src/nodemgr/sandesh/supervisor_events.sandesh', 'nodemgr/common/sandesh/', False)
-cpuinfo_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
-process_info_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
+database_pkg = OpEnv.SandeshGenPy('#controller/src/nodemgr/sandesh/database.sandesh', 'nodemgr/common/sandesh/', False)
+cpuinfo_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/', False)
+OpEnv.Depends(cpuinfo_pkg, database_pkg)
+process_info_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'nodemgr/common/sandesh/', False)
+OpEnv.Depends(process_info_pkg, database_pkg)
 nodeinfo_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/nodeinfo.sandesh', 'nodemgr/common/sandesh/', False)
 
 
@@ -140,7 +142,7 @@ sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rul
                  control_sources_rules, config_sources_rules, common_sources_rules,
                  vrouter_sources_rules, database_sources_rules,
                  config_database_sources_rules, build_info_rules,
-                 cpuinfo_pkg, process_info_pkg, nodeinfo_pkg, supervisor_events_pkg
+                 cpuinfo_pkg, process_info_pkg, nodeinfo_pkg, database_pkg
                 ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
@@ -164,11 +166,14 @@ OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-contro
 OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-vrouter-nodemgr.conf',
             'vrouter_nodemgr/contrail-vrouter-nodemgr.conf'))
 
-OpEnv.Alias("src:nodemgr", sdist_gen)
 OpEnv.Alias("contrail-nodemgr", sdist_gen)
-OpEnv.Alias("nodemgr-full", sdist_gen)
 
 #dummy scons target for nodemgr test
 test_suite = [ ]
 test_cmd = OpEnv.TestSuite('contrail-nodemgr-test', test_suite)
 OpEnv.Alias('contrail-nodemgr:test', test_cmd)
+
+doc_files = OpEnv.SandeshGenDoc('sandesh/database.sandesh')
+OpEnv.Alias('install', OpEnv.Install(
+    OpEnv['INSTALL_MESSAGE_DOC'] + '/contrail-database/',
+    doc_files))

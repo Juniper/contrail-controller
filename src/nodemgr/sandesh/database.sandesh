@@ -67,4 +67,3 @@ struct CassandraStatusData {
 uve sandesh CassandraStatusUVE {
     1: CassandraStatusData data
 }
-
