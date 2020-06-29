@@ -9,7 +9,6 @@ from sandesh_common.vns.ttypes import Module
 from nodemgr.vrouter_nodemgr.loadbalancer_stats import LoadbalancerStatsUVE
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
-from nodemgr.vrouter_nodemgr.process_stat import VrouterProcessStat
 
 monkey.patch_all()
 
@@ -27,10 +26,6 @@ class VrouterEventManager(EventManager):
             if config.hostname is None else config.hostname
         self.lb_stats = LoadbalancerStatsUVE(self.logger, self.host_ip,
                                              hostname=self.hostname)
-
-    def get_process_stat_object(self, pname):
-        return VrouterProcessStat(pname, self.host_ip, self.logger,
-                                  hostname=self.hostname)
 
     def do_periodic_events(self):
         super(VrouterEventManager, self).do_periodic_events()
