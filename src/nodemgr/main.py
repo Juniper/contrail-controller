@@ -14,10 +14,9 @@ management functionality.
 from gevent import monkey
 
 import argparse
-from six.moves.configparser import ConfigParser, SafeConfigParser, NoOptionError
+from six.moves.configparser import SafeConfigParser, NoOptionError
 import gevent
 import os
-import platform
 import socket
 import sys
 

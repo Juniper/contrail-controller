@@ -2,11 +2,10 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-from six.moves.configparser import ConfigParser, NoOptionError, SafeConfigParser
+from six.moves.configparser import NoOptionError, SafeConfigParser
 import copy
 import gevent
 import hashlib
-import platform
 import random
 import signal
 import socket
@@ -15,7 +14,7 @@ import logging
 from .buildinfo import build_info
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from pysandesh.sandesh_base import Sandesh, SandeshConfig, sandesh_global
+from pysandesh.sandesh_base import SandeshConfig, sandesh_global
 from pysandesh.sandesh_logger import SandeshLogger
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.process_info.constants import ProcessStateNames
@@ -133,7 +132,7 @@ class EventManager(object):
 
         if not hasattr(self, 'process_info_manager'):
             self.msg_log('Node manager could not detect process manager',
-                          SandeshLevel.SYS_ERR)
+                         SandeshLevel.SYS_ERR)
             exit(-1)
 
         self.process_state_db = self._get_current_processes()
