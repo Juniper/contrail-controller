@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 from builtins import str
-from builtins import object
 from past.utils import old_div
 import re
 from distutils.util import strtobool
@@ -12,24 +11,14 @@ import kombu
 import gevent
 import gevent.monkey
 gevent.monkey.patch_all()
-import time
 import signal
 import socket
 from gevent.queue import Queue
-try:
-    from gevent.lock import Semaphore
-except ImportError:
-    # older versions of gevent
-    from gevent.coros import Semaphore
 
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-try:
-    from gevent.hub import ConcurrentObjectUseError
-except:
-    from gevent.exceptions import ConcurrentObjectUseError
 from cfgm_common import vnc_greenlets
 import ssl
 
