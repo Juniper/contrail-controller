@@ -4,8 +4,7 @@
 
 import os
 from io import StringIO
-from six.moves.configparser import ConfigParser, SafeConfigParser
-import sys
+from six.moves.configparser import SafeConfigParser
 import socket
 
 from nodemgr.common.process_stat import ProcessStat
@@ -67,8 +66,10 @@ class VrouterProcessStat(ProcessStat):
                                 return (proc_name, agent_name)
                             except Exception as err:
                                 msg = "Tor Agent command does " + \
-                                      "not have config file : "
-                                self.msg_log(msg + command, SandeshLevel.SYS_ERR)
+                                      "not have config file : '{}'. Error is {}".format(
+                                          command, err
+                                      )
+                                self.msg_log(msg, SandeshLevel.SYS_ERR)
         return ('vrouter_group', socket.getfqdn(self.host_ip) if self.hostname
                 is None else self.hostname)
     # end get_vrouter_process_info

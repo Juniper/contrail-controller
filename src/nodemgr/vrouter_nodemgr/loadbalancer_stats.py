@@ -1,5 +1,4 @@
 import os
-import sys
 
 from nodemgr.vrouter_nodemgr.haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
