@@ -216,10 +216,10 @@ class FilterModule(object):
                         device_mgmt_ip):
         contrail_cli_group = CLI_GROUP
         user_commited_config = pr_commit_item.get('config_changes')
-        partial_accepted_config = self._accept_config(user_commited_config,
+        partial_accepted_config_final = self._accept_config(user_commited_config,
                                                       contrail_cli_group,
                                                       device_mgmt_ip)
-        return partial_accepted_config
+        return partial_accepted_config_final
 
     # Routine to reject config
     # 1. Delete the committed configs
@@ -251,7 +251,7 @@ class FilterModule(object):
     def merge_files(self, device_mgmt_ip):
         path_to_files = PLAYBOOK_BASE + "/manual_config" \
                                         "/" + device_mgmt_ip
-        filenames = ['/approve_config.conf', '/reject_config.conf']
+        filenames = ['/reject_config.conf', '/approve_config.conf']
         with open(path_to_files + '/final_config.conf', 'w') as outfile:
             for fname in filenames:
                 full_filename = path_to_files + fname
@@ -311,11 +311,13 @@ class FilterModule(object):
             device_mgmt_ip + "/reject_config.conf"
         final_command = command + " " + leaf
         file_to_write = ""
-        try:
-            file_to_write = open(path_to_file, "a+")
-            file_to_write.write(final_command + "\n")
-        finally:
-            file_to_write.close()
+        if os.path.exists(path_to_file):
+            with open(path_to_file, 'r') as original:
+                data = original.read()
+            with open(path_to_file, 'w') as modified:
+                modified.write(final_command + "\n" + data)
+        else:
+            with open(path_to_file, 'w') as modified: modified.write(final_command + "\n")
 
     # Process the config diff that have been accepted
     def _accept_config(self, config, group, device_mgmt_ip):
@@ -519,4 +521,3 @@ class FilterModule(object):
 
                     # end _reject_config
                     # end cli filter
-
