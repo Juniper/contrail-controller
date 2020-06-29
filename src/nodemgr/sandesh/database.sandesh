@@ -7,9 +7,6 @@
  *  Database Node UVE.
  */
 
-include "base/sandesh/cpuinfo.sandesh"
-include "base/sandesh/process_info.sandesh"
-
 /**
  * Database disk usage stats struct
  */
@@ -67,4 +64,3 @@ struct CassandraStatusData {
 uve sandesh CassandraStatusUVE {
     1: CassandraStatusData data
 }
-
