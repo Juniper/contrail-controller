@@ -76,12 +76,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.33"
+__version__ = "1.34"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.34:
+  - Do not report false positive missing VN for k8s floating ips
+    not in floating ip pool
 * 1.33:
   - Fix CEM-17261, multiple AE-ID seems allocated due to CEM-17208. Ensure
     all AE-ID created for a VPG is deleted
@@ -1056,6 +1059,11 @@ class DatabaseManager(object):
                             break
 
             if not vn_id:
+                if ip_type == 'floating-ip':
+                    parent_type = json.loads(ip_cols.get('parent_type'))
+                    if parent_type != 'floating-ip-pool':
+                        # This is a k8s-assigned ip and not part of a floating ip pool
+                        continue
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
                 continue
