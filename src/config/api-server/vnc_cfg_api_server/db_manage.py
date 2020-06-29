@@ -1049,6 +1049,8 @@ class DatabaseManager(object):
                             break
 
             if not vn_id:
+                if ip_type == 'floating-ip':
+                    continue
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
                 continue
