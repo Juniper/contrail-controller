@@ -67,7 +67,7 @@ OptionsType = collections.namedtuple(
 # Defines API that drivers should implement.
 
 @six.add_metaclass(abc.ABCMeta)
-class CassandraDriver(object):
+class API(object):
 
     def __init__(self, server_list, **options):
         self.options = copy.deepcopy(OptionsDefault)
@@ -116,3 +116,13 @@ class CassandraDriver(object):
         """Remove a specified row or a set of columns within the row"""
         pass
 
+
+# Defines common methods/functions that will be useful for the drivers.
+
+class CassandraDriver(API):
+
+    def keyspace(self, name):
+        """Returns well formatted keyspace name with its prefix."""
+        if self.options.db_prefix:
+            return "{}_{}".format(self.options.db_prefix, name)
+        return name
