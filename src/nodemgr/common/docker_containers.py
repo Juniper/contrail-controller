@@ -1,7 +1,7 @@
-import sys
 import docker
 import logging
 from nodemgr.common.docker_mem_cpu import DockerMemCpuUsageData
+
 
 class DockerContainersInterface:
     def __init__(self):
@@ -9,8 +9,8 @@ class DockerContainersInterface:
         if hasattr(self._client, 'api'):
             self._client = self._client.api
 
-    def list(self, all_ = True):
-        return self._client.containers(all = all_)
+    def list(self, all_=True):
+        return self._client.containers(all=all_)
 
     def inspect(self, id_):
         try:

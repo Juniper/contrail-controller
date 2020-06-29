@@ -1,6 +1,5 @@
 import os
 import socket
-import sys
 import csv
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
