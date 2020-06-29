@@ -8,8 +8,8 @@ import psutil
 
 from nodemgr.common.common_sys_cpu import SysCpuShare
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo, CpuLoadAvg
-from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import DiskPartitionUsageStats
+from nodemgr.common.sandesh.cpuinfo.ttypes import SysMemInfo, SysCpuInfo, CpuLoadAvg
+from nodemgr.common.sandesh.process_info.ttypes import DiskPartitionUsageStats
 
 
 class LinuxSysData(object):

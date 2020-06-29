@@ -2,7 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name='nodemgr',
@@ -11,22 +11,23 @@ setup(
         'pyyaml',
         'psutil>=0.6.0,!=5.5.0,!=5.5.1',
     ],
-    packages=['nodemgr',
-              'nodemgr.analytics_nodemgr',
-              'nodemgr.analytics_snmp_nodemgr',
-              'nodemgr.analytics_alarm_nodemgr',
-              'nodemgr.control_nodemgr',
-              'nodemgr.config_nodemgr',
-              'nodemgr.analytics_database_nodemgr',
-              'nodemgr.config_database_nodemgr',
-              'nodemgr.vrouter_nodemgr',
-              'nodemgr.common',
-              'nodemgr.common.cri',
-              'nodemgr.common.sandesh',
-              'nodemgr.common.sandesh.nodeinfo',
-              'nodemgr.common.sandesh.nodeinfo.cpuinfo',
-              'nodemgr.common.sandesh.nodeinfo.process_info',
-              'nodemgr.common.sandesh.supervisor_events'],
+    packages=[
+        'nodemgr',
+        'nodemgr.analytics_nodemgr',
+        'nodemgr.analytics_snmp_nodemgr',
+        'nodemgr.analytics_alarm_nodemgr',
+        'nodemgr.control_nodemgr',
+        'nodemgr.config_nodemgr',
+        'nodemgr.analytics_database_nodemgr',
+        'nodemgr.config_database_nodemgr',
+        'nodemgr.vrouter_nodemgr',
+        'nodemgr.common',
+        'nodemgr.common.cri',
+        'nodemgr.common.sandesh',
+        'nodemgr.common.sandesh.database',
+        'nodemgr.common.sandesh.nodeinfo',
+        'nodemgr.common.sandesh.cpuinfo',
+        'nodemgr.common.sandesh.process_info'],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="Nodemgr Implementation",

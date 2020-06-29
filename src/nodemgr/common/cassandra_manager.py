@@ -4,17 +4,12 @@ from gevent import monkey
 import socket
 import yaml
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import ThreadPoolNames,\
-    SERVICE_CONTRAIL_DATABASE
-from sandesh_common.vns.ttypes import Module
-from pysandesh.sandesh_logger import SandeshLogger
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
+from nodemgr.common.sandesh.database.ttypes import \
     CassandraStatusUVE, CassandraStatusData, CassandraThreadPoolStats,\
     CassandraCompactionTask, DatabaseUsageStats, DatabaseUsageInfo,\
     DatabaseUsage
 from sandesh_common.vns.constants import RepairNeededKeyspaces,\
-            AnalyticsRepairNeededKeyspaces
+    AnalyticsRepairNeededKeyspaces
 
 monkey.patch_all()
 

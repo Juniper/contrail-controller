@@ -6,7 +6,8 @@ import datetime
 from nodemgr.common import utils
 from nodemgr.common.cri import api_pb2
 from nodemgr.common.cri import api_pb2_grpc
-from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
+from nodemgr.common.sandesh.cpuinfo.ttypes import ProcessCpuInfo
+
 
 class CriOContainerMemoryCpuUsage:
     def __init__(self, last_cpu_, last_time_, query_, pid_):
@@ -28,10 +29,10 @@ class CriOContainerMemoryCpuUsage:
         try:
             with open(self._cgroup, 'r') as f:
                 while True:
-                    l = f.readline()
-                    if not l:
+                    ll = f.readline()
+                    if not ll:
                         break
-                    v = l.partition('rss ')[2]
+                    v = ll.partition('rss ')[2]
                     if v:
                         return int(v.strip())
         except Exception:
@@ -40,7 +41,7 @@ class CriOContainerMemoryCpuUsage:
         return 0
 
     def get_process_mem_cpu_info(self):
-        y = self._query();
+        y = self._query()
         if not y:
             return None
 
@@ -61,6 +62,7 @@ class CriOContainerMemoryCpuUsage:
             output.cpu_share = round(d / D, 2) if 0 < D else 0
 
         return output
+
 
 class Instrument:
     @staticmethod
@@ -92,6 +94,7 @@ class Instrument:
         c = n.split('_', 2)
         return c[1] if 3 == len(c) and (c[0], c[2]) == ('contrail', s) \
             else None
+
 
 class ViewAdapter:
     @staticmethod
@@ -129,7 +132,7 @@ class ViewAdapter:
             s = protobuf_.status
             S = dict()
             c['Id'] = output['Id'] = s.id
-            if not 'Env' in c:
+            if 'Env' not in c:
                 x = Instrument.craft_node_type_surrogate(s.labels)
                 if x:
                     c['Env'] = ['NODE_TYPE=%s' % x]
@@ -149,27 +152,28 @@ class ViewAdapter:
 
         return output
 
+
 class CriOContainersInterface:
     def __init__(self):
         c = grpc.insecure_channel('unix:///var/run/crio/crio.sock')
         self._client = api_pb2_grpc.RuntimeServiceStub(c)
 
-    def list(self, all_ = True):
+    def list(self, all_=True):
         q = api_pb2.ListContainersRequest() if all_ \
-            else api_pb2.ListContainersRequest(filter = \
-                api_pb2.ContainerFilter(state = \
-                    api_pb2.ContainerStateValue(state = \
-                        api_pb2.CONTAINER_RUNNING)))
+            else api_pb2.ListContainersRequest(
+                filter=api_pb2.ContainerFilter(
+                    state=api_pb2.ContainerStateValue(
+                        state=api_pb2.CONTAINER_RUNNING)))
 
         try:
-            return [ViewAdapter.craft_list_item(i) for i in \
-                self._client.ListContainers(q).containers]
+            return [ViewAdapter.craft_list_item(i) for i in
+                    self._client.ListContainers(q).containers]
         except Exception:
             logging.exception('gRPC')
             return None
 
     def inspect(self, id_):
-        q = api_pb2.ContainerStatusRequest(container_id = id_, verbose = True)
+        q = api_pb2.ContainerStatusRequest(container_id=id_, verbose=True)
         try:
             a = self._client.ContainerStatus(q)
             return ViewAdapter.craft_info(a)
@@ -180,7 +184,7 @@ class CriOContainersInterface:
 
     def execute(self, id_, line_):
         x = ['/bin/sh', '-c', line_]
-        q = api_pb2.ExecSyncRequest(container_id = id_, cmd = x, timeout = 10)
+        q = api_pb2.ExecSyncRequest(container_id=id_, cmd=x, timeout=10)
         try:
             a = self._client.ExecSync(q)
             if 0 != a.exit_code:
@@ -199,7 +203,7 @@ class CriOContainersInterface:
             raise LookupError(i)
 
         def do_query():
-            q = api_pb2.ContainerStatsRequest(container_id = i)
+            q = api_pb2.ContainerStatsRequest(container_id=i)
             try:
                 output = self._client.ContainerStats(q)
                 return output.stats if hasattr(output, 'stats') else None
@@ -209,4 +213,3 @@ class CriOContainersInterface:
                 return None
 
         return CriOContainerMemoryCpuUsage(last_cpu_, last_time_, do_query, s['State']['Pid'])
-
