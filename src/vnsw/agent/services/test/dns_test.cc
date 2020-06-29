@@ -1061,7 +1061,7 @@ TEST_F(DnsTest, DnsXmppTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-TEST_F(DnsTest, DISABLED_DefaultDnsReqTest) {
+TEST_F(DnsTest, DefaultDnsReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -1083,7 +1083,7 @@ TEST_F(DnsTest, DISABLED_DefaultDnsReqTest) {
     WaitForItfUpdate(1);
 
     DnsItem query_items[MAX_ITEMS] = a_items;
-    query_items[0].name     = "juniper.net";
+    query_items[0].name     = "www.google.com";
 
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, query_items);
     usleep(1000);
@@ -1091,14 +1091,7 @@ TEST_F(DnsTest, DISABLED_DefaultDnsReqTest) {
     DnsProto::DnsStats stats;
     int count = 0;
     usleep(1000);
-    CHECK_CONDITION(stats.resolved < 1);
-    EXPECT_EQ(1U, stats.requests);
-    EXPECT_TRUE(stats.resolved == 1);
-    Agent::GetInstance()->GetDnsProto()->ClearStats();
-
-    DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
-    ptr_query_items[0].name     = "1.0.0.127.in-addr.arpa";
-    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, ptr_query_items);
+    SendDnsResp(1, query_items, 1, auth_items, 1, add_items);
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 1);
@@ -1109,6 +1102,9 @@ TEST_F(DnsTest, DISABLED_DefaultDnsReqTest) {
     // Failure response
     query_items[0].name     = "test.non-existent.domain";
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, query_items);
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, query_items, 1, auth_items, 1, add_items, true);
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.fail < 1);
@@ -1133,7 +1129,7 @@ TEST_F(DnsTest, DISABLED_DefaultDnsReqTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-TEST_F(DnsTest, DISABLED_DefaultDnsLinklocalReqTest) {
+TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -1191,7 +1187,9 @@ TEST_F(DnsTest, DISABLED_DefaultDnsLinklocalReqTest) {
     usleep(1000);
     client->WaitForIdle();
     count = 0;
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items, false);
     usleep(1000);
+    client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
@@ -1200,8 +1198,7 @@ TEST_F(DnsTest, DISABLED_DefaultDnsLinklocalReqTest) {
     ptr_query_items[0].name     = "10.1.254.169.in-addr.arpa";
     ptr_query_items[1].name     = "20.1.254.169.in-addr.arpa";
     ptr_query_items[2].name     = "30.1.254.169.in-addr.arpa";
-    ptr_query_items[3].name     = "1.0.0.127.in-addr.arpa";
-    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, ptr_query_items);
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 3, ptr_query_items);
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 1);

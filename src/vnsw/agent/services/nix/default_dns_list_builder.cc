@@ -4,6 +4,16 @@
 DnsProto::DefaultServerList DnsProto::BuildDefaultServerListImpl() {
     DefaultServerList ip_list;
 
+    if (agent()->test_mode()) {
+        // Mocking a list with one ip address for test purposes.
+        boost::system::error_code ec;
+        IpAddress ip = IpAddress::from_string("127.0.0.1", ec);
+        if (!ec.value()) {
+            ip_list.push_back(ip);
+        }
+        return ip_list;
+    }
+
     std::ifstream fd;
     fd.open("/etc/resolv.conf");
     if (!fd.is_open()) {
