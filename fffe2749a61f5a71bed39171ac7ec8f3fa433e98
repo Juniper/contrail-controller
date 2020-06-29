@@ -16,6 +16,24 @@
       "revId": "fffe2749a61f5a71bed39171ac7ec8f3fa433e98",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "26845ce4_ef4c7333",
+        "filename": "src/config/common/cfgm_common/vnc_kombu.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-06-29T03:17:59Z",
+      "side": 1,
+      "message": "I mean the previous code.",
+      "parentUuid": "f0b99dae_41c1a797",
+      "revId": "fffe2749a61f5a71bed39171ac7ec8f3fa433e98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
