@@ -1049,6 +1049,11 @@ class DatabaseManager(object):
                             break
 
             if not vn_id:
+                if ip_type == 'floating-ip':
+                    parent_type = json.loads(ip_cols.get('parent_type'))
+                    if parent_type != 'floating-ip-pool':
+                        # This is a k8s-assigned ip and not part of a floating ip pool
+                        continue
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
                 continue
