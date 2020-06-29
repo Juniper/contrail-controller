@@ -287,7 +287,7 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         HTTP_GET,
         &RESTServer::VmVnPortGetHandler))
     (HandlerSpecifier(
-        regex("/vm-cfg/([a-zA-Z0-9__-]+$)"),
+        regex("/vm-cfg/(.*)"),
         HTTP_GET,
         &RESTServer::VmVnPortCfgGetHandler))
     (HandlerSpecifier(
