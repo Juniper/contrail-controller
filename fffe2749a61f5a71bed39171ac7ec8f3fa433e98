@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f0b99dae_41c1a797",
+        "filename": "src/config/common/cfgm_common/vnc_kombu.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-06-29T03:16:38Z",
+      "side": 1,
+      "message": "Will it block other greenlets with monkey.patch too ?",
+      "revId": "fffe2749a61f5a71bed39171ac7ec8f3fa433e98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
