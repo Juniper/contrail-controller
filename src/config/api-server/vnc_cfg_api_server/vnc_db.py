@@ -261,6 +261,10 @@ class VncServerKombuClient(VncKombuClient):
     def __init__(self, db_client_mgr, rabbit_ip, rabbit_port,
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
                  host_ip, rabbit_health_check_interval, **kwargs):
+        self._event_dispatcher = EventDispatcher(
+            db_client_mgr=db_client_mgr,
+            spawn_dispatch_greenlet=True
+        )
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         listen_port = db_client_mgr.get_server_port()
