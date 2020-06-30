@@ -26,6 +26,7 @@ from pprint import pformat
 import socket
 from netaddr import IPNetwork, IPAddress
 from .context import get_request
+from .event_dispatcher import EventDispatcher
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -261,6 +262,7 @@ class VncServerKombuClient(VncKombuClient):
     def __init__(self, db_client_mgr, rabbit_ip, rabbit_port,
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
                  host_ip, rabbit_health_check_interval, **kwargs):
+        self._event_dispatcher = EventDispatcher(spawn_dispatch_greenlet=True)
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         listen_port = db_client_mgr.get_server_port()
@@ -271,7 +273,6 @@ class VncServerKombuClient(VncKombuClient):
             rabbit_ha_mode, q_name, self._dbe_subscribe_callback,
             self.config_log, heartbeat_seconds=rabbit_health_check_interval,
             **kwargs)
-
     # end __init__
 
     def config_log(self, msg, level):
@@ -299,6 +300,8 @@ class VncServerKombuClient(VncKombuClient):
             trace = self._generate_msgbus_notify_trace(oper_info)
 
             self._db_client_mgr.dbe_uve_trace(**oper_info)
+            if oper_info['oper'] in ['CREATE', 'UPDATE', 'DELETE']:
+                self._event_dispatcher.notify_event_dispatcher(oper_info)
             if oper_info['oper'] == 'CREATE':
                 self._dbe_create_notification(oper_info)
             elif oper_info['oper'] == 'UPDATE':
