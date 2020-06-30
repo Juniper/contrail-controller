@@ -91,6 +91,7 @@ from . import context
 from .context import get_request, get_context, set_context, use_context
 from .context import ApiContext
 from .context import is_internal_request
+from .event_dispatcher import EventDispatcher
 from .resources import initialize_all_server_resource_classes
 from .vnc_db import VncDbClient
 
@@ -3416,6 +3417,7 @@ class VncApiServer(object):
             debug_obj_cache_types=debug_obj_cache_types,
             cassandra_use_ssl=self._args.cassandra_use_ssl,
             cassandra_ca_certs=self._args.cassandra_ca_certs)
+
 
         #TODO refacter db connection management.
         self._addr_mgmt._get_db_conn()
