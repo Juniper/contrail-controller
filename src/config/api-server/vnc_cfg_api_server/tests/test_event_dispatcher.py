@@ -45,16 +45,30 @@ class TestRegisterClient(TestCase):
         self._dispatcher._set_client_queues({})
         super(TestRegisterClient, self).tearDown()
 
-    def test_register_client(self):
+    def test_subscribe_client(self):
         client_queue = Queue()
         watcher_resource_types = [
             "virtual_network",
             "virtual_network_interface"]
-        self._dispatcher.register_client(client_queue, watcher_resource_types)
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         for resource_type in watcher_resource_types:
             self.assertEquals(
                 [client_queue],
                 self._dispatcher._get_client_queues()[resource_type]
+            )
+
+    def test_unsubscribe_client(self):
+        client_queue = Queue()
+        watcher_resource_types = [
+            "virtual_network",
+            "virtual_network_interface"]
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
+        self._dispatcher.unsubscribe_client(client_queue,
+                                            watcher_resource_types)
+        for resource_type in watcher_resource_types:
+            self.assertEquals(
+                [],
+                self._dispatcher._get_client_queues().get(resource_type, [])
             )
 
 
@@ -100,7 +114,7 @@ class TestDispatch(TestCase):
             dbe_read=lambda resource_type, resource_id: (True, {})
         )
         self._dispatcher._set_db_conn(mockVncDBClient)
-        
+
         notifications = [
             {
                 "oper": "CREATE",
@@ -121,13 +135,13 @@ class TestDispatch(TestCase):
 
         client_queue = Queue()
         watcher_resource_types = ["virtual_network"]
-        self._dispatcher.register_client(client_queue, watcher_resource_types)
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
         gevent.spawn(self._dispatcher.dispatch)
         for notification in notifications:
             event = {
-                    "event": notification.get("oper").lower(),
-                    "data": "{}"
+                "event": notification.get("oper").lower(),
+                "data": json.dumps({"virtual_network": {}})
             }
             if notification.get("oper") == "DELETE":
                 event.update(
@@ -144,8 +158,8 @@ class TestDispatch(TestCase):
 
     def test_dispatch_with_dbe_read_failure(self):
         mockVncDBClient = flexmock(
-            dbe_read=lambda resource_type, resource_id: (False, 'Mock read failure')
-        )
+            dbe_read=lambda resource_type, resource_id: (
+                False, 'Mock read failure'))
         self._dispatcher._set_db_conn(mockVncDBClient)
 
         notifications = [
@@ -163,18 +177,13 @@ class TestDispatch(TestCase):
 
         client_queue = Queue()
         watcher_resource_types = ["virtual_network"]
-        self._dispatcher.register_client(client_queue, watcher_resource_types)
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
         gevent.spawn(self._dispatcher.dispatch)
         for notification in notifications:
-            event = {
-                    "event": "error",
-                    "data": json.dumps(
-                        {
-                            "virtual_network": {"error": "dbe_read failure: Mock read failure"}
-                        }
-                    )
-            }
+            event = {"event": "stop", "data": json.dumps(
+                {"virtual_network": {
+                    "error": "dbe_read failure: Mock read failure"}})}
             self.assertEquals(
                 event,
                 client_queue.get()
@@ -187,6 +196,7 @@ class TestDispatch(TestCase):
             dbe_read=lambda resource_type, resource_id:
                 raiseEx(Exception("unexpected exception"))
         )
+        mockVncDBClient.should_receive('config_log').and_return()
         self._dispatcher._set_db_conn(mockVncDBClient)
 
         notifications = [
@@ -204,17 +214,17 @@ class TestDispatch(TestCase):
 
         client_queue = Queue()
         watcher_resource_types = ["virtual_network"]
-        self._dispatcher.register_client(client_queue, watcher_resource_types)
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
         gevent.spawn(self._dispatcher.dispatch)
         for notification in notifications:
             event = {
-                    "event": "error",
-                    "data": json.dumps({
-                        "virtual_network": {
-                            "error": str(Exception("unexpected exception"))
-                        }
-                    })
+                "event": "stop",
+                "data": json.dumps({
+                    "virtual_network": {
+                        "error": str(Exception("unexpected exception"))
+                    }
+                })
             }
             self.assertEquals(
                 event,
@@ -257,8 +267,8 @@ class TestInitialize(TestCase):
 
     def test_initialize_with_dbe_list_failure(self):
         mockVncDBClient = flexmock(
-            dbe_list=lambda resource_type, is_detail: (False, "Mock list failure", 0)
-        )
+            dbe_list=lambda resource_type, is_detail: (
+                False, "Mock list failure", 0))
         self._dispatcher._set_db_conn(mockVncDBClient)
         watcher_resource_types = [
             "virtual_network",
@@ -269,7 +279,7 @@ class TestInitialize(TestCase):
                 (
                     False,
                     {
-                        "event": "error",
+                        "event": "stop",
                         "data": json.dumps(
                             {
                                 resource_type + 's': "Mock list failure"
@@ -297,7 +307,7 @@ class TestInitialize(TestCase):
                 (
                     False,
                     {
-                        "event": "error",
+                        "event": "stop",
                         "data": json.dumps(
                             {
                                 resource_type + 's': [
