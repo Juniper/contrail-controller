@@ -104,13 +104,15 @@ class L3GatewayFeature(FeatureBase):
         self.pi_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
         vns = self._get_connected_vn_ids()
-        use_gateway_ip = all(
-            [c.additional_params.use_gateway_ip == 'True'
-                for c in self._configs])
+        # use_gateway_ip = all(
+        #     [c.additional_params.use_gateway_ip == 'True'
+        #         for c in self._configs])
+        erb_pr_role = self._physical_router.is_erb_only()
+        # To make this code in line with monolithic code.
+        use_gateway_ip = erb_pr_role
         if vns:
             irb_ip_map = self._physical_router.allocate_irb_ips_for(
                 vns, use_gateway_ip)
-        erb_pr_role = self._physical_router.is_erb_only()
         for vn_uuid in vns:
             vn_obj = VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)

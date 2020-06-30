@@ -1,0 +1,107 @@
+{%     for phy_int in device_abstract_config.get('features', {}).get('l3-gateway', {}).get('physical_interfaces', []) %}
+{%         if phy_int.get('interface_type') == 'irb' %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 set unit = li.get('unit') %}
+{%                 for ip_addr in li.get('ip_addresses', []) %}
+{%                     set address = ip_addr.get('address') %}
+{%                     set family = ip_addr.get('family', 'inet') %}
+{%                     set gw = ip_addr.get('gateway', '') %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
+{%                     if family == 'inet' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                     elif family == 'inet6' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+{%                     endif %}
+{%                     if gw != '' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
+{%                     endif %}
+{%                 endfor %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
+{%                 if li.is_virtual_router == True %}
+set groups {{cfg_group}} protocols router-advertisement interface irb.{{unit}} virtual-router-only
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+
+{%     for vlan in device_abstract_config.get('features', {}).get('l3-gateway', {}).get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vni = vlan.get('vxlan_id', '') %}
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
+{%         for irb_int in vlan.get('interfaces', []) %}
+{%             set int_name = irb_int.get('name') %}
+{%             if 'irb' not in int_name %}
+{%                 continue %}
+{%             endif %}
+set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
+{%         endfor %}
+{%         if device_model.startswith('qfx51') %}
+{%             set vlan_id = vlan.get('vxlan_id', '') %}
+{%             if vlan_id != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%             endif %}
+{%         else %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+{%         endif %}
+{%         if vni != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%         endif %}
+{%     endfor %}
+
+{# This parsing of vlans from monolithic code is required when PNF-Service-Chaining with CRB/ERB roles configured #}
+{% set sys_config = device_abstract_config.get('system') %}
+{% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{% if 'PNF-Servicechain' in sys_roles %}
+{%     for vlan in device_abstract_config.get('vlans', []) %}
+{%         if vlan.get('comment','') == 'PNF-Service-Chaining' %}
+{%             set vlan_name = vlan.get('name') %}
+{%             set vni = vlan.get('vxlan_id', '') %}
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
+{%             for irb_int in vlan.get('interfaces', []) %}
+{%                 set int_name = irb_int.get('name') %}
+{%                 if 'irb' not in int_name %}
+{%                     continue %}
+{%                 endif %}
+set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
+{%             endfor %}
+{%             set vlan_id = vlan.get('vlan_id') %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%             if vni != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%             endif %}
+{%         endif %}
+{%     endfor %}
+
+{# This parsing of vlans from monolithic code is required when PNF-Service-Chaining with CRB/ERB roles configured #}
+{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         if phy_int.get('interface_type') == 'irb' %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 if li.get('comment','') == 'PNF-Service-Chaining' %}
+{%                     set unit = li.get('unit') %}
+{%                     for ip_addr in li.get('ip_addresses', []) %}
+{%                         set address = ip_addr.get('address') %}
+{%                         set family = ip_addr.get('family', 'inet') %}
+{%                         set gw = ip_addr.get('gateway', '') %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
+{%                         if family == 'inet' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                         elif family == 'inet6' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+{%                         endif %}
+{%                         if gw != '' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
+{%                         endif %}
+{%                     endfor %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
+{%                     if li.is_virtual_router == True %}
+set groups {{cfg_group}} protocols router-advertisement interface irb.{{unit}} virtual-router-only
+{%                     endif %}
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+{% endif %}
