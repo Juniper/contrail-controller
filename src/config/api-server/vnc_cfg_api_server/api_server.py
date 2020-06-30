@@ -140,6 +140,8 @@ from cfgm_common.vnc_greenlets import VncGreenlet
 from cfgm_common.kombu_amqp import KombuAmqpClient
 import ssl
 
+from . import event_dispatcher
+
 _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
      'method': 'GET', 'method_name': 'prop_collection_http_get'},
@@ -187,6 +189,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'amqp_request_http_post'},
     {'uri': '/hbs-get', 'link_name': 'hbs-get',
      'method': 'POST', 'method_name': 'hbs_get'},
+    {'uri': '/watch', 'link_name': 'watch',
+     'method': 'GET', 'method_name': 'watch'},
 ]
 
 _MANDATORY_PROPS = [
@@ -383,6 +387,39 @@ class VncApiServer(object):
             raise ValueError('Invalid service interface type %s. '
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
+
+    def watch(self):
+        request_params = get_request().query
+        resource_types = request_params.get("resource_type", None)
+        if resource_types is None:
+            err_msg = "resource_type required in request"
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+        resource_fields = resource_types.split(",")
+
+        client_queue = gevent.queue.Queue()
+        dispatcher = event_dispatcher.EventDispatcher()
+        dispatcher.register_client(client_queue, resource_fields)
+
+        bottle.response.set_header("Content-Type", "text/event-stream")
+        bottle.response.set_header("Cache-Control", "no-cache")
+
+        # Pack data in SSE format
+        def create_sse_pack(event):
+            result = ""
+            for key in ["event", "data"]:
+                if key in event.keys():
+                    result += "%s: %s\n" % (key, event[key])
+            return result + "\n"
+        # end create_sse_pack
+
+        for resource in resource_fields:
+            init_event = dispatcher.initialize(resource)
+            yield create_sse_pack(init_event)
+
+        while True:
+            event = client_queue.get()
+            yield create_sse_pack(event)
+        # end watch
 
     def validate_execute_job_input_params(self, request_params):
         device_list = None
