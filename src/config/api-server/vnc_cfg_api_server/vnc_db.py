@@ -263,7 +263,7 @@ class VncServerKombuClient(VncKombuClient):
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
                  host_ip, rabbit_health_check_interval, **kwargs):
         self._event_dispatcher = EventDispatcher(
-            api_server_mgr=db_client_mgr._api_svr_mgr,
+            db_client_mgr=db_client_mgr,
             spawn_dispatch_greenlet=True
         )
         self._db_client_mgr = db_client_mgr
