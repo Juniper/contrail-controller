@@ -281,10 +281,10 @@ void FlowData::Reset() {
     source_vn_match = "";
     dest_vn_match = "";
     dest_vn_list.clear();
-    evpn_source_vn_list.clear();
-    evpn_source_vn_match = "";
-    evpn_dest_vn_match = "";
-    evpn_dest_vn_list.clear();
+    origin_vn_dst_list.clear();
+    origin_vn_src_list.clear();
+    origin_vn_src = "";
+    origin_vn_dst = "";
     source_sg_id_l.clear();
     dest_sg_id_l.clear();
     flow_source_vrf = VrfEntry::kInvalidIndex;
@@ -342,12 +342,12 @@ std::vector<std::string> FlowData::DestinationVnList() const {
     return MakeList(dest_vn_list);
 }
 
-std::vector<std::string> FlowData::EvpnSourceVnList() const {
-    return MakeList(evpn_source_vn_list);
+std::vector<std::string> FlowData::OriginVnSrcList() const {
+    return MakeList(origin_vn_src_list);
 }
 
-std::vector<std::string> FlowData::EvpnDestinationVnList() const {
-    return MakeList(evpn_dest_vn_list);
+std::vector<std::string> FlowData::OriginVnDstList() const {
+    return MakeList(origin_vn_dst_list);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -844,8 +844,8 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
     short_flow_reason_ = SHORT_AUDIT_ENTRY;
     data_.source_vn_list = FlowHandler::UnknownVnList();
     data_.dest_vn_list = FlowHandler::UnknownVnList();
-    data_.evpn_source_vn_list = FlowHandler::UnknownVnList();
-    data_.evpn_dest_vn_list = FlowHandler::UnknownVnList();
+    data_.origin_vn_src_list = FlowHandler::UnknownVnList();
+    data_.origin_vn_dst_list = FlowHandler::UnknownVnList();
     data_.source_sg_id_l = default_sg_list();
     data_.dest_sg_id_l = default_sg_list();
 }
@@ -1475,22 +1475,39 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
     if (path == NULL) {
         data_.source_vn_list = FlowHandler::UnknownVnList();
         data_.source_vn_match = FlowHandler::UnknownVn();
-        data_.evpn_source_vn_list = FlowHandler::UnknownVnList();
-        data_.evpn_source_vn_match = FlowHandler::UnknownVn();
         data_.source_sg_id_l = default_sg_list();
         data_.source_plen = 0;
+        data_.origin_vn_src_list = FlowHandler::UnknownVnList();
+        data_.origin_vn_src = FlowHandler::UnknownVn();
     } else {
         data_.source_vn_list = path->dest_vn_list();
-        data_.evpn_source_vn_list = path->evpn_dest_vn_list();
-
         if (path->dest_vn_list().size())
             data_.source_vn_match = *path->dest_vn_list().begin();
-        if (path->evpn_dest_vn_list().size())
-            data_.evpn_source_vn_match = *path->evpn_dest_vn_list().begin();
+        data_.origin_vn_src = path->origin_vn();
+        if (!path->origin_vn().empty()) {
+            data_.origin_vn_src_list.insert(path->origin_vn());
+        }
         data_.source_sg_id_l = path->sg_list();
         data_.source_plen = rt->plen();
         data_.source_tag_id_l = path->tag_list();
     }
+
+    /* Handle case when default route NextHop points to vrf */
+    if (rt && rt->GetActiveNextHop()->GetType() == NextHop::VRF) {
+        const VrfNH *nh =
+            static_cast<const VrfNH *>(rt->GetActiveNextHop());
+        AgentRoute *new_rt = GetUcRoute(nh->GetVrf(), key_.src_addr);
+        if (new_rt) {
+            path = new_rt->GetActivePath();
+            if (path) {
+                data_.origin_vn_src = path->origin_vn();
+                if (!path->origin_vn().empty()) {
+                    data_.origin_vn_src_list.insert(path->origin_vn());
+                }
+            }
+        }
+    }
+
 }
 
 // Get dst-vn/sg-id/plen from route
@@ -1528,21 +1545,37 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
     if (path == NULL) {
         data_.dest_vn_list = FlowHandler::UnknownVnList();
         data_.dest_vn_match = FlowHandler::UnknownVn();
-        data_.evpn_dest_vn_list = FlowHandler::UnknownVnList();
-        data_.evpn_dest_vn_match = FlowHandler::UnknownVn();
         data_.dest_sg_id_l = default_sg_list();
         data_.dest_plen = 0;
+        data_.origin_vn_dst_list = FlowHandler::UnknownVnList();
+        data_.origin_vn_dst = FlowHandler::UnknownVn();
     } else {
         data_.dest_vn_list = path->dest_vn_list();
-        data_.evpn_dest_vn_list = path->evpn_dest_vn_list();
-
         if (path->dest_vn_list().size())
             data_.dest_vn_match = *path->dest_vn_list().begin();
-        if (path->evpn_dest_vn_list().size())
-            data_.evpn_dest_vn_match = *path->evpn_dest_vn_list().begin();
+        data_.origin_vn_dst = path->origin_vn();
+        if (!path->origin_vn().empty()) {
+            data_.origin_vn_dst_list.insert(path->origin_vn());
+        }
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
         data_.dest_tag_id_l = path->tag_list();
+    }
+
+    /* Handle case when default route NextHop points to vrf */
+    if (rt && rt->GetActiveNextHop()->GetType() == NextHop::VRF) {
+        const VrfNH *nh =
+            static_cast<const VrfNH *>(rt->GetActiveNextHop());
+        AgentRoute *new_rt = GetUcRoute(nh->GetVrf(), key_.dst_addr);
+        if (new_rt) {
+            path = new_rt->GetActivePath();
+            if (path) {
+                data_.origin_vn_dst = path->origin_vn();
+                if (!path->origin_vn().empty()) {
+                    data_.origin_vn_dst_list.insert(path->origin_vn());
+                }
+            }
+        }
     }
 }
 
@@ -3233,23 +3266,26 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_acl_action_l(acl_action_l);
 
     fe_sandesh_data.set_flow_handle(integerToString(flow_handle_));
-    if (!(data_.source_vn_match.empty()))
+    if (!data_.origin_vn_src.empty()) {
+        fe_sandesh_data.set_source_vn(data_.origin_vn_src);
+    } else {
         fe_sandesh_data.set_source_vn(data_.source_vn_match);
-    else
-        fe_sandesh_data.set_source_vn(data_.evpn_source_vn_match);
-    if(!(data_.dest_vn_match.empty()))
-       fe_sandesh_data.set_dest_vn(data_.dest_vn_match);
-    else
-       fe_sandesh_data.set_dest_vn(data_.evpn_dest_vn_match);
-    if (!(data_.SourceVnList().empty()))
+    }
+    if (!data_.origin_vn_dst.empty()) {
+        fe_sandesh_data.set_dest_vn(data_.origin_vn_dst);
+    } else {
+        fe_sandesh_data.set_dest_vn(data_.dest_vn_match);
+    }
+    if (!data_.OriginVnSrcList().empty()) {
+        fe_sandesh_data.set_source_vn_list(data_.OriginVnSrcList());
+    } else {
         fe_sandesh_data.set_source_vn_list(data_.SourceVnList());
-    else
-        fe_sandesh_data.set_source_vn_list(data_.EvpnSourceVnList());
-    if (!(data_.DestinationVnList().empty()))
+    }
+    if (!data_.OriginVnDstList().empty()) {
+        fe_sandesh_data.set_dest_vn_list(data_.OriginVnDstList());
+    } else {
         fe_sandesh_data.set_dest_vn_list(data_.DestinationVnList());
-    else
-        fe_sandesh_data.set_dest_vn_list(data_.EvpnDestinationVnList());
-
+    }
     std::vector<uint32_t> v;
     SecurityGroupList::const_iterator it;
     for (it = data_.source_sg_id_l.begin();

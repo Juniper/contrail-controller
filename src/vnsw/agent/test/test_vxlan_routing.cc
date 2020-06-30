@@ -162,7 +162,8 @@ protected:
                          const Ip4Address &addr,
                          uint8_t plen,
                          const std::string &dest_name,
-                         bool present) {
+                         bool present,
+                         const std::string &origin_vn = "") {
         InetUnicastRouteEntry *rt =
             RouteGet(routing_vrf, addr, plen);
         if (present) {
@@ -178,6 +179,10 @@ protected:
             if (tunnel_nh) {
                 EXPECT_TRUE(tunnel_nh->GetDip()->to_string() == dest_name);
                 EXPECT_TRUE(tunnel_nh->rewrite_dmac().IsZero() == false);
+            }
+            const AgentPath *path = rt->GetActivePath();
+            if (path) {
+                EXPECT_TRUE(path->origin_vn() == origin_vn);
             }
         } else {
             EXPECT_TRUE(rt == NULL);
@@ -213,7 +218,6 @@ TEST_F(VxlanRoutingTest, Basic) {
     DelLrRoutingVrf(1);
     DeleteEnvironment(true);
 }
-
 TEST_F(VxlanRoutingTest, Route_1) {
     using boost::uuids::nil_uuid;
 
@@ -225,9 +229,9 @@ TEST_F(VxlanRoutingTest, Route_1) {
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(91)->logical_router_uuid() != nil_uuid());
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
-                    "vnet10", true);
+                    "vnet10", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.11"), 32,
-                    "vnet11", true);
+                    "vnet11", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,
                     "vnet20", false);
     ValidateBridge("vrf1", "l3evpn_1",
@@ -251,9 +255,9 @@ TEST_F(VxlanRoutingTest, Route_1) {
     client->WaitForIdle();
     // Validate the routes again
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
-                    "vnet10", true);
+                    "vnet10", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.11"), 32,
-                    "vnet11", true);
+                    "vnet11", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,
                     "vnet20", false);
     ValidateBridge("vrf1", "l3evpn_1",
@@ -282,9 +286,9 @@ TEST_F(VxlanRoutingTest, Route_2) {
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(91)->logical_router_uuid() != nil_uuid());
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
-                    "vnet10", true);
+                    "vnet10", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.11"), 32,
-                    "vnet11", true);
+                    "vnet11", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,
                     "vnet20", false);
     ValidateBridge("vrf1", "l3evpn_1",
@@ -313,11 +317,11 @@ TEST_F(VxlanRoutingTest, Route_3) {
     EXPECT_TRUE(VmInterfaceGet(91)->logical_router_uuid() != nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(92)->logical_router_uuid() != nil_uuid());
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
-                    "vnet10", true);
+                    "vnet10", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.11"), 32,
-                    "vnet11", true);
+                    "vnet11", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,
-                    "vnet20", true);
+                    "vnet20", true, "vn2");
     ValidateBridge("vrf1", "l3evpn_1",
                    Ip4Address::from_string("0.0.0.0"), 0, true);
     ValidateBridge("vrf2", "l3evpn_1",
@@ -350,11 +354,11 @@ TEST_F(VxlanRoutingTest, Route_4) {
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
                     "vnet10", false);
     ValidateRouting("l3evpn_2", Ip4Address::from_string("1.1.1.10"), 32,
-                    "vnet10", true);
+                    "vnet10", true, "vn1");
     ValidateRouting("l3evpn_2", Ip4Address::from_string("1.1.1.11"), 32,
-                    "vnet11", true);
+                    "vnet11", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,
-                    "vnet20", true);
+                    "vnet20", true, "vn2");
     ValidateBridge("vrf1", "l3evpn_2",
                    Ip4Address::from_string("0.0.0.0"), 0, true);
     ValidateBridge("vrf2", "l3evpn_1",
@@ -390,9 +394,9 @@ TEST_F(VxlanRoutingTest, Route_5) {
                          32, "00:00:99:99:99:99");
     client->WaitForIdle();
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.10"), 32,
-                    "vnet10", true);
+                    "vnet10", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.11"), 32,
-                    "vnet11", true);
+                    "vnet11", true, "vn1");
     ValidateRouting("l3evpn_1", Ip4Address::from_string("1.1.1.20"), 32,
                     "100.1.1.11", true);
     ValidateRouting("l3evpn_1", Ip4Address::from_string("2.2.2.20"), 32,

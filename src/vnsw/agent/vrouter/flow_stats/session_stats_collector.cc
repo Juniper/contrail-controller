@@ -448,12 +448,12 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
     if (vmi->cfg_name().empty()) {
         return false;
     }
-    const string &src_vn = !(fe->data().source_vn_match.empty()) ?
-                            fe->data().source_vn_match :
-                            fe->data().evpn_source_vn_match;
-    const string &dst_vn = !(fe->data().dest_vn_match.empty()) ?
-                            fe->data().dest_vn_match :
-                            fe->data().evpn_dest_vn_match;
+    const string &src_vn = !fe->data().origin_vn_src.empty() ?
+                            fe->data().origin_vn_src :
+                            fe->data().source_vn_match;
+    const string &dst_vn = !fe->data().origin_vn_dst.empty() ?
+                            fe->data().origin_vn_dst :
+                            fe->data().dest_vn_match;
 
     session_endpoint_key.vmi_cfg_name = vmi->cfg_name();
     session_endpoint_key.local_tagset = fe->local_tagset();

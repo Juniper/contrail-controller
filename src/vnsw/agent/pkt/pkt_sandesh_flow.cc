@@ -78,22 +78,26 @@ static string InetRouteFlowMgmtKeyToString(uint16_t id,
             string("yes (") + fe->DropReasonStr(fe->short_flow_reason()) + \
             ")": "no");                                                     \
     data.set_local_flow(fe->is_flags_set(FlowEntry::LocalFlow) ? "yes" : "no");     \
-    if(!(fe->data().SourceVnList().empty()))                                 \
-        data.set_src_vn_list(fe->data().SourceVnList());                     \
-    else                                                                     \
-        data.set_src_vn_list(fe->data().EvpnSourceVnList());                 \
-    if (!(fe->data().DestinationVnList().empty()))                           \
-        data.set_dst_vn_list(fe->data().DestinationVnList());                \
-    else                                                                     \
-        data.set_dst_vn_list(fe->data().EvpnDestinationVnList());            \
-    if (!fe->data().source_vn_match.empty())                                 \
-        data.set_src_vn_match(fe->data().source_vn_match);                   \
-    else                                                                     \
-        data.set_src_vn_match(fe->data().evpn_source_vn_match);              \
-    if (!fe->data().dest_vn_match.empty())                                   \
-        data.set_dst_vn_match(fe->data().dest_vn_match);                     \
-    else                                                                     \
-        data.set_dst_vn_match(fe->data().evpn_dest_vn_match);                \
+    if (!fe->data().OriginVnSrcList().empty()) {                            \
+        data.set_src_vn_list(fe->data().OriginVnSrcList());                 \
+    } else {                                                                \
+        data.set_src_vn_list(fe->data().SourceVnList());                    \
+    }                                                                       \
+    if (!fe->data().OriginVnDstList().empty()) {                            \
+        data.set_dst_vn_list(fe->data().OriginVnDstList());                 \
+    } else {                                                                \
+        data.set_dst_vn_list(fe->data().DestinationVnList());               \
+    }                                                                       \
+    if (!fe->data().origin_vn_src.empty()) {                                \
+        data.set_src_vn_match(fe->data().origin_vn_src);                    \
+    } else {                                                                \
+        data.set_src_vn_match(fe->data().source_vn_match);                  \
+    }                                                                       \
+    if (!fe->data().origin_vn_dst.empty()) {                                \
+        data.set_dst_vn_match(fe->data().origin_vn_dst);                    \
+    } else {                                                                \
+        data.set_dst_vn_match(fe->data().dest_vn_match);                    \
+    }                                                                       \
     if (fe->is_flags_set(FlowEntry::EcmpFlow) &&                            \
         fe->data().component_nh_idx != CompositeNH::kInvalidComponentNHIdx) { \
         data.set_ecmp_index(fe->data().component_nh_idx);                     \
