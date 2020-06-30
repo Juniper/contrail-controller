@@ -1,5 +1,5 @@
 """
-This is the module that dispatches events to client queues registered by
+This is the module that dispatches events to client queues subscribed by
 /watch api
 
 The dispatcher receives events from rabbitmq event consumer and push events
@@ -23,7 +23,6 @@ class EventDispatcher(object):
     _notification_queue = Queue()
     _client_queues = {}
     _db_conn = None
-    _api_server_mgr = None
 
     @classmethod
     def _set_notification_queue(cls, notify_queue):
@@ -56,17 +55,7 @@ class EventDispatcher(object):
     # end _get_db_conn
 
     @classmethod
-    def _set_api_server_mgr(cls, api_server_mgr):
-        cls._api_server_mgr = api_server_mgr
-    # end _set_api_server_mgr
-
-    @classmethod
-    def _get_api_server_mgr(cls):
-        return cls._api_server_mgr
-    # end _get_api_server_mgr
-
-    @classmethod
-    def _register_client_queue(cls, client_queue, resource_type):
+    def _subscribe_client_queue(cls, client_queue, resource_type):
         cls._client_queues.update(
             {
                 resource_type:
@@ -74,14 +63,24 @@ class EventDispatcher(object):
             }
         )
 
-    def __init__(self, api_server_mgr=None, spawn_dispatch_greenlet=False):
-        if api_server_mgr:
-            self._set_api_server_mgr(api_server_mgr)
-            self._set_db_conn(api_server_mgr._db_conn)
+    @classmethod
+    def _unsubscribe_client_queue(cls, client_queue, resource_type):
+        try:
+            cls._client_queues.get(resource_type, []).remove(client_queue)
+        except ValueError:
+            pass
+
+    def __init__(self, db_client_mgr=None, spawn_dispatch_greenlet=False):
+        if db_client_mgr:
+            self._set_db_conn(db_client_mgr)
         if spawn_dispatch_greenlet:
             self._dispatch_greenlet = vnc_greenlets.VncGreenlet(
                 "Event Dispatcher", self.dispatch)
     # end __init__
+
+    def config_log(self, msg, level):
+        self._db_conn.config_log(msg, level)
+    # end config_log
 
     def pack(self, event="", data={}):
         return {
@@ -97,48 +96,44 @@ class EventDispatcher(object):
             resource_oper = notification.get("oper")
             resource_id = notification.get("uuid")
             resource_data = {}
-            if resource_oper != "DELETE":
+            if resource_oper == "DELETE":
+                resource_data = {"uuid": resource_id}
+            else:
                 try:
                     ok, resource_data = self._db_conn.dbe_read(
                         resource_type,
                         resource_id
                     )
                     if not ok:
-                        resource_oper = "ERROR"
+                        resource_oper = "STOP"
                         resource_data = {
-                            resource_type: {
-                                "error": "dbe_read failure: %s" % resource_data
-                            }
+                            "error": "dbe_read failure: %s" % resource_data
                         }
                 except NoIdError:
-                    if self._api_server_mgr:
-                        err_msg = "Resource with id %s already deleted at the \
-                            point of dbe_read" % resource_id
-                        err_msg += detailed_traceback()
-                        self._api_server_mgr.config_log(
-                            err_msg,
-                            level=SandeshLevel.SYS_NOTICE
-                        )
+                    err_msg = "Resource with id %s already deleted at the \
+                        point of dbe_read" % resource_id
+                    err_msg += detailed_traceback()
+                    self.config_log(
+                        err_msg,
+                        level=SandeshLevel.SYS_NOTICE
+                    )
                     resource_oper = "DELETE"
-                    resource_data = {resource_type: {"uuid": resource_id}}
+                    resource_data = {"uuid": resource_id}
                 except Exception as e:
-                    if self._api_server_mgr:
-                        err_msg = "Exception %s while performing dbe_read" % e
-                        err_msg += detailed_traceback()
-                        self._api_server_mgr.config_log(
-                            err_msg,
-                            level=SandeshLevel.SYS_NOTICE
-                        )
-                    resource_oper = "ERROR"
+                    err_msg = "Exception %s while performing dbe_read" % e
+                    err_msg += detailed_traceback()
+                    self.config_log(
+                        err_msg,
+                        level=SandeshLevel.SYS_NOTICE
+                    )
+                    resource_oper = "STOP"
                     resource_data = {
-                        resource_type: {"error": str(e)}
+                        "error": str(e)
                     }
-            else:
-                resource_data = {resource_type: {"uuid": resource_id}}
 
             event = self.pack(
                 event=resource_oper,
-                data=resource_data
+                data={resource_type: resource_data}
             )
             for client_queue in self._client_queues.get(resource_type, []):
                 client_queue.put_nowait(event)
@@ -153,7 +148,7 @@ class EventDispatcher(object):
 
             if not ok:
                 return ok, self.pack(
-                    event="error",
+                    event="stop",
                     data={resource_type + 's': resources}
                 )
 
@@ -166,18 +161,24 @@ class EventDispatcher(object):
             )
         except Exception as e:
             return False, self.pack(
-                event="error",
-                data={resource_type + 's': [
+                event="stop",
+                data={
+                    resource_type + 's': [
                         {resource_type: {"error": str(e)}}
                     ]
                 }
             )
     # end initialize
 
-    def register_client(self, client_queue, watch_resource_types):
+    def subscribe_client(self, client_queue, watch_resource_types):
         for resource_type in watch_resource_types:
-            self._register_client_queue(client_queue, resource_type)
-    # end register_client
+            self._subscribe_client_queue(client_queue, resource_type)
+    # end subscribe_client
+
+    def unsubscribe_client(self, client_queue, watch_resource_types):
+        for resource_type in watch_resource_types:
+            self._unsubscribe_client_queue(client_queue, resource_type)
+    # end unsubscribe_client
 
     def notify_event_dispatcher(self, notification):
         self._notification_queue.put_nowait(notification)
