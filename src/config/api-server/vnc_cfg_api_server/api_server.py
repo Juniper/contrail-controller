@@ -91,6 +91,7 @@ from . import context
 from .context import get_request, get_context, set_context, use_context
 from .context import ApiContext
 from .context import is_internal_request
+from .event_dispatcher import EventDispatcher
 from .resources import initialize_all_server_resource_classes
 from .vnc_db import VncDbClient
 
@@ -187,6 +188,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'amqp_request_http_post'},
     {'uri': '/hbs-get', 'link_name': 'hbs-get',
      'method': 'POST', 'method_name': 'hbs_get'},
+    {'uri': '/watch', 'link_name': 'watch',
+     'method': 'GET', 'method_name': 'watch'},
 ]
 
 _MANDATORY_PROPS = [
@@ -383,6 +386,56 @@ class VncApiServer(object):
             raise ValueError('Invalid service interface type %s. '
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
+
+    def watch(self):
+        try:
+            request_params = bottle.request.query
+            resource_types = request_params.get("resource_type", None)
+            if resource_types is None:
+                err_msg = "resource_type required in request"
+                yield bottle.HTTPError(400, err_msg)
+            resource_fields = resource_types.split(",")
+
+            bottle.response.set_header("Content-Type", "text/event-stream")
+            bottle.response.set_header("Cache-Control", "no-cache")
+
+            client_queue = gevent.queue.Queue()
+            dispatcher = EventDispatcher()
+            try:
+                dispatcher.register_client(client_queue, resource_fields)
+            except Exception as e:
+                err_msg = "Client queue registration failed with exception %s" % (
+                    e)
+                yield bottle.HTTPError(500, err_msg)
+
+            # Pack data in SSE format
+            def create_sse_pack(event):
+                result = ""
+                for key in ["event", "data"]:
+                    if key in event.keys():
+                        result += "%s: %s\n" % (key, event[key])
+                return result + "\n"
+            # end create_sse_pack
+
+            for resource in resource_fields:
+                (ok, init_event) = dispatcher.initialize(resource)
+                if not ok:
+                    data = init_event['data']
+                    err_msg = "Initialization failed for (%s) with exception %s" % (
+                        resource, data)
+                    yield bottle.HTTPError(500, err_msg)
+                yield create_sse_pack(init_event)
+
+            while True:
+                crud_event = client_queue.get()
+                if (crud_event['event'] == "error"):
+                    err_msg = "Reading data from queue failed with exception %s" % (crud_event['data'])
+                    yield bottle.HTTPError(500, err_msg)
+                yield create_sse_pack(crud_event)
+
+        except Exception as e:
+            raise
+    # end watch
 
     def validate_execute_job_input_params(self, request_params):
         device_list = None
