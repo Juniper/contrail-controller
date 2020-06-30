@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "70e81f56_3b833b31",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l3_gateway_feature.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-06-30T03:44:41Z",
+      "side": 1,
+      "message": "IMU it would be good to mention \"Code flow is now used for both CRB and ERB gateway functionality so use_gateway_ip for ERB role only\".",
+      "revId": "9662ccd9725ff231c22bbc698839794160f000b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
