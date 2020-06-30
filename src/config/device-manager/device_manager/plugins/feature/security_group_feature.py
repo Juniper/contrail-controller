@@ -358,6 +358,7 @@ class SecurityGroupFeature(FeatureBase):
     def feature_config(self, **kwargs):
         self.pi_map = OrderedDict()
         self.sg_pis = OrderedDict()
+        self.firewall_config = None
         feature_config = Feature(name=self.feature_name())
 
         vn_dict = self._get_connected_vn_li_map()
