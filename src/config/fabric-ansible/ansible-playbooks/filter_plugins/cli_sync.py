@@ -173,8 +173,10 @@ class FilterModule(object):
                                 if action_to_be_performed == "accept":
                                     partial_accepted_config += \
                                         self._accept_routine(pr_commit_item, device_mgmt_ip)
-                                else:
+                                elif action_to_be_performed == "reject":
                                     self._reject_routine(pr_commit_item, device_mgmt_ip)
+                                else:
+                                    self._ignore_routine(pr_commit_item, device_mgmt_ip)
 
             # Process file one last time for any delete commands for accept
             # case
@@ -208,24 +210,31 @@ class FilterModule(object):
 
             }
 
+
     # Routine to accept config. This does the following
-    # 1.Generate config to delete the config first
-    # 2.Generate config to recommit the deleted config to a seperate group
-    # 3.Update the accept config field in the cli object to be used during RMA
+    # 1.Re-generate detected config to be pushed down to the device from the diffs.
+    # 2.Save this config is the database to be later pushed down during RMA.
     def _accept_routine(self, pr_commit_item,
                         device_mgmt_ip):
         contrail_cli_group = CLI_GROUP
         user_commited_config = pr_commit_item.get('config_changes')
-        partial_accepted_config = self._accept_config(user_commited_config,
+        partial_accepted_config_final = self._accept_config(user_commited_config,
                                                       contrail_cli_group,
                                                       device_mgmt_ip)
-        return partial_accepted_config
+        return partial_accepted_config_final
 
     # Routine to reject config
     # 1. Delete the committed configs
     def _reject_routine(self, pr_commit_item, device_mgmt_ip):
         user_commited_config = pr_commit_item.get('config_changes')
         self._reject_config(user_commited_config, device_mgmt_ip)
+
+
+    #Routine to ignore configs. This does the follwing
+    #1.Change will get detected and left as is. No config is regenerated.
+    #2.Config ignored will NOT be saved in the database to be pushed down during  RMA.
+    def _ignore_routine(self, pr_commit_item, device_mgmt_ip):
+        pass
 
     # Delete all the processed commits
     def cli_diff_list_update(self, job_ctx, cli_fq_name,
@@ -251,7 +260,7 @@ class FilterModule(object):
     def merge_files(self, device_mgmt_ip):
         path_to_files = PLAYBOOK_BASE + "/manual_config" \
                                         "/" + device_mgmt_ip
-        filenames = ['/approve_config.conf', '/reject_config.conf']
+        filenames = ['/reject_config.conf', '/approve_config.conf']
         with open(path_to_files + '/final_config.conf', 'w') as outfile:
             for fname in filenames:
                 full_filename = path_to_files + fname
@@ -311,11 +320,13 @@ class FilterModule(object):
             device_mgmt_ip + "/reject_config.conf"
         final_command = command + " " + leaf
         file_to_write = ""
-        try:
-            file_to_write = open(path_to_file, "a+")
-            file_to_write.write(final_command + "\n")
-        finally:
-            file_to_write.close()
+        if os.path.exists(path_to_file):
+            with open(path_to_file, 'r') as original:
+                data = original.read()
+            with open(path_to_file, 'w') as modified:
+                modified.write(final_command + "\n" + data)
+        else:
+            with open(path_to_file, 'w') as modified: modified.write(final_command + "\n")
 
     # Process the config diff that have been accepted
     def _accept_config(self, config, group, device_mgmt_ip):
@@ -519,4 +530,3 @@ class FilterModule(object):
 
                     # end _reject_config
                     # end cli filter
-
