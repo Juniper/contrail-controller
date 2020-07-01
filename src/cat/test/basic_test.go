@@ -50,6 +50,9 @@ func TestAgentMockPortForSchemaValidation(t *testing.T) {
 
             // Create basic CAT object first to hold all objects managed.
             c, err := cat.New()
+            teardownSubTest := setupSubTest(t, c)
+            defer teardownSubTest(t, c)
+
             if err != nil {
                 t.Fatalf("Failed to create CAT cect: %v", err)
             }

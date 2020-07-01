@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+        "syscall"
         "time"
 
 	"cat/config"
@@ -149,5 +150,15 @@ func (a *Agent) VerifyIntrospectInterfaceState(intf string, active bool) error {
                 return fmt.Errorf("Interface not active in agent: %v ", err)
         }
 
+        return nil
+}
+
+func (a *Agent) Teardown() error {
+        // Send sig term to agent process.
+        pid := a.Cmd.Process.Pid
+        if err := syscall.Kill(pid, syscall.Signal(syscall.SIGTERM)); err != nil {
+            fmt.Errorf("%s process %d did not die", a.Name, pid)
+        }
+        a.Component.Teardown()
         return nil
 }
