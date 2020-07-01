@@ -868,7 +868,7 @@ def get_free_port(allocated_sockets):
 
 # end get_free_port
 
-def block_till_port_listened(server_ip, server_port, retries=3):
+def block_till_port_listened(server_ip, server_port, retries=5):
     tries = 0
     while tries < retries:
         try:
