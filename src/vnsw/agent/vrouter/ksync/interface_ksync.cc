@@ -87,7 +87,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     qos_config_(entry->qos_config_),
     learning_enabled_(entry->learning_enabled_),
     isid_(entry->isid_), pbb_cmac_vrf_(entry->pbb_cmac_vrf_),
-    etree_leaf_(entry->etree_leaf_),
+    pbb_mac_(entry->pbb_mac_), etree_leaf_(entry->etree_leaf_),
     pbb_interface_(entry->pbb_interface_),
     vhostuser_mode_(entry->vhostuser_mode_),
     igmp_enable_(entry->igmp_enable_),
@@ -137,7 +137,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     transport_(Interface::TRANSPORT_INVALID),
     flood_unknown_unicast_(false), qos_config_(NULL),
     learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
-    pbb_cmac_vrf_(VrfEntry::kInvalidIndex), etree_leaf_(false),
+    pbb_cmac_vrf_(VrfEntry::kInvalidIndex), pbb_mac_(), etree_leaf_(false),
     pbb_interface_(false), vhostuser_mode_(VmInterface::vHostUserClient),
     igmp_enable_(false),
     os_guid_(intf->os_guid()) {
@@ -498,7 +498,14 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             aap_mac_list_.swap(aap_mac_list);
             ret = true;
         }
-        pbb_mac_ = vm_intf->vm_mac();
+        MacAddress pbb_mac;
+        if (pbb_interface_) {
+            pbb_mac = MacAddress(vm_intf->vm_mac());
+        }
+        if (pbb_mac != pbb_mac_) {
+            pbb_mac_ = pbb_mac;
+            ret = true;
+        }
     }
     case Interface::PACKET:
         dmac = table->agent()->vrrp_mac();
