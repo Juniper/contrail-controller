@@ -61,7 +61,7 @@ public:
         state = static_cast<VrfKSyncObject::VrfState *>
             (fabric_vrf->GetState(table, vrf_listener_id_));
         fabric_rt_obj_ = state->inet4_uc_route_table_;
-
+        interface_obj = agent_->ksync()->interface_ksync_obj();
         boost::system::error_code ec;
         bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                   "xmpp channel");
@@ -131,6 +131,7 @@ public:
     RouteKSyncObject *vrf1_rt_obj_;
     RouteKSyncObject *vrf1_bridge_rt_obj_;
     RouteKSyncObject *fabric_rt_obj_;
+    InterfaceKSyncObject *interface_obj;
 };
 
 // proxy_arp_ and flood_ flags for interface-route
@@ -538,6 +539,26 @@ TEST_F(TestKSyncRoute, IndirectRoute) {
     fabric_uc_table_->DeleteReq(agent_->local_peer(), agent_->fabric_vrf_name(),
                                 ip, 32, NULL);
     client->WaitForIdle();
+}
+
+TEST_F(TestKSyncRoute, ksync_intf_pbb_mac) {
+    // By default pbb interface flag is false, expect flag is false in InterfaceKSyncEntry
+    EXPECT_FALSE(vnet1_->pbb_interface());
+
+    std::auto_ptr<InterfaceKSyncEntry> ksync(new InterfaceKSyncEntry(interface_obj, vnet1_));
+    EXPECT_FALSE(ksync->pbb_interface());
+    ksync->Sync(vnet1_);
+    EXPECT_FALSE(ksync->pbb_interface());
+    // Verify that pbb mac is set to zero mac as pbb_interface flag is set to false for intf
+    EXPECT_EQ(ksync->pbb_mac().ToString(), "00:00:00:00:00:00");
+
+    // Set pbb interface flag for vm interface and expect flag is set in InterfaceKSyncEntry
+    vnet1_->set_pbb_interface(true);
+    EXPECT_TRUE(vnet1_->pbb_interface());
+    ksync->Sync(vnet1_);
+    EXPECT_TRUE(ksync->pbb_interface());
+    // Verify pbb_mac for is set to interface mac as pbb_interface flag is set
+    EXPECT_EQ(ksync->pbb_mac().ToString(), vnet1_->vm_mac().ToString());
 }
 
 int main(int argc, char **argv) {
