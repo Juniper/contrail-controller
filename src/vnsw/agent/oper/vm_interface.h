@@ -1233,6 +1233,7 @@ public:
 
     void set_hbs_intf_type(VmInterface::HbsIntfType val) { hbs_intf_type_ = val ;}
     bool pbb_interface() const { return pbb_interface_; }
+    void set_pbb_interface(bool val) { pbb_interface_= val;}
 
     bool layer2_control_word() const { return layer2_control_word_; }
     void set_layer2_control_word(bool val) { layer2_control_word_ = val; }
