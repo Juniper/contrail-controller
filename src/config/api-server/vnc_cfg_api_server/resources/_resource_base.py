@@ -216,15 +216,15 @@ class ResourceMixin(object):
             try:
                 ok, result = cls.db_conn.dbe_read(
                     cls.object_type, uuid, obj_fields=kwargs.get('fields'))
+                if not ok:
+                    return False, result
+                else:
+                    return ok, result
             except NoIdError as e:
                 if create_it:
                     pass
                 else:
                     return False, (404, str(e))
-            if not ok:
-                return False, result
-            else:
-                return ok, result
 
         # Does not exist, create it. Need at least an fq_name
         if fq_name is None or fq_name == []:
