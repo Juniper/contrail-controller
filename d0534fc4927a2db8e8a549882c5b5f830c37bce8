@@ -16,6 +16,24 @@
       "revId": "d0534fc4927a2db8e8a549882c5b5f830c37bce8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6a513307_d56edc4d",
+        "filename": "src/vnsw/agent/vrouter/ksync/interface_ksync.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 511,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2020-07-02T10:16:55Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "713faeeb_66e88096",
+      "revId": "d0534fc4927a2db8e8a549882c5b5f830c37bce8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
