@@ -69,6 +69,8 @@ public:
     bool dhcp_enable() const {return dhcp_enable_;}
     bool layer3_forwarding() const {return layer3_forwarding_;}
     bool bridging() const {return bridging_;}
+    bool pbb_interface() const {return pbb_interface_;}
+    const MacAddress &pbb_mac() const { return pbb_mac_; }
 
     int MsgLen() { return kDefaultInterfaceMsgSize; }
     bool KSyncEntrySandesh(Sandesh *resp);
