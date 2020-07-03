@@ -1,11 +1,10 @@
 import os
-import sys
 
-from nodemgr.vrouter_nodemgr.haproxy_stats import HaproxyStats
-from vrouter.loadbalancer.ttypes import \
-    LoadbalancerStats, UveLoadbalancerStats, UveLoadbalancerTrace
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from nodemgr.vrouter_nodemgr.haproxy_stats import HaproxyStats
+from nodemgr.common.sandesh.loadbalancer.ttypes import (
+    LoadbalancerStats, UveLoadbalancerStats, UveLoadbalancerTrace)
 
 LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
 
