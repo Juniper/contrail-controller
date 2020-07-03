@@ -11,6 +11,7 @@
     chosen_temp_url_key: "{{chosen_temp_url_key}}"
     container_name: "{{container_name}}"
     filename: "{{filename}}"
+    device_image_file_uri: "{{image_uri}}"
   register: swift_results
 
 - name: Print the complete response.
