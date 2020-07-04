@@ -17,7 +17,6 @@ from vnc_api.gen.resource_common import VirtualMachineInterface
 from vnc_api.gen.resource_common import VirtualPortGroup
 from vnc_api.gen.resource_xsd import MacAddressesType
 from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
-from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
 from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
@@ -831,78 +830,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         return True, ret_dict
 
     @classmethod
-    def _notify_ae_id_modified(cls, obj_dict=None, notify=False):
-
-        if (obj_dict.get('deallocated_ae_id') and
-                len(obj_dict.get('deallocated_ae_id'))):
-            dealloc_dict_list = obj_dict.get('deallocated_ae_id')
-            for dealloc_dict in dealloc_dict_list:
-                ae_id = dealloc_dict.get('ae_id')
-                vpg_name = dealloc_dict.get('vpg_name')
-                prouter_name = dealloc_dict.get('prouter_name')
-                cls.vnc_zk_client.free_ae_id(
-                    prouter_name, ae_id,
-                    vpg_name, notify=notify)
-
-        if (obj_dict.get('allocated_ae_id') and
-                len(obj_dict.get('allocated_ae_id'))):
-            alloc_dict_list = obj_dict.get('allocated_ae_id')
-            for alloc_dict in alloc_dict_list:
-                ae_id = alloc_dict.get('ae_id')
-                vpg_name = alloc_dict.get('vpg_name')
-                prouter_name = alloc_dict.get('prouter_name')
-                cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id,
-                                              notify=True)
-
-    # Allocate ae_id:
-    # 1. Get the ae_id from the old PI ref which is already assoc with PR
-    # 2. If not, then check if it got already generated on this api call
-    #    from the other PI that belongs to the same PR.
-    # 3. Else allocate the new ae_id. Id allocation is per PR 0-127 and key
-    #    is the vpg name.
-    @classmethod
-    def _check_and_alloc_ae_id(cls, links, prouter_name,
-                               vpg_name, old_pi_to_pr_dict):
-        if not len(links) > 1:
-            return None, None
-
-        for pr in old_pi_to_pr_dict.values():
-            if (pr.get('prouter_name') == prouter_name and
-                    pr.get('ae_id') is not None):
-                attr_obj = VpgInterfaceParametersType(pr.get('ae_id'))
-                return attr_obj, pr.get('ae_id')
-
-        ae_num = cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name)
-        attr_obj = VpgInterfaceParametersType(ae_num)
-
-        return attr_obj, ae_num
-
-    # Free ae_id:
-    # 1. If the PI ref is getting deleted and there in no other PI left
-    #    that belongs to the same PR.
-    # 2. Or if there is only one physical link to VPG.
-    @classmethod
-    def _check_and_free_ae_id(cls, links, prouter_dict,
-                              vpg_name, pi_to_pr_dict):
-        prouter_list = []
-        dealloc_dict = {}
-        for pr in pi_to_pr_dict.values():
-            prouter_list.append(pr)
-
-        prouter_name = prouter_dict.get('prouter_name')
-        if prouter_name not in prouter_list or len(links) < 2:
-            cls.vnc_zk_client.free_ae_id(prouter_name,
-                                         prouter_dict.get('ae_id'),
-                                         vpg_name)
-            dealloc_dict['ae_id'] = prouter_dict.get('ae_id')
-            dealloc_dict['prouter_name'] = prouter_dict.get('prouter_name')
-            dealloc_dict['vpg_name'] = vpg_name
-            prouter_dict['ae_id'] = None
-            return dealloc_dict
-
-        return
-
-    @classmethod
     def _check_annotations(
         cls, api_server, obj_uuid,
         resource_type, annotation_key,
@@ -1574,7 +1501,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         phy_interface_uuids = []
         old_phy_interface_uuids = []
         new_pi_to_pr_dict = {}
-        old_pi_to_pr_dict = {}
         for link in phy_links:
             if link.get('fabric'):
                 if fabric_name is not None and fabric_name != link['fabric']:
@@ -1592,23 +1518,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             pi_uuid = db_conn.fq_name_to_uuid('physical_interface', pi_fq_name)
             phy_interface_uuids.append(pi_uuid)
             new_pi_to_pr_dict[pi_uuid] = prouter_name
-
-        # check if new physical interfaces belongs to some other vpg
-        for uuid in set(phy_interface_uuids):
-            ok, phy_interface_dict = db_conn.dbe_read(
-                obj_type='physical-interface',
-                obj_id=uuid,
-                obj_fields=['name', 'virtual_port_group_back_refs'])
-            if not ok:
-                return (ok, 400, phy_interface_dict)
-
-            vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
-            if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
-                msg = 'Physical interface %s already belong to the vpg %s' %\
-                      (phy_interface_dict.get(
-                          'name', phy_interface_dict['fq_name']),
-                       vpg_refs[0]['to'][-1])
-                return (False, (400, msg))
 
         if vpg_name:  # read the vpg object
             vpg_fq_name = ['default-global-system-config', fabric_name,
@@ -1717,59 +1626,38 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     return ok, result
 
         old_phy_interface_refs = vpg_dict.get('physical_interface_refs')
-        for ref in old_phy_interface_refs or []:
-            old_pi_to_pr_dict[ref['uuid']] = {
-                'prouter_name': ref['to'][1],
-                'ae_id': ref['attr'].get('ae_num') if ref['attr'] else None}
-            old_phy_interface_uuids.append(ref['uuid'])
-
+        old_phy_interface_uuids = [ref['uuid'] for ref in
+                                   old_phy_interface_refs or []]
         ret_dict = {}
-        ret_dict['deallocated_ae_id'] = []
-        ret_dict['allocated_ae_id'] = []
 
         # delete old physical interfaces to the vpg
-        for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
-            prouter_dict = old_pi_to_pr_dict.get(uuid)
-            dealloc_dict = cls._check_and_free_ae_id(
-                phy_links, prouter_dict,
-                vpg_name, new_pi_to_pr_dict)
-            ret_dict['deallocated_ae_id'].append(dealloc_dict)
-
-            api_server.internal_request_ref_update(
-                'virtual-port-group',
-                vpg_uuid,
-                'DELETE',
-                'physical-interface',
-                uuid)
+        delete_pi_uuids = (set(old_phy_interface_uuids) -
+                           set(phy_interface_uuids))
+        for uuid in delete_pi_uuids:
+            try:
+                api_server.internal_request_ref_update(
+                    'virtual-port-group',
+                    vpg_uuid,
+                    'DELETE',
+                    'physical-interface',
+                    uuid)
+            except Exception as exc:
+                return False, (exc.status_code, exc.content)
 
         # add new physical interfaces to the vpg
-        pr_to_ae_id = {}
-        for uuid in phy_interface_uuids:
-            prouter_name = new_pi_to_pr_dict.get(uuid)
-            if pr_to_ae_id.get(prouter_name) is None:
-                attr_obj, ae_id = cls._check_and_alloc_ae_id(
-                    phy_links, prouter_name,
-                    vpg_name, old_pi_to_pr_dict)
-                pr_to_ae_id[prouter_name] = ae_id
-
-                if len(phy_links) > 1 and ae_id is not None:
-                    alloc_dict = {}
-                    alloc_dict['ae_id'] = ae_id
-                    alloc_dict['prouter_name'] = prouter_name
-                    alloc_dict['vpg_name'] = vpg_name
-                    ret_dict['allocated_ae_id'].append(alloc_dict)
-            else:
-                attr_obj = VpgInterfaceParametersType(
-                    ae_num=pr_to_ae_id.get(prouter_name))
-
-            api_server.internal_request_ref_update(
-                'virtual-port-group',
-                vpg_uuid,
-                'ADD',
-                'physical-interface',
-                uuid,
-                attr=attr_obj.__dict__ if attr_obj else None,
-                relax_ref_for_delete=True)
+        create_pi_uuids = (set(phy_interface_uuids) -
+                           set(old_phy_interface_uuids))
+        for uuid in create_pi_uuids:
+            try:
+                api_server.internal_request_ref_update(
+                    'virtual-port-group',
+                    vpg_uuid,
+                    'ADD',
+                    'physical-interface',
+                    uuid,
+                    relax_ref_for_delete=True)
+            except Exception as exc:
+                return False, (exc.status_code, exc.content)
 
         # update intent-map with vn_id
         # read intent map object
@@ -1838,29 +1726,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             kvp_dict = cls._kvp_to_dict(kvps)
             delete_dict = {'virtual_machine_refs': []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
-
-        # Clean ae ids associated with VPG->PIs
-        for vpg_back_ref in obj_dict.get('virtual_port_group_back_refs',
-                                         []):
-            fqname = vpg_back_ref['to']
-            vpg_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
-            ok, vpg_dict = db_conn.dbe_read(
-                obj_type='virtual-port-group',
-                obj_id=vpg_uuid,
-                obj_fields=['physical_interface_refs'])
-            if not ok:
-                return ok, vpg_dict
-
-            notify_dict = {}
-            notify_dict['deallocated_ae_id'] = []
-            for pi_ref in vpg_dict.get('physical_interface_refs') or []:
-                if pi_ref['attr'] and pi_ref['attr'].get('ae_num') is not None:
-                    dealloc_dict = {}
-                    dealloc_dict['ae_id'] = pi_ref['attr'].get('ae_num')
-                    dealloc_dict['prouter_name'] = pi_ref['to'][1]
-                    dealloc_dict['vpg_name'] = fqname[2]
-                    notify_dict['deallocated_ae_id'].append(dealloc_dict)
-            obj_dict.update(notify_dict)
 
         return True, "", None
 
@@ -1948,27 +1813,4 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 api_server.internal_request_delete('virtual_port_group',
                                                    vpg_uuid)
 
-            # Clean ae ids associated with VPG->PIs
-            cls._notify_ae_id_modified(obj_dict)
-
         return True, ""
-
-    @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
-        cls._notify_ae_id_modified(obj_dict)
-
-        return True, ''
-
-    @classmethod
-    def dbe_update_notification(cls, obj_id, extra_dict=None):
-
-        if extra_dict is not None:
-            cls._notify_ae_id_modified(extra_dict, notify=True)
-
-        return True, ''
-
-    @classmethod
-    def dbe_delete_notification(cls, obj_id, obj_dict):
-        cls._notify_ae_id_modified(obj_dict, notify=True)
-
-        return True, ''
