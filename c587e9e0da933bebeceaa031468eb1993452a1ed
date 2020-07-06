@@ -161,6 +161,24 @@
     },
     {
       "key": {
+        "uuid": "65fa5909_6b002caa",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 21
+      },
+      "lineNbr": 567,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-07-06T09:13:51Z",
+      "side": 1,
+      "message": "Are you referring to this? https://github.com/Juniper/contrail-controller/commit/32ad422ada294892d5f6959f321d001940b4dae8#diff-378c2e9c69f896ced54410fb135cc464R254",
+      "parentUuid": "75d735ee_1e978351",
+      "revId": "c587e9e0da933bebeceaa031468eb1993452a1ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "672e7e8e_83bf7b9d",
         "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
         "patchSetId": 21
