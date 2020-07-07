@@ -1,0 +1,191 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e21e9049_14237d25",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "Did you fix the include files by removing once that are not needed?",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a41bd7a4_df66e7e0",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 265,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "This is still not updated? Can we make this more reasonable like i had mentioned last time. Pick a few objects, search the customer config for those and make sure they are equal. Otherwise, this is not testing much. Same for the default config file.",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3a9c4601_4dcb816a",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 56,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "Can you return an error string like the previous case. Do it for all error cases. Also, please add comments (more the merrier)",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e81ad960_280da9c9",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 246,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "Can you rename these variables to make more sense instead of res*",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7fac28b1_c92a65c6",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 287,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "Make this a define",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "26318f73_38dab8df",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 306,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "same as above",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5e7fe2db_92ed8190",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 364,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "type \"unknown\"",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d52cab01_9daf06f8",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 397,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "same as above. Make the string a define and use it everywhere.",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bdb7b229_3057876b",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 414,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "rename variables",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "54ab92c1_dba8c255",
+        "filename": "src/cat/config/config_test.go",
+        "patchSetId": 16
+      },
+      "lineNbr": 86,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "line wrap",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "13286a3b_2876152b",
+        "filename": "src/ifmap/client/testdata/pre_final.json",
+        "patchSetId": 16
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-07T18:38:37Z",
+      "side": 1,
+      "message": "extra space. Remove everywhere in the file.",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
