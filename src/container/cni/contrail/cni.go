@@ -283,7 +283,7 @@ func Init(args *skel.CmdArgs) (*ContrailCni, error) {
     if err != nil {
         return nil, err
     }
-    if err = json.Unmarshal(dataBytes, &contrailCni); err != nil {
+    if err = json.Unmarshal(dataBytes, &json_args); err != nil {
         log.Errorf("Error decoding dataBytes %s. Error %+v",
         string(dataBytes), err)
         return nil, err
