@@ -34,6 +34,7 @@ from pycassa import ConnectionPool
 from pycassa import ColumnFamily
 from pycassa.system_manager import SystemManager
 from pycassa import NotFoundException
+from pycassa.cassandra.ttypes import ConsistencyLevel
 import kazoo.client
 import kazoo.handlers.gevent
 import kazoo.exceptions
@@ -205,7 +206,9 @@ class DatabaseExim(object):
         non_empty_errors = []
         for ks in list(self.import_data['cassandra'].keys()):
             for cf in list(self.import_data['cassandra'][ks].keys()):
-                if len(list(self._get_cf(cf).get_range(column_count=1))) > 0:
+                if len(list(self._get_cf(cf).get_range(
+                        column_count=1,
+                        read_consistency_level=ConsistencyLevel.ALL))) > 0:
                     non_empty_errors.append(
                         'Keyspace %s CF %s already has entries.' %(ks, cf))
 
@@ -289,7 +292,10 @@ class DatabaseExim(object):
                 cassandra_contents[ks_name][cf_name] = {}
                 cf = ColumnFamily(pool, cf_name,
                                   buffer_size=self._args.buffer_size)
-                for r,c in cf.get_range(column_count=10000000, include_timestamp=True):
+                for r,c in cf.get_range(
+                        column_count=10000000,
+                        include_timestamp=True,
+                        read_consistency_level=ConsistencyLevel.ALL):
                     cassandra_contents[ks_name][cf_name][r] = c
         logger.info("Cassandra DB dumped")
 

@@ -410,6 +410,7 @@ class FakeTtypes(object):
 
     class ConsistencyLevel(object):
         QUORUM = 42
+        ALL = 52
 
 
 def patch_imports(imports):
