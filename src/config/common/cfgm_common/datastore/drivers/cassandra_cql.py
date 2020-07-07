@@ -580,6 +580,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
                      cf_name, key=key, start=start, finish=finish,
                      columns=columns, include_timestamp=timestamp,
                      limit=num_columns, use_async=True)))
+        missing_keys = []
         for key, future in futures:
             # Retrieving result
             row = future().all()
@@ -587,6 +588,15 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
                 # We should have used a generator but legacy does not
                 # handle it.
                 res[key] = row
+            else:
+                missing_keys.append(key)
+        if missing_keys:
+            self.options.logger(
+                "{} keys are missing during multiget's call, this may "
+                "indicate Cassandra cluster needs a 'nodetool repair'. "
+                "keys: '{}'".format(
+                    len(missing_keys), missing_keys,
+                    level=SandeshLevel.SYS_WARNING)
         return res
 
     def _XGet(self, cf_name, key, columns=None, start='', finish=''):
