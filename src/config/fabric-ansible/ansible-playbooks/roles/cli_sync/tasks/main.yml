@@ -29,6 +29,21 @@
   include_role:
     name: commit_fabric_config
 
+# We are pushing empty config down here to take into account ignore and accept case where junos ansible library might not
+# record a push on the device due to no diffs.
+- name: Push empty config down to handle cases for accept/ignore
+  juniper_junos_config:
+    lines: "set groups __contrail_basic__"
+    comment: "Contrail execution ID: {{ job_ctx.job_execution_id }}"
+    ignore_warning: "True"
+    provider:
+      host: "{{ pr_host }}"
+      username: "{{ pr_user }}"
+      password: "{{ pr_password }}"
+      port: 22
+      timeout: "{{ JUNOS_COMMIT_TIMEOUT | int }}"
+  register: junos_response
+
 - name: Update job logs with status
   job_objectlog:
     job_ctx: "{{ job_ctx }}"
