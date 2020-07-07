@@ -16,6 +16,24 @@
       "revId": "0d3bb161838fdcc71876cf7a7970cde3ad5a3667",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b3dd34dd_e0d3c2ea",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 15
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 850
+      },
+      "writtenOn": "2020-07-07T18:10:30Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ec253287_77f60e0e",
+      "revId": "0d3bb161838fdcc71876cf7a7970cde3ad5a3667",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
