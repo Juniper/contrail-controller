@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "73ab60c3_a7ab5c47",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-07T15:58:19Z",
+      "side": 1,
+      "message": "For DELETE events, self._db_conn.dbe_read(resource_type, resource_id) will fail with NoIdError.\nSo in case of DELETE events, lets not read.\n\nTo notify clients about delete, lets pass type\u003dresource_type along with id\u003dresource_id to pack function.\n\nIn pack function, Let us pack as below,\n\n            \u0027event\u0027: event.lower(),\n            \u0027data\u0027: json.dumps({\"uuid\": id, \"type\":resource_type, \"content\" data})",
+      "revId": "5b21d526daaab8d3260e6d66e50f69a6b45be545",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
