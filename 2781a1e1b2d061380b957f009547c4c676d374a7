@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "23ca1247_bcba6c29",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 18
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-07T19:17:46Z",
+      "side": 1,
+      "message": "type needs to be sent",
+      "revId": "2781a1e1b2d061380b957f009547c4c676d374a7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
