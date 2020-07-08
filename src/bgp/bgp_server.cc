@@ -684,9 +684,13 @@ boost::asio::io_service *BgpServer::ioservice() {
 }
 
 bool BgpServer::IsFastConvergenceEnabled() const {
+    return (global_config_->fc_enabled());
+}
+
+bool BgpServer::IsNextHopCheckEnabled() const {
     if (!global_config_->fc_enabled())
         return false;
-    return (global_config_->fc_enabled());
+    return (global_config_->nh_check_enabled());
 }
 
 uint16_t BgpServer::GetGracefulRestartTime() const {
