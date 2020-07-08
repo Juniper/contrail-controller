@@ -274,7 +274,7 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
 
     // For VPN to VRF replication, start path resolution if fast convergence is
     // enabled and update path flag to indicate need for resolution.
-    if (!IsMaster() && server->IsFastConvergenceEnabled() &&
+    if (!IsMaster() && server->IsNextHopCheckEnabled() &&
         (replicated_path->GetSource() == BgpPath::BGP_XMPP)) {
         Address::Family family = src_path->GetAttr()->nexthop_family();
         RoutingInstanceMgr *mgr = server->routing_instance_mgr();
