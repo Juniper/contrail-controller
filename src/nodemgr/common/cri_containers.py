@@ -9,7 +9,7 @@ from nodemgr.common.cri import api_pb2_grpc
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
 
-class CriOContainerMemoryCpuUsage:
+class CriContainerMemoryCpuUsage:
     def __init__(self, last_cpu_, last_time_, query_, pid_):
         self._query = query_
         self._cgroup = '/sys/fs/cgroup/memory{0}/memory.stat'\
@@ -153,10 +153,22 @@ class ViewAdapter:
         return output
 
 
-class CriOContainersInterface:
-    def __init__(self):
-        c = grpc.insecure_channel('unix:///var/run/crio/crio.sock')
+class CriContainersInterface:
+    @staticmethod
+    def craft_crio_peer():
+        return CriContainersInterface()._set_channel('/var/run/crio/crio.sock')
+
+    @staticmethod
+    def craft_containerd_peer():
+        return CriContainersInterface()._set_channel('/run/containerd/containerd.sock')
+
+    def _set_channel(self, value_):
+        if not os.path.exists(value_):
+            raise LookupError(value_)
+
+        c = grpc.insecure_channel('unix://{0}'.format(value_))
         self._client = api_pb2_grpc.RuntimeServiceStub(c)
+        return self
 
     def list(self, all_=True):
         q = api_pb2.ListContainersRequest() if all_ \
@@ -212,4 +224,4 @@ class CriOContainersInterface:
                 logging.exception('gRPC')
                 return None
 
-        return CriOContainerMemoryCpuUsage(last_cpu_, last_time_, do_query, s['State']['Pid'])
+        return CriContainerMemoryCpuUsage(last_cpu_, last_time_, do_query, s['State']['Pid'])
