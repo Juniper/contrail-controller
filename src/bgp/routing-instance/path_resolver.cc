@@ -18,6 +18,7 @@
 #include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_address.h"
 
 using std::make_pair;
@@ -904,7 +905,7 @@ void ResolverPath::DeleteResolvedPath(ResolvedPathList::const_iterator it) {
 // Find or create the matching resolved BgpPath.
 //
 BgpPath *ResolverPath::LocateResolvedPath(const IPeer *peer, uint32_t path_id,
-    const BgpAttr *attr, uint32_t label) {
+    const BgpAttr *attr, uint32_t label, bool is_replicated) {
     for (ResolvedPathList::iterator it = resolved_path_list_.begin();
          it != resolved_path_list_.end(); ++it) {
         BgpPath *path = *it;
@@ -919,7 +920,11 @@ BgpPath *ResolverPath::LocateResolvedPath(const IPeer *peer, uint32_t path_id,
     BgpPath::PathSource src = path_->GetSource();
     uint32_t flags =
         (path_->GetFlags() & ~BgpPath::ResolveNexthop) | BgpPath::ResolvedPath;
-    return (new BgpPath(peer, path_id, src, attr, flags, label));
+    if (is_replicated) {
+        return (new BgpSecondaryPath(peer, path_id, src, attr, flags, label));
+    } else {
+        return (new BgpPath(peer, path_id, src, attr, flags, label));
+    }
 }
 
 //
@@ -1014,14 +1019,27 @@ bool ResolverPath::UpdateResolvedPaths() {
     ExtCommunityDB *extcomm_db = server->extcomm_db();
 
     // Go through paths of the nexthop route and build the list of future
-    // resolved paths.
+    // resolved paths. If the nexthop RI is the master instance, indicating
+    // that we are checking for presence of nexthop in the underlay table, the
+    // existing path is added to future resolved path as is but with updated
+    // path flag indicating that it is resolved.
     ResolvedPathList future_resolved_path_list;
     const BgpRoute *nh_route = rnexthop_->GetRoute();
     const IPeer *peer = path_ ? path_->GetPeer() : NULL;
+    // Process paths of nexthop route if nexthop RI is not the master RI.
+    const RoutingInstance *nh_ri = rnexthop_->table()->routing_instance();
+    bool nh_ri_def = false;
+    if (nh_ri->IsMasterRoutingInstance()) {
+        nh_ri_def = true;
+    }
+    bool process_paths = false;
+    if (path_ && nh_route && !nh_ri_def) {
+        process_paths = true;
+    }
     Route::PathList::const_iterator it;
-    if (path_ && nh_route)
+    if (process_paths)
         it = nh_route->GetPathList().begin();
-    for (; path_ && nh_route && it != nh_route->GetPathList().end(); ++it) {
+    for (; process_paths && it != nh_route->GetPathList().end(); ++it) {
         const BgpPath *nh_path = static_cast<const BgpPath *>(it.operator->());
 
         // Start with attributes of the original path.
@@ -1064,6 +1082,22 @@ bool ResolverPath::UpdateResolvedPaths() {
         BgpPath *resolved_path =
             LocateResolvedPath(peer, path_id, attr.get(), nh_path->GetLabel());
         future_resolved_path_list.insert(resolved_path);
+    }
+
+    // If nexthop RI is the default routing-instance, nothing to update except
+    // changing path_flags. Locate the resolved path.
+    if (path_ && nh_route && nh_ri_def) {
+        BgpPath *updated_path = LocateResolvedPath(peer, path_->GetPathId(),
+            path_->GetAttr(), path_->GetLabel(), path_->IsReplicated());
+        if (path_->IsReplicated()) {
+            const BgpSecondaryPath *sec_path =
+                static_cast<const BgpSecondaryPath *> (path_);
+            BgpSecondaryPath *sec_upd_path =
+                dynamic_cast<BgpSecondaryPath *> (updated_path);
+            sec_upd_path->SetReplicateInfo(sec_path->src_table(),
+                                           sec_path->src_rt());
+        }
+        future_resolved_path_list.insert(updated_path);
     }
 
     // Reconcile the current and future resolved paths and notify/delete the
