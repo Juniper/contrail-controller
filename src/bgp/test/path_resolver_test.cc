@@ -176,6 +176,7 @@ protected:
 
     void SetFCEnabled(bool enable) const {
         bgp_server_->global_config()->set_fc_enabled(enable);
+        bgp_server_->global_config()->set_nh_check_enabled(enable);
     }
 
     // Return the overlay nexthop address.
