@@ -1,0 +1,90 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "aab7d4eb_17f74327",
+        "filename": "src/bgp/bgp_server.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 689,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-07-08T00:39:21Z",
+      "side": 1,
+      "message": "should it not just return global_config_-\u003efc_enabled()?",
+      "range": {
+        "startLine": 689,
+        "startChar": 12,
+        "endLine": 689,
+        "endChar": 42
+      },
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "173d733a_2aa85a25",
+        "filename": "src/bgp/evpn/evpn_table.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 280,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-07-08T00:39:21Z",
+      "side": 1,
+      "message": "we are doing path resolution for type3 and type6 also? I thought we were not planning to do it for multicast related routes?",
+      "range": {
+        "startLine": 279,
+        "startChar": 1,
+        "endLine": 280,
+        "endChar": 1
+      },
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f6d9b188_ef40945e",
+        "filename": "src/bgp/inet/inet_table.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-07-08T00:39:21Z",
+      "side": 1,
+      "message": "I know we should have thought of this earlier but do you think it would have made more sense to do resolution in InsertPath function so that we would not need to add such things in every table? Maybe something we can consider for future, for now it should be ok.",
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3aeffae2_a8c8dbd0",
+        "filename": "src/bgp/routing-instance/routing_instance.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 1273,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-07-08T00:39:21Z",
+      "side": 1,
+      "message": "Should we not create path resolvers only when feature is enabled?",
+      "range": {
+        "startLine": 1271,
+        "startChar": 2,
+        "endLine": 1273,
+        "endChar": 0
+      },
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
