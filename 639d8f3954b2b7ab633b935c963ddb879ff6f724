@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2b549ccb_93d12fd2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/floating_ip.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-07-08T08:05:01Z",
+      "side": 1,
+      "message": "Seems reasonable but should be done in  separate change.",
+      "revId": "639d8f3954b2b7ab633b935c963ddb879ff6f724",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5635a2d5_1398683a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-07-08T08:05:01Z",
+      "side": 1,
+      "message": "Should be done in a separate change with commit message explaining why this can be empty and why we are safe to handle it like that. \n\nAlso a comment in the code should be important.",
+      "revId": "639d8f3954b2b7ab633b935c963ddb879ff6f724",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7a3abef5_5ed4102d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_router.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-07-08T08:05:01Z",
+      "side": 1,
+      "message": "A separate change, explaining the reason why ipam_subnets can be not defined and why you are dealing with it like that. Normally I would say a bug should be attached.",
+      "revId": "639d8f3954b2b7ab633b935c963ddb879ff6f724",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d519ca64_85dcc068",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_vnc_cfg_api_server.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-07-08T08:05:01Z",
+      "side": 1,
+      "message": "separate change",
+      "revId": "639d8f3954b2b7ab633b935c963ddb879ff6f724",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5814269c_35d977c7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_perms.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-07-08T08:05:01Z",
+      "side": 1,
+      "message": "separate change, explaining the prupose of it",
+      "revId": "639d8f3954b2b7ab633b935c963ddb879ff6f724",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
