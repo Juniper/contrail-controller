@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "8db0ef68_4d585e3c",
+        "filename": "src/bgp/bgp_server.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 689,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-08T01:04:36Z",
+      "side": 1,
+      "message": "Actually its a typo. the return should be global_config_-\u003enh_check_enabled(). Will correct it and re-submit. Will probably also rename function to reflect it.",
+      "parentUuid": "aab7d4eb_17f74327",
+      "range": {
+        "startLine": 689,
+        "startChar": 12,
+        "endLine": 689,
+        "endChar": 42
+      },
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "173d733a_2aa85a25",
         "filename": "src/bgp/evpn/evpn_table.cc",
         "patchSetId": 22
@@ -48,6 +72,30 @@
     },
     {
       "key": {
+        "uuid": "373c841c_91b3fe88",
+        "filename": "src/bgp/evpn/evpn_table.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 280,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-08T01:04:36Z",
+      "side": 1,
+      "message": "I only did that since we thought it was causing problems. Otherwise, we should be ok to do it for them as well.",
+      "parentUuid": "173d733a_2aa85a25",
+      "range": {
+        "startLine": 279,
+        "startChar": 1,
+        "endLine": 280,
+        "endChar": 1
+      },
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f6d9b188_ef40945e",
         "filename": "src/bgp/inet/inet_table.cc",
         "patchSetId": 22
@@ -65,6 +113,24 @@
     },
     {
       "key": {
+        "uuid": "a80b46fa_ebcc151f",
+        "filename": "src/bgp/inet/inet_table.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-08T01:04:36Z",
+      "side": 1,
+      "message": "I thought of that but we\u0027ll have to differentiate what type of replicated path it is since we want to do it only for VPN -\u003e VRF case. It is easier and more clearer to do it in the table.",
+      "parentUuid": "f6d9b188_ef40945e",
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3aeffae2_a8c8dbd0",
         "filename": "src/bgp/routing-instance/routing_instance.cc",
         "patchSetId": 22
@@ -76,6 +142,30 @@
       "writtenOn": "2020-07-08T00:39:21Z",
       "side": 1,
       "message": "Should we not create path resolvers only when feature is enabled?",
+      "range": {
+        "startLine": 1271,
+        "startChar": 2,
+        "endLine": 1273,
+        "endChar": 0
+      },
+      "revId": "c607931bcb9d15bac29c3f0186927b9504b9ef98",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "100682ae_ad36730e",
+        "filename": "src/bgp/routing-instance/routing_instance.cc",
+        "patchSetId": 22
+      },
+      "lineNbr": 1273,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-08T01:04:36Z",
+      "side": 1,
+      "message": "I think it should be ok to decouple this from the feature since it could potentially be used for other future work too",
+      "parentUuid": "3aeffae2_a8c8dbd0",
       "range": {
         "startLine": 1271,
         "startChar": 2,
