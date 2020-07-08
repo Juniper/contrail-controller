@@ -16,6 +16,7 @@ from builtins import object
 from builtins import str
 import collections
 from future import standard_library
+
 standard_library.install_aliases()
 
 
@@ -119,6 +120,7 @@ class NeutronPluginInterface(object):
                 list_optimization_enabled=self._list_optimization_enabled,
                 apply_subnet_host_routes=apply_sn_route,
                 strict_compliance=self._strict_compliance)
+
     # end _connect_to_db
 
     def _get_user_cfgdb(self, context):
@@ -134,7 +136,7 @@ class NeutronPluginInterface(object):
         # descriptive message/token if there is an error
         user_token = bottle.request.headers.get(
             'X_AUTH_TOKEN', 'no user token for %s %s' %
-            (bottle.request.method, bottle.request.url))
+                            (bottle.request.method, bottle.request.url))
         self._cfgdb._vnc_lib.set_auth_token(user_token)
         return self._cfgdb
 
@@ -157,29 +159,48 @@ class NeutronPluginInterface(object):
 
     def _filter_subnets_by_tags(self, context, request):
         filters = request.get('filters', {})
-        if not filters or 'tags' not in filters and 'tags-any' not in filters:
+        supported_filters = {'tags', 'tags-any', 'not-tags', 'not-tags-any'}
+        if not filters or all(fil not in filters for fil in supported_filters):
             return
 
-        tags_any = 'tags-any' in filters
-        tags = filters.pop('tags-any') if tags_any else filters.pop('tags')
-        if isinstance(tags, six.string_types):
-            tags = tags.split(',')
+        tags = {}
+        for fil in supported_filters:
+            if fil in filters:
+                tags[fil] = filters.pop(fil)
+                if isinstance(tags[fil], six.string_types):
+                    tags[fil] = tags[fil].split(',')
 
-        tags_to_fetch = {'neutron_tag={}'.format(tag) for tag in tags}
+        tags_to_fetch = {}
+        for fil in supported_filters:
+            tags_to_fetch[fil] = {'neutron_tag={}'.format(tag) for tag in
+                                  tags.get(fil, [])}
 
         cfgdb = self._get_user_cfgdb(context)
+        tags_info = cfgdb._subnet_read_tags()
 
-        # create resource map with tags to match
+        # create subnet map with tags to match
         res_map = collections.defaultdict(set)
-        for tag in tags_to_fetch:
-            subnets_ids = cfgdb._subnet_read_by_tag(tag)
+        for tag, subnets_ids in tags_info.items():
             for subnet_id in subnets_ids:
                 res_map[subnet_id].add(tag)
 
-        # filter resource ids to read (full match or match any)
+        # filter subnet ids to read
         res_ids = []
         for res_uuid, res_tags in res_map.items():
-            if tags_any or (not tags_any and res_tags == tags_to_fetch):
+            to_fetch = []
+            if 'tags' in tags:
+                to_fetch.append(
+                    all(tag in res_tags for tag in tags_to_fetch['tags']))
+            if 'tags-any' in tags:
+                to_fetch.append(
+                    any(tag in res_tags for tag in tags_to_fetch['tags-any']))
+            if 'not-tags' in tags:
+                to_fetch.append(not any(
+                    tag in res_tags for tag in tags_to_fetch['not-tags']))
+            if 'not-tags-any' in tags:
+                to_fetch.append(any(tag not in res_tags for tag in
+                                    tags_to_fetch['not-tags-any']))
+            if all(to_fetch):
                 res_ids.append(res_uuid)
 
         # update network filters with resource ids
@@ -187,7 +208,10 @@ class NeutronPluginInterface(object):
 
     def _filter_resources_by_tags(self, res_name, context, request):
         filters = request.get('filters', {})
-        if not filters or 'tags' not in filters and 'tags-any' not in filters:
+        supported_filters = {'tags', 'tags-any', 'not-tags',
+                             'not-tags-any'}
+        if not filters or all(
+                fil not in filters for fil in supported_filters):
             return
 
         resource_to_backref = {
@@ -200,29 +224,47 @@ class NeutronPluginInterface(object):
             'trunk': 'virtual_port_group_back_refs',
         }
 
-        tags_any = 'tags-any' in filters
-        tags = filters.pop('tags-any') if tags_any else filters.pop('tags')
-        if isinstance(tags, six.string_types):
-            tags = tags.split(',')
+        tags = {}
+        for fil in supported_filters:
+            if fil in filters:
+                tags[fil] = filters.pop(fil)
+                if isinstance(tags[fil], six.string_types):
+                    tags[fil] = tags[fil].split(',')
 
         # fetch all backrefs for given tags
-        tag_fields = [resource_to_backref[res_name], 'fq_name']
-        tags_to_fetch = {'neutron_tag={}'.format(tag) for tag in tags}
+        backref_field = resource_to_backref[res_name]
+        tag_fields = [backref_field, 'fq_name']
+        tags_to_fetch = {}
+        for fil in supported_filters:
+            tags_to_fetch[fil] = {'neutron_tag={}'.format(tag) for tag in
+                                  tags.get(fil, [])}
 
         cfgdb = self._get_user_cfgdb(context)
-        tags_info = cfgdb._resource_read_by_tag(tags_to_fetch, tag_fields)
+        tags_info = cfgdb._vnc_lib.tags_list(fields=tag_fields)['tags']
 
         # create resource map with tags to match
         res_map = collections.defaultdict(set)
         for tag_info in tags_info:
-            backref_field = resource_to_backref[res_name]
             for res_backref in tag_info.get(backref_field, []):
                 res_map[res_backref['uuid']].add(tag_info['fq_name'][0])
 
-        # filter resource ids to read (full match or match any)
+        # filter resource ids to read
         res_ids = []
         for res_uuid, res_tags in res_map.items():
-            if tags_any or (not tags_any and res_tags == tags_to_fetch):
+            to_fetch = []
+            if 'tags' in tags:
+                to_fetch.append(
+                    all(tag in res_tags for tag in tags_to_fetch['tags']))
+            if 'tags-any' in tags:
+                to_fetch.append(
+                    any(tag in res_tags for tag in tags_to_fetch['tags-any']))
+            if 'not-tags' in tags:
+                to_fetch.append(not any(
+                    tag in res_tags for tag in tags_to_fetch['not-tags']))
+            if 'not-tags-any' in tags:
+                to_fetch.append(any(tag not in res_tags for tag in
+                                    tags_to_fetch['not-tags-any']))
+            if all(to_fetch):
                 res_ids.append(res_uuid)
 
         # update network filters with resource ids
@@ -321,7 +363,8 @@ class NeutronPluginInterface(object):
                'cidr': subnet['cidr'],
                'allocation_pools': [{'start': pool['first_ip'],
                                      'end': pool['last_ip']}
-                                    for pool in subnet['allocation_pools']],
+                                    for pool in
+                                    subnet['allocation_pools']],
                'gateway_ip': subnet['gateway_ip'],
                'enable_dhcp': subnet['enable_dhcp'],
                'ipv6_ra_mode': subnet['ipv6_ra_mode'],
@@ -388,7 +431,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         subnets_info = cfgdb.subnets_list(context, filters)
-        return json.dumps([self._make_subnet_dict(i) for i in subnets_info])
+        return json.dumps(
+            [self._make_subnet_dict(i) for i in subnets_info])
 
     def plugin_get_subnets_count(self, context, subnet):
         """
@@ -536,7 +580,8 @@ class NeutronPluginInterface(object):
             # non-existent body => clear fip to port assoc per neutron api
             # simulate empty update for backend
             fip_resource = {}
-        floatingip_info = cfgdb.floatingip_update(context, floatingip['id'],
+        floatingip_info = cfgdb.floatingip_update(context,
+                                                  floatingip['id'],
                                                   fip_resource)
         return floatingip_info
 
@@ -677,7 +722,8 @@ class NeutronPluginInterface(object):
         """
 
         cfgdb = self._get_user_cfgdb(context)
-        sg_rule_info = cfgdb.security_group_rule_create(sg_rule['resource'])
+        sg_rule_info = cfgdb.security_group_rule_create(
+            sg_rule['resource'])
         return sg_rule_info
 
     def plugin_delete_sec_group_rule(self, context, sg_rule):
@@ -1169,10 +1215,12 @@ class NeutronPluginInterface(object):
             return json.dumps(
                 cfgdb.firewall_group_list(context, filters, fields))
         elif context['operation'] == 'UPDATE':
-            return cfgdb.firewall_group_update(context, firewall_group['id'],
+            return cfgdb.firewall_group_update(context,
+                                               firewall_group['id'],
                                                firewall_group['resource'])
         elif context['operation'] == 'DELETE':
-            return cfgdb.firewall_group_delete(context, firewall_group['id'])
+            return cfgdb.firewall_group_delete(context,
+                                               firewall_group['id'])
 
     def plugin_http_post_firewall_policy(self):
         """
@@ -1183,10 +1231,12 @@ class NeutronPluginInterface(object):
 
         if context['operation'] == 'CREATE':
             return cfgdb.firewall_policy_create(context,
-                                                firewall_policy['resource'])
+                                                firewall_policy[
+                                                    'resource'])
         elif context['operation'] == 'READ':
             fields = firewall_policy['fields']
-            return cfgdb.firewall_policy_read(context, firewall_policy['id'],
+            return cfgdb.firewall_policy_read(context,
+                                              firewall_policy['id'],
                                               fields)
         elif context['operation'] == 'READALL':
             filters = firewall_policy['filters']
@@ -1194,16 +1244,21 @@ class NeutronPluginInterface(object):
             return json.dumps(
                 cfgdb.firewall_policy_list(context, filters, fields))
         elif context['operation'] == 'UPDATE':
-            return cfgdb.firewall_policy_update(context, firewall_policy['id'],
-                                                firewall_policy['resource'])
+            return cfgdb.firewall_policy_update(context,
+                                                firewall_policy['id'],
+                                                firewall_policy[
+                                                    'resource'])
         elif context['operation'] == 'DELETE':
-            return cfgdb.firewall_policy_delete(context, firewall_policy['id'])
+            return cfgdb.firewall_policy_delete(context,
+                                                firewall_policy['id'])
         elif context['operation'] == 'INSERT_RULE':
             return cfgdb.firewall_policy_insert_rule(
-                context, firewall_policy['id'], firewall_policy['resource'])
+                context, firewall_policy['id'],
+                firewall_policy['resource'])
         elif context['operation'] == 'REMOVE_RULE':
             return cfgdb.firewall_policy_remove_rule(
-                context, firewall_policy['id'], firewall_policy['resource'])
+                context, firewall_policy['id'],
+                firewall_policy['resource'])
 
     def plugin_http_post_firewall_rule(self):
         """
@@ -1336,7 +1391,8 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETEALL':
             return self.plugin_delete_all_tags(context, tags['resource'])
         elif context['operation'] == 'CREATE':
-            return self.plugin_create_or_update_tags(context, tags['resource'])
+            return self.plugin_create_or_update_tags(context,
+                                                     tags['resource'])
 
     def plugin_get_tag(self, context, filters):
         """Get tag.
