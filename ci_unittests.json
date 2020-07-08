@@ -147,7 +147,7 @@
             "controller/src/nodemgr"
         ],
         "scons_test_targets" : [
-            "contrail-nodemgr:test"
+            "sandesh:pysandesh_test"
         ],
         "misc_test_targets" : [ ]
     },
