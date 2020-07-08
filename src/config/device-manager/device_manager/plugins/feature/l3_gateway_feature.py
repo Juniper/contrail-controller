@@ -110,9 +110,8 @@ class L3GatewayFeature(FeatureBase):
         erb_pr_role = self._physical_router.is_erb_only()
         # To make this code in line with monolithic code.
         use_gateway_ip = erb_pr_role
-        if vns:
-            irb_ip_map = self._physical_router.allocate_irb_ips_for(
-                vns, use_gateway_ip)
+        irb_ip_map = self._physical_router.allocate_irb_ips_for(
+            vns, use_gateway_ip)
         for vn_uuid in vns:
             vn_obj = VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)
