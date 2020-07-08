@@ -882,7 +882,7 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             family() == Address::EVPN) {
             fc_family = true;
         }
-        bool fc_enabled = (server()->IsFastConvergenceEnabled() &&
+        bool fc_enabled = (server()->IsNextHopCheckEnabled() &&
                        !rtinstance_->IsMasterRoutingInstance() && fc_family);
         if (new_path->NeedsResolution() || fc_enabled) {
             Address::Family family = new_path->GetAttr()->nexthop_family();
