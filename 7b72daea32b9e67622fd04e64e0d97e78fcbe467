@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "db1dcd8b_6f9dd690",
+        "filename": "src/bgp/test/bgp_cat_control_node_test.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 265,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-07-09T04:21:05Z",
+      "side": 1,
+      "message": "I understand the config team is adding objects. Can we not parse the config file to get the object count. Otherwise, what is the use of this test?",
+      "parentUuid": "0d40dccd_10373397",
+      "revId": "7b72daea32b9e67622fd04e64e0d97e78fcbe467",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3a9c4601_4dcb816a",
         "filename": "src/cat/agent/agent.go",
         "patchSetId": 16
