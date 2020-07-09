@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bbdaf347_635e03fc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-09T17:22:04Z",
+      "side": 1,
+      "message": "Let us send the \"resource_data\" returned from dbe_read as well. this will have additional info \n\nresource_data \u003d \"dbe_read failure: %s\" % resource_data",
+      "revId": "fbaf247df068a33594313fa8238054ac0cfbdd0f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f6e4224e_11e96f79",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-09T17:22:04Z",
+      "side": 1,
+      "message": "Lets do similar to https://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/api_server.py#L894 to L898\n\nthen set \nresource_oper \u003d \"ERROR\"\nresource_data \u003d e\n\nwhich will be put in client queue",
+      "revId": "fbaf247df068a33594313fa8238054ac0cfbdd0f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bcfaa991_c21d732a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-09T17:22:04Z",
+      "side": 1,
+      "message": "Instead of raising exception, can we return (ok, resources) from initialize.\nwatch can check for ok and decide what to do with resources.\n\nNote: resources will contain \"failure info\" in failed scenario.",
+      "revId": "fbaf247df068a33594313fa8238054ac0cfbdd0f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "91e79206_dbae872c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 120,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-09T17:22:04Z",
+      "side": 1,
+      "message": "lets return ok, self.pack(event\u003d\"init\",\n                data\u003d{resource_type + \u0027s\u0027: resources}\n            )",
+      "revId": "fbaf247df068a33594313fa8238054ac0cfbdd0f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6cea45ba_bf7dd828",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-09T17:22:04Z",
+      "side": 1,
+      "message": "Lets do similar to https://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/api_server.py#L894 to L898\n\nthen return (ok, e) \nwhere e is the exception",
+      "revId": "fbaf247df068a33594313fa8238054ac0cfbdd0f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
