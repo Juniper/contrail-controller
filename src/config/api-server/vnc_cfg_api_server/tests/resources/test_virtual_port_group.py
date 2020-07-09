@@ -7,9 +7,11 @@ from builtins import range
 from builtins import str
 import json
 import logging
+import os
 import re
 
 from cfgm_common.exceptions import BadRequest
+from cfgm_common.exceptions import NoIdError
 from cfgm_common.zkclient import ZookeeperLock
 import mock
 from testtools import ExpectedException
@@ -381,6 +383,164 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         with mock.patch.object(ZookeeperLock, '__init__', mocked_init):
             with mock.patch.object(ZookeeperLock, '__enter__', mocked_enter):
                 self.test_reinit_adds_enterprise_annotations()
+
+    # CEM-17208
+    def test_multiple_ae_id_allocation_for_vpg(self):
+        proj_obj, fabric_obj, pr_objs = self._create_prerequisites(
+            create_second_pr=True)
+        test_id = self.id().split('.')[-1]
+        fabric_name = fabric_obj.get_fq_name()
+        vlan_vn_count = 15
+
+        def process_ae_ids(x):
+            return [int(i) for i in sorted(x)]
+
+        def get_zk_ae_ids(prs=None):
+            prefix = os.path.join(
+                self.__class__.__name__,
+                'id', 'aggregated-ethernet')
+            zk_client = self._api_server._db_conn._zk_db._zk_client._zk_client
+            if not prs:
+                prs = [os.path.join(prefix, pr.name) for pr in pr_objs]
+            else:
+                if not isinstance(prs, list):
+                    prs = [prs]
+                prs = [os.path.join(prefix, pr) for pr in prs]
+            ae_ids = {}
+            for pr in prs:
+                pr_org = os.path.split(pr)[-1]
+                ae_ids[pr_org] = zk_client.get_children(pr)
+            return ae_ids
+
+        vlan_ids = range(1, vlan_vn_count + 1)
+        vn_names = ['vn_%s_%s' % (test_id, i)
+                    for i in range(1, vlan_vn_count + 1)]
+        vn_objs = self._create_vns(proj_obj, vn_names)
+
+        vmi_objs = {}
+        # create four PIs, two on each PR
+        pi_objs = {}
+        pi_per_pr = 6
+        pr1_pi_names = ['%s_pr1_pi%d' % (test_id, i) for
+                        i in range(1, pi_per_pr + 1)]
+        pr2_pi_names = ['%s_pr2_pi%d' % (test_id, i) for
+                        i in range(1, pi_per_pr + 1)]
+        pr1_pi_objs = self._create_pi_objects(pr_objs[0], pr1_pi_names)
+        pr2_pi_objs = self._create_pi_objects(pr_objs[1], pr2_pi_names)
+        pi_objs.update(pr1_pi_objs)
+        pi_objs.update(pr2_pi_objs)
+
+        # create VPGs
+        vpg_count = 5
+        vpg_names = ['vpg_%s_%s' % (test_id, i)
+                     for i in range(1, vpg_count + 1)]
+        vpg_objs = self._create_vpgs(fabric_obj, vpg_names)
+
+        # record AE-IDs in ZK before creating any VPG
+        ae_ids = get_zk_ae_ids().values()
+        self.assertEqual(len(filter(None, ae_ids)), 0)
+
+        # create 5 VMIs, 4 PIs (2 from each PR) in VPG-1
+        def _create_vmi_for_test(vpg_index, vpg_pis, vmi_indexes,
+                                 ae_pr_count):
+
+            def process_ae_ids(x):
+                return [int(i) for i in sorted(x)]
+            vpg_pi_fqs = [pi.get_fq_name() for pis in vpg_pis for pi in pis]
+            vmi_infos = []
+            for vmi_id in vmi_indexes:
+                info = {
+                    'name': 'vmi_%s_%s' % (test_id, vmi_id),
+                    'vmi_id': '%s' % vmi_id,
+                    'parent_obj': proj_obj,
+                    'vn': vn_objs[vn_names[vmi_id - 1]],
+                    'vpg': vpg_objs[vpg_names[vpg_index]].uuid,
+                    'fabric': fabric_name,
+                    'pis': vpg_pi_fqs,
+                    'vlan': vlan_ids[vmi_id - 1],
+                    'is_untagged': False}
+                vmi_infos.append(info)
+            vmi_objs_iter = self._create_vmis(vmi_infos)
+            vmi_objs.update(vmi_objs_iter)
+            for vpg_name, vpg_obj in vpg_objs.items():
+                vpg_objs[vpg_name] = self.api.virtual_port_group_read(
+                    id=vpg_obj.uuid)
+
+            # record AE-IDs allocated for each prouter
+            ae_ids = {}
+            vpg_name = vpg_names[vpg_index]
+            pi_refs = vpg_objs[vpg_name].get_physical_interface_refs()
+            self.assertEqual(len(pi_refs), len(vpg_pi_fqs))
+            ae_ids[vpg_name] = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                                for ref in pi_refs}
+            # verify all AE-IDs allocated per prouter are unique
+            self.assertEqual(len(set(ae_ids[vpg_name].keys())),
+                             len(vpg_pi_fqs))
+            self.assertEqual(len(set(ae_ids[vpg_name].values())), 1)
+
+            # verification at Physical Routers
+            pr_ae_ids = get_zk_ae_ids()
+            self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), ae_pr_count)
+            self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[0].name]),
+                             [x for x in range(ae_pr_count)])
+            self.assertEqual(len(pr_ae_ids[pr_objs[1].name]), ae_pr_count)
+            self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[1].name]),
+                             [x for x in range(ae_pr_count)])
+
+        pi_maps = zip(pr1_pi_objs.values(), pr2_pi_objs.values())
+        # Case 1: Create VPG-1
+        vpg1_pis = pi_maps[0:2]
+        _create_vmi_for_test(0, vpg1_pis, range(1, 6), 1)
+
+        # Case 2 : Create VPG-2
+        vpg1_pis = pi_maps[2:4]
+        _create_vmi_for_test(1, vpg1_pis, range(6, 11), 2)
+
+        # Case 3 : Delete VPG-1
+        vpg_index = 0
+        vpg_obj = vpg_objs[vpg_names[vpg_index]]
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        for vmi_ref in vpg_obj.get_virtual_machine_interface_refs():
+            self.api.virtual_machine_interface_delete(id=vmi_ref['uuid'])
+        del vpg_objs[vpg_names[0]]
+        # Now delete VPG-1
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        # Verification at Physical Routers
+        with ExpectedException(NoIdError):
+            self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        pr_ae_ids = get_zk_ae_ids()
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 1)
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 1)
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[0].name]), [1])
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[1].name]), [1])
+
+        # Case 4 : Create VPG-3
+        vpg1_pis = pi_maps[4:6]
+        _create_vmi_for_test(2, vpg1_pis, range(11, 16), 2)
+
+        # cleanup
+        # remove VMIs
+        for _, vmi_obj in vmi_objs.items():
+            try:
+                self.api.virtual_machine_interface_delete(id=vmi_obj.uuid)
+            except NoIdError:
+                pass
+        # remove VNs
+        for _, vn_obj in vn_objs.items():
+            self.api.virtual_network_delete(id=vn_obj.uuid)
+        # remove VPGs
+        for _, vpg_obj in vpg_objs.items():
+            self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        # remove PIs
+        for _, pi_obj in pi_objs.items():
+            self.api.physical_interface_delete(id=pi_obj.uuid)
+        # remove PR
+        for pr_obj in pr_objs:
+            self.api.physical_router_delete(id=pr_obj.uuid)
+        # remove fabric
+        self.api.fabric_delete(id=fabric_obj.uuid)
+        # remove project
+        self.api.project_delete(id=proj_obj.uuid)
 
     def _test_add_new_pi_to_vmi(
             self, proj_obj, fabric_obj, pr_obj, validation):
