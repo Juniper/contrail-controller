@@ -229,22 +229,23 @@ class VncCassandraClient(object):
 
     def _create_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
                     ref_data):
+        j_ref_data = json.dumps(ref_data)
         symmetric_ref_updates = []
         self._cassandra_driver.insert(
              obj_uuid, {'ref:%s:%s' %
-             (ref_obj_type, ref_uuid): json.dumps(ref_data)},
+             (ref_obj_type, ref_uuid): j_ref_data},
              batch=bch)
         if obj_type == ref_obj_type:
             self._cassandra_driver.insert(
                 ref_uuid, {'ref:%s:%s' %
-                (obj_type, obj_uuid): json.dumps(ref_data)},
+                (obj_type, obj_uuid): j_ref_data},
                 batch=bch)
             self.update_last_modified(bch, obj_type, ref_uuid)
             symmetric_ref_updates = [ref_uuid]
         else:
             self._cassandra_driver.insert(
                 ref_uuid, {'backref:%s:%s' %
-                (obj_type, obj_uuid): json.dumps(ref_data)},
+                (obj_type, obj_uuid): j_ref_data},
                 batch=bch)
         # update latest_col_ts on referred object
         if ref_obj_type not in self._obj_cache_exclude_types:
