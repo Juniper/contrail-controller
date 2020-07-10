@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "44869f8b_8fd334d2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 429,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-10T16:53:40Z",
+      "side": 1,
+      "message": "I think we need to check for crud_event.event, if it is \"error\" we need to yield bottle.HTTPError(500, crud_event.data)",
+      "revId": "06f00c82e068fb944d383c04a584c7401fab467c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "127d3fbc_79902fa5",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 3469,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-10T16:53:40Z",
+      "side": 1,
+      "message": "This line is not required, Jim have removed it in his review",
+      "revId": "06f00c82e068fb944d383c04a584c7401fab467c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
