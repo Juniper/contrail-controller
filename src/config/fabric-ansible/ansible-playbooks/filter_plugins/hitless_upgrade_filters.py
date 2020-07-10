@@ -58,7 +58,8 @@ class FilterModule(object):
             'hitless_next_batch': self.get_next_batch,
             'hitless_all_devices': self.get_all_devices,
             'hitless_device_info': self.get_device_info,
-            'hitless_validate': self.validate_critical_roles
+            'hitless_critical_roles': self.validate_critical_roles_for_hitless,
+            'mm_validate': self.validate_critical_roles_for_mm
         }
     # end filters
 
@@ -780,7 +781,7 @@ class FilterModule(object):
 
     # Validate whether fabric will be hitless when the given list of
     # devices go into maintenance mode
-    def validate_critical_roles(self, job_ctx, device_uuid_list):
+    def validate_critical_roles_for_mm(self, job_ctx, device_uuid_list):
         try:
             FilterLog.instance("HitlessUpgradeFilter")
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
@@ -791,7 +792,7 @@ class FilterModule(object):
             self.advanced_parameters = self._get_advanced_params()
             self._cache_job_input()
             self.device_uuid_list = device_uuid_list
-            results = self._validate_critical_roles()
+            results = self._validate_critical_roles_for_mm()
             return results
         except Exception as ex:
             errmsg = "Unexpected error validating: %s\n%s" % (
@@ -802,13 +803,10 @@ class FilterModule(object):
                 'status': 'failure',
                 'error_msg': errmsg,
             }
-    # end hitless_validate
 
-    # Get device info used for maintenance mode activate
-    def _validate_critical_roles(self):
-        error_msg = ''
+    def _get_critical_device_list(self):
         critical_dev_list = []
-        mm_dev_list = []
+        selected_dev_list = []
         dev_list = self.vncapi.physical_routers_list(
             fields=['fabric_refs', 'physical_role_refs',
                     'routing_bridging_roles', 'physical_router_managed_state'
@@ -816,18 +814,22 @@ class FilterModule(object):
         # Search through all devices in fabric and create a critical device
         # list of devices which are active and performing critical roles
         for dev in dev_list:
+            # the devices that are selected for upgrade
             if dev['uuid'] in self.device_uuid_list:
-                mm_dev_list.append(dev)
+                selected_dev_list.append(dev)
                 continue
+            # exclude devices not in the same fabric
             fabric_refs = dev.get('fabric_refs')
             if not fabric_refs:
                 continue
             fabric_uuid = fabric_refs[0]['uuid']
             if fabric_uuid != self.fabric_uuid:
                 continue
+            # devices not selected for upgrade but are in mm
             managed_state = dev.get('physical_router_managed_state')
             if managed_state and managed_state != 'active':
                 continue
+            # if spine ---> then critical
             physical_role_refs = dev.get('physical_role_refs')
             if not physical_role_refs:
                 continue
@@ -835,6 +837,7 @@ class FilterModule(object):
             if physical_role == 'spine':
                 critical_dev_list.append(dev)
                 continue
+            # if a leaf with critical role ---> border leaf
             routing_bridging_roles = dev.get('routing_bridging_roles')
             if routing_bridging_roles:
                 rb_roles = routing_bridging_roles['rb_roles']
@@ -844,7 +847,100 @@ class FilterModule(object):
                 if rb_role in FilterModule.critical_routing_bridging_roles:
                     critical_dev_list.append(dev)
                     break
+        return selected_dev_list, critical_dev_list
+        # end _get_critical_device_list
 
+    def validate_critical_roles_for_hitless(self, job_ctx, image_upgrade_list):
+        try:
+            FilterLog.instance("HitlessUpgradeFilter")
+            self.job_input = FilterModule._validate_job_ctx(job_ctx)
+            self.fabric_uuid = self.job_input['fabric_uuid']
+            self.vncapi = JobVncApi.vnc_init(job_ctx)
+            self.job_ctx = job_ctx
+            self.ja = JobAnnotations(self.vncapi)
+            self.advanced_parameters = self._get_advanced_params()
+            self._cache_job_input()
+            self.image_upgrade_list = image_upgrade_list
+            self.device_uuid_list = []
+            for image_entry in self.image_upgrade_list:
+                device_list = image_entry.get('device_list')
+                self.device_uuid_list.extend(device_list)
+            results = self._validate_critical_roles_for_hitless_upgrade()
+            return results
+        except Exception as ex:
+            errmsg = "Unexpected error validating: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end validate_critical_roles_for_hitless
+
+    def _validate_critical_roles_for_hitless_upgrade(self):
+        error_msg = ''
+        upgrade_dev_list, critical_dev_list = self._get_critical_device_list()
+        critical_routing_bridging_roles_count = {}
+        for critical_routing_bridging_role in\
+                FilterModule.critical_routing_bridging_roles:
+            critical_routing_bridging_roles_count[
+                critical_routing_bridging_role] = 0
+        upgrade_list_spine_count = 0
+        for up_dev in upgrade_dev_list:
+            # check critical physical roles
+            physical_role_refs = up_dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == 'spine':
+                upgrade_list_spine_count += 1
+                continue
+            routing_bridging_roles = up_dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if rb_role in FilterModule.critical_routing_bridging_roles:
+                    critical_routing_bridging_roles_count[rb_role] += 1
+
+        missing_roles = set()
+        if upgrade_list_spine_count == 1:
+            found = self._find_critical_phy_role(
+                    'spine', critical_dev_list)
+            if not found:
+                missing_roles.add(physical_role)
+
+        # check critical routing-bridging roles
+        for rb_role in FilterModule.critical_routing_bridging_roles:
+            if critical_routing_bridging_roles_count[rb_role] == 1:
+                found = self._find_critical_rb_role(
+                    rb_role, critical_dev_list)
+                if not found:
+                    missing_roles.add(rb_role)
+        if missing_roles:
+            error_msg = 'Fabric will not be hitless because these '\
+                        'roles will no longer be deployed: '\
+                        '{}'.format(list(missing_roles))
+
+        if error_msg:
+            results = {
+                'error_msg': error_msg,
+                'status': "failure"
+            }
+        else:
+            results = {
+                'error_msg': "Fabric is hitless",
+                'status': "success"
+            }
+        return results
+    # end _validate_critical_roles_for_hitless_upgrade
+
+    # Get device info used for maintenance mode activate
+    def _validate_critical_roles_for_mm(self):
+        error_msg = ''
+        mm_dev_list, critical_dev_list = self._get_critical_device_list()
         # Make sure critical roles are present in critical devices
         missing_roles = set()
         for mm_dev in mm_dev_list:
@@ -887,7 +983,7 @@ class FilterModule(object):
                 'status': "success"
             }
         return results
-    # end _hitless_validate
+    # end _mm_validate
 
     # Find a particular critical physical role in a list of devices
     def _find_critical_phy_role(self, crit_phy_role, dev_list):
