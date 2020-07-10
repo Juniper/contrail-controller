@@ -10,6 +10,7 @@
     upgrade_mode: "{{playbook_input.input.upgrade_mode}}"
     pr_name: "{{playbook_input.device_fqname[-1]}}"
     pr_uuid: "{{playbook_input.device_id}}"
+    image_upgrade_list: "{{playbook_input.input.image_devices}}"
     upgrade_plan: "{{playbook_input.input.upgrade_plan}}"
     current_index: 0
     is_hitless_upgrade: "{{playbook_input.device_hitless_upgrade}}" #assuming this will be a boolean value
@@ -34,6 +35,10 @@
     - set_fact:
         job_ctx: "{{job_ctx|combine(final_task_array)}}"
 
+    - name: Get advanced parameters
+      set_fact:
+        advanced_params: "{{upgrade_plan.advanced_parameters}}"
+
     - block:
         - name: Run health check only
           include_role:
@@ -51,6 +56,32 @@
           debug:
             var: output
             verbosity: 1
+
+        - block:
+            - name: Validation for critical roles
+              set_fact:
+                critical_role_validation_results: "{{job_ctx | validate_hitless_critical_roles(image_upgrade_list)}}"
+
+            - name: Check for failure
+              block:
+                  - name: Perform the necessary error handling
+                    include_tasks: error_handler.yml
+                    vars:
+                        op_err_message: "{{critical_role_validation_results.error_msg}}"
+                        jl_err_message: "{{critical_role_validation_results.error_msg}}"
+              when: critical_role_validation_results.status == 'failure' and advanced_params.health_check_abort == true
+
+            - name: Update percentage
+              include_tasks: percentage_update.yml
+              vars:
+                jl_message: >
+                  "{{critical_role_validation_results.error_msg}}""
+          when: true
+          # This block is always triggered. After adding checkbox
+          # in the UI for validation of critical roles,
+          # the when condition should be changed to -
+          #when: advanced_params.validate_critical_roles == true
+
       when: upgrade_mode == 'test_run'
 
     - block:
