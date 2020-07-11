@@ -239,6 +239,11 @@ bgp_multicast_test = env.UnitTest('bgp_multicast_test',
                                   ['bgp_multicast_test.cc'])
 env.Alias('src/bgp:bgp_multicast_test', bgp_multicast_test)
 
+bgp_cat_control_node_test = \
+    env.UnitTest('bgp_cat_control_node_test',
+        ['bgp_cat_control_node_test.cc'])
+env.Alias('src/bgp:bgp_cat_control_node_test', bgp_cat_control_node_test)
+
 bgp_ifmap_xmpp_integration_test = \
     env.UnitTest('bgp_ifmap_xmpp_integration_test',
         ['bgp_ifmap_xmpp_integration_test.cc'])
@@ -665,6 +670,7 @@ test_suite = [
     bgp_attr_test,
     bgp_authentication_test,
     bgp_bgpaas_test,
+    bgp_cat_control_node_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
     bgp_dscp_test,
@@ -800,7 +806,19 @@ cat_tests = cat_test_env.TestSuite('cat-test', [ bgp_cat_test ])
 cat_test_env.Alias('controller/src/cat:test', [ cat_tests ])
 
 env.Depends(bgp_cat_test, dependency = [
-    'src/bgp:bgp_ifmap_xmpp_integration_test',
+    'src/bgp:bgp_cat_control_node_test',
+    'contrail-vrouter-agent'
+])
+
+bgp_cat_test_upgrade = env.UnitTest('bgp_cat_test_upgrade', ['bgp_cat_test_upgrade.cc'])
+env.Alias('src/bgp:bgp_cat_test_upgrade', bgp_cat_test_upgrade)
+cat_test_upgrade_env = env.Clone()
+cat_test_upgrade_env['ENV']['CONTRAIL_UT_TEST_TIMEOUT'] = '1200'
+cat_tests_upgrade = cat_test_upgrade_env.TestSuite('cat-test-upgrade', [ bgp_cat_test_upgrade ])
+cat_test_upgrade_env.Alias('controller/src/cat:test_upgrade', [ cat_tests_upgrade ])
+
+env.Depends(bgp_cat_test_upgrade, dependency = [
+    'src/bgp:bgp_cat_control_node_test',
     'contrail-vrouter-agent'
 ])
 
