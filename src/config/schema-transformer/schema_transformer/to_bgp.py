@@ -239,7 +239,6 @@ class SchemaTransformer(object):
             self._args.zk_timeout,
             self._args.yield_in_evaluate,
             print_stats=False)  # print_stats: True for debugging
-
         if st_logger is not None:
             self.logger = st_logger
         else:
@@ -413,7 +412,6 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in reinit routing instance %s: %s" % (
                     si_ri_name, str(e)))
-
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
         VirtualMachineInterfaceST.reinit(zk_timeout=self._args.zk_timeout)

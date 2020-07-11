@@ -29,7 +29,8 @@ class RouteTargetST(ResourceBaseST):
             except Exception as e:
                 cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
-        for ri, val in cls._object_db._rt_cf.get_range():
+        copy_dict = {ri: val for ri, val in cls._object_db._rt_cf.get_range()}
+        for ri, val in copy_dict.items():
             rt = val['rtgt_num']
             rt_key = "target:%s:%s" % (asn, rt)
             if rt_key not in cls:
