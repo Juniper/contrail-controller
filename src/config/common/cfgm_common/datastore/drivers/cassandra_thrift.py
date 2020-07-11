@@ -65,14 +65,14 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         # returns an empty string
         self._generate_url = self.options.generate_url or (lambda x, y: '')
         self._cf_dict = {}
-        self._ro_keyspaces = self.options.ro_keyspaces or {}
-        self._rw_keyspaces = self.options.rw_keyspaces or {}
-        if ((datastore_api.UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
-            (datastore_api.UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
-            self._ro_keyspaces.update(datastore_api.UUID_KEYSPACE)
+        if ((datastore_api.UUID_KEYSPACE_NAME not in self.options.ro_keyspaces) and
+            (datastore_api.UUID_KEYSPACE_NAME not in self.options.rw_keyspaces)):
+            self.options.ro_keyspaces.update(datastore_api.UUID_KEYSPACE)
         self._cassandra_init(server_list)
-        if (((datastore_api.OBJ_SHARED_CF_NAME in self._ro_keyspaces.get(datastore_api.UUID_KEYSPACE_NAME, {}))) or
-             (datastore_api.OBJ_SHARED_CF_NAME in self._rw_keyspaces.get(datastore_api.UUID_KEYSPACE_NAME, {}))):
+        if (((datastore_api.OBJ_SHARED_CF_NAME in self.options.ro_keyspaces.get(
+                datastore_api.UUID_KEYSPACE_NAME, {}))) or
+             (datastore_api.OBJ_SHARED_CF_NAME in self.options.rw_keyspaces.get(
+                 datastore_api.UUID_KEYSPACE_NAME, {}))):
             self._obj_shared_cf = self._cf_dict[datastore_api.OBJ_SHARED_CF_NAME]
 
         self.get_one_col = self._handle_exceptions(self.get_one_col)
@@ -95,11 +95,11 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
-        for ks, cf_dict in list(self._rw_keyspaces.items()):
+        for ks, cf_dict in list(self.options.rw_keyspaces.items()):
             keyspace = self.keyspace(ks)
             self._cassandra_ensure_keyspace(keyspace, cf_dict)
 
-        for ks, _ in list(self._ro_keyspaces.items()):
+        for ks, _ in list(self.options.ro_keyspaces.items()):
             keyspace = self.keyspace(ks)
             self._cassandra_wait_for_keyspace(keyspace)
 
@@ -187,8 +187,8 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
     def _cassandra_init_conn_pools(self):
         socket_factory = self._make_socket_factory()
-        for ks, cf_dict in itertools.chain(list(self._rw_keyspaces.items()),
-                                           list(self._ro_keyspaces.items())):
+        for ks, cf_dict in itertools.chain(list(self.options.rw_keyspaces.items()),
+                                           list(self.options.ro_keyspaces.items())):
             keyspace = self.keyspace(ks)
             pool = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
