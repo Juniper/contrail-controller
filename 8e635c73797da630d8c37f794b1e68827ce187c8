@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "70fe3efa_0c9d047e",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-13T11:22:36Z",
+      "side": 1,
+      "message": "Is CRB-Gateway not required?",
+      "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2d861483_759e9dcd",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-13T11:22:36Z",
+      "side": 1,
+      "message": "have the validate in key also, so that it will be clear from the caller.",
+      "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "14227d25_4bf21681",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1083,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-13T11:22:36Z",
+      "side": 1,
+      "message": "Are you facing any issue with this existing logic?",
+      "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
