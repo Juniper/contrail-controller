@@ -53,7 +53,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term defaul
 {%                         set l2_vrf_export = ri.name+'-export' %}
 {%                         set bridge_domain_name = 'bd-'+(ri.vxlan_id|string) %}
 {%                         set irb_interface = 'irb.'+(ri.virtual_network_id|string)  %}
-{%                         set vn_id  = ri.get('vxlan_id') %}
+{%                         set vxlan_id  = ri.get('vxlan_id') %}
 {%                         set ri_type  = ri.get('routing_instance_type')  %}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vtep-source-interface lo0.0
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} instance-type {{ri_type}}
@@ -63,16 +63,32 @@ set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vrf-import import-
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn extended-vni-list all
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn default-gateway no-gateway-community
-set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} vlan-id none
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} routing-interface {{irb_interface}}
-set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} vxlan vni {{vn_id}}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vrf-import {{l2_vrf_import}}
+{%                         for vlan in device_abstract_config.get('vlans', []) %}
+{%                             set vlan_vxlan_id = vlan.get('vxlan_id','') %}
+{%                             set vlan_name = vlan.get('name','') %}
+{%                             set vlan_id = vlan.get('vlan_id','none') %}
+{%                             if vxlan_id|int() == vlan_vxlan_id|int() %}
+{%                                 set l2_ifs = vlan.get('interfaces', []) %}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{vlan_name}} vlan-id {{vlan_id}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{vlan_name}} description "{{vlan.description}}"
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{vlan_name}} vxlan vni {{vxlan_id}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn extended-vni-list {{vxlan_id}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{vlan_name}} vxlan ingress-node-replication
+{%                                 for l2_if in l2_ifs %}
+{%                                     if not l2_if.name.startswith('irb') %}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{vlan_name}} interface {{l2_if.name}}
+{%                                     endif %}
+{%                                 endfor %}
+{%                             endif %}
+{%                         endfor %}
 {%                         if ('CRB-MCAST-Gateway' in sys_roles) %}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} protocols igmp-snooping proxy
 {%                         endif %}
-{%                         if (vn_id != '') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
+{%                         if (vxlan_id != '') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
 {%                             for export_target in ri.get('export_targets', []) %}
-set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn vni-options vni {{vn_id}} vrf-target {{export_target | rtfilter}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target | rtfilter}}
 {%                             endfor %}
 {%                         endif %}
 {%                     endif %}
