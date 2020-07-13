@@ -153,7 +153,7 @@ class FileSvcUtil(object):  # pragma: no cover
                     insecure=True)
                 self.swift_conn = swiftconn
                 swiftconn.get_account()
-                self.storageurl = swiftconn.url
+                self.storageurl = "/".join(swiftconn.url.split('/')[:-2])
                 break
             except Exception as e:
                 retry_count += 1
@@ -183,14 +183,14 @@ class FileSvcUtil(object):  # pragma: no cover
                 "Update account failed with swift file server: " +
                 str(err))
 
-    def getobjectFileUri(self, filename):
-        return self.getFileObjUri(self.container_name, filename)
+#    def getobjectFileUri(self, filename):
+#        return self.getFileObjUri(self.container_name, filename)
 
-    def getFileObjUri(self, container_name, fileobj_name):
-        return urlparse('/%s/%s' % (container_name, fileobj_name)).path
+#    def getFileObjUri(self, container_name, fileobj_name):
+#        return urlparse('/%s/%s' % (container_name, fileobj_name)).path
 
-    def getObjUrl(self, filename):
-        image_path = self.getobjectFileUri(filename)
+    def getObjUrl(self, device_image_file_uri):
+        image_path = device_image_file_uri
         try:
             image_url = self.getPublicDownloadUrl(image_path)
             return image_url
@@ -224,6 +224,7 @@ def main():
                                      default="temp_url_key"),
             container_name=dict(required=True),
             filename=dict(required=True),
+            device_image_file_uri=dict(required=True),
             connection_retry_count=dict(required=False,
                                         default=5, type='int')),
         supports_check_mode=False)
@@ -241,6 +242,7 @@ def main():
     container_name = m_args['container_name']
     filename = m_args['filename']
     connection_retry_count = m_args['connection_retry_count']
+    device_image_file_uri = m_args['device_image_file_uri']
 
     url = None
     error_msg = ''
@@ -258,7 +260,7 @@ def main():
             connection_retry_count,
             chosen_temp_url_key)
 
-        url = fileutil.getObjUrl(filename)
+        url = fileutil.getObjUrl(device_image_file_uri)
 
         fileutil.close()
 
