@@ -27,6 +27,9 @@ from cfgm_common.datastore.drivers.cassandra_thrift import CassandraDriverThrift
 from cfgm_common.datastore import api as datastore_api
 
 
+JSON_NONE = json.dumps(None)
+
+
 class VncCassandraClient(object):
 
     @staticmethod
@@ -203,11 +206,11 @@ class VncCassandraClient(object):
     def _create_child(self, bch, parent_type, parent_uuid,
                       child_type, child_uuid):
         child_col = {'children:%s:%s' %
-                     (child_type, child_uuid): json.dumps(None)}
+                     (child_type, child_uuid): JSON_NONE}
         self._cassandra_driver.insert(parent_uuid, child_col, batch=bch)
 
         parent_col = {'parent:%s:%s' %
-                      (parent_type, parent_uuid): json.dumps(None)}
+                      (parent_type, parent_uuid): JSON_NONE}
         self._cassandra_driver.insert(child_uuid, parent_col, batch=bch)
 
         # update latest_col_ts on parent object
@@ -229,22 +232,23 @@ class VncCassandraClient(object):
 
     def _create_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
                     ref_data):
+        j_ref_data = json.dumps(ref_data)
         symmetric_ref_updates = []
         self._cassandra_driver.insert(
              obj_uuid, {'ref:%s:%s' %
-             (ref_obj_type, ref_uuid): json.dumps(ref_data)},
+             (ref_obj_type, ref_uuid): j_ref_data},
              batch=bch)
         if obj_type == ref_obj_type:
             self._cassandra_driver.insert(
                 ref_uuid, {'ref:%s:%s' %
-                (obj_type, obj_uuid): json.dumps(ref_data)},
+                (obj_type, obj_uuid): j_ref_data},
                 batch=bch)
             self.update_last_modified(bch, obj_type, ref_uuid)
             symmetric_ref_updates = [ref_uuid]
         else:
             self._cassandra_driver.insert(
                 ref_uuid, {'backref:%s:%s' %
-                (obj_type, obj_uuid): json.dumps(ref_data)},
+                (obj_type, obj_uuid): j_ref_data},
                 batch=bch)
         # update latest_col_ts on referred object
         if ref_obj_type not in self._obj_cache_exclude_types:
@@ -291,16 +295,17 @@ class VncCassandraClient(object):
         else:
             # retain old ref with new ref attr
             new_ref_data = new_ref_infos[ref_obj_type][old_ref_uuid]
+            j_new_ref_data = json.dumps(new_ref_data)
             self._cassandra_driver.insert(
                    obj_uuid,
                    {'ref:%s:%s' % (ref_obj_type, old_ref_uuid):
-                   json.dumps(new_ref_data)},
+                   j_new_ref_data},
                    batch=bch)
             if obj_type == ref_obj_type:
                 self._cassandra_driver.insert(
                     old_ref_uuid,
                     {'ref:%s:%s' % (obj_type, obj_uuid):
-                    json.dumps(new_ref_data)},
+                    j_new_ref_data},
                     batch=bch)
                 self.update_last_modified(bch, obj_type, old_ref_uuid)
                 symmetric_ref_updates = [old_ref_uuid]
@@ -308,7 +313,7 @@ class VncCassandraClient(object):
                 self._cassandra_driver.insert(
                     old_ref_uuid,
                     {'backref:%s:%s' % (obj_type, obj_uuid):
-                    json.dumps(new_ref_data)},
+                    j_new_ref_data},
                     batch=bch)
             # uuid has been accounted for, remove so only new ones remain
             del new_ref_infos[ref_obj_type][old_ref_uuid]
@@ -385,7 +390,7 @@ class VncCassandraClient(object):
         obj_cols['fq_name'] = json.dumps(obj_dict['fq_name'])
         obj_cols['type'] = json.dumps(obj_type)
         if obj_type not in self._obj_cache_exclude_types:
-            obj_cols['META:latest_col_ts'] = json.dumps(None)
+            obj_cols['META:latest_col_ts'] = JSON_NONE
         if 'parent_type' in obj_dict:
             # non config-root child
             parent_type = obj_dict['parent_type']
@@ -475,7 +480,7 @@ class VncCassandraClient(object):
         # Update fqname table
         fq_name_str = ':'.join(obj_dict['fq_name'])
         fq_name_cols = {utils.encode_string(fq_name_str) + ':' + obj_id:
-                        json.dumps(None)}
+                        JSON_NONE}
         if fqname_batch:
             fqname_batch.insert(obj_type, fq_name_cols)
         else:
@@ -639,7 +644,7 @@ class VncCassandraClient(object):
 
         self._cassandra_driver.insert(obj_uuid,
                                       {'META:latest_col_ts':
-                                       json.dumps(None)},
+                                       JSON_NONE},
                                       batch=bch)
     # end update_latest_col_ts
 
