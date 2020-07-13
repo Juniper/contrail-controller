@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "cb8130b9_80bc6d15",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 820
+      },
+      "writtenOn": "2020-07-13T12:00:16Z",
+      "side": 1,
+      "message": "Critical roles are valid only for border leaf in validation scenario, so did not add CRB-Gateway.",
+      "parentUuid": "70fe3efa_0c9d047e",
+      "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "2d861483_759e9dcd",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
         "patchSetId": 3
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "0238b084_9be3a625",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 820
+      },
+      "writtenOn": "2020-07-13T12:00:16Z",
+      "side": 1,
+      "message": "Ack. Will change this.",
+      "parentUuid": "2d861483_759e9dcd",
+      "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "14227d25_4bf21681",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
         "patchSetId": 3
@@ -47,6 +83,24 @@
       "writtenOn": "2020-07-13T11:22:36Z",
       "side": 1,
       "message": "Are you facing any issue with this existing logic?",
+      "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c7c85f10_c203906b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/hitless_upgrade_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1083,
+      "author": {
+        "id": 820
+      },
+      "writtenOn": "2020-07-13T12:00:16Z",
+      "side": 1,
+      "message": "The old logic comparing integer value from the version and comparing them. In scenarios like upgrade from junos version 18.4R2-S4.10 ---\u003e 19.3R2-S1.5, the int values compared will be 1842410 and 193215. This will display downgrade - when it is upgrade.",
+      "parentUuid": "14227d25_4bf21681",
       "revId": "8e635c73797da630d8c37f794b1e68827ce187c8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
