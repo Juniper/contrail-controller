@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "28f86f0e_a3fea57e",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/assign_static_device_ip/templates/juniper.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 73,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-14T12:09:07Z",
+      "side": 1,
+      "message": "If you are adding this, we can remove the juniper_jons.j2 file.",
+      "revId": "cc31a543984eab6ae2f4ca29feec426c13fc987a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
