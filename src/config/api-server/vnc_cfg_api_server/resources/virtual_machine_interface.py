@@ -1515,10 +1515,39 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             prouter_name = link['switch_info']
             pi_fq_name = ['default-global-system-config', prouter_name,
                           phy_interface_name]
-            pi_uuid = db_conn.fq_name_to_uuid('physical_interface', pi_fq_name)
-            phy_interface_uuids.append(pi_uuid)
-            new_pi_to_pr_dict[pi_uuid] = prouter_name
 
+<<<<<<< HEAD   (b58110 Merge "[DM] In cleanup check if base.conf exist and then onl)
+=======
+            try:
+                pi_uuid = db_conn.fq_name_to_uuid('physical_interface',
+                                                  pi_fq_name)
+                phy_interface_uuids.append(pi_uuid)
+                new_pi_to_pr_dict[pi_uuid] = prouter_name
+            except NoIdError:
+                temp_vpg_name = vpg_name or "vpg-internal-missing"
+                msg = 'Unable to attach Physical interface '
+                msg += ('to Virtual Port Group (%s). '
+                        'No such Physical Interface object (%s) exists' % (
+                            temp_vpg_name, pi_fq_name[-1]))
+                return (False, (404, msg))
+        # check if new physical interfaces belongs to some other vpg
+        for uuid in set(phy_interface_uuids):
+            ok, phy_interface_dict = db_conn.dbe_read(
+                obj_type='physical-interface',
+                obj_id=uuid,
+                obj_fields=['name', 'virtual_port_group_back_refs'])
+            if not ok:
+                return (ok, 400, phy_interface_dict)
+
+            vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
+            if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
+                msg = 'Physical interface %s already belong to the vpg %s' %\
+                      (phy_interface_dict.get(
+                          'name', phy_interface_dict['fq_name']),
+                       vpg_refs[0]['to'][-1])
+                return (False, (400, msg))
+
+>>>>>>> CHANGE (047bac [api-server] Added UT for missing pi case for VMI Creation a)
         if vpg_name:  # read the vpg object
             vpg_fq_name = ['default-global-system-config', fabric_name,
                            vpg_name]
