@@ -1515,9 +1515,19 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             prouter_name = link['switch_info']
             pi_fq_name = ['default-global-system-config', prouter_name,
                           phy_interface_name]
-            pi_uuid = db_conn.fq_name_to_uuid('physical_interface', pi_fq_name)
-            phy_interface_uuids.append(pi_uuid)
-            new_pi_to_pr_dict[pi_uuid] = prouter_name
+
+            try:
+                pi_uuid = db_conn.fq_name_to_uuid('physical_interface',
+                                                  pi_fq_name)
+                phy_interface_uuids.append(pi_uuid)
+                new_pi_to_pr_dict[pi_uuid] = prouter_name
+            except NoIdError:
+                temp_vpg_name = vpg_name or "vpg-internal-missing"
+                msg = 'Unable to attach Physical interface '
+                msg += ('to Virtual Port Group (%s). '
+                        'No such Physical Interface object (%s) exists' % (
+                            temp_vpg_name, pi_fq_name[-1]))
+                return (False, (404, msg))
 
         if vpg_name:  # read the vpg object
             vpg_fq_name = ['default-global-system-config', fabric_name,
