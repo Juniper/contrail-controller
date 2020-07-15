@@ -37,4 +37,5 @@ def import_feature_plugins():
     from .telemetry_feature import TelemetryFeature
     from .infra_bms_access_feature import InfraBMSAccessFeature
     from .security_group_feature import SecurityGroupFeature
+    from .pnf_service_chaining_feature import PNFSrvcChainingFeature
 # end import_feature_plugins
