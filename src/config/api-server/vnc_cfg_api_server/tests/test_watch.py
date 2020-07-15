@@ -99,6 +99,15 @@ class TestWatch(test_case.ApiServerTestCase):
         self.assertThat(response.content.decode('utf-8'), Equals(
             'resource_type required in request'))
     # end test_invalid_request
+
+    def test_invalid_resource(self):
+        param = {
+            "resource_type":
+                "virtual_network,virtual_machine_i"}
+
+        response = requests.get(self.url, stream=True, params=param)
+        self.assertEqual(response.status_code, 404)
+    # end test_invalid_resource
 # end TestWatch
 
 
