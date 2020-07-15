@@ -115,15 +115,15 @@
         port: 22
         delay: 0
         sleep: 5
-      when: "prouter_family != 'junos' or routing_engines|length == 1"
+      when: "routing_engines|length == 1"
 
-    - name: Wait for management port to reinitialize - Junos with dual RE
+    - name: Wait for management port to reinitialize - Juniper with dual RE
       wait_for:
         host: "{{ prouter_mgmt_ip }}"
         port: 22
         delay: 30
         sleep: 5
-      when: "prouter_family == 'junos' and routing_engines|length > 1"
+      when: "routing_engines|length > 1"
 
     - name: Commit device specific supplemental config
       include_tasks: "{{ task_file_path }}"

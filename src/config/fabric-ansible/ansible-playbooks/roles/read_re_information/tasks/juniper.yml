@@ -1,0 +1,19 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get routing-engine details
+  juniper_junos_command:
+    commands:
+      - show chassis routing-engine
+    display: xml
+    provider:
+      host: "{{prouter_dynamic_ip}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: show_route_engine_resp
+
+- name: parse the response
+  set_fact:
+    routing_engines : "{{ show_route_engine_resp| json_query('parsed_output')|parse_re_response }}"
