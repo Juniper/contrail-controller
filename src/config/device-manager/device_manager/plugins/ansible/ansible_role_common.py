@@ -1097,6 +1097,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
             if self.ri_map.get(vrf_name):
                 left_ri = self.ri_map.get(vrf_name)
+                left_ri.set_comment("PNF " + left_ri.get_comment())
             else:
                 left_ri = RoutingInstance(name=vrf_name)
                 self.ri_map[vrf_name] = left_ri
@@ -1154,6 +1155,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
             if self.ri_map.get(vrf_name):
                 right_ri = self.ri_map.get(vrf_name)
+                right_ri.set_comment("PNF " + right_ri.get_comment())
             else:
                 right_ri = RoutingInstance(name=vrf_name)
                 self.ri_map[vrf_name] = right_ri
