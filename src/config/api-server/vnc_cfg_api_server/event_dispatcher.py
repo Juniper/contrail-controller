@@ -96,6 +96,9 @@ class EventDispatcher(object):
             resource_oper = notification.get("oper")
             resource_id = notification.get("uuid")
             resource_data = {}
+            status = self._client_queues.get(resource_type, None)
+            if status is None:
+                continue
             if resource_oper == "DELETE":
                 resource_data = {"uuid": resource_id}
             else:
