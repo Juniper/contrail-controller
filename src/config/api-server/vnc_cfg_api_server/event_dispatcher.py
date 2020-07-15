@@ -96,6 +96,9 @@ class EventDispatcher(object):
             resource_oper = notification.get("oper")
             resource_id = notification.get("uuid")
             resource_data = {}
+            if not self._client_queues.get(resource_type, None):
+                # No clients subscribed for this resource type
+                continue
             if resource_oper == "DELETE":
                 resource_data = {"uuid": resource_id}
             else:
