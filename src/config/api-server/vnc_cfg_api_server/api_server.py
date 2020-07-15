@@ -397,6 +397,12 @@ class VncApiServer(object):
             yield bottle.HTTPError(400, err_msg)
         resource_fields = resource_types.split(",")
 
+        for resource in resource_fields:
+            try:
+                r_class = self.get_resource_class(resource)
+            except TypeError:
+                yield bottle.HTTPError(404, "Invalid Contrail resource type:'%s'" % resource)
+
         bottle.response.set_header("Content-Type", "text/event-stream")
         bottle.response.set_header("Cache-Control", "no-cache")
 
