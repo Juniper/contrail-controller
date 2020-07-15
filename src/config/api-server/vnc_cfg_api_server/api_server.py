@@ -4308,7 +4308,7 @@ class VncApiServer(object):
                 _req_obj_dict = req_obj_dict
             (ok, result) = r_class.pre_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
-                prop_collection_updates=req_prop_coll_updates, ref_args=ref_args)
+                prop_collection_updates=req_prop_coll_updates)
             if not ok:
                 return (ok, result)
             attr_to_publish = None
