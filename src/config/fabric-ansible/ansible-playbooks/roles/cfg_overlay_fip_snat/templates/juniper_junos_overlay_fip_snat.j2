@@ -1,7 +1,7 @@
 {%     set ns = namespace(fip_accept_term = false, ipv4 = false, ipv6 = false) %}
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set ri_vn_mode = ri.get('virtual_network_mode') %}
-{%         if (ri_vn_mode == 'l2') or ('l2' in ri.get('name', '')) %}
+{%         if (ri_vn_mode == 'l2') or 'virtual-switch' == ri.get('routing_instance_type', '') %}
 {%             continue %}
 {%         endif %}
 {%         set contrail_l3_ri = ri.get('name', '')[:127] %}
