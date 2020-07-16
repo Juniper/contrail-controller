@@ -1063,9 +1063,6 @@ class VncDbClient(object):
             raise NotImplementedError(msg)
 
         health_check_interval = api_svr_mgr.get_rabbit_health_check_interval()
-        if api_svr_mgr.get_worker_id() > 0:
-            health_check_interval = 0.0
-
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
             rabbit_port, rabbit_user, rabbit_password,
             rabbit_vhost, rabbit_ha_mode, host_ip,
