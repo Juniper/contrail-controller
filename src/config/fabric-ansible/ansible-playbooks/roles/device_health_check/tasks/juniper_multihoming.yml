@@ -21,6 +21,10 @@
       set_fact:
         buddy_details: "{{device_info.vpg_info.buddies}}"
 
+    - name: Set vpg list info
+      set_fact:
+         vpg_list: "{{device_info.vpg_info.vpg_list}}"
+
     - name: Print the buddy details
       debug: var=buddy_details verbosity=1
 
@@ -45,7 +49,7 @@
         - name: Set the multi-homed error flag
           set_fact:
             multi_homed_error_flag: True
-      when: buddy_details|length<=0
+      when: buddy_details|length<=0 and vpg_list|length!=0
 
     - name: Check if multihomed interfaces are up on peer device
       block:

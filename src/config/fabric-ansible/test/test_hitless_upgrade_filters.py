@@ -1548,10 +1548,10 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
 
     def test_validate_critical_roles(self):
         hitless_filter = FilterModule()
-        result = hitless_filter.validate_critical_roles(mock_job_ctx,
+        result = hitless_filter.validate_critical_roles_for_mm(mock_job_ctx,
                                                         [DEV_UUID1])
         self.assertEqual(mock_validate_result, result)
-        result = hitless_filter.validate_critical_roles(mock_job_ctx,
+        result = hitless_filter.validate_critical_roles_for_mm(mock_job_ctx,
                                                         [DEV_UUID1,DEV_UUID4])
         self.assertIn(mock_validate_result_failure['error_msg'],
                       result['error_msg'])
