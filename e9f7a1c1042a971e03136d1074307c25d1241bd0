@@ -34,6 +34,23 @@
       "revId": "e9f7a1c1042a971e03136d1074307c25d1241bd0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "278bade9_23e7f096",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_port_group.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-16T22:58:40Z",
+      "side": 1,
+      "message": "ref_update can fail, \n\nIf failed don\u0027t we need to deallocate the ae-id, which was allocated at line 137 and return error to the user?",
+      "revId": "e9f7a1c1042a971e03136d1074307c25d1241bd0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
