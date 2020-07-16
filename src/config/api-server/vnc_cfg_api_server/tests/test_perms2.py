@@ -1691,6 +1691,82 @@ class TestPermissions(test_case.ApiServerTestCase):
             status_code, result = self.alice.vnc_lib._http_get('/documentation/index.html')
             self.assertThat(status_code, Equals(200))
 
+    def test_vpg_inherit_rbac_api_access_from_vn(self):
+        alice = self.alice
+        bob = self.bob
+        admin = self.admin
+
+        # Create ipam, virtual network, virtual machine interface and
+        # virtual port group as alice in her project
+        project = alice.project_obj
+        resource_name = 'alice-resource-{}'.format(self.id())
+
+        ipam = NetworkIpam(resource_name, parent_obj=project)
+        alice.vnc_lib.network_ipam_create(ipam)
+
+        vn = VirtualNetwork(resource_name, parent_obj=project)
+        vn.add_network_ipam(ipam, VnSubnetsType([
+            IpamSubnetType(SubnetType('1.1.1.0', 28))]))
+        alice.vnc_lib.virtual_network_create(vn)
+
+        vmi = VirtualMachineInterface(resource_name, parent_obj=project)
+        vmi.add_virtual_network(vn)
+        alice.vnc_lib.virtual_machine_interface_create(vmi)
+
+        vpg = VirtualPortGroup(resource_name, parent_obj=project)
+        vpg.add_virtual_machine_interface(vmi)
+        alice.vnc_lib.virtual_port_group_create(vpg)
+
+        # try to read as bob should fail
+        try:
+            bob.vnc_lib.virtual_port_group_read(id=vpg.uuid)
+            self.assertTrue(False,
+                            'Success to read VPG as Bob ... Test failed!')
+        except PermissionDenied:
+            self.assertTrue(True,
+                            'Failed to read VPG as Bob ... Test passes!')
+
+        try:
+            admin.vnc_lib.virtual_port_group_read(id=vpg.uuid)
+            self.assertTrue(True,
+                            'Success to read VPG as admin ... Test passes!')
+        except PermissionDenied:
+            self.assertTrue(False,
+                            'Failed to read VPG as admin ... Test failed!')
+
+    def test_vpg_inherit_rbac_api_access_from_fabric(self):
+        alice = self.alice
+        bob = self.bob
+        admin = self.admin
+
+        resource_name = 'alice-resource-{}'.format(self.id())
+
+        gsc = vnc_read_obj(self.admin.vnc_lib, 'global-system-config',
+                           name=GlobalSystemConfig().fq_name)
+
+        fabric = Fabric(resource_name, parent_obj=gsc)
+        alice.vnc_lib.fabric_create(fabric)
+
+        vpg = VirtualPortGroup(resource_name, parent_obj=fabric)
+        alice.vnc_lib.virtual_port_group_create(vpg)
+
+        # try to read as bob should fail
+        try:
+            bob.vnc_lib.virtual_port_group_read(id=vpg.uuid)
+            self.assertTrue(False,
+                            'Success to read VPG as Bob ... Test failed!')
+        except PermissionDenied:
+            self.assertTrue(True,
+                            'Failed to read VPG as Bob ... Test passes!')
+
+        try:
+            admin.vnc_lib.virtual_port_group_read(id=vpg.uuid)
+            self.assertTrue(True,
+                            'Success to read VPG as admin ... Test passes!')
+        except PermissionDenied:
+            self.assertTrue(False,
+                            'Failed to read VPG as admin ... Test failed!')
+
     def tearDown(self):
         super(TestPermissions, self).tearDown()
     # end tearDown
