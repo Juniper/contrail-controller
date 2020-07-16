@@ -89,6 +89,7 @@ class FilterModule(object):
         device_info = self.abstract_config['system']
         self.device_info = device_info
         self.device_name = device_info['name']
+        self.device_uuid = device_info['uuid']
         self.device_vendor = device_info['vendor_name'].lower()
         self.device_family = device_info['device_family'].lower()
         self.device_model = device_info['product_name']
@@ -248,6 +249,7 @@ class FilterModule(object):
             'device_mgmt_ip': self.device_mgmt_ip,
             'device_vendor': self.device_vendor,
             'device_name': self.device_name,
+            'device_uuid': self.device_uuid,
             'device_username': self.device_username,
             'device_password': "(hidden)",
             'is_delete': self.is_delete,
