@@ -56,7 +56,7 @@
     - block:
         - name: Validate fabric will remain hitless after going into maintenance
           set_fact:
-            validation_results: "{{job_ctx | hitless_validate([pr_uuid])}}"
+            validation_results: "{{job_ctx | mm_validate([pr_uuid])}}"
 
         - name: Update job logs with validation results
           job_objectlog:
