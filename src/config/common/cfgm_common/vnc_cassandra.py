@@ -102,8 +102,6 @@ class VncCassandraClient(object):
 
         self._logger = self._cassandra_driver.options.logger
         self._cache_uuid_to_fq_name = {}
-        self._obj_fq_name_cf = (self._cassandra_driver.
-                                _cf_dict[datastore_api.OBJ_FQ_NAME_CF_NAME])
         self._obj_shared_cf = (self._cassandra_driver.
                                 _cf_dict[datastore_api.OBJ_SHARED_CF_NAME])
 
@@ -482,7 +480,10 @@ class VncCassandraClient(object):
         if fqname_batch:
             fqname_batch.insert(obj_type, fq_name_cols)
         else:
-            self._obj_fq_name_cf.insert(obj_type, fq_name_cols)
+            self._cassandra_driver.insert(
+                cf_name=datastore_api.OBJ_FQ_NAME_CF_NAME,
+                key=obj_type,
+                columns=fq_name_cols)
 
         return (True, symmetric_ref_updates)
     # end object_create
@@ -979,7 +980,6 @@ class VncCassandraClient(object):
                 children_fq_names_uuids.extend(filtered_rows)
 
             else:  # grab all resources of this type
-                obj_fq_name_cf = self._obj_fq_name_cf
                 if paginate_start and paginate_start != '0':
                     start = paginate_start[:-1] + \
                                    chr(ord(paginate_start[-1]) + 1)
@@ -1077,8 +1077,10 @@ class VncCassandraClient(object):
         # Update fqname table
         fq_name_str = ':'.join(fq_name)
         fq_name_col = utils.encode_string(fq_name_str) + ':' + obj_uuid
-        self._obj_fq_name_cf.remove(obj_type,
-                                    columns = [fq_name_col])
+        self._cassandra_driver.remove(
+            cf_name=datastore_api.OBJ_FQ_NAME_CF_NAME,
+            key=obj_type,
+            columns=[fq_name_col])
 
         # Purge map naming cache
         self.cache_uuid_to_fq_name_del(obj_uuid)
