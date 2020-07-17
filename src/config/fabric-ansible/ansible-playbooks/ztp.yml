@@ -97,7 +97,7 @@
       set_fact:
         output: "{{dhcp_output}}"
       when: dhcp_output is defined
-
+     
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
@@ -130,3 +130,21 @@
       vars:
         current_index: 3
         jl_message: "{{ output.results.jl_message if output.status == 'Failure' else output.message }}"
+
+- name: Clean up TFTP and DHCP in case of error
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+    -set_fact:
+        ztp_create: False
+    - import_role:
+        name: ztp_dhcp
+      when output.status == 'Failure'
+    - name: if error, set output and bail
+      set_fact:
+        output: "{{dhcp_output}}"
+      when: output.status == 'Failure'
+     
+  when output.status == 'Failure'
