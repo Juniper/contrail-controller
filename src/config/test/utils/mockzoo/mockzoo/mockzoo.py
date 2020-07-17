@@ -19,11 +19,13 @@ from kazoo.client import KazooClient
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
-zookeeper_version = 'zookeeper-3.4.5'
-zookeeper_dl = '/zookeeper-3.4.5.tar.gz'
+zookeeper_version = 'apache-zookeeper-3.6.1-bin'
+zookeeper_dl = '/apache-zookeeper-3.6.1-bin.tar.gz'
 zookeeper_bdir  = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 
-def start_zoo(cport):
+def start_zoo(cport, zookeeper_ssl_params={'ssl_enable':False, \
+                 'ssl_keyfile':None, 'ssl_certfile':None, 'ssl_ca_cert':None,
+                  'ssl_keystore':None, 'ssl_truststore':None}):
     '''
     Client uses this function to start an instance of zookeeper
     Arguments:
@@ -31,9 +33,11 @@ def start_zoo(cport):
     '''
     if not os.path.exists(zookeeper_bdir):
         output,_ = call_command_("mkdir " + zookeeper_bdir)
-    zookeeper_download = 'wget -O ' + zookeeper_bdir + zookeeper_dl + \
-        ' https://github.com/Juniper/contrail-third-party-cache/blob/master/zookeeper' + \
-        zookeeper_dl + '?raw=true'
+   # zookeeper_download = 'wget -O ' + zookeeper_bdir + zookeeper_dl + \
+   #     ' https://github.com/tungstenfabric/tf-third-party-cache/blob/master/zookeeper' + \
+   #     zookeeper_dl + '?raw=true'
+
+    zookeeper_download = 'wget -O ' + zookeeper_bdir + zookeeper_dl +' https://archive.apache.org/dist/zookeeper/zookeeper-3.6.1/apache-zookeeper-3.6.1-bin.tar.gz'
 
     if not os.path.exists(zookeeper_bdir + zookeeper_dl):
         process = subprocess.Popen(zookeeper_download.split(' '))
@@ -54,16 +58,46 @@ def start_zoo(cport):
 
     logging.info('zookeeper Client Port %d' % cport)
 
-    replace_string_(confdir + "zoo.cfg", \
-        [("dataDir=/tmp/zookeeper", "dataDir="+cassbase),
-         ("clientPort=2181", "clientPort="+str(cport))])
+    if zookeeper_ssl_params['ssl_enable']:
+        replace_string_(confdir + "zoo.cfg", \
+            [("dataDir=/tmp/zookeeper", "dataDir="+cassbase),
+            ("clientPort=2181", "secureClientPort="+str(cport))])
+
+        with open(confdir + "zoo.cfg", 'a') as file:
+            file.write("\nclientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty")
+	    file.write("\nssl.keyStore.location="+zookeeper_ssl_params['ssl_keystore'])
+            file.write("\nssl.keyStore.password=c0ntrail123")
+            file.write("\nssl.trustStore.location="+zookeeper_ssl_params['ssl_truststore'])
+            file.write("\nssl.trustStore.password=c0ntrail123\n")
+
+        with open(cassbase + basefile + "/bin/zkEnv.sh", 'a') as file:
+            tmp="\"-Dzookeeper.serverCnxnFactory=org.apache.zookeeper.server.NettyServerCnxnFactory\""
+            file.write("\nexport SERVER_JVMFLAGS="+tmp+'\n')
+    else:
+        replace_string_(confdir + "zoo.cfg", \
+            [("dataDir=/tmp/zookeeper", "dataDir="+cassbase),
+            ("clientPort=2181", "clientPort="+str(cport))])
 
     replace_string_(cassbase + basefile + "/bin/zkServer.sh", \
         [('_ZOO_DAEMON_OUT="$ZOO_LOG_DIR/', '_ZOO_DAEMON_OUT="%s' % cassbase)])
+    
+   # currentDir = os.getcwd()
+   # os.chdir(cassbase + zookeeper_version)
+   # logging.info("Executing in path %s    %s" % (os.getcwd(), currentDir))
+   # os.system("mvn clean install -Pfull-build -DskipTests")
+   # os.chdir(str(currentDir))
+   
     output,_ = call_command_("chmod +x " + cassbase + basefile + "/bin/zkServer.sh")
     output,_ = call_command_(cassbase + basefile + "/bin/zkServer.sh start")
+ 
+    if zookeeper_ssl_params['ssl_enable']:
+	zk = KazooClient(hosts='127.0.0.1:'+str(cport), use_ssl=True,
+                    keyfile=zookeeper_ssl_params['ssl_keyfile'],
+                    certfile=zookeeper_ssl_params['ssl_certfile'],
+                    ca=zookeeper_ssl_params['ssl_ca_cert'])
+    else:
+    	zk = KazooClient(hosts='127.0.0.1:'+str(cport))
 
-    zk = KazooClient(hosts='127.0.0.1:'+str(cport))
     try:
         zk.start()
     except:
