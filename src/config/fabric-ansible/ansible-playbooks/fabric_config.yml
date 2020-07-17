@@ -18,6 +18,7 @@
         device_mgmt_ip: "{{ render_output.device_mgmt_ip }}"
         device_vendor: "{{ render_output.device_vendor }}"
         device_name: "{{ render_output.device_name }}"
+        device_uuid: "{{ render_output.device_uuid }}"
         device_username: "{{ render_output.device_username }}"
         device_password: "{{ render_output.device_password }}"
         is_delete: "{{ render_output.is_delete }}"
@@ -32,6 +33,18 @@
     - name: Set prouter fqname
       set_fact:
         prouter_fqname: ['default-global-system-config', '{{ device_name }}' ]
+
+    - name: Change onboarding state to underlay_configured
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_onboarding_state": "underlay_configured"
+          }
+      when: is_delete is undefined or is_delete == False
 
     - name: PR objectlog update to set onboarding state
       prouter_objectlog:
