@@ -2,7 +2,7 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-
+from __future__ import print_function
 from builtins import range
 from builtins import str
 import os
@@ -33,6 +33,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] = 'virtio-forwarder'
     portbindings['PORT_FILTER'] = True
     portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
+    portbindings['VIF_TYPE_ETHERNET'] = 'ethernet'
     portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
     portbindings['VHOST_USER_MODE_SERVER'] = 'server'
     portbindings['VHOST_USER_MODE_CLIENT'] = 'client'
@@ -518,7 +519,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     cls._kvps_update(kvps, vif_type)
                     cls._kvps_update(kvps, vif_details)
                 else:
-                    vif_type = {'key': 'vif_type', 'value': None}
+                    vif_type = {
+                        'key': 'vif_type',
+                        'value': cls.portbindings['VIF_TYPE_ETHERNET'],
+                    }
                     cls._kvps_update(kvps, vif_type)
 
         (ok, result) = cls._check_port_security_and_address_pairs(obj_dict)
@@ -762,9 +766,14 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 if not ok:
                     return ok, result
                 elif result:
+                    if kvp_dict_port.get('vnic_type'):
+                        vif_type_val = cls.portbindings['VIF_TYPE_VHOST_USER']
+                    else:
+                        vif_type_val = cls.portbindings['VIF_TYPE_ETHERNET']
+
                     vif_type = {
                         'key': 'vif_type',
-                        'value': cls.portbindings['VIF_TYPE_VHOST_USER'],
+                        'value': vif_type_val,
                     }
                     vif_params = {
                         cls.portbindings['VHOST_USER_MODE']:
