@@ -1,6 +1,6 @@
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
 {%     set bf_global_asn = device_abstract_config.get('system', {}).get('brownfield_global_asn', '') %}
-{%     set tunnel_destinations = device_abstract_config.get('system', {}).get('tunnel_destination_networks', []) %}
+{%     set tunnel_destinations = device_abstract_config.get('features', {}).get('overlay-bgp',{}).get('tunnel_destination_networks', []) %}
 {%     if loopback_ip_list|length > 0 %}
 {%         set loopback_ip = loopback_ip_list[0] %}
 {%         if loopback_ip %}
