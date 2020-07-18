@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ed953bb2_721f4724",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-07-18T01:22:11Z",
+      "side": 1,
+      "message": "Check if this conflicts with changes done wrt to https://review.opencontrail.org/c/Juniper/contrail-controller/+/59781. For ES/ERB we need not add all LI to abstract config.",
+      "revId": "757be942f586b247cc95594439638e1a22e645b7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b1177419_0338589a",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 221,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-07-18T01:22:11Z",
+      "side": 1,
+      "message": "Build interface seems to be called from multiple feature configs. Could you check if we can carve out common functionality and move as part of physical_router member function in db.py. Not major though we can to this post release.",
+      "revId": "757be942f586b247cc95594439638e1a22e645b7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
