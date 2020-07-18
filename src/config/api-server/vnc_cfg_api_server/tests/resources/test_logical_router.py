@@ -661,3 +661,57 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             self._vnc_lib.logical_router_update(lr)
 
         logger.debug('PASS: Could not update LR from SNAT to VXLAN')
+
+    def test_delete_lr_missing_vn_refs(self):
+        # Get Project Ref
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        lr = LogicalRouter(
+            'router-test-missing_vn_refs-%s'
+            % (self.id()), project)
+
+        lr.set_logical_router_type('vxlan-routing')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        # Create a VN Object
+        vn = VirtualNetwork('%s-vn' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn)
+        # Create a Virtual Machine Interface that does not have VN Ref
+        id_perms = IdPermsType(enable=True)
+        vmi_no_vn_ref = VirtualMachineInterface(
+            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
+
+        vmi_no_vn_ref.set_virtual_network(vn)
+        vmi_uuid = self._vnc_lib.virtual_machine_interface_create(
+            vmi_no_vn_ref)
+        # Do not associate VN Ref to VMI and create
+        lr.add_virtual_machine_interface(vmi_no_vn_ref)
+        self._vnc_lib.logical_router_update(lr)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+        vn_refs = vmi_obj.get_virtual_network_refs()
+        vn_uuid = vn_refs[0]['uuid']
+        self._vnc_lib.ref_update(
+            'virtual_machine_interface', vmi_uuid,
+            'virtual_network', vn_uuid, None, 'DELETE')
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+        vn_refs = vmi_obj.get_virtual_network_refs()
+        self.assertIsNone(vn_refs)
+
+        # Create a VN Object
+        vn2 = VirtualNetwork('%s-vn2' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn2)
+        # Create a Virtual Machine Interface that does not have VN Ref
+        vmi_no_vn_ref_2 = VirtualMachineInterface(
+            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
+
+        vmi_no_vn_ref_2.set_virtual_network(vn2)
+        self._vnc_lib.virtual_machine_interface_create(
+            vmi_no_vn_ref_2)
+        # Do not associate VN Ref to VMI and create
+        lr.add_virtual_machine_interface(vmi_no_vn_ref_2)
+        self._vnc_lib.logical_router_update(lr)
+        # Deleting directly from api-server as api server
+        # will not allow deletion
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
