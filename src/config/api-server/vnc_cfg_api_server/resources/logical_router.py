@@ -46,8 +46,10 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                 db_conn, 'virtual_machine_interface', vmi_ref['uuid'])
             if not ok:
                 return ok, vmi_result
-            interface_vn_uuids.append(
-                vmi_result['virtual_network_refs'][0]['uuid'])
+
+            if vmi_result.get('virtual_network_refs'):
+                interface_vn_uuids.append(
+                    vmi_result['virtual_network_refs'][0]['uuid'])
             for vn_ref in vn_refs:
                 if vn_ref['uuid'] in interface_vn_uuids:
                     msg = ("Logical router interface and gateway cannot be in"
