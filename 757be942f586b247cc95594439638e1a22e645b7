@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "85b09ca0_5c0cd3e2",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-07-18T01:43:22Z",
+      "side": 1,
+      "message": "Yes factored this as part of next checkin.",
+      "parentUuid": "ed953bb2_721f4724",
+      "revId": "757be942f586b247cc95594439638e1a22e645b7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b1177419_0338589a",
         "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
         "patchSetId": 27
@@ -33,6 +51,24 @@
       "revId": "757be942f586b247cc95594439638e1a22e645b7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c219b1f5_5e7e1829",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 221,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-07-18T01:43:22Z",
+      "side": 1,
+      "message": "Yeah. Shall open a tracking bug to clean up redundant codes.",
+      "parentUuid": "b1177419_0338589a",
+      "revId": "757be942f586b247cc95594439638e1a22e645b7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
