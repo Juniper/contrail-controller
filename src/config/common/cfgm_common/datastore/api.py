@@ -133,6 +133,21 @@ class API(Trace):
         # by anything else.
         self._generate_url = self.options.generate_url
 
+        # This dict handle the CFs session initialized to interact
+        # with Cassandra.
+        self._cf_dict = {}
+
+        # TODO(sahid): The usage of ro_keyspaces/rw_keyspaces is not
+        # clear and probably does not provide the isolation that we
+        # want.
+        if ((UUID_KEYSPACE_NAME not in self.options.ro_keyspaces) and
+            (UUID_KEYSPACE_NAME not in self.options.rw_keyspaces)):
+            # UUID_KEYSPACE_NAME represents the main keyspace used by
+            # api-server. It is not expected that any other services
+            # to write on it. If the driver is not initialized with
+            # special requierment for it, we set as read-only mode.
+            self.options.ro_keyspaces.update(UUID_KEYSPACE)
+
     @abc.abstractmethod
     def _Get_CF_Batch(self, cf_name, keyspace_name=None):
         pass
