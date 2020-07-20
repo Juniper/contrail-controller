@@ -138,7 +138,16 @@ class TestWatchIntegration(test_case.ApiServerTestCase):
         param = {
             "resource_type":
                 "virtual_network,virtual_machine_interface,routing_instance"}
-        self.count = 0
+        expected_event_list = [
+            "init",
+            "init",
+            "init",
+            "create",
+            "create",
+            "create",
+            "create",
+            "update"]
+        self.event_index = 0
 
         def watch_client():
             self.stream_response = requests.get(
@@ -146,14 +155,21 @@ class TestWatchIntegration(test_case.ApiServerTestCase):
             client = sseclient.SSEClient(self.stream_response)
             for event in client.events():
                 logger.info('%s: %s' % (event.event, event.data))
-                self.count += 1
+                if self.event_index < len(expected_event_list):
+                    self.assertThat(event.event, Equals(
+                        expected_event_list[self.event_index]))
+                    self.event_index += 1
+            return
 
-        gevent.spawn(watch_client)
-        num_vn = 1
-        vn_objs, ri_objs, vmi_objs, x = self._create_vn_ri_vmi(num_vn)
-        gevent.sleep(0.1)
-        self.assertThat(self.stream_response.status_code, Equals(200))
-        self.assertEqual(self.count, 8)
+        try:
+            greenlet = gevent.spawn(watch_client)
+            num_vn = 1
+            vn_objs, ri_objs, vmi_objs, x = self._create_vn_ri_vmi(num_vn)
+            gevent.sleep(0)
+            greenlet.get(timeout=5)
+        except gevent.timeout.Timeout as e:
+            logger.info("Request failed")
+            self.assertFalse(False, greenlet.successful())
     # end test_watch
 # end TestWatchIntegration
 
