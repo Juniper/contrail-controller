@@ -1732,10 +1732,7 @@ class DBInterface(object):
                 sgr_q['protocol'] = 'any'
 
             invalid = False
-            protos = ['any',
-                      constants.PROTO_NAME_TCP,
-                      constants.PROTO_NAME_UDP,
-                      constants.PROTO_NAME_ICMP]
+            protos = ['any'] + list(constants.IP_PROTOCOL_MAP.keys())
             if sgr_q['protocol'].isdigit():
                 protocol = int(sgr_q['protocol'])
                 if protocol < 0 or protocol > 255:
