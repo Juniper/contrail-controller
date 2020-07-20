@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4706e401_fc19eec5",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_watch.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 142,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-20T22:27:53Z",
+      "side": 1,
+      "message": "Can you rename event_list to expected_event_list and self.i to event_index",
+      "revId": "67af24900db8e022458540e6fe5c4f933d2f8a13",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5230ecc7_648295af",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_watch.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-20T22:27:53Z",
+      "side": 1,
+      "message": "If the test hits this line, we should  fail the test, as the events are not received by watch_client in 5  secs",
+      "revId": "67af24900db8e022458540e6fe5c4f933d2f8a13",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
