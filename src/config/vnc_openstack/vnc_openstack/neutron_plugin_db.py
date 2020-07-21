@@ -661,45 +661,14 @@ class DBInterface(object):
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
     # end _resource_delete
 
-    def _resource_read_by_tag(self, tags, fields=None):
-        """Resource read by tag method is a part of OpenStack TAG support.
+    def _subnet_read_tags(self):
+        """Subnet read tags method is a part of OpenStack TAG support.
 
-        In case of filtering resources by tags, we need to get backrefs
-        for all given tags.
+        In case of filtering subnets by tags, we need to get a dict containing
+        lists of UUID stored in KV (one list per tag). The key is a tag FQName,
+        and the value is a comma separated list of subnet UUIDs.
 
-        Make sure to run performance test before and after any change in
-        this function. Any change that slows down execution of filtering by
-        tags has to be accepted by a reviewer.
-
-        You can find 3 simple perf test in:
-        `vnc_openstack/tests/test_tags.py:TestVirtualNetworkNeutronTags` class.
-        Unskip them and run individually.
-
-        :param tags: List of tag's FQNames
-        :param fields: List of fields to query
-        :return: list of :class:`.Tag` objects
-        """
-        tags_list = self._vnc_lib.tags_list(fields=fields)
-        return [t for t in tags_list['tags'] if t['fq_name'][0] in tags]
-    # end _resource_read_by_tag
-
-    def _subnet_read_by_tag(self, tag):
-        """Subnet read by tag method is a part of OpenStack TAG support.
-
-        In case of filtering subnets by tags, we need to get a list of UUID
-        stored in KV. The key is a tag FQName, and the value
-        is a comma separated list of subnet UUIDs.
-
-        Make sure to run performance test before and after any change in
-        this function. Any change that slows down execution of filtering by
-        tags has to be accepted by a reviewer.
-
-        You can find 3 simple perf test in:
-        `vnc_openstack/tests/test_tags.py:TestSubnetNeutronTags` class.
-        Unskip them and run individually.
-
-        :param tag: :class:`str` with tag FQName
-        :return: List of :class:`str` UUIDs
+        :return: Dict of tags where each is a list of :class:`str` UUIDs
         """
         tag_to_sub_key = _NEUTRON_TAG_TO_SUBNETS
         try:
@@ -708,10 +677,8 @@ class DBInterface(object):
         except vnc_exc.NoIdError:
             neutron_tag_to_subnets = {}
 
-        if tag not in neutron_tag_to_subnets:
-            return []
-        return neutron_tag_to_subnets[tag]
-    # end _subnet_read_by_tag
+        return neutron_tag_to_subnets
+    # end _subnet_read_tags
 
     def _resource_add_tags(self, obj, tags):
         """Resource add tags method is a part of OpenStack TAG support.

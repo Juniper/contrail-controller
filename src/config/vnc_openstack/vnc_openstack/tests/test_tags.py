@@ -156,6 +156,121 @@ class NeutronTagsTestCase(test_case.NeutronBackendTestCase):
             self.assertIn(res['id'], expected_uuids)
             self.assertGreaterEqual(len(res['tags']), 1)
 
+    def assert_multiple_not_tags_match(self, resource_name, resources, tags):
+        """Assert all resources with not-tag match have been fetched.
+
+        :param (str) resource_name: Name of resource to check
+        :param (dict) resources: Dict with tag:vnc_resource pairs
+        :param (list[str]) tags: List of tags to test
+        """
+        result = self.list_resource(
+            resource_name,
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'not-tags': tags,
+            },
+        )
+        # check if response is not empty
+        self.assertIsNotNone(result)
+
+        # check virtual network count
+        expected_count = len(ALL_TAGS) - len(tags)
+        self.assertEqual(expected_count, len(result))
+        # check if virtual network uuid match
+        expected_uuids = [resources[tag].uuid for tag in
+                          set(ALL_TAGS) - set(tags)]
+        for res in result:
+            self.assertIn(res['id'], expected_uuids)
+            self.assertGreaterEqual(len(res['tags']), 1)
+
+    def assert_multiple_not_tags_any_match(self, resource_name, resources,
+                                           tags):
+        """Assert all resources with not-tags-any match have been fetched.
+
+        :param (str) resource_name: Name of resource to check
+        :param (dict) resources: Dict with tag:vnc_resource pairs
+        :param (list[str]) tags: List of tags to test
+        """
+        result = self.list_resource(
+            resource_name,
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'not-tags-any': tags,
+            },
+        )
+        # check if response is not empty
+        self.assertIsNotNone(result)
+
+        if len(tags) == 1:
+            expected_count = len(ALL_TAGS) - 1
+            expected_uuids = [resources[tag].uuid for tag in
+                              set(ALL_TAGS) - set(tags)]
+        else:
+            expected_count = len(ALL_TAGS)
+            expected_uuids = [resources[tag].uuid for tag in ALL_TAGS]
+        # check virtual network count
+        self.assertEqual(expected_count, len(result))
+        # check if virtual network uuid match
+        for res in result:
+            self.assertIn(res['id'], expected_uuids)
+            self.assertGreaterEqual(len(res['tags']), 1)
+
+    def assert_tags_and_not_tags_single_res_match(self, resource_name,
+                                                  resource, tags, not_tags):
+        """Assert only one resource with match for both tags and not-tags
+        filters.
+
+        :param (str) resource_name: Name of resource to check
+        :param (obj) resource: VNC resource object
+        :param (list[str]) tags: List of tags to test
+        :param (list[str]) not_tags: List of not_tags to test
+        """
+        result = self.list_resource(
+            resource_name,
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'tags': tags,
+                'not-tags': not_tags
+            },
+        )
+        # check if response is not empty
+        self.assertIsNotNone(result)
+
+        # check virtual network count
+        expected_count = 1
+        self.assertEqual(expected_count, len(result))
+        # check if virtual network uuid match
+        self.assertEqual(resource.uuid, result[0]['id'])
+
+    def assert_tags_and_not_tags_double_res_match(self, resource_name,
+                                                  resources, tags, not_tags):
+        """Assert two resources with match for both tags and not-tags
+        filters.
+
+        :param (str) resource_name: Name of resource to check
+        :param (list) resources: list of VNC resource objects
+        :param (list[str]) tags: List of tags to test
+        :param (list[str]) not_tags: List of not_tags to test
+        """
+        result = self.list_resource(
+            resource_name,
+            proj_uuid=self.project.uuid,
+            req_filters={
+                'tags': tags,
+                'not-tags': not_tags
+            },
+        )
+        # check if response is not empty
+        self.assertIsNotNone(result)
+
+        # check virtual network count
+        expected_count = 2
+        self.assertEqual(expected_count, len(result))
+        # check if virtual network uuid match
+        expected_uuids = [res.uuid for res in resources]
+        for res in result:
+            self.assertIn(res['id'], expected_uuids)
+
     def assert_tags_exist(self, resource, expected_tags):
         tags = resource.get_tag_refs()
         self.assertEqual(len(tags), len(expected_tags))
@@ -356,6 +471,52 @@ class TestVirtualNetworkNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='network',
                                                 resources=self.vns,
                                                 tags=tag_case)
+
+    def test_query_all_virtual_network_with_match_not(self):
+        """Query virtual networks filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='network',
+                                                resources=self.vns,
+                                                tags=tag_case)
+
+    def test_query_all_virtual_network_with_match_not_any(self):
+        """Query virtual networks filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='network',
+                                                    resources=self.vns,
+                                                    tags=tag_case)
+
+    def test_query_virtual_network_with_tag_and_not_tag(self):
+        """Query virtual networks filtering by both tags and not-tags."""
+        vn = VirtualNetwork('vn-{}_{}-{}'.format(TAG_BLUE, TAG_WHITE,
+                                                 self.id()))
+        vn.add_tag(self._get_tag(TAG_BLUE))
+        vn.add_tag(self._get_tag(TAG_WHITE))
+        vn.uuid = self.api.virtual_network_create(vn)
+
+        self.assert_tags_and_not_tags_single_res_match(resource_name='network',
+                                                       resource=self.vns[
+                                                           TAG_BLUE],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(resource_name='network',
+                                                       resources=[
+                                                           self.vns[TAG_BLUE],
+                                                           vn],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
 
     def test_query_virtual_network_with_multiple_filters(self):
         vn = VirtualNetwork('vn-multifilter-{}'.format(self.id()),
@@ -640,6 +801,66 @@ class TestFloatingIpNeutronTags(NeutronTagsTestCase):
                                                 resources=self.fips,
                                                 tags=tag_case)
 
+    def test_query_all_floating_ip_with_match_not_any(self):
+        """Query floating IPs filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='floatingip',
+                                                    resources=self.fips,
+                                                    tags=tag_case)
+
+    def test_query_all_floating_ip_with_match_not(self):
+        """Query floating IPs filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='floatingip',
+                                                resources=self.fips,
+                                                tags=tag_case)
+
+    def test_query_all_floating_ip_with_match_not_any(self):
+        """Query floating IPs filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='floatingip',
+                                                    resources=self.fips,
+                                                    tags=tag_case)
+
+    def test_query_floating_ip_with_tag_and_not_tag(self):
+        """Query floating IPs filtering by both tags and not-tags."""
+        fip = FloatingIp("fip-{}_{}-{}".format(TAG_BLUE, TAG_WHITE,
+                                               self.id()), self.fip_pool)
+        fip.set_project(self.project)
+        fip.add_tag(self._get_tag(TAG_BLUE))
+        fip.add_tag(self._get_tag(TAG_WHITE))
+        fip.uuid = self.api.floating_ip_create(fip)
+
+        self.assert_tags_and_not_tags_single_res_match(
+            resource_name='floatingip',
+            resource=self.fips[TAG_BLUE],
+            tags=[TAG_BLUE],
+            not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(
+            resource_name='floatingip',
+            resources=[
+                self.fips[TAG_BLUE],
+                fip],
+            tags=[TAG_BLUE],
+            not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.floating_ip_delete(id=fip.uuid)
+
     def test_create_floating_ip_with_pre_created_tag(self):
         test_cases = [
             [TAG_RED],
@@ -745,6 +966,53 @@ class TestRouterNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='router',
                                                 resources=self.lrs,
                                                 tags=tag_case)
+
+    def test_query_all_logical_routers_with_match_not(self):
+        """Query logical routers filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='router',
+                                                resources=self.lrs,
+                                                tags=tag_case)
+
+    def test_query_all_logical_routers_with_match_not_any(self):
+        """Query logical routers filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='router',
+                                                    resources=self.lrs,
+                                                    tags=tag_case)
+
+    def test_query_logical_router_with_tag_and_not_tag(self):
+        """Query logical routers filtering by both tags and not-tags."""
+        lr = LogicalRouter("lr-{}_{}-{}".format(TAG_BLUE, TAG_WHITE,
+                                                self.id()),
+                           parent_obj=self.project)
+        lr.add_tag(self._get_tag(TAG_BLUE))
+        lr.add_tag(self._get_tag(TAG_WHITE))
+        lr.uuid = self.api.logical_router_create(lr)
+
+        self.assert_tags_and_not_tags_single_res_match(resource_name='router',
+                                                       resource=self.lrs[
+                                                           TAG_BLUE],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(resource_name='router',
+                                                       resources=[
+                                                           self.lrs[TAG_BLUE],
+                                                           lr],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.logical_router_delete(id=lr.uuid)
 
     def test_create_logical_router_with_pre_created_tag(self):
         test_cases = [
@@ -865,6 +1133,55 @@ class TestPortNeutronTags(NeutronTagsTestCase):
                                                 resources=self.vmis,
                                                 tags=tag_case)
 
+    def test_query_all_virtual_machine_interface_with_match_not(self):
+        """Query virtual machine interfaces filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='port',
+                                                resources=self.vmis,
+                                                tags=tag_case)
+
+    def test_query_all_virtual_machine_interface_with_match_not_any(self):
+        """Query virtual machine interfaces filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='port',
+                                                    resources=self.vmis,
+                                                    tags=tag_case)
+
+    def test_query_virtual_machine_interfaces_with_tag_and_not_tag(self):
+        """Query virtual machine interfaces filtering by both tags
+        and not-tags."""
+        vmi = VirtualMachineInterface(
+            'vmi-{}_{}-{}'.format(TAG_BLUE, TAG_WHITE, self.id()),
+            parent_obj=self.project)
+        vmi.set_virtual_network(self.vn)
+        vmi.add_tag(self._get_tag(TAG_BLUE))
+        vmi.add_tag(self._get_tag(TAG_WHITE))
+        vmi.uuid = self.api.virtual_machine_interface_create(vmi)
+
+        self.assert_tags_and_not_tags_single_res_match(resource_name='port',
+                                                       resource=self.vmis[
+                                                           TAG_BLUE],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(resource_name='port',
+                                                       resources=[
+                                                           self.vmis[TAG_BLUE],
+                                                           vmi],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.virtual_machine_interface_delete(id=vmi.uuid)
+
     def test_create_virtual_machine_interface_with_pre_created_tag(self):
         test_cases = [
             [TAG_RED],
@@ -969,6 +1286,55 @@ class TestSecurityGroupNeutronTags(NeutronTagsTestCase):
                                                 resources=self.sgs,
                                                 tags=tag_case)
 
+    def test_query_all_security_groups_with_match_not(self):
+        """Query security groups filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(
+                resource_name='security_group',
+                resources=self.sgs,
+                tags=tag_case)
+
+    def test_query_all_security_groups_with_match_not_any(self):
+        """Query security groups filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(
+                resource_name='security_group',
+                resources=self.sgs,
+                tags=tag_case)
+
+    def test_query_security_group_with_tag_and_not_tag(self):
+        """Query security group filtering by both tags and not-tags."""
+        sg = SecurityGroup('sg-{}_{}-{}'.format(TAG_BLUE, TAG_WHITE,
+                                                self.id()),
+                           parent_obj=self.project)
+        sg.add_tag(self._get_tag(TAG_BLUE))
+        sg.add_tag(self._get_tag(TAG_WHITE))
+        sg.uuid = self.api.security_group_create(sg)
+
+        self.assert_tags_and_not_tags_single_res_match(
+            resource_name='security_group',
+            resource=self.sgs[TAG_BLUE],
+            tags=[TAG_BLUE],
+            not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(
+            resource_name='security_group',
+            resources=[self.sgs[TAG_BLUE],
+                       sg],
+            tags=[TAG_BLUE],
+            not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.security_group_delete(id=sg.uuid)
+
     def test_create_security_group_with_pre_created_tag(self):
         test_cases = [
             [TAG_RED],
@@ -1071,6 +1437,53 @@ class TestNetworkPolicyNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='policy',
                                                 resources=self.nps,
                                                 tags=tag_case)
+
+    def test_query_all_network_policies_with_match_not(self):
+        """Query network policies filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='policy',
+                                                resources=self.nps,
+                                                tags=tag_case)
+
+    def test_query_all_network_policies_with_match_not_any(self):
+        """Query network policies filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='policy',
+                                                    resources=self.nps,
+                                                    tags=tag_case)
+
+    def test_query_network_policy_with_tag_and_not_tag(self):
+        """Query network policy filtering by both tags and not-tags."""
+        np = NetworkPolicy('np-{}_{}-{}'.format(TAG_BLUE, TAG_WHITE,
+                                                self.id()),
+                           parent_obj=self.project)
+        np.add_tag(self._get_tag(TAG_BLUE))
+        np.add_tag(self._get_tag(TAG_WHITE))
+        np.uuid = self.api.network_policy_create(np)
+
+        self.assert_tags_and_not_tags_single_res_match(resource_name='policy',
+                                                       resource=self.nps[
+                                                           TAG_BLUE],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(resource_name='policy',
+                                                       resources=[
+                                                           self.nps[TAG_BLUE],
+                                                           np],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.network_policy_delete(id=np.uuid)
 
     def test_create_network_policy_with_pre_created_tag(self):
         test_cases = [
@@ -1203,6 +1616,55 @@ class TestVirtualPortGroupNeutronTags(NeutronTagsTestCase):
                                                 resources=self.vpgs,
                                                 tags=tag_case)
 
+    def test_query_all_virtual_port_groups_with_match_not(self):
+        """Query network policies filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='trunk',
+                                                resources=self.vpgs,
+                                                tags=tag_case)
+
+    def test_query_all_virtual_port_groups_with_match_not_any(self):
+        """Query network policies filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='trunk',
+                                                    resources=self.vpgs,
+                                                    tags=tag_case)
+
+    def test_query_virtual_port_group_with_tag_and_not_tag(self):
+        """Query virtual port group filtering by both tags and not-tags."""
+        vpg = VirtualPortGroup('vpg-{}_{}-{}'.format(TAG_BLUE, TAG_WHITE,
+                                                     self.id()),
+                               parent_obj=self.project)
+        vpg.set_virtual_port_group_trunk_port_id(self.vmi.uuid)
+        vpg.add_tag(self._get_tag(TAG_BLUE))
+        vpg.add_tag(self._get_tag(TAG_WHITE))
+        vpg.uuid = self.api.virtual_port_group_create(vpg)
+
+        self.assert_tags_and_not_tags_single_res_match(resource_name='trunk',
+                                                       resource=self.vpgs[
+                                                           TAG_BLUE],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(resource_name='trunk',
+                                                       resources=[
+                                                           self.vpgs[TAG_BLUE],
+                                                           vpg],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.ref_relax_for_delete(vpg.uuid, self.vmi.uuid)
+        self.api.virtual_port_group_delete(id=vpg.uuid)
+
     def test_create_virtual_port_group_with_pre_created_tag(self):
         test_cases = [
             [TAG_RED],
@@ -1298,8 +1760,8 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
 
     def _pre_create_kv_subnet_tags(self):
         self.sns = {}
-        subnet_to_neutron_tags = {}
-        neutron_tag_to_subnets = {}
+        self.subnet_to_neutron_tags = {}
+        self.neutron_tag_to_subnets = {}
         for tag in ALL_TAGS:
             # get subnet
             ipam_refs = self.vns[tag].get_network_ipam_refs()
@@ -1308,14 +1770,14 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
             self.sns[tag] = subnet
             # create kv
             neutron_tag = 'neutron_tag={}'.format(tag)
-            subnet_to_neutron_tags[subnet.uuid] = [neutron_tag]
-            neutron_tag_to_subnets[neutron_tag] = [subnet.uuid]
+            self.subnet_to_neutron_tags[subnet.uuid] = [neutron_tag]
+            self.neutron_tag_to_subnets[neutron_tag] = [subnet.uuid]
 
         # set kv
         self.api.kv_store(_SUBNET_TO_NEUTRON_TAGS,
-                          json.dumps(subnet_to_neutron_tags))
+                          json.dumps(self.subnet_to_neutron_tags))
         self.api.kv_store(_NEUTRON_TAG_TO_SUBNETS,
-                          json.dumps(neutron_tag_to_subnets))
+                          json.dumps(self.neutron_tag_to_subnets))
 
     def _post_delete_kv_subnet_tags(self):
         self.api.kv_delete(_SUBNET_TO_NEUTRON_TAGS)
@@ -1344,8 +1806,9 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
         subnet.uuid = subnet.subnet_uuid  # only for testing purposes
 
         # add subnet to kv neutron tags
-        subnet_to_neutron_tags = {subnet.uuid: []}
-        neutron_tag_to_subnets = {}
+        subnet_to_neutron_tags = self.subnet_to_neutron_tags
+        neutron_tag_to_subnets = self.neutron_tag_to_subnets
+        subnet_to_neutron_tags[subnet.uuid] = []
         for tag in [TAG_BLUE, TAG_WHITE]:
             neutron_tag = 'neutron_tag={}'.format(tag)
             neutron_tag_to_subnets[neutron_tag] = [subnet.uuid]
@@ -1373,6 +1836,73 @@ class TestSubnetNeutronTags(NeutronTagsTestCase):
             self.assert_multiple_tags_any_match(resource_name='subnet',
                                                 resources=self.sns,
                                                 tags=tag_case)
+
+    def test_query_all_subnet_with_match_not(self):
+        """Query subnets filtering by not tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_GREEN, TAG_RED],
+            [TAG_BLUE, TAG_RED, TAG_WHITE]
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_match(resource_name='subnet',
+                                                resources=self.sns,
+                                                tags=tag_case)
+
+    def test_query_all_subnet_with_match_not_any(self):
+        """Query subnets filtering by not any tags."""
+        tag_test_cases = [
+            [TAG_BLUE],
+            [TAG_RED, TAG_WHITE],
+            ALL_TAGS
+        ]
+        for tag_case in tag_test_cases:
+            self.assert_multiple_not_tags_any_match(resource_name='subnet',
+                                                    resources=self.sns,
+                                                    tags=tag_case)
+
+    def test_query_subnet_with_tag_and_not_tag(self):
+        """Query subnets filtering by both tags and not-tags."""
+        # create virtual network with subnet
+        subnet_type = SubnetType('11.11.11.0', 24)
+        ipam_sn_v4 = IpamSubnetType(subnet=subnet_type)
+
+        vn = VirtualNetwork('vn-{}'.format(self.id()), parent_obj=self.project)
+        vn.add_network_ipam(self.ipam, VnSubnetsType([ipam_sn_v4]))
+        vn.uuid = self.api.virtual_network_create(vn)
+        vn = self.api.virtual_network_read(id=vn.uuid)
+
+        ipam_refs = vn.get_network_ipam_refs()
+        subnet = ipam_refs[0]['attr'].get_ipam_subnets()[0]
+        subnet.uuid = subnet.subnet_uuid
+
+        # add subnet to kv neutron tags
+        subnet_to_neutron_tags = self.subnet_to_neutron_tags
+        neutron_tag_to_subnets = self.neutron_tag_to_subnets
+        subnet_to_neutron_tags[subnet.uuid] = []
+        for tag in [TAG_BLUE, TAG_WHITE]:
+            neutron_tag = 'neutron_tag={}'.format(tag)
+            neutron_tag_to_subnets[neutron_tag].append(subnet.uuid)
+            subnet_to_neutron_tags[subnet.uuid].append(neutron_tag)
+        # set kv
+        self.api.kv_store(_SUBNET_TO_NEUTRON_TAGS,
+                          json.dumps(subnet_to_neutron_tags))
+        self.api.kv_store(_NEUTRON_TAG_TO_SUBNETS,
+                          json.dumps(neutron_tag_to_subnets))
+
+        self.assert_tags_and_not_tags_single_res_match(resource_name='subnet',
+                                                       resource=self.sns[
+                                                           TAG_BLUE],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_WHITE])
+        self.assert_tags_and_not_tags_double_res_match(resource_name='subnet',
+                                                       resources=[
+                                                           self.sns[TAG_BLUE],
+                                                           subnet],
+                                                       tags=[TAG_BLUE],
+                                                       not_tags=[TAG_GREEN])
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
 
     def test_create_subnet_with_pre_created_tag(self):
         vn = VirtualNetwork('vn-{}'.format(self.id()), parent_obj=self.project)
