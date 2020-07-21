@@ -55,6 +55,10 @@
 - include_role:
     name: "commit_fabric_config"
 
+- include_role:
+    name: "wait_for_bgp_session_to_establish"
+  when: device_maintenance_mode == "deactivate"
+
 - name: Update prouter logs with maintenance mode status
   prouter_objectlog:
     prouter_fqname: "{{pr_fqname}}"

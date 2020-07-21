@@ -1,0 +1,34 @@
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "{{role_path}}/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: Use vendor and family specific template
+      set_fact:
+        task_file: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      when: p.stat.exists == True
+
+    - name: Use vendor specific template
+      set_fact:
+        task_file: "{{prouter_vendor}}.yml"
+      when: p.stat.exists == False
+
+    - name: Execute commands from template in a do until loop
+      include_tasks: "do_until_loop.yml"
+      vars:
+        count: 1
+        retries: 24
+        delay: 25
+
+  rescue:
+    - name: Perform the necessary error handling while trying to execute command
+      include_tasks: error_handler.yml
+      when: "'failed' in bgp_summary_output and bgp_summary_output.failed == true"
+      vars:
+        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{bgp_summary_output.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{bgp_summary_output.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play
