@@ -1,0 +1,23 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get bgp summary
+  juniper_junos_command:
+    commands:
+      - show bgp summary
+    display: xml
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: bgp_summary_output
+
+- name: Save bgp summary information from command response
+  set_fact:
+    bgp_summary_info: "{{bgp_summary_output.parsed_output}}"
+
+- name: Set down peer count
+  set_fact:
+    down_peer_count: "{{bgp_summary_info['bgp-information']['down-peer-count']}}"
