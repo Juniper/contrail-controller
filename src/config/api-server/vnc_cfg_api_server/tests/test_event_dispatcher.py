@@ -141,13 +141,13 @@ class TestDispatch(TestCase):
                 continue
             event = {
                 "event": notification.get("oper").lower(),
-                "data": json.dumps({"virtual_network": {}})
+                "data": json.dumps({"virtual-network": {}})
             }
             if notification.get("oper") == "DELETE":
                 event.update(
                     {
                         "data": json.dumps(
-                            {"virtual_network": {"uuid": "123"}}
+                            {"virtual-network": {"uuid": "123"}}
                         )
                     }
                 )
@@ -188,13 +188,13 @@ class TestDispatch(TestCase):
         for notification in notifications:
             event = {
                 "event": notification.get("oper").lower(),
-                "data": json.dumps({"virtual_network": {}})
+                "data": json.dumps({"virtual-network": {}})
             }
             if notification.get("oper") == "DELETE":
                 event.update(
                     {
                         "data": json.dumps(
-                            {"virtual_network": {"uuid": "123"}}
+                            {"virtual-network": {"uuid": "123"}}
                         )
                     }
                 )
@@ -229,7 +229,7 @@ class TestDispatch(TestCase):
         gevent.spawn(self._dispatcher.dispatch)
         for notification in notifications:
             event = {"event": "stop", "data": json.dumps(
-                {"virtual_network": {
+                {"virtual-network": {
                     "error": "dbe_read failure: Mock read failure"}})}
             self.assertEquals(
                 event,
@@ -268,7 +268,7 @@ class TestDispatch(TestCase):
             event = {
                 "event": "stop",
                 "data": json.dumps({
-                    "virtual_network": {
+                    "virtual-network": {
                         "error": str(Exception("unexpected exception"))
                     }
                 })
@@ -288,6 +288,37 @@ class TestInitialize(TestCase):
         self._dispatcher._set_db_conn(None)
         super(TestInitialize, self).tearDown()
 
+    def test_initialize_with_fields_query(self):
+        vmi_resp = [
+            {"virtail-machine-interface": {
+                "instance_ip_back_refs": {},
+                "virtaul_machine_interface_bindings": {}}
+             }]
+        mockVncDBClient = flexmock(
+            dbe_list=lambda resource_type, field_names: (True, [vmi_resp], 0)
+        )
+        self._dispatcher._set_db_conn(mockVncDBClient)
+        watcher_resource_types = [
+            "virtual_machine_interface"]
+        resource_query = {
+            "fields": "instance_ip_back_refs,virtaul_machine_interface_bindings"}
+        for resource_type in watcher_resource_types:
+            object_type = resource_type.replace("_", "-")
+            self.assertEqual(
+                (
+                    True,
+                    {
+                        "event": "init",
+                        "data": json.dumps(
+                            {
+                                object_type + 's': [{object_type: vmi_resp}]
+                            }
+                        )
+                    }
+                ),
+                self._dispatcher.initialize(resource_type, resource_query)
+            )
+
     def test_initialize_no_dbe_list_failure_no_exception(self):
         mockVncDBClient = flexmock(
             dbe_list=lambda resource_type, is_detail: (True, [{}], 0)
@@ -297,6 +328,7 @@ class TestInitialize(TestCase):
             "virtual_network",
             "virtual_network_interface"]
         for resource_type in watcher_resource_types:
+            object_type = resource_type.replace("_", "-")
             self.assertEqual(
                 (
                     True,
@@ -304,7 +336,7 @@ class TestInitialize(TestCase):
                         "event": "init",
                         "data": json.dumps(
                             {
-                                resource_type + 's': [{resource_type: {}}]
+                                object_type + 's': [{object_type: {}}]
                             }
                         )
                     }
@@ -322,6 +354,7 @@ class TestInitialize(TestCase):
             "virtual_network_interface"
         ]
         for resource_type in watcher_resource_types:
+            object_type = resource_type.replace("_", "-")
             self.assertEqual(
                 (
                     False,
@@ -329,7 +362,7 @@ class TestInitialize(TestCase):
                         "event": "stop",
                         "data": json.dumps(
                             {
-                                resource_type + 's': "Mock list failure"
+                                object_type + 's': "Mock list failure"
                             }
                         )
                     }
@@ -350,6 +383,7 @@ class TestInitialize(TestCase):
             "virtual_network_interface"
         ]
         for resource_type in watcher_resource_types:
+            object_type = resource_type.replace("_", "-")
             self.assertEqual(
                 (
                     False,
@@ -357,9 +391,9 @@ class TestInitialize(TestCase):
                         "event": "stop",
                         "data": json.dumps(
                             {
-                                resource_type + 's': [
+                                object_type + 's': [
                                     {
-                                        resource_type: {
+                                        object_type: {
                                             "error": "unexpected exception"
                                         }
                                     }
