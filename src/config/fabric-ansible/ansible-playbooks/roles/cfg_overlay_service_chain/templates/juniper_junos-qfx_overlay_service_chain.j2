@@ -35,6 +35,10 @@ set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export ter
 
 {# Config for the interfaces of QFX to be in trunk mode #}
 {% for ifd in device_abstract_config.get('physical_interfaces',[]) %}
+{%    set interface_type = ifd.get('interface_type', '') %}
+{%    if interface_type != 'service' %}
+{%       continue %}
+{%    endif %}
 {%    for ifl in ifd.get('logical_interfaces',[]) %}
 {%        if ifl.get('comment','') == 'PNF-Service-Chaining' %}
 set groups {{cfg_group}} interfaces {{ifd.get('name')}} unit {{ifl.get('unit')}} family {{ifl.get('family')}} interface-mode trunk
