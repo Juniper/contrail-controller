@@ -395,21 +395,31 @@ class VncApiServer(object):
         if resource_types is None:
             err_msg = "resource_type required in request"
             yield bottle.HTTPError(400, err_msg)
-        resource_fields = resource_types.split(",")
+        resources = resource_types.split(",")
 
-        for resource in resource_fields:
+        resources_query = {}
+        for resource in resources:
             try:
                 r_class = self.get_resource_class(resource)
             except TypeError:
                 yield bottle.HTTPError(404, "Invalid Contrail resource type:'%s'" % resource)
 
+            resource_query = request_params.get(resource + "_fields", None)
+            if resource_query:
+                resources_query.update(
+                    {resource: {"fields": resource_query.split(",")}})
+
         bottle.response.set_header("Content-Type", "text/event-stream")
         bottle.response.set_header("Cache-Control", "no-cache")
 
-        client_queue = gevent.queue.Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+        client_queue = WatcherQueue(resources_query)
         dispatcher = EventDispatcher()
         try:
-            dispatcher.subscribe_client(client_queue, resource_fields)
+            dispatcher.subscribe_client(client_queue, resources)
         except Exception as e:
             err_msg = "Client queue registration failed with exception %s" % (
                 e)
@@ -424,11 +434,12 @@ class VncApiServer(object):
             return result + "\n"
         # end create_sse_pack
 
-        for resource in resource_fields:
-            ok, init_event = dispatcher.initialize(resource)
+        for resource in resources:
+            resource_query = resources_query.get(resource, None)
+            ok, init_event = dispatcher.initialize(resource, resource_query)
             if not ok:
                 yield create_sse_pack(init_event)
-                dispatcher.unsubscribe_client(client_queue, resource_fields)
+                dispatcher.unsubscribe_client(client_queue, resources)
                 return
             yield create_sse_pack(init_event)
 
@@ -437,7 +448,7 @@ class VncApiServer(object):
             if crud_event["event"] == "stop":
                 yield create_sse_pack(crud_event)
                 dispatcher.unsubscribe_client(client_queue,
-                                              resource_fields)
+                                              resources)
                 return
             yield create_sse_pack(crud_event)
     # end watch
