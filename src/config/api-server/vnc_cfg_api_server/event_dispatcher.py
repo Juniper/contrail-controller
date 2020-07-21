@@ -131,40 +131,51 @@ class EventDispatcher(object):
                         "error": str(e)
                     }
 
+            object_type = resource_type.replace("_", "-")
             event = self.pack(
                 event=resource_oper,
-                data={resource_type: resource_data}
+                data={object_type: resource_data}
             )
             for client_queue in self._client_queues.get(resource_type, []):
                 client_queue.put_nowait(event)
     # end dispatch
 
-    def initialize(self, resource_type):
+    def initialize(self, resource_type, resource_query=None):
+        object_type = resource_type.replace('_', '-')
+        if not resource_query:
+            resource_query = {}
         try:
-            ok, resources, marker = self._db_conn.dbe_list(
-                resource_type,
-                is_detail=True
-            )
+            fields = resource_query.get("fields", None)
+            if fields:
+                ok, resources, marker = self._db_conn.dbe_list(
+                    resource_type,
+                    field_names=fields
+                )
+            else:
+                ok, resources, marker = self._db_conn.dbe_list(
+                    resource_type,
+                    is_detail=True
+                )
 
             if not ok:
                 return ok, self.pack(
                     event="stop",
-                    data={resource_type + 's': resources}
+                    data={object_type + 's': resources}
                 )
 
             for i, resource in enumerate(resources):
-                resources[i] = {resource_type: resource}
+                resources[i] = {object_type: resource}
 
             return ok, self.pack(
                 event="init",
-                data={resource_type + 's': resources}
+                data={object_type + 's': resources}
             )
         except Exception as e:
             return False, self.pack(
                 event="stop",
                 data={
-                    resource_type + 's': [
-                        {resource_type: {"error": str(e)}}
+                    object_type + 's': [
+                        {object_type: {"error": str(e)}}
                     ]
                 }
             )
