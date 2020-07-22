@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7e65563f_5c399f82",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1170,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-22T02:36:28Z",
+      "side": 1,
+      "message": "Looks this creation of the subnets are common. If exists we are adding else we are creating, so can we optimize this?",
+      "revId": "8ddc6546e26591a6ede00259afb7187eaec69f76",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
