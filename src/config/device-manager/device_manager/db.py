@@ -1958,7 +1958,8 @@ class PhysicalInterfaceDM(DBBaseDM):
             # For channelized ports
             self.name = self.name.replace("_", ":")
 
-        self.update_job_trans(old_pr_list=[self.physical_router])
+        if self.do_update_trans(obj):
+            self.update_job_trans(old_pr_list=[self.physical_router])
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
         self.flow_control = obj.get('physical_interface_flow_control')
@@ -1969,6 +1970,15 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.update_single_ref('port', obj)
         return obj
     # end update
+
+    def do_update_trans(self, obj):
+        if obj.get('physical_interface_flow_control') != self.flow_control:
+            return True
+        if obj.get('physical_interface_lacp_force_up') != self.lacp_force_up:
+            return True
+        if obj.get('physical_interface_port_params') != self.port_params:
+            return True
+        return False
 
     def get_pr_uuid(self):
         return self.physical_router
@@ -1981,7 +1991,6 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.remove_from_parent()
     # end delete_obj
 # end PhysicalInterfaceDM
-
 
 class LogicalInterfaceDM(DBBaseDM):
     _dict = {}
@@ -2009,17 +2018,24 @@ class LogicalInterfaceDM(DBBaseDM):
         if obj['parent_type'] == 'physical-router':
             self.physical_router = self.get_parent_uuid(obj)
             self.physical_interface = None
-            self.update_job_trans(old_pr_list=[self.physical_router])
+            if self.do_update_trans(obj):
+                self.update_job_trans(old_pr_list=[self.physical_router])
         else:
             self.physical_interface = self.get_parent_uuid(obj)
             self.physical_router = None
-            self.update_job_trans(old_pi_list=[self.physical_interface])
+            if self.do_update_trans(obj):
+                self.update_job_trans(old_pi_list=[self.physical_interface])
         self.vlan_tag = obj.get('logical_interface_vlan_tag', 0)
         self.li_type = obj.get('logical_interface_type', 0)
         self.port_params = obj.get('logical_interface_port_params')
         self.update_single_ref('virtual_machine_interface', obj)
         return obj
     # end update
+
+    def do_update_trans(self, obj):
+        if obj.get('logical_interface_port_params') != self.port_params:
+            return True
+        return False
 
     @classmethod
     def get_sg_list(cls):
@@ -4418,6 +4434,7 @@ class PortProfileDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.storm_control_profile = None
+        self.port_profile_params = None
         self.virtual_machine_interface = None
         self.virtual_port_groups = set()
         self.update(obj_dict)
@@ -4428,16 +4445,27 @@ class PortProfileDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.update_job_trans(
-            old_pr_list=self.get_physical_router_ids(),
-            old_pi_list=self.get_physical_interface_ids(),
-            new_pr_list=self.get_obj_physical_router_ids(obj),
-            new_pi_list=self.get_obj_physical_interface_ids(obj))
+        if self.do_update_trans(obj):
+            self.update_job_trans(
+                obj_descr="Port Profile",
+                old_pr_list=self.get_physical_router_ids(),
+                old_pi_list=self.get_physical_interface_ids(),
+                new_pr_list=self.get_obj_physical_router_ids(obj),
+                new_pi_list=self.get_obj_physical_interface_ids(obj))
         self.port_profile_params = obj.get('port_profile_params')
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
     # end update
+
+    def do_update_trans(self, obj):
+        if obj.get('port_profile_params') != self.port_profile_params:
+            return True
+        if obj.get('storm_control_profile_refs'):
+            if obj.get('storm_control_profile_refs')[-1]['uuid'] != \
+                    self.storm_control_profile:
+                return True
+        return False
 
     def get_physical_router_ids(self):
         pr_id_list = set()
