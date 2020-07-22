@@ -293,7 +293,7 @@ void IFMapExporter::MoveDependentLinks(IFMapNodeState *state) {
         if (ls == NULL) {
             continue;
         }
-        IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
+        IFMapUpdate *update = ls->GetUpdate(IFMapListEntry::UPDATE);
         if (update == NULL) {
             continue;
         }
@@ -332,7 +332,7 @@ void IFMapExporter::RemoveDependentLinks(IFMapNodeState *state,
 }
 
 void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
-        IFMapNodeState *state) {
+        IFMapNodeState *state, bool force_process) {
     BitSet current = state->advertised();
     IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
     if (update) {
@@ -340,6 +340,15 @@ void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
     }
     if (!current.Contains(add_set)) {
         NodeTableExport(node->get_table_partition(), node);
+    } else {
+        if (force_process) {
+            if (update) {
+                update->AdvertiseReset(state->advertised());
+                update->AdvertiseReset(update->advertise());
+            }
+            state->AdvertisedReset(state->advertised());
+            NodeTableExport(node->get_table_partition(), node);
+        }
     }
 }
 
@@ -450,6 +459,7 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         IFMapNodeState *s_right = NULL;
 
         bool add_link = false;
+        bool force_update = false;
         if (state == NULL) {
             state = new IFMapLinkState(link);
             entry->SetState(table, tinfo->id(), state);
@@ -457,17 +467,27 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
             s_right = NodeStateLocate(link->right());
             add_link = true;
         } else {
-            if (state->IsValid()) {
+            if (state->IsValid() && !link->link_revival()) {
                 // Link change
                 assert(state->HasDependency());
                 s_left = state->left();
                 s_right = state->right();
+            } else if (state->IsValid() && link->link_revival()) {
+                link->SetLinkRevival(false);
+                assert(state->HasDependency());
+                s_left = state->left();
+                s_right = state->right();
+                force_update = true;
+                state->AdvertisedReset(state->advertised());
             } else {
                 // Link revival i.e. delete quickly followed by add
                 assert(!state->HasDependency());
                 s_left = NodeStateLocate(link->left());
                 s_right = NodeStateLocate(link->right());
                 add_link = true;
+                force_update = true;
+                state->AdvertisedReset(state->advertised());
+                link->SetLinkRevival(false);
             }
         }
 
@@ -502,8 +522,8 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         rm_set.BuildComplement(state->advertised(), state->interest());
 
         if (!add_set.empty()) {
-            ProcessAdjacentNode(link->left(), add_set, s_left);
-            ProcessAdjacentNode(link->right(), add_set, s_right);
+            ProcessAdjacentNode(link->left(), add_set, s_left, force_update);
+            ProcessAdjacentNode(link->right(), add_set, s_right, force_update);
         }
 
         UpdateAddChange(link, state, add_set, rm_set, false);
@@ -521,6 +541,14 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         IFMapNodeState *s_right = state->right();
         assert((right != NULL) && (s_right != NULL));
         BitSet interest = s_left->interest() & s_right->interest();
+        // This is special as internally generated
+        if (boost::algorithm::starts_with(link->ToString(),
+                                          "virtual-router-virtual-machine")) {
+            if (s_left->advertised().Contains(state->interest()))
+                StateAdvertisedReset(s_left, state->interest());
+            if (s_right->advertised().Contains(state->interest()))
+                StateAdvertisedReset(s_right, state->interest());
+        }
         StateInterestReset(state, state->interest());
 
         IFMAP_DEBUG(LinkOper, "LinkRemove", left->ToString(), right->ToString(),

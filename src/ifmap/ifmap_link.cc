@@ -10,7 +10,7 @@
 
 using namespace std;
 
-IFMapLink::IFMapLink(const string &name) : link_name_(name) {
+IFMapLink::IFMapLink(const string &name) : link_name_(name), link_revival_(false) {
 }
 
 void IFMapLink::SetProperties(IFMapNode *left, IFMapNode *right,

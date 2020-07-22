@@ -117,7 +117,7 @@ private:
     void RemoveDependentLinks(IFMapNodeState *state, const BitSet &rm_set);
     void MoveAdjacentNode(IFMapNodeState *state);
     void ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
-                             IFMapNodeState *state);
+                             IFMapNodeState *state, bool force_process=false);
 
     bool IsFeasible(const IFMapNode *node);
 
