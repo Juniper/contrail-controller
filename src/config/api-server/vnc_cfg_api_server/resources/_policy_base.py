@@ -6,6 +6,7 @@ from builtins import str
 import itertools
 import uuid
 
+from cfgm_common import protocols
 from netaddr import IPNetwork
 
 
@@ -34,7 +35,7 @@ def check_policy_rules(entries, network_policy_rule=False):
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
         else:
-            valids = ['any', 'icmp', 'tcp', 'udp', 'icmp6']
+            valids = list(protocols.IP_PROTOCOL_MAP.keys())
             if protocol not in valids:
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
