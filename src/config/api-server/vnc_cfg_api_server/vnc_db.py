@@ -17,7 +17,12 @@ from pprint import pformat
 
 import socket
 from netaddr import IPNetwork, IPAddress
-from .context import get_request
+try:
+    # Python3
+    from .context import get_request
+except ImportError:
+    # Python2
+    from context import get_request
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -29,7 +34,12 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
-from . import utils
+try:
+    # Python3
+    from . import utils
+except ImportError:
+    # Python2
+    import utils
 
 import copy
 from cfgm_common import jsonutils as json
@@ -40,12 +50,27 @@ from pycassa.util import *
 
 import os
 
-from .provision_defaults import *
+try:
+    # Python3
+    from .provision_defaults import *
+except ImportError:
+    # Python2
+    from provision_defaults import *
 from cfgm_common.exceptions import *
-from .vnc_quota import *
+try:
+    # Python3
+    from .vnc_quota import *
+except ImportError:
+    # Python2
+    from vnc_quota import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
-from .sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
+try:
+    # Python3
+    from .sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
+except ImportError:
+    # Python2
+    from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
 import functools
 
 import sys

@@ -42,23 +42,35 @@ import pycassa
 import pycassa.connection
 from thrift.transport import TSSLSocket
 import ssl
-from . import utils
+try:
+    # python3
+    from . import utils
+except ImportError:
+    # python2
+    import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
 from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 
 try:
-    from .vnc_db import VncServerCassandraClient
+    try:
+        # Python3
+        from .vnc_db import VncServerCassandraClient
+    except ImportError:
+        # Python2
+        from vnc_db import VncServerCassandraClient
 except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.23"
+__version__ = "1.28"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.28:
+  - [CEM-16099] Fixed db_manage.py fails with import errors
 * 1.27:
   - Fix StringIO TypeError compatibility between Py2 and Py3 CEM-12619
 * 1.26:
