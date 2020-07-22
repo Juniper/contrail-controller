@@ -49,14 +49,6 @@ GLOBAL_READ_ONLY_ROLE = None
 PERMS2_VALID_SHARE_TYPES = ['tenant', 'domain']
 DOMAIN_SHARING_PERMS = PERMS_RW
 
-proto_dict = {
-    'any': 0,
-    'icmp': 1,
-    'tcp': 6,
-    'udp': 17,
-    'ipv6-icmp': 58,
-}
-
 def get_bgp_rtgt_min_id(asn):
     if int(asn) > 0xFFFF:
         return _BGP_RTGT_MIN_ID_TYPE1_2

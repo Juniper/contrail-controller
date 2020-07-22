@@ -16,6 +16,7 @@ import sys
 from time import time as TIME
 
 import cfgm_common as common
+from cfgm_common import protocols
 from cfgm_common.exceptions import NoIdError, RefsExistError
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfigTrace
@@ -32,8 +33,6 @@ from schema_transformer.resources._access_control_list import \
     _access_control_list_update
 from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
-from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV4
-from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV6
 from schema_transformer.utils import RULE_IMPLICIT_ALLOW_UUID
 from schema_transformer.utils import RULE_IMPLICIT_DENY_UUID
 
@@ -808,6 +807,7 @@ class VirtualNetworkST(ResourceBaseST):
             return
     # end process_analyzer
 
+    # TODO(sahid): This method is duplicated in security_group.py
     @staticmethod
     def protocol_policy_to_acl(pproto, ethertype):
         # convert policy proto input(in str) to acl proto (num)
@@ -815,10 +815,11 @@ class VirtualNetworkST(ResourceBaseST):
             return 'any'
         if pproto.isdigit():
             return pproto
-        if ethertype == 'IPv6':
-            return _PROTO_STR_TO_NUM_IPV6.get(pproto.lower())
-        else:  # IPv4
-            return _PROTO_STR_TO_NUM_IPV4.get(pproto.lower())
+        if ethertype == 'IPv6' and pproto == protocols.PROTO_NAME_ICMP:
+            # Previsouly we were convertir this transparently, so we
+            # have to keep it.
+            pproto = protocols.PROTO_NAME_IPV6_ICMP
+        return protocols.IP_PROTOCOL_MAP.get(pproto.lower())
     # end protocol_policy_to_acl
 
     def address_list_policy_to_acl(self, addr):
