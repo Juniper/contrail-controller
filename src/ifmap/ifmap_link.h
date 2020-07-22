@@ -44,7 +44,12 @@ public:
     virtual void SetKey(const DBRequestKey *genkey);
     virtual std::string ToString() const;
     virtual bool IsLess(const DBEntry &rgen) const;
+<<<<<<< HEAD   (4fb494 Add separate route walker for disconnected peer paths)
     
+=======
+    void SetLinkRevival(bool lr) { link_revival_ = lr; };
+
+>>>>>>> CHANGE (a12043 Ifmap changes for link revival)
     // Return the left node. If the link is deleted, the node is retrieved
     // by doing a database table lookup iff db in non-NULL. If db is NULL,
     // the method returns NULL. The actual node may have already been deleted.
@@ -61,6 +66,7 @@ public:
     const IFMapNode *left() const { return left_node_; }
     IFMapNode *right() { return right_node_; }
     const IFMapNode *right() const { return right_node_; }
+    bool link_revival() const { return link_revival_; }
 
     const IFMapNode::Descriptor &left_id() const { return left_id_; }
     const IFMapNode::Descriptor &right_id() const { return right_id_; }
@@ -89,6 +95,7 @@ private:
     IFMapNode *left_node_;
     IFMapNode *right_node_;
     std::vector<LinkOriginInfo> origin_info_;
+    bool link_revival_;
     DISALLOW_COPY_AND_ASSIGN(IFMapLink);
 };
 

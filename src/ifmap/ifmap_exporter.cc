@@ -22,6 +22,7 @@
 #include "ifmap/ifmap_util.h"
 
 using namespace std;
+using namespace boost::algorithm;
 
 class IFMapExporter::TableInfo {
 public:
@@ -293,7 +294,7 @@ void IFMapExporter::MoveDependentLinks(IFMapNodeState *state) {
         if (ls == NULL) {
             continue;
         }
-        IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
+        IFMapUpdate *update = ls->GetUpdate(IFMapListEntry::UPDATE);
         if (update == NULL) {
             continue;
         }
@@ -332,7 +333,7 @@ void IFMapExporter::RemoveDependentLinks(IFMapNodeState *state,
 }
 
 void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
-        IFMapNodeState *state) {
+        IFMapNodeState *state, bool force_process) {
     BitSet current = state->advertised();
     IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
     if (update) {
@@ -340,6 +341,14 @@ void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
     }
     if (!current.Contains(add_set)) {
         NodeTableExport(node->get_table_partition(), node);
+    } else {
+        if (force_process) {
+            if (update) {
+                update->AdvertiseReset(update->advertise());
+            }
+            state->AdvertisedReset(state->advertised());
+            NodeTableExport(node->get_table_partition(), node);
+        }
     }
 }
 
@@ -450,24 +459,62 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         IFMapNodeState *s_right = NULL;
 
         bool add_link = false;
+        bool force_update = false;
         if (state == NULL) {
             state = new IFMapLinkState(link);
             entry->SetState(table, tinfo->id(), state);
             s_left = NodeStateLocate(link->left());
             s_right = NodeStateLocate(link->right());
             add_link = true;
+            // This is special as internally generated
+            // We can end up  in this situation where add comes just after
+            // delete but processing of delete happens just before
+            // Delete for link comes and link is marked for deletion
+            // Delete event gets picked up, state gets deleted and delete
+            //  event is raised to send updates
+            // Add event comes in and revives the link since it is only
+            //  marked for deletion, add event is enqueued
+            // Send update gets picked up but CleanupInterest does not
+            //  do anything because old interest is same as new one
+            // Add event gets picked up but state was deleted earlier
+            // This is a corner case and should not happen for other
+            // config based events
+            if (starts_with(link->left()->ToString(), "virtual-router") &&
+               (starts_with(link->right()->ToString(), "virtual-machine:"))) {
+                if (!s_right->advertised().empty())
+                    s_right->AdvertisedReset(s_right->advertised());
+                force_update = true;
+            }
         } else {
-            if (state->IsValid()) {
+            if (state->IsValid() && !link->link_revival()) {
                 // Link change
                 assert(state->HasDependency());
                 s_left = state->left();
                 s_right = state->right();
+            } else if (state->IsValid() && link->link_revival()) {
+                link->SetLinkRevival(false);
+                assert(state->HasDependency());
+                s_left = state->left();
+                s_right = state->right();
+                force_update = true;
+                state->AdvertisedReset(state->advertised());
+                if (s_left->advertised().Contains(state->interest()))
+                    s_left->AdvertisedReset(state->interest());
+                if (s_right->advertised().Contains(state->interest()))
+                    s_right->AdvertisedReset(state->interest());
             } else {
                 // Link revival i.e. delete quickly followed by add
                 assert(!state->HasDependency());
                 s_left = NodeStateLocate(link->left());
                 s_right = NodeStateLocate(link->right());
                 add_link = true;
+                force_update = true;
+                state->AdvertisedReset(state->advertised());
+                link->SetLinkRevival(false);
+                if (s_left->advertised().Contains(state->interest()))
+                    s_left->AdvertisedReset(state->interest());
+                if (s_right->advertised().Contains(state->interest()))
+                    s_right->AdvertisedReset(state->interest());
             }
         }
 
@@ -502,8 +549,8 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         rm_set.BuildComplement(state->advertised(), state->interest());
 
         if (!add_set.empty()) {
-            ProcessAdjacentNode(link->left(), add_set, s_left);
-            ProcessAdjacentNode(link->right(), add_set, s_right);
+            ProcessAdjacentNode(link->left(), add_set, s_left, force_update);
+            ProcessAdjacentNode(link->right(), add_set, s_right, force_update);
         }
 
         UpdateAddChange(link, state, add_set, rm_set, false);
