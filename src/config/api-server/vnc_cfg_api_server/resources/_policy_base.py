@@ -6,6 +6,7 @@ from builtins import str
 import itertools
 import uuid
 
+from cfgm_common import protocols
 from netaddr import IPNetwork
 
 
@@ -28,14 +29,15 @@ def check_policy_rules(entries, network_policy_rule=False):
     for rule in rules:
         if not rule.get('rule_uuid'):
             rule['rule_uuid'] = str(uuid.uuid4())
+        # TODO(sahid): This all check can be factorized in
+        # cfgm_common.protocols
         protocol = rule['protocol']
         if protocol.isdigit():
             if int(protocol) < 0 or int(protocol) > 255:
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
         else:
-            valids = ['any', 'icmp', 'tcp', 'udp', 'icmp6']
-            if protocol not in valids:
+            if protocol not in protocols.IP_PROTOCOL_NAMES:
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
         src_sg_list = [addr.get('security_group') for addr in
