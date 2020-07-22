@@ -8,6 +8,7 @@ from builtins import str
 import json
 import uuid
 
+from cfgm_common import protocols
 from cfgm_common import rest
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
@@ -17,15 +18,6 @@ from schema_transformer.resources._access_control_list import \
 from schema_transformer.resources.security_group import SecurityGroupST
 from .test_case import retries, STTestCase
 from .test_policy import VerifyPolicy
-
-
-_PROTO_STR_TO_NUM = {
-    'icmp6': '58',
-    'icmp': '1',
-    'tcp': '6',
-    'udp': '17',
-    'any': 'any',
-}
 
 
 class VerifySecurityGroup(VerifyPolicy):
@@ -98,7 +90,7 @@ class VerifySecurityGroup(VerifyPolicy):
         self.assertTrue(acl is not None)
         for rule in acl.access_control_list_entries.acl_rule:
             self.assertEqual(rule.match_condition.protocol,
-                             _PROTO_STR_TO_NUM.get(protocol.lower()))
+                             protocols.IP_PROTOCOL_MAP.get(protocol.lower()))
 
     @retries(5)
     def check_no_policies_for_sg(self, fq_name):
