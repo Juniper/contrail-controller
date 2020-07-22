@@ -104,7 +104,7 @@ set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} description "
 {%         endif %}
 {%     endfor %}
 
-{% if device_abstract_config.get('manage_underlay') == true %}
+{% if manage_underlay == true %}
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
 {%     if loopback_ip_list|length > 0 %}
 {%         set loopback_ip = loopback_ip_list[0] %}
