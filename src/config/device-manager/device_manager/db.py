@@ -1927,6 +1927,12 @@ class PhysicalInterfaceDM(DBBaseDM):
         if self.name and re.search(r"[0-9]+_[0-9]+$", self.name):
             # For channelized ports
             self.name = self.name.replace("_", ":")
+<<<<<<< HEAD   (8cd918 config/cassandra: move initilization controled by API)
+=======
+
+        if self.do_update_trans(obj):
+            self.update_job_trans(old_pr_list=[self.physical_router])
+>>>>>>> CHANGE (572725 [DM] VPG create job transaction not showing up in operations)
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
@@ -1934,6 +1940,15 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.update_single_ref('port', obj)
         return obj
     # end update
+
+    def do_update_trans(self, obj):
+        if obj.get('physical_interface_flow_control') != self.flow_control:
+            return True
+        if obj.get('physical_interface_lacp_force_up') != self.lacp_force_up:
+            return True
+        if obj.get('physical_interface_port_params') != self.port_params:
+            return True
+        return False
 
     def get_pr_uuid(self):
         return self.physical_router
@@ -1976,11 +1991,29 @@ class LogicalInterfaceDM(DBBaseDM):
         if self.name and re.search(r"[0-9]+(_[0-9]+){2}$", self.name):
             # For channelized ports
             self.name = self.name.replace("_", ":")
+<<<<<<< HEAD   (8cd918 config/cassandra: move initilization controled by API)
+=======
+        if obj['parent_type'] == 'physical-router':
+            self.physical_router = self.get_parent_uuid(obj)
+            self.physical_interface = None
+            if self.do_update_trans(obj):
+                self.update_job_trans(old_pr_list=[self.physical_router])
+        else:
+            self.physical_interface = self.get_parent_uuid(obj)
+            self.physical_router = None
+            if self.do_update_trans(obj):
+                self.update_job_trans(old_pi_list=[self.physical_interface])
+>>>>>>> CHANGE (572725 [DM] VPG create job transaction not showing up in operations)
         self.vlan_tag = obj.get('logical_interface_vlan_tag', 0)
         self.li_type = obj.get('logical_interface_type', 0)
         self.update_single_ref('virtual_machine_interface', obj)
         return obj
     # end update
+
+    def do_update_trans(self, obj):
+        if obj.get('logical_interface_port_params') != self.port_params:
+            return True
+        return False
 
     @classmethod
     def get_sg_list(cls):
@@ -4401,6 +4434,7 @@ class PortProfileDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.storm_control_profile = None
+        self.port_profile_params = None
         self.virtual_machine_interface = None
         self.virtual_port_groups = set()
         self.update(obj_dict)
@@ -4411,11 +4445,60 @@ class PortProfileDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+<<<<<<< HEAD   (8cd918 config/cassandra: move initilization controled by API)
+=======
+        if self.do_update_trans(obj):
+            self.update_job_trans(
+                obj_descr="Port Profile",
+                old_pr_list=self.get_physical_router_ids(),
+                old_pi_list=self.get_physical_interface_ids(),
+                new_pr_list=self.get_obj_physical_router_ids(obj),
+                new_pi_list=self.get_obj_physical_interface_ids(obj))
+        self.port_profile_params = obj.get('port_profile_params')
+>>>>>>> CHANGE (572725 [DM] VPG create job transaction not showing up in operations)
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_port_group', obj)
         self.update_single_ref('storm_control_profile', obj)
     # end update
 
+<<<<<<< HEAD   (8cd918 config/cassandra: move initilization controled by API)
+=======
+    def do_update_trans(self, obj):
+        if obj.get('port_profile_params') != self.port_profile_params:
+            return True
+        if obj.get('storm_control_profile_refs'):
+            if obj.get('storm_control_profile_refs')[-1]['uuid'] != \
+                    self.storm_control_profile:
+                return True
+        return False
+
+    def get_physical_router_ids(self):
+        pr_id_list = set()
+        pr_id_list.update(self._find_vmi_prs(
+            self.virtual_machine_interface))
+        return pr_id_list
+
+    def get_obj_physical_router_ids(self, obj):
+        pr_id_list = set()
+        for vmi_ref in obj.get('virtual_machine_interface_back_refs', []):
+            vmi_id = vmi_ref['uuid']
+            pr_id_list.update(self._find_vmi_prs(vmi_id))
+        return pr_id_list
+
+    def get_physical_interface_ids(self):
+        pi_id_list = set()
+        for vpg_id in self.virtual_port_groups:
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
+    def get_obj_physical_interface_ids(self, obj):
+        pi_id_list = set()
+        for vpg_ref in obj.get('virtual_port_group_back_refs', []):
+            vpg_id = vpg_ref['uuid']
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
+>>>>>>> CHANGE (572725 [DM] VPG create job transaction not showing up in operations)
     def delete_obj(self):
         self.update_single_ref('storm_control_profile', {})
         self.update_single_ref('virtual_machine_interface', {})
@@ -4430,7 +4513,8 @@ class StormControlProfileDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
-        self.port_profile = None
+        self.port_profiles = set()
+        self.storm_control_params = None
         self.update(obj_dict)
     # end __init__
 
@@ -4438,13 +4522,82 @@ class StormControlProfileDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        if self.do_update_trans(obj):
+            self.update_job_trans(
+                obj_descr="Storm Control Profile",
+                old_pr_list=self.get_physical_router_ids(),
+                old_pi_list=self.get_physical_interface_ids(),
+                new_pr_list=self.get_obj_physical_router_ids(obj),
+                new_pi_list=self.get_obj_physical_interface_ids(obj))
         self.fq_name = obj['fq_name']
         self.storm_control_params = obj.get('storm_control_parameters')
-        self.update_single_ref('port_profile', obj)
+        self.update_multiple_refs('port_profile', obj)
     # end update
 
+    def do_update_trans(self, obj):
+        if obj.get('storm_control_parameters') != self.storm_control_params:
+            return True
+        return False
+
+    def get_physical_router_ids(self):
+        pr_id_list = set()
+        vmi_list = set()
+
+        for pp_uuid in self.port_profiles or []:
+            pp = PortProfileDM.get(pp_uuid)
+            vmi = pp.virtual_machine_interface
+            if vmi:
+                vmi_list.update([vmi])
+
+        for vmi in vmi_list:
+            pr_id_list.update(self._find_vmi_prs(vmi))
+        return pr_id_list
+
+    def get_obj_physical_router_ids(self, obj):
+        pr_id_list = set()
+        vmi_list = set()
+
+        for p_profile in obj.get('port_profile_back_refs') or []:
+            pp_uuid = p_profile.get('uuid')
+            pp = PortProfileDM.get(pp_uuid)
+            vmi = pp.virtual_machine_interface
+            if vmi:
+                vmi_list.update([vmi])
+
+        for vmi in vmi_list:
+            pr_id_list.update(self._find_vmi_prs(vmi))
+        return pr_id_list
+
+    def get_physical_interface_ids(self):
+        pi_id_list = set()
+        vpg_list = set()
+
+        for pp_uuid in self.port_profiles or []:
+            pp = PortProfileDM.get(pp_uuid)
+            vpgs = pp.virtual_port_groups or []
+            vpg_list.update(vpgs)
+
+        for vpg_id in vpg_list:
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
+    def get_obj_physical_interface_ids(self, obj):
+        pi_id_list = set()
+        vpg_list = set()
+
+        for p_profile in obj.get('port_profile_back_refs') or []:
+            pp_uuid = p_profile.get('uuid')
+            pp = PortProfileDM.get(pp_uuid)
+            vpgs = pp.virtual_port_groups or []
+            vpg_list.update(vpgs)
+
+        for vpg_id in vpg_list:
+            pi_id_list.update(self._find_vpg_pis(vpg_id))
+        return pi_id_list
+
     def delete_obj(self):
-        self.update_single_ref('port_profile', {})
+        self.delete_job_trans(old_pr_list=self.get_physical_router_ids())
+        self.update_mutliple_refs('port_profile', {})
     # end delete_obj
 # end class StormControlProfileDM
 
