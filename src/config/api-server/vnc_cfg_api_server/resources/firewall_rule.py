@@ -2,7 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-from cfgm_common import proto_dict
+from cfgm_common import protocols
 from cfgm_common.exceptions import NoIdError
 from sandesh_common.vns.constants import DEFAULT_MATCH_TAG_TYPE
 from vnc_api.gen.resource_common import AddressGroup
@@ -58,15 +58,17 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
     @classmethod
     def _frs_fix_service_protocol(cls, obj_dict):
         if obj_dict.get('service') and obj_dict['service'].get('protocol'):
+            # TODO(sahid): This all check can be factorized in
+            # cfgm_common.protocols            
             protocol = obj_dict['service']['protocol']
             if protocol.isdigit():
                 protocol_id = int(protocol)
                 if protocol_id < 0 or protocol_id > 255:
                     return False, (400, "Invalid protocol: %s" % protocol)
-            elif protocol not in proto_dict:
+            elif protocol not in protocols.IP_PROTOCOL_NAMES:
                 return False, (400, "Invalid protocol: %s" % protocol)
             else:
-                protocol_id = proto_dict[protocol]
+                protocol_id = protocols.IP_PROTOCOL_MAP[protocol]
             obj_dict['service']['protocol_id'] = protocol_id
 
         return True, ""
