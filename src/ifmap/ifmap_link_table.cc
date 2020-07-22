@@ -54,6 +54,7 @@ IFMapLink *IFMapLinkTable::AddLink(IFMapNode *left, IFMapNode *right,
     IFMapLink *link = FindLink(link_name);
     if (link) {
         assert(link->IsDeleted());
+        link->SetLinkRevival(true);
         link->ClearDelete();
         link->set_last_change_at_to_now();
         partition->Change(link);

@@ -491,13 +491,8 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     EXPECT_TRUE(update->advertise().test(c4.index()));
 
     state = exporter_->NodeStateLookup(red);
-    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DEL) != NULL);
-    update = state->GetUpdate(IFMapListEntry::DEL);
-    ASSERT_TRUE(update != NULL);
-    EXPECT_FALSE(update->advertise().test(c1.index()));
-    EXPECT_FALSE(update->advertise().test(c2.index()));
-    EXPECT_FALSE(update->advertise().test(c3.index()));
-    EXPECT_TRUE(update->advertise().test(c4.index()));
+    // Delete update will not be there since it is link revival
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DEL) == NULL);
 
     // Verify that the deleted link exists before we process the queue.
     VerifyLink("virtual-machine-interface", "virtual-network", "vm_c4:veth0",
@@ -640,7 +635,7 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
                 << link->ToString() << " after " << link->right()->ToString();
         }
     }
-    EXPECT_EQ(4, seen.size());
+    EXPECT_EQ(2, seen.size());
 }
 
 TEST_F(IFMapExporterTest, DISABLED_CrcChecks) {
@@ -1097,11 +1092,26 @@ TEST_F(IFMapExporterTest, PR1454380) {
     EXPECT_TRUE(vm_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
     EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
 
-    // Delete the link between VR-VM but dont process the Q. The delete-update
-    // should remain in the state's list.
+    // Delete the link between VR-VM and add it back. The delete-update
+    // should not be there.
     EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::DEL) == NULL);
     EXPECT_FALSE(link_state->IsInvalid());
     EXPECT_TRUE(link_state->HasDependency());
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "vr-test", "vm_x");
+    IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
+    task_util::WaitForIdle();
+    EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::DEL) == NULL);
+    EXPECT_FALSE(link_state->IsInvalid());
+    EXPECT_TRUE(link_state->HasDependency());
+
+    // Now drain the Q.
+    ProcessQueue();
+    EXPECT_TRUE(vr_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    EXPECT_TRUE(vm_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+
+    // Delete the link between VR-VM but dont process the Q. The delete-update
+    // should remain in the state's list.
     IFMapMsgUnlink("virtual-router", "virtual-machine", "vr-test", "vm_x");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(
@@ -1114,7 +1124,7 @@ TEST_F(IFMapExporterTest, PR1454380) {
 
     // We have not processed the Q and so that delete-update is still in the
     // queue. Add the VR-VM link again. Since, advertised and interest are the
-    // same, add-update will not be added and delete-update will be dequeued.
+    // same, add-update will be added again and delete-update will be dequeued.
     link_update = link_state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(link_update == NULL);
     IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
@@ -1122,7 +1132,7 @@ TEST_F(IFMapExporterTest, PR1454380) {
     TASK_UTIL_EXPECT_TRUE(link_state->IsValid());
     TASK_UTIL_EXPECT_TRUE(link_state->HasDependency());
     TASK_UTIL_EXPECT_TRUE(
-        link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+        link_state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     TASK_UTIL_EXPECT_TRUE(
         link_state->GetUpdate(IFMapListEntry::DEL) == NULL);
 }
