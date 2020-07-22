@@ -10,7 +10,12 @@ import base64
 from cfgm_common import jsonutils as json
 import ConfigParser
 import vnc_api.gen.resource_xsd
-from . import vnc_quota
+try:
+    # Python3
+    from . import vnc_quota
+except ImportError:
+    # Python2
+    import vnc_quota
 import cfgm_common
 from Crypto.Cipher import AES
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
