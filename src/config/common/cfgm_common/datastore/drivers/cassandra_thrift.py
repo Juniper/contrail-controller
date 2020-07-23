@@ -70,9 +70,6 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         super(CassandraDriverThrift, self).__init__(server_list, **options)
 
         self._cassandra_init(server_list)
-
-        self.get_one_col = self._handle_exceptions(self.get_one_col)
-        self.get_range = self._handle_exceptions(self.get_range)
     # end __init__
 
     # Helper routines for cassandra
@@ -80,14 +77,6 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         # Ensure keyspace and schema/CFs exist
 
         self.report_status_init()
-
-        pycassa.ColumnFamily.get = self._handle_exceptions(pycassa.ColumnFamily.get, "GET")
-        pycassa.ColumnFamily.multiget = self._handle_exceptions(pycassa.ColumnFamily.multiget, "MULTIGET")
-        pycassa.ColumnFamily.xget = self._handle_exceptions(pycassa.ColumnFamily.xget, "XGET")
-        pycassa.ColumnFamily.get_range = self._handle_exceptions(pycassa.ColumnFamily.get_range, "GET_RANGE")
-        pycassa.ColumnFamily.insert = self._handle_exceptions(pycassa.ColumnFamily.insert, "INSERT")
-        pycassa.ColumnFamily.remove = self._handle_exceptions(pycassa.ColumnFamily.remove, "REMOVE")
-        pycassa.batch.Mutator.send = self._handle_exceptions(pycassa.batch.Mutator.send, "SEND")
 
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
@@ -207,14 +196,9 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
         self.options.logger(msg, level=SandeshLevel.SYS_NOTICE)
     # end _cassandra_init_conn_pools
 
+    # TODO(sahid): Should be moved outside of the driver.
     def _handle_exceptions(self, func, oper=None):
         def wrapper(*args, **kwargs):
-            if (sys._getframe(1).f_code.co_name != 'multiget' and
-                    func.__name__ in ['get', 'multiget']):
-                msg = ("It is not recommended to use 'get' or 'multiget' "
-                       "pycassa methods. It's better to use 'xget' or "
-                       "'get_range' methods due to thrift limitations")
-                self.options.logger(msg, level=SandeshLevel.SYS_WARN)
             try:
                 if self.get_status() != ConnectionStatus.UP:
                     # will set conn_state to UP if successful
