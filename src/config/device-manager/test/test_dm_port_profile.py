@@ -715,14 +715,15 @@ class TestAnsiblePortProfileDM(TestAnsibleCommonDM):
 
         # now create a VPG
         vpg_obj = VirtualPortGroup(vpg_name, parent_obj=fabric)
-        if pi_obj2:
-            vpg_obj.set_physical_interface_list([
-                pi_obj2.get_fq_name(),
-                pi_obj.get_fq_name()],
-                [{'ae_num': 0},
-                 {'ae_num': 0}])
-        else:
-            vpg_obj.set_physical_interface(pi_obj)
+        # not-required, refer CEM-17455
+        #if pi_obj2:
+        #    vpg_obj.set_physical_interface_list([
+        #        pi_obj2.get_fq_name(),
+        #        pi_obj.get_fq_name()],
+        #        [{'ae_num': 0},
+        #         {'ae_num': 0}])
+        #else:
+        #    vpg_obj.set_physical_interface(pi_obj)
         self._vnc_lib.virtual_port_group_create(vpg_obj)
 
         vpg_obj.set_port_profile(pp_obj_1)
