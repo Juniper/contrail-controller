@@ -303,6 +303,7 @@ public:
         return derived_stats_map_;
     }
     uint16_t http_server_port() const { return http_server_port_; }
+    uint16_t rest_port() const { return rest_port_; }
     const std::string &host_name() const { return host_name_; }
     int agent_stats_interval() const {
         if (test_mode_) {
@@ -741,6 +742,7 @@ private:
     std::vector<std::string> collector_server_list_;
     std::map<std::string, std::map<std::string, std::string> > derived_stats_map_;
     uint16_t http_server_port_;
+    uint16_t rest_port_;
     std::string host_name_;
     int agent_stats_interval_;
     int flow_stats_interval_;
