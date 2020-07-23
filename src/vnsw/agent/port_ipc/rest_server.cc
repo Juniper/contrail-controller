@@ -18,6 +18,7 @@
 #include "cmn/agent.h"
 #include "rest_server.h"
 #include "rest_common.h"
+#include "init/agent_param.h"
 
 using contrail::regex;
 using contrail::regex_match;
@@ -308,7 +309,10 @@ RESTServer::RESTServer(Agent *agent)
 }
 
 void RESTServer::InitDone() {
-    http_server_->Initialize(ContrailPorts::PortIpcVrouterAgentPort());
+     if (agent_->params())//only if RestServer is used via agent
+         http_server_->Initialize(agent_->params()->rest_port());
+     else //otherwise , use the hardcoded value
+         http_server_->Initialize(ContrailPorts::PortIpcVrouterAgentPort());
 }
 
 void RESTServer::HandleRequest(HttpSession* session,
