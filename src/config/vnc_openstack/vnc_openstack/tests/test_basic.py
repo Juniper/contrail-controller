@@ -3089,8 +3089,11 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork('vn1-%s' % (self.id()), proj_obj)
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28))]))
+            [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 30))]))
         self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        ipams = vn_obj.network_ipam_refs[0]['attr'].ipam_subnets
+        subnet_id = ipams[0].subnet_uuid
 
         mac = vnc_api.MacAddressesType(mac_address=['00:01:00:00:0f:3c'])
         vmi_obj = vnc_api.VirtualMachineInterface(
@@ -3139,6 +3142,16 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         self.assertEqual(
             len(port_objs), 0,
             'No ports expected but retrieved (%s)' % port_objs)
+
+        # list a port by subnet_id
+        port_objs = self.list_resource(
+            'port',
+            proj_obj.uuid,
+            req_filters={'fixed_ips': {'subnet_id': [subnet_id]}},
+            req_fields={'network_id': vn_obj.uuid})
+        self.assertEqual(
+            len(port_objs), 1,
+            'Retrieved more than one port during list with subnet_id filter')
 
         # Cleanup
         self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
