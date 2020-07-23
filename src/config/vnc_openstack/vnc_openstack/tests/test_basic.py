@@ -3082,6 +3082,50 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn3_obj.uuid)
     # end test_filters_with_shared_and_router_external
 
+    def test_filters_port_by_subnet_id_and_ip_address(self):
+        proj_obj = vnc_api.Project('proj-%s' % self.id(), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+
+        vn_obj = vnc_api.VirtualNetwork('vn1-%s' % self.id(), proj_obj)
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+                                vnc_api.VnSubnetsType(
+                                    [vnc_api.IpamSubnetType(
+                                     vnc_api.SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        subnet = vn_obj.network_ipam_refs[0]['attr'].ipam_subnets[0]
+
+        port = self.create_resource(
+            'port', proj_obj.uuid,
+            extra_res_fields={
+                'port_security_enabled': True,
+                'tenant_id': proj_obj.uuid,
+                'fixed_ips': [{'ip_address': '1.1.1.5',
+                               'subnet_id': subnet.subnet_uuid}],
+                'admin_state_up': True,
+                'name': self.id(),
+                'binding:vnic_type': u'normal',
+                'mac_address': u'02:4c:db:5b:ec:1e',
+                'network_id': vn_obj.uuid})
+
+        port_objs = self.list_resource(
+            'port', proj_obj.uuid,
+            req_filters={'fixed_ips': {'subnet_id': [subnet.subnet_uuid]}},
+            req_fields={'network_id': vn_obj.uuid})
+
+        self.assertEqual(
+            len(port_objs), 1,
+            'Retrieved more than one port during list with subnet_id filter')
+
+        port_objs = self.list_resource(
+            'port', proj_obj.uuid,
+            req_filters={'fixed_ips': {'ip_address': ['1.1.1.5']}},
+            req_fields={'network_id': vn_obj.uuid})
+
+        self.assertEqual(
+            len(port_objs), 1,
+            'Retrieved more than one port during list with ip_address filter')
+
     def test_filters_with_complex_type(self):
         proj_obj = vnc_api.Project('proj-%s' % (self.id()), vnc_api.Domain())
         self._vnc_lib.project_create(proj_obj)
