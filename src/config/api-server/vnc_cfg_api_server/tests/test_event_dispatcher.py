@@ -109,6 +109,53 @@ class TestDispatch(TestCase):
         for notification in notifications:
             self._dispatcher.notify_event_dispatcher(notification)
 
+    def test_dispatch_no_extra_read(self):
+        mockVncDBClient = flexmock(
+            dbe_read=lambda resource_type, resource_id: (True, {}))
+        self._dispatcher._set_db_conn(mockVncDBClient)
+        notifications = [
+            {
+                "oper": "CREATE",
+                "type": "virtual_network_interface",
+                "uuid": "123"
+            },
+            {
+                "oper": "CREATE",
+                "type": "virtual_network",
+                "uuid": "123"
+            },
+            {
+                "oper": "DELETE",
+                "type": "virtual_network",
+                "uuid": "123"
+            },
+        ]
+
+        client_queue = Queue()
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
+        gevent.spawn(self.notify, notifications).join()
+        gevent.spawn(self._dispatcher.dispatch)
+        for notification in notifications:
+            if notification['type'] == "virtual_network_interface":
+                continue
+            event = {
+                "event": notification.get("oper").lower(),
+                "data": json.dumps({"virtual-network": {}})
+            }
+            if notification.get("oper") == "DELETE":
+                event.update(
+                    {
+                        "data": json.dumps(
+                            {"virtual-network": {"uuid": "123"}}
+                        )
+                    }
+                )
+            self.assertEquals(
+                event,
+                client_queue.get()
+            )
+
     def test_dispatch_no_dbe_read_failure_no_exception(self):
         mockVncDBClient = flexmock(
             dbe_read=lambda resource_type, resource_id: (True, {})
