@@ -5030,12 +5030,19 @@ class DBInterface(object):
 
     def _port_fixed_ips_is_present(self, check, against):
         # filters = {'fixed_ips': {'ip_address': ['20.0.0.5', '20.0.0.6']}}
-        # check = {'ip_address': ['20.0.0.5', '20.0.0.6']}
+        # check = {'ip_address': ['20.0.0.5', '20.0.0.6'], 'subnet_id': ['uuid']}
         # against = [{'subnet_id': 'uuid', 'ip_address': u'20.0.0.5'}]
-        for addr in check['ip_address']:
-            for item in against:
-                if item['ip_address'] == addr:
-                    return True
+        if 'ip_address' in check:
+            for addr in check['ip_address']:
+                for item in against:
+                    if item['ip_address'] == addr:
+                        return True
+
+        if 'subnet_id' in check:
+            for subnet_id in check['subnet_id']:
+                for item in against:
+                    if item['subnet_id'] == subnet_id:
+                        return True
 
         return False
     # end _port_fixed_ips_is_present
