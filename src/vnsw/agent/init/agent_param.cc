@@ -523,6 +523,8 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<string>(var_map, agent_name_, "DEFAULT.agent_name");
     GetOptValue<uint16_t>(var_map, http_server_port_,
                           "DEFAULT.http_server_port");
+    GetOptValue<uint16_t>(var_map, rest_port_,
+                          "DEFAULT.rest_port");
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
@@ -1654,7 +1656,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         log_file_size_(kLogFileSize),
         log_local_(false), log_flow_(false), log_level_(),
         log_category_(), use_syslog_(false),
-        http_server_port_(), host_name_(),
+        http_server_port_(), rest_port_(), host_name_(),
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
@@ -1950,6 +1952,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.http_server_port",
          opt::value<uint16_t>()->default_value(ContrailPorts::HttpPortAgent()),
          "Sandesh HTTP listener port")
+        ("DEFAULT.rest_port",
+         opt::value<uint16_t>()->default_value(ContrailPorts::PortIpcVrouterAgentPort()),
+         "REST Server port")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DEFAULT.agent_mode", opt::value<string>(),
