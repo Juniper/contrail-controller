@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "23f497c8_a0cc3259",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/wait_for_bgp_session_to_establish/tasks/juniper.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 820
+      },
+      "writtenOn": "2020-07-23T07:34:05Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "78198975_bce8744e",
+      "revId": "0dc7679df7d8d94f02b0be34ee2648701c9f4352",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "253c50f3_4bd1e86a",
         "filename": "src/config/fabric-ansible/ansible-playbooks/roles/wait_for_bgp_session_to_establish/tasks/juniper.yml",
         "patchSetId": 3
@@ -33,6 +51,24 @@
       "revId": "0dc7679df7d8d94f02b0be34ee2648701c9f4352",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "63dbab12_1f07eb55",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/wait_for_bgp_session_to_establish/tasks/juniper.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 820
+      },
+      "writtenOn": "2020-07-23T07:34:05Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "253c50f3_4bd1e86a",
+      "revId": "0dc7679df7d8d94f02b0be34ee2648701c9f4352",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
