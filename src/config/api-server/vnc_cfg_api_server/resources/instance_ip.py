@@ -191,7 +191,7 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
         ok, result = cls.dbe_read(db_conn, 'instance_ip', id)
 
         if not ok:
-            return ok, result
+            return ok, result, None
         db_iip_dict = result
 
         if 'virtual_network_refs' not in db_iip_dict:
@@ -201,27 +201,27 @@ class InstanceIpServer(ResourceMixin, InstanceIp):
         if (vn_fq_name == IP_FABRIC_VN_FQ_NAME or
                 vn_fq_name == LINK_LOCAL_VN_FQ_NAME):
             # Ignore ip-fabric and link-local address allocations
-            return True, ""
+            return True, "", None
 
         # instance-ip-address change is not allowed.
         req_ip_addr = obj_dict.get('instance_ip_address')
         db_ip_addr = db_iip_dict.get('instance_ip_address')
 
         if req_ip_addr and req_ip_addr != db_ip_addr:
-            return False, (400, 'Instance IP Address can not be changed')
+            return False, (400, 'Instance IP Address can not be changed'), None
 
         ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
                                   obj_fields=['network_ipam_refs'])
         if not ok:
-            return ok, result
+            return ok, result, None
 
         vn_dict = result
         if cls.addr_mgmt.is_gateway_ip(vn_dict,
                                        db_iip_dict.get('instance_ip_address')):
             if cls._vmi_has_vm_ref(db_conn, req_iip_dict):
-                return False, (400, 'Gateway IP cannot be used by VM port')
+                return False, (400, 'Gateway IP cannot be used by VM port'), None
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):

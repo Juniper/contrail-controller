@@ -59,14 +59,14 @@ class ProjectServer(ResourceMixin, Project):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if ('vxlan_routing' not in obj_dict and
                 'enable_security_policy_draft' not in obj_dict):
-            return True, ''
+            return True, '', None
 
         fields = ['vxlan_routing', 'logical_routers',
                   'enable_security_policy_draft']
         ok, result = cls.dbe_read(db_conn, cls.object_type, id,
                                   obj_fields=fields)
         if not ok:
-            return ok, result
+            return ok, result, None
         db_obj_dict = result
 
         if 'enable_security_policy_draft' in obj_dict:
@@ -81,9 +81,9 @@ class ProjectServer(ResourceMixin, Project):
                         'enable_security_policy_draft', False),
                 )
             if not ok:
-                return False, result
+                return False, result, None
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,

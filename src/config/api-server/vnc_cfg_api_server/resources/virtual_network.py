@@ -713,7 +713,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if fq_name == LINK_LOCAL_VN_FQ_NAME:
-            return True, ""
+            return True, "", None
 
         # neutron <-> vnc sharing
         global_access = obj_dict.get('perms2', {}).get('global_access')
@@ -727,7 +727,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                    (router_external is None or not router_external):
                     msg = ("Inconsistent is_shared (%s) and global_access (%s)"
                            % (is_shared, global_access))
-                    return False, (400, msg)
+                    return False, (400, msg), None
             if global_access is not None and router_external is not None:
                 # NOTE(gzimin): Check is_shared parameter too.
                 if router_external != (global_access == 5) and \
@@ -735,14 +735,14 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                     msg = ("Inconsistent router_external (%s) and "
                            "global_access (%s)"
                            % (router_external, global_access))
-                    return False, (400, msg)
+                    return False, (400, msg), None
             elif global_access is not None:
                 obj_dict['is_shared'] = (global_access != 0)
             else:
                 ok, result = cls.dbe_read(db_conn, 'virtual_network', id,
                                           obj_fields=['perms2'])
                 if not ok:
-                    return ok, result
+                    return ok, result, None
                 obj_dict['perms2'] = result['perms2']
                 if is_shared:
                     obj_dict['perms2']['global_access'] = PERMS_RWX
@@ -755,34 +755,34 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         if rt_dict:
             (ok, error) = cls._check_route_targets(rt_dict)
             if not ok:
-                return (False, (400, error))
+                return (False, (400, error), None)
 
         rt_import_dict = obj_dict.get('import_route_target_list')
         if rt_import_dict:
             (ok, error) = cls._check_route_targets(rt_import_dict)
             if not ok:
-                return (False, (400, error))
+                return (False, (400, error), None)
 
         rt_export_dict = obj_dict.get('export_route_target_list')
         if rt_export_dict:
             (ok, error) = cls._check_route_targets(rt_export_dict)
             if not ok:
-                return (False, (400, error))
+                return (False, (400, error), None)
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, False)
         if not ok:
-            return (False, (409, error))
+            return (False, (409, error), None)
 
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id)
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
 
         new_vn_id = obj_dict.get('virtual_network_network_id')
         # Does not authorize to update the virtual network ID as it's allocated
         # by the vnc server
         if (new_vn_id is not None and
                 new_vn_id != read_result.get('virtual_network_network_id')):
-            return (False, (403, "Cannot update the virtual network ID"))
+            return (False, (403, "Cannot update the virtual network ID"), None)
 
         new_vxlan_id = None
         old_vxlan_id = None
@@ -805,7 +805,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                    not vxlan_fq_name.startswith(new_vxlan_fq_name_in_db):
                     msg = ("Cannot set VXLAN_ID: %s, it has already been "
                            "set" % new_vxlan_id)
-                    return False, (400, msg)
+                    return False, (400, msg), None
 
                 # Free vxlan if allocated using vn_fq_name (w/o vxlan suffix)
                 if new_vxlan_fq_name_in_db == vn_fq_name:
@@ -838,47 +838,47 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         (ok, error) = cls._check_is_provider_network_property(
             obj_dict, db_conn, vn_ref=read_result)
         if not ok:
-            return (False, (400, error))
+            return (False, (400, error), None)
 
         (ok, error) = cls._check_provider_network(
             obj_dict, db_conn, vn_ref=read_result)
         if not ok:
-            return (False, (400, error))
+            return (False, (400, error), None)
 
         (ok, response) = cls._is_multi_policy_service_chain_supported(
             obj_dict, read_result)
         if not ok:
-            return (ok, response)
+            return (ok, response, None)
 
         ok, return_code, result = cls._check_ipam_network_subnets(
             obj_dict, db_conn, id, read_result)
         if not ok:
-            return (ok, (return_code, result))
+            return (ok, (return_code, result), None)
 
         (ok, result) = cls.addr_mgmt.net_check_subnet_delete(read_result,
                                                              obj_dict)
         if not ok:
-            return (ok, (409, result))
+            return (ok, (409, result), None)
 
         ipam_refs = obj_dict.get('network_ipam_refs') or []
         if ipam_refs:
             (ok, result) = cls.addr_mgmt.net_validate_subnet_update(
                 read_result, obj_dict)
             if not ok:
-                return (ok, (400, result))
+                return (ok, (400, result), None)
 
         # Check if network forwarding mode support BGP VPN types
         ok, result = cls.server.get_resource_class(
             'bgpvpn').check_network_supports_vpn_type(obj_dict, read_result)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         # Check if we can reference the BGP VPNs
         ok, result = cls.server.get_resource_class(
             'bgpvpn').check_network_has_bgpvpn_assoc_via_router(
                 obj_dict, read_result)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         # Check if VN is routed and has overlay-loopback in name alloc
         # and de-alloc instance IPs
@@ -891,7 +891,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                     db_conn,
                     read_result)
             if not ok:
-                return (False, (409, error))
+                return (False, (409, error), None)
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
             # update link with a subnet_uuid if ipam in read_result or obj_dict
@@ -903,7 +903,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                 (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
                                                    obj_id=ipam_uuid)
                 if not ok:
-                    return (ok, (409, ipam_dict))
+                    return (ok, (409, ipam_dict), None)
 
                 subnet_method = ipam_dict.get('ipam_subnet_method')
                 if (subnet_method is not None and
@@ -925,12 +925,12 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                     fq_name, obj_dict, read_result, id)
             get_context().push_undo(undo)
         except Exception as e:
-            return (False, (500, str(e)))
+            return (False, (500, str(e)), None)
 
         return True, {
             'deallocated_vxlan_network_identifier':
                 deallocated_vxlan_network_identifier,
-        }
+        }, None
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):

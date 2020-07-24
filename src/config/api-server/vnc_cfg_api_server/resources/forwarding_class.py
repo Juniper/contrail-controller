@@ -34,11 +34,13 @@ class ForwardingClassServer(ResourceMixin, ForwardingClass):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, forwarding_class = cls.dbe_read(db_conn, 'forwarding_class', id)
         if not ok:
-            return ok, forwarding_class
+            return ok, forwarding_class, None
 
         if 'forwarding_class_id' in obj_dict:
             fc_id = obj_dict['forwarding_class_id']
             if 'forwarding_class_id' in forwarding_class:
                 if fc_id != forwarding_class.get('forwarding_class_id'):
-                    return cls._check_fc_id(obj_dict, db_conn)
-        return (True, '')
+                    ok, result = cls._check_fc_id(obj_dict, db_conn)
+                    if not ok:
+                        return False, result, None
+        return (True, '', None)

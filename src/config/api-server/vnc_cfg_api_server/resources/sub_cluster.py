@@ -49,16 +49,16 @@ class SubClusterServer(ResourceMixin, SubCluster):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, ref_update=None):
         if 'sub_cluster_asn' in obj_dict:
-            return False, (400, 'Sub cluster ASN can not be modified')
+            return False, (400, 'Sub cluster ASN can not be modified'), None
 
         if not obj_dict.get('sub_cluster_id'):
-            return True, ''
+            return True, '', None
 
         deallocated_id = None
         ok, result = cls.locate(
             uuid=id, create_it=False, fields=['sub_cluster_id'])
         if not ok:
-            return False, result
+            return False, result, None
         actual_id = result['sub_cluster_id']
         new_id = obj_dict.get('sub_cluster_id')
 
@@ -72,7 +72,7 @@ class SubClusterServer(ResourceMixin, SubCluster):
             except ResourceExistsError:
                 msg = ("Sub-cluster ID '%d' is already used, choose another "
                        "one" % new_id)
-                return False, (400, msg)
+                return False, (400, msg), None
 
             def undo_allocate_sub_cluster_id():
                 cls.vnc_zk_client.free_sub_cluster_id(
@@ -95,7 +95,7 @@ class SubClusterServer(ResourceMixin, SubCluster):
                         cls.server.global_autonomous_system, ':'.join(fq_name))
                     cls.server.internal_request_update(
                         cls.resource_type, id, {'sub_cluster_id': undo_new_id})
-                return True, ""
+                return True, "", None
             get_context().push_undo(undo_deallocate_sub_cluster_id)
             deallocated_id = actual_id
 
@@ -103,7 +103,7 @@ class SubClusterServer(ResourceMixin, SubCluster):
             'fq_name': fq_name,
             'sub_cluster_id': new_id,
             'deallocated_sub_cluster_id': deallocated_id,
-        }
+        }, None
 
     @classmethod
     def dbe_update_notification(cls, obj_id, extra_dict=None):

@@ -89,30 +89,34 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.check_draft_mode_state(obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls._check_all_applications_flag(obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, FirewallPolicy)
         if not ok:
-            return False, result
+            return False, result, None
 
         if 'user_visible' in obj_dict.get('id_perms', {}):
             new_user_visible = obj_dict['id_perms'].get('user_visible', True)
             ok, result = cls.dbe_read(db_conn, 'application_policy_set', id)
             if not ok:
-                return ok, result
+                return ok, result, None
             aps = result
             old_user_visible = aps['id_perms'].get('user_visible', True)
             if new_user_visible and not old_user_visible:
-                return cls.check_openstack_firewall_group_quota(obj_dict)
+                ok, result = cls.check_openstack_firewall_group_quota(obj_dict)
+                if not ok:
+                    return False, result, None
             elif not new_user_visible and old_user_visible:
-                return cls.check_openstack_firewall_group_quota(obj_dict, True)
+                ok, result = cls.check_openstack_firewall_group_quota(obj_dict, True)
+                if not ok:
+                    return False, result, None
 
-        return True, ''
+        return True, '', None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):

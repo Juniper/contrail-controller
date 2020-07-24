@@ -67,7 +67,7 @@ class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
 
         ok, result = cls.validate_telemetry_back_refs(obj_dict)
         if not ok:
-            return ok, result
+            return ok, result, None
 
-        return True, ''
+        return True, '', None
     # end pre_dbe_update

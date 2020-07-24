@@ -25,4 +25,4 @@ class DomainServer(ResourceMixin, Domain):
         if fq_name == Domain().fq_name:
             cls.server.default_domain = None
             cls.server.default_domain
-        return True, ''
+        return True, '', None
