@@ -24,11 +24,11 @@ class FabricServer(ResourceMixin, Fabric):
         # enterprise style or vice-versa
         ok, read_result = cls.dbe_read(db_conn, 'fabric', id)
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
         cur_enterprise_style = read_result.get('fabric_enterprise_style')
         new_enterprise_style = obj_dict.get('fabric_enterprise_style')
         if (cur_enterprise_style is False and new_enterprise_style is True or
            cur_enterprise_style is True and new_enterprise_style is False):
             return (False, (403, "Cannot change from sp-style to "
-                                 "enterprise-style or vice-versa"))
-        return True, ''
+                                 "enterprise-style or vice-versa"), None)
+        return True, '', None

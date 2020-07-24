@@ -126,7 +126,7 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
         deallocated_security_group_id = None
         ok, result = cls.dbe_read(db_conn, 'security_group', id)
         if not ok:
-            return ok, result
+            return ok, result, None
         sg_dict = result
 
         # Does not authorize to update the security group ID as it's allocated
@@ -134,7 +134,7 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
         new_sg_id = obj_dict.get('security_group_id')
         if (new_sg_id is not None and
                 int(new_sg_id) != sg_dict['security_group_id']):
-            return (False, (403, "Cannot update the security group ID"))
+            return (False, (403, "Cannot update the security group ID"), None)
 
         # Update the configured security group ID
         if 'configured_security_group_id' in obj_dict:
@@ -143,7 +143,7 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
                 obj_dict['configured_security_group_id']
             ok, result = cls._set_configured_security_group_id(sg_dict)
             if not ok:
-                return ok, result
+                return ok, result, None
             if actual_sg_id != sg_dict['security_group_id']:
                 deallocated_security_group_id = actual_sg_id
             obj_dict['security_group_id'] = sg_dict['security_group_id']
@@ -151,13 +151,13 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
         ok, result = check_policy_rules(
             obj_dict.get('security_group_entries'))
         if not ok:
-            return ok, result
+            return ok, result, None
 
         if sg_dict['id_perms'].get('user_visible', True):
             ok, result = QuotaHelper.get_project_dict_for_quota(
                 sg_dict['parent_uuid'], db_conn)
             if not ok:
-                return False, result
+                return False, result, None
             proj_dict = result
             new_rule_count = len(cls.get_nested_key_as_list(
                 obj_dict, 'security_group_entries', 'policy_rule'))
@@ -167,11 +167,11 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
             ok, result = cls.check_security_group_rule_quota(
                 proj_dict, db_conn, rule_count)
             if not ok:
-                return ok, result
+                return ok, result, None
 
         return True, {
             'deallocated_security_group_id': deallocated_security_group_id,
-        }
+        }, None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
