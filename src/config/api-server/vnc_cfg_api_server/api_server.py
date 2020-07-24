@@ -1072,10 +1072,15 @@ class VncApiServer(object):
 
             get_context().set_state('PRE_DBE_CREATE')
             # type-specific hook
-            (ok, result) = r_class.pre_dbe_create(
+            # Save old data in case of VLAN_update, pass on to post_dbe_create/post_dbe_update
+            (ok, create_result, zk_create_kwargs) = r_class.pre_dbe_create(
                     tenant_name, obj_dict, db_conn)
             if not ok:
-                return (ok, result)
+                if create_result:
+                    return (ok, create_result)
+                else:
+                    return (ok, zk_create_kwargs)
+            zk_create_kwargs = zk_create_kwargs or {}
 
             # All resource type can have tag refs but there is some constraints
             # Done after PRE_DBE_CREATE as tag refs can be modifed in that hook
@@ -1129,7 +1134,8 @@ class VncApiServer(object):
             get_context().set_state('POST_DBE_CREATE')
             # type-specific hook
             try:
-                ok, result = r_class.post_dbe_create(tenant_name, obj_dict, db_conn)
+                ok, result = r_class.post_dbe_create(tenant_name, obj_dict, db_conn,
+                                                     **zk_create_kwargs)
             except Exception as e:
                 ok = False
                 msg = ("%s:%s post_dbe_create had an exception: %s\n%s" %
@@ -4365,11 +4371,16 @@ class VncApiServer(object):
             _req_obj_dict = {}
             if req_obj_dict:
                 _req_obj_dict = req_obj_dict
-            (ok, result) = r_class.pre_dbe_update(
+            (ok, update_result, zk_update_kwargs) = r_class.pre_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
                 prop_collection_updates=req_prop_coll_updates)
             if not ok:
-                return (ok, result)
+                if update_result:
+                    return (ok, update_result)
+                else:
+                    return (ok, zk_update_kwargs)
+            zk_update_kwargs = zk_update_kwargs or {}
+
             attr_to_publish = None
             if isinstance(result, dict):
                 attr_to_publish = result
@@ -4435,7 +4446,7 @@ class VncApiServer(object):
             # type-specific hook
             (ok, result) = r_class.post_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
-                prop_collection_updates=req_prop_coll_updates)
+                prop_collection_updates=req_prop_coll_updates, **zk_update_kwargs)
             if not ok:
                 return (ok, result)
 
