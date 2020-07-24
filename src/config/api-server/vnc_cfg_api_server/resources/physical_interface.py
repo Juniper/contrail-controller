@@ -67,7 +67,7 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                                            'physical_interface_flow_control',
                                            'physical_interface_port_params'])
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
 
         # do not allow change in display name
         if 'display_name' in obj_dict:
@@ -78,12 +78,12 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
         if esi and read_result.get('logical_interfaces'):
             ok, result = cls._check_esi_string(esi)
             if not ok:
-                return ok, result
+                return ok, result, None
 
             ok, result = cls._check_esi(obj_dict, db_conn, esi,
                                         read_result.get('logical_interfaces'))
             if not ok:
-                return ok, result
+                return ok, result, None
 
         pi_type = read_result.get('physical_interface_type')
         flow_control = read_result.get('physical_interface_flow_control')
@@ -93,9 +93,9 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                                                               flow_control,
                                                               port_params)
         if not ok:
-            return ok, result
+            return ok, result, None
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def _check_physical_interface_properties(cls, obj_dict, pi_type=None,
