@@ -2,7 +2,6 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-
 from builtins import range
 from builtins import str
 import os
@@ -11,6 +10,8 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.zkclient import ZookeeperLock
+from cfgm_common.utils import _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX
+from cfgm_common.exceptions import ResourceExistsError
 from netaddr import AddrFormatError
 from netaddr import IPAddress
 from vnc_api.gen.resource_common import VirtualMachineInterface
@@ -21,6 +22,7 @@ from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
 from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
 class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
@@ -549,9 +551,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         is_untagged_vlan = True
                     else:
                         vlan_id = vlan_tag
-                    vpg_uuid, ret_dict = cls._manage_vpg_association(
+                    vpg_uuid, ret_dict, zk_update_kwargs = cls._manage_vpg_association(
                         obj_dict['uuid'], cls.server, db_conn, links,
-                        vpg_name, vn_uuid, vlan_id, is_untagged_vlan)
+                        db_vlan_id=None, vpg_name=vpg_name, vn_uuid=vn_uuid,
+                        vlan_id=vlan_id, is_untagged_vlan=is_untagged_vlan)
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
@@ -600,11 +603,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, **kwargs):
-
+        zk_update_kwargs = {}
         ok, read_result = cls.dbe_read(db_conn, 'virtual_machine_interface',
                                        id)
         if not ok:
-            return ok, read_result
+            return ok, read_result, zk_update_kwargs
 
         vn_uuid = None
         if 'virtual_network_refs' in read_result:
@@ -612,21 +615,23 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         ok, error = cls._check_bridge_domain_vmi_association(
             obj_dict, read_result, db_conn, vn_uuid, False)
         if not ok:
-            return False, (400, error)
+            return False, (400, error), zk_update_kwargs
 
         # check if the vmi is a internal interface of a logical
         # router
         if (read_result.get('logical_router_back_refs') and
                 obj_dict.get('virtual_machine_refs')):
             return (False,
-                    (400, 'Logical router interface cannot be used by VM'))
+                   (400, 'Logical router interface cannot be used by VM'),
+                   zk_update_kwargs)
         # check if vmi is going to point to vm and if its using
         # gateway address in iip, disallow
         iip_class = cls.server.get_resource_class('instance_ip')
         for iip_ref in read_result.get('instance_ip_back_refs') or []:
             if (obj_dict.get('virtual_machine_refs') and
                     iip_class.is_gateway_ip(db_conn, iip_ref['uuid'])):
-                return (False, (400, 'Gateway IP cannot be used by VM port'))
+                return (False, (400, 'Gateway IP cannot be used by VM port'),
+                        zk_update_kwargs)
 
         vpg = None
         if read_result.get('virtual_port_group_back_refs'):
@@ -636,7 +641,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 db_conn, 'virtual_port_group',
                 vpg_id, obj_fields=['virtual_port_group_trunk_port_id'])
             if not ok:
-                return ok, vpg
+                return ok, vpg, zk_update_kwargs
 
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_refs' in read_result):
@@ -647,7 +652,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     # Dont allow remove of vmi ref during update if it's
                     # a sub port
                     msg = "VMI ref delete not allowed during update"
-                    return (False, (409, msg))
+                    return (False, (409, msg), zk_update_kwargs)
 
         bindings = read_result.get('virtual_machine_interface_bindings') or {}
         kvps = bindings.get('key_value_pair') or []
@@ -679,7 +684,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             # a sub-interface
             if (new_vlan != old_vlan and
                     'virtual_machine_interface_refs' in read_result):
-                return False, (400, "Cannot change sub-interface VLAN tag ID")
+                return (False,
+                        (400, "Cannot change sub-interface VLAN tag ID"),
+                        zk_update_kwargs)
 
         ret_dict = None
         if kvps:
@@ -693,7 +700,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     if cls._is_port_bound(read_result, kvp_dict):
                         msg = ("Vnic_type can not be modified when port is "
                                "linked to Vrouter or VM.")
-                        return False, (409, msg)
+                        return False, (409, msg), zk_update_kwargs
 
             # Manage the bindings for baremetal servers
             vnic_type = kvp_dict.get('vnic_type')
@@ -713,14 +720,15 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         is_untagged_vlan = True
                         if (vlan_id != old_vlan and
                            'virtual_machine_interface_refs' in read_result):
-                            return False, (400, "Cannot change VLAN ID")
+                            return False, (400, "Cannot change VLAN ID"), zk_update_kwargs
                     else:
                         vlan_id = new_vlan
-                    vpg_uuid, ret_dict = cls._manage_vpg_association(
-                        id, cls.server, db_conn, links, vpg_name,
-                        vn_uuid, vlan_id, is_untagged_vlan)
+                    vpg_uuid, ret_dict, zk_update_kwargs = cls._manage_vpg_association(
+                        id, cls.server, db_conn, links, db_vlan_id=old_vlan,
+                        vpg_name=vpg_name, vn_uuid=vn_uuid, vlan_id=vlan_id,
+                        is_untagged_vlan=is_untagged_vlan)
                     if not vpg_uuid:
-                        return vpg_uuid, ret_dict
+                        return vpg_uuid, ret_dict, zk_update_kwargs
 
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
 
@@ -760,7 +768,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn,
                                                     kvp_dict.get('host_id'))
                 if not ok:
-                    return ok, result
+                    return ok, result, zk_update_kwargs
                 elif result:
                     vif_type = {
                         'key': 'vif_type',
@@ -821,14 +829,14 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         ok, result = cls._check_port_security_and_address_pairs(obj_dict,
                                                                 read_result)
         if not ok:
-            return ok, result
+            return ok, result, zk_update_kwargs
 
         ok, result = cls._check_service_health_check_type(
             obj_dict, read_result, db_conn)
         if not ok:
-            return ok, result
+            return ok, result, zk_update_kwargs
 
-        return True, ret_dict
+        return True, ret_dict, zk_update_kwargs
 
     @classmethod
     def _notify_ae_id_modified(cls, obj_dict=None, notify=False):
@@ -1436,12 +1444,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def _check_serviceprovider_fabric(
-        cls, db_conn, api_server, zk_vpg_lock_path,
-            vpg_uuid, vn_uuid, vlan_id, vmi_uuid, is_untagged_vlan):
+            cls, db_conn, api_server, db_vlan_id, vpg_uuid, vn_uuid,
+            vlan_id, vmi_uuid, is_untagged_vlan):
         """Verify Service Provider Style Fabric's restrictions.
 
         :Args
         :  db_conn: db connection object
+        :  db_vlan_id: old vlan read from ZK
         :  api_server: api_server connection object
         :  zk_vpg_lock_path: VPG ZK Path
         :  vpg_uuid: UUID of VPG
@@ -1454,39 +1463,92 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         :  True, '': PASS condition
         :  (False, (<code>, msg): Fail condition
         """
-        # verify we received a valid vlan-id
-        # may be a VMI update
+        # Verify we received a valid vlan-id. May be a VMI update
         if not vlan_id:
-            return True, ''
+            return True, '', None
+        # Define Zookeeper lock path
+        zk_vmi_untagged_lock_path = os.path.join(
+            api_server.fabric_validation_lock_prefix,
+            'serviceprovider', vpg_uuid, 'untagged')
+        zk_vmi_tagged_lock_path = os.path.join(
+            api_server.fabric_validation_lock_prefix,
+            'serviceprovider', vpg_uuid, vn_uuid, str(vlan_id))
 
         # Zookeeper lock params
-        zk_vpg_args = {'zookeeper_client': db_conn._zk_db._zk_client,
-                       'path': os.path.join(zk_vpg_lock_path, vpg_uuid),
-                       'name': vpg_uuid, 'timeout': 60}
-        validation = 'serviceprovider'
-        # VPG ZK Lock
-        with ZookeeperLock(**zk_vpg_args):
-            ok, result = cls._check_remove_old_vlan_annotation(
-                db_conn, api_server, vn_uuid, vmi_uuid, vlan_id,
-                vpg_uuid, is_untagged_vlan, validation)
-            if not ok:
-                return ok, result
-            ok, result = cls._check_unique_vn_vlan_in_vpg(
-                db_conn, api_server, vpg_uuid, vn_uuid,
-                vmi_uuid, vlan_id, validation)
-            if not ok:
-                return ok, result
-            ok, result = cls._check_add_one_untagged_vlan(
-                db_conn, api_server, vpg_uuid, vmi_uuid, vlan_id,
-                is_untagged_vlan, validation)
-            if not ok:
-                return ok, result
-            ok, result = cls._add_unique_vn_vlan_in_vpg(
-                db_conn, api_server, vpg_uuid, vn_uuid,
-                vlan_id, vmi_uuid, validation)
-            if not ok:
-                return ok, result
-        return True, ''
+        zk_vmi_untagged_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                                'path': zk_vmi_untagged_lock_path,
+                                'name': vmi_uuid, 'timeout': 60}
+        zk_vmi_tagged_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                              'path': zk_vmi_tagged_lock_path,
+                              'name': vmi_uuid, 'timeout': 60}
+
+        # Path for ZNode creation
+        untagged_validation_path = os.path.join(
+            _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX,
+            ('virtual-port-group:%s/untagged') % vpg_uuid)
+        tagged_validation_path = os.path.join(
+            _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX,
+            ('virtual-port-group:%s/virtual-network:%s/vlan:%s')
+            % (vpg_uuid, vn_uuid, vlan_id))
+        result = True
+        if is_untagged_vlan:  # untagged vlan
+            try:
+                cls.db_conn._zk_db._zk_client.create_node(
+                    untagged_validation_path, value=vmi_uuid)
+            except ResourceExistsError:
+                value = cls.db_conn._zk_db._zk_client.read_node(
+                    untagged_validation_path)
+                msg = ("Znode with %s untagged VLAN already exists") % value
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                if value:
+                    rsp = ("Znode with %s untagged VLAN already exists" % value)
+                    return (False, (400, rsp), None)
+                else:
+                    msg = "Failure while creating Znode with untagged vlan"
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                result = False
+        else:  # tagged vlan
+            try:
+                cls.db_conn._zk_db._zk_client.create_node(
+                    tagged_validation_path, value=vmi_uuid)
+            except ResourceExistsError:
+                value = cls.db_conn._zk_db._zk_client.read_node(
+                    tagged_validation_path)
+                msg = ("Znode with %s tagged VLAN already exists") % value
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                if value:
+                     rsp = ("Znode with %s tagged VLAN already exists") % value
+                     return (False, (400, rsp), None)
+                else:
+                    msg = "Failure while creating Znode with tagged vlan"
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                result = False
+
+        if result:  # ZNode creation successful
+            if db_vlan_id and (db_vlan_id != vlan_id):  # Check for vlan_update case
+                return True, '', {'delete_validation_znode': db_vlan_id}
+        else:  # Check if node is STALE
+            ok, result = cls.dbe_read(
+                db_conn,
+                'virtual_machine_interface',
+                vmi_uuid)
+            if ok:  # Not STALE
+                msg = "Znode with %s virtual_machine_interface already exists" % vmi_uuid
+                return False, (400, msg), None
+            else:  # STALE
+                # VMI ZK Lock
+                if is_untagged_vlan:
+                    with ZookeeperLock(**zk_vmi_untagged_args):
+                        cls.db_conn._zk_db._zk_client.update_node(
+                            untagged_validation_path, repr(vmi_uuid).encode('ascii'))
+                else:
+                    with ZookeeperLock(**zk_vmi_tagged_args):
+                        cls.db_conn._zk_db._zk_client.update_node(
+                            tagged_validation_path, repr(vmi_uuid).encode('ascii'))
+        if is_untagged_vlan:
+            return True, '', {'delete_validation_znode': untagged_validation_path}
+        else:
+            return True, '', {'delete_validation_znode': tagged_validation_path}
 
     @classmethod
     def _check_enterprise_fabric(
@@ -1568,7 +1630,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def _manage_vpg_association(cls, vmi_id, api_server, db_conn, phy_links,
-                                vpg_name=None, vn_uuid=None,
+                                db_vlan_id=None, vpg_name=None, vn_uuid=None,
                                 vlan_id=None, is_untagged_vlan=False):
         fabric_name = None
         phy_interface_uuids = []
@@ -1580,7 +1642,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 if fabric_name is not None and fabric_name != link['fabric']:
                     msg = 'Physical interfaces in the same vpg '\
                           'should belong to the same fabric'
-                    return (False, (400, msg))
+                    return (False, (400, msg), None)
                 fabric_name = link['fabric']
             else:  # use default fabric if it's not in link local information
                 fabric_name = 'default-fabric'
@@ -1600,7 +1662,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 obj_id=uuid,
                 obj_fields=['name', 'virtual_port_group_back_refs'])
             if not ok:
-                return (ok, 400, phy_interface_dict)
+                return (ok, (400, phy_interface_dict), None)
 
             vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
             if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
@@ -1608,7 +1670,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                       (phy_interface_dict.get(
                           'name', phy_interface_dict['fq_name']),
                        vpg_refs[0]['to'][-1])
-                return (False, (400, msg))
+                return (False, (400, msg), None)
 
         if vpg_name:  # read the vpg object
             vpg_fq_name = ['default-global-system-config', fabric_name,
@@ -1618,13 +1680,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                                                    vpg_fq_name)
             except NoIdError:
                 msg = 'Vpg object %s is not found' % vpg_name
-                return (False, (404, msg))
+                return (False, (404, msg), None)
 
             ok, vpg_dict = db_conn.dbe_read(
                 obj_type='virtual-port-group', obj_id=vpg_uuid)
 
             if not ok:
-                return (ok, 400, vpg_dict)
+                return (ok, (400, vpg_dict), None)
 
         else:  # create vpg object
             fabric_fq_name = [
@@ -1636,7 +1698,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
             def undo_vpg_id():
                 cls.vnc_zk_client.free_vpg_id(vpg_id, ':'.join(fabric_fq_name))
-                return True, ""
+                return True, "", None
             get_context().push_undo(undo_vpg_id)
 
             vpg_name = "vpg-internal-" + str(vpg_id)
@@ -1652,7 +1714,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'virtual-port-group', json.loads(vpg_int_dict))
 
             if not ok:
-                return (ok, 400, resp)
+                return (ok, (400, resp), None)
 
             vpg_dict = resp['virtual-port-group']
             vpg_uuid = resp['virtual-port-group']['uuid']
@@ -1660,7 +1722,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             def undo_vpg_create():
                 cls.server.internal_request_delete('virtual-port-group',
                                                    vpg_uuid)
-                return True, ''
+                return True, '', None
             get_context().push_undo(undo_vpg_create)
 
         # Check for fabric to get vpg
@@ -1673,7 +1735,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                             'virtual_port_groups',
                             'disable_vlan_vn_uniqueness_check'])
             if not ok:
-                return ok, read_result
+                return ok, read_result, None
             fabric = read_result
             # In cases of upgrade, the fabric_enterprise_style flag won't
             # be set. In such cases, consider the flag to be false
@@ -1682,14 +1744,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             disable_fabric_uniqueness_check = read_result.get(
                 'disable_vlan_vn_uniqueness_check')
             fabric_uuid = fabric.get('uuid')
-
             # define zookeeper locks
             zk_fabric_lock_path = os.path.join(
                 api_server.fabric_validation_lock_prefix, 'fabrics')
             zk_vpg_lock_path = os.path.join(
                 api_server.fabric_validation_lock_prefix,
                 'fabrics', fabric_uuid, 'vpgs')
-
             # VLAN-ID sanitizer
             def vlanid_sanitizer(vlanid):
                 if not vlanid:
@@ -1699,7 +1759,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     return int(vlanid)
                 elif isinstance(vlanid, int):
                     return vlanid
-            vlan_id = vlanid_sanitizer(vlan_id)
+            #vlan_id = vlanid_sanitizer(vlan_id)
 
             if fabric_enterprise_style:
                 ok, result = cls._check_enterprise_fabric(
@@ -1708,14 +1768,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     vn_uuid, vlan_id, vmi_id, is_untagged_vlan,
                     disable_fabric_uniqueness_check)
                 if not ok:
-                    return ok, result
+                    return ok, result, None
             else:
-                ok, result = cls._check_serviceprovider_fabric(
-                    db_conn, api_server, zk_vpg_lock_path, vpg_uuid,
+                ok, result, zk_update_kwargs = cls._check_serviceprovider_fabric(
+                    db_conn, api_server, db_vlan_id, vpg_uuid,
                     vn_uuid, vlan_id, vmi_id, is_untagged_vlan)
                 if not ok:
-                    return ok, result
-
+                    return ok, result, None
         old_phy_interface_refs = vpg_dict.get('physical_interface_refs')
         for ref in old_phy_interface_refs or []:
             old_pi_to_pr_dict[ref['uuid']] = {
@@ -1783,7 +1842,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             msg = 'Intent Map for Assisted Replicator object %s not ' \
                   'found for fabric %s' % (intent_map_fq_name[-1],
                                            fabric_name)
-            return vpg_uuid, ret_dict
+            return vpg_uuid, ret_dict, None
 
         api_server.internal_request_ref_update(
             'virtual-network',
@@ -1793,15 +1852,22 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             intent_map_uuid,
             relax_ref_for_delete=True)
 
-        return vpg_uuid, ret_dict
+        return vpg_uuid, ret_dict, zk_update_kwargs
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-                        prop_collection_updates=None, ref_update=None):
+                        prop_collection_updates=None, ref_update=None,
+                        **kwargs):
+
         api_server = db_conn.get_api_server()
 
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
+
+        # VLAN update case: delete the old ZNode
+        del_zk_node_path = kwargs.get('delete_validation_znode')
+        if del_zk_node_path:
+            cls.db_conn._zk_db._zk_client.delete_node(del_zk_node_path, True)
 
         # ADD a ref from this VMI only if it's getting created
         # first time

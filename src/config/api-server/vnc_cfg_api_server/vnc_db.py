@@ -1359,6 +1359,10 @@ class VncDbClient(object):
             'enterprise' if
             fabric.get('fabric_enterprise_style') else
             'serviceprovider')
+        # Skip for serviceprovider fabric
+        if validation == 'serviceprovider':
+            return True, ''
+
         vmi_uuids = [vmi_ref.get('uuid') for vmi_ref in vmi_refs]
         ok, vmi_infos = self._object_db.object_read(
             'virtual-machine-interface', vmi_uuids,
@@ -1368,6 +1372,7 @@ class VncDbClient(object):
                 'virtual_network_refs'])
         if not ok:
             return ok, vmi_infos
+
         annotations = []
         for vmi_info in vmi_infos:
             # vlan can be found in interface props or bindings

@@ -331,32 +331,32 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.check_draft_mode_state(obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, AddressGroup)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, ServiceGroup)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, VirtualNetwork)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, read_result = cls.dbe_read(db_conn, 'firewall_rule', id)
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
         db_obj_dict = read_result
 
         ok, result = cls._check_host_based_service_action(
             obj_dict, db_obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         try:
             service = obj_dict['service']
@@ -368,26 +368,25 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
             service_group_refs = db_obj_dict.get('service_group_refs')
         ok, result = cls._frs_fix_service(service, service_group_refs)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, msg = cls._frs_fix_service_protocol(obj_dict)
         if not ok:
-            return (ok, msg)
+            return (ok, msg, None)
 
         ok, msg = cls._frs_fix_match_tags(obj_dict)
         if not ok:
-            return (ok, msg)
-
+            return (ok, msg, None)
         ok, result = cls._check_endpoint(obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls._frs_fix_endpoint_tag(obj_dict, db_obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls._frs_fix_endpoint_address_group(obj_dict, db_obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
-        return True, ''
+        return True, '', None

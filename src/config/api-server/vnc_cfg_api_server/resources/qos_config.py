@@ -42,4 +42,7 @@ class QosConfigServer(ResourceMixin, QosConfig):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls._check_qos_values(obj_dict, db_conn)
+        ok, result = cls._check_qos_values(obj_dict, db_conn)
+        if not ok:
+            return False, result, None
+        return True, '', None

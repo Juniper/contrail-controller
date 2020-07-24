@@ -30,7 +30,11 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.validate_dns_server(obj_dict, db_conn)
+        ok, result = cls.validate_dns_server(obj_dict, db_conn)
+        if not ok:
+            return False, result, None
+
+        return True, '', None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
