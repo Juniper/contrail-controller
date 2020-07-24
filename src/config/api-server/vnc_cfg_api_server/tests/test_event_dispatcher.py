@@ -46,30 +46,71 @@ class TestRegisterClient(TestCase):
         super(TestRegisterClient, self).tearDown()
 
     def test_subscribe_client(self):
-        client_queue = Queue()
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "instance_ip_back_refs",
+                    "virtual_machine_interface_bindings"]}}
+        resources_query2 = {}
+        resources_query3 = {
+            "virtual_network": {
+                "fields": ["virtual_machine_interface_bindings"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue3 = WatcherQueue(resources_query3)
         watcher_resource_types = [
             "virtual_network",
             "virtual_network_interface"]
-        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue1, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue2, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue3, watcher_resource_types)
         for resource_type in watcher_resource_types:
             self.assertEquals(
-                [client_queue],
-                self._dispatcher._get_client_queues()[resource_type]
+                [client_queue1, client_queue2, client_queue3],
+                self._dispatcher._get_client_queues()[resource_type].get("watchers")
             )
+            self.assertEquals([], self._dispatcher._get_client_queues()[
+                resource_type].get("fields"))
 
     def test_unsubscribe_client(self):
-        client_queue = Queue()
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "instance_ip_back_refs",
+                    "virtual_machine_interface_bindings"]}}
+        resources_query2 = {}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
         watcher_resource_types = [
             "virtual_network",
             "virtual_network_interface"]
-        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
-        self._dispatcher.unsubscribe_client(client_queue,
+        self._dispatcher.subscribe_client(
+            client_queue1, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue2, watcher_resource_types)
+        self._dispatcher.unsubscribe_client(client_queue2,
                                             watcher_resource_types)
         for resource_type in watcher_resource_types:
             self.assertEquals(
-                [],
-                self._dispatcher._get_client_queues().get(resource_type, [])
-            )
+                [client_queue1],
+                self._dispatcher._get_client_queues().get(
+                    resource_type,
+                    []).get("watchers"))
 
 
 class TestNotifyEventDispatcher(TestCase):
@@ -109,6 +150,70 @@ class TestDispatch(TestCase):
         for notification in notifications:
             self._dispatcher.notify_event_dispatcher(notification)
 
+    def test_dispatch_with_field_query(self):
+        vm_resp = {"instance_ip_back_refs": {},
+                   "virtual_machine_interface_bindings": {}}
+        mockVncDBClient = flexmock(
+            dbe_read=lambda resource_type,
+            resource_id,
+            obj_fields: (
+                True,
+                vm_resp))
+        self._dispatcher._set_db_conn(mockVncDBClient)
+        notifications = [
+            {
+                "oper": "CREATE",
+                "type": "virtual_network_interface",
+                "uuid": "123"
+            },
+            {
+                "oper": "CREATE",
+                "type": "virtual_network",
+                "uuid": "123"
+            },
+            {
+                "oper": "DELETE",
+                "type": "virtual_network",
+                "uuid": "123"
+            },
+        ]
+        resources_query = {
+            "virtual_network": {
+                "fields": [
+                    "instance_ip_back_refs",
+                    "virtual_machine_interface_bindings"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue(resources_query)
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
+        gevent.spawn(self.notify, notifications).join()
+        gevent.spawn(self._dispatcher.dispatch)
+
+        for notification in notifications:
+            if notification['type'] == "virtual_network_interface":
+                continue
+            event = {
+                "event": notification.get("oper").lower(),
+                "data": json.dumps({"virtual-network": vm_resp})
+            }
+            if notification.get("oper") == "DELETE":
+                event.update(
+                    {
+                        "data": json.dumps(
+                            {"virtual-network": {"uuid": "123"}}
+                        )
+                    }
+                )
+            self.assertEquals(
+                event,
+                client_queue.get()
+            )
+
     def test_dispatch_no_extra_read(self):
         mockVncDBClient = flexmock(
             dbe_read=lambda resource_type, resource_id: (True, {}))
@@ -131,7 +236,12 @@ class TestDispatch(TestCase):
             },
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
@@ -180,7 +290,12 @@ class TestDispatch(TestCase):
             },
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
@@ -222,7 +337,12 @@ class TestDispatch(TestCase):
             }
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
@@ -259,7 +379,12 @@ class TestDispatch(TestCase):
             }
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
