@@ -56,17 +56,44 @@ class EventDispatcher(object):
 
     @classmethod
     def _subscribe_client_queue(cls, client_queue, resource_type):
+        fields = []
+        set_field = []
+        resources_query = client_queue.query
+        if resources_query:
+            if resources_query.get(resource_type, None):
+                fields = resources_query.get(resource_type).get("fields", [])
+        if not cls._client_queues.get(resource_type, None):
+            watchers = [client_queue]
+            set_field = fields
+        else:
+            if cls._client_queues.get(resource_type).get("fields"):
+                set_field = [] if not fields else cls._client_queues.get(resource_type).get("fields") + fields
+            watchers = cls._client_queues.get(resource_type).get("watchers", []) + [client_queue]
         cls._client_queues.update(
             {
-                resource_type:
-                    cls._client_queues.get(resource_type, []) + [client_queue]
+                resource_type: {"fields": set_field, "watchers": watchers}
             }
         )
 
     @classmethod
     def _unsubscribe_client_queue(cls, client_queue, resource_type):
         try:
-            cls._client_queues.get(resource_type, []).remove(client_queue)
+            cls._client_queues.get(resource_type, []).get("watchers", []).remove(client_queue)
+            client_queue_list = cls._client_queues.get(resource_type).get("watchers", [])
+            set_fields = []
+            for index, client_queue in enumerate(client_queue_list):
+                resources_query = client_queue.query
+                if resources_query:
+                    if resources_query.get(resource_type, None):
+                        fields = resources_query.get(resource_type).get("fields", [])
+                        if index == 0 or cls._client_queues.get(resource_type).get("fields", []):
+                            set_field = fields if index == 0 else cls._client_queues.get(resource_type).get(
+                                "fields") + fields
+                            cls._client_queues.update(
+                                {
+                                    resource_type: {"fields": set_field, "watchers": client_queue_list}
+                                }
+                            )
         except ValueError:
             pass
 
@@ -99,19 +126,30 @@ class EventDispatcher(object):
             if not self._client_queues.get(resource_type, None):
                 # No clients subscribed for this resource type
                 continue
+            if not self._client_queues.get(resource_type).get("watchers", None):
+                continue
+            fields = self._client_queues.get(resource_type).get("fields")
             if resource_oper == "DELETE":
                 resource_data = {"uuid": resource_id}
             else:
                 try:
-                    ok, resource_data = self._db_conn.dbe_read(
-                        resource_type,
-                        resource_id
-                    )
+                    if fields:
+                        ok, resource_data = self._db_conn.dbe_read(
+                            resource_type,
+                            resource_id,
+                            obj_fields=fields
+                        )
+                    else:
+                        ok, resource_data = self._db_conn.dbe_read(
+                            resource_type,
+                            resource_id
+                        )
                     if not ok:
                         resource_oper = "STOP"
                         resource_data = {
                             "error": "dbe_read failure: %s" % resource_data
                         }
+
                 except NoIdError:
                     err_msg = "Resource with id %s already deleted at the \
                         point of dbe_read" % resource_id
@@ -134,11 +172,29 @@ class EventDispatcher(object):
                         "error": str(e)
                     }
 
-            event = self.pack(
-                event=resource_oper,
-                data={resource_type: resource_data}
-            )
-            for client_queue in self._client_queues.get(resource_type, []):
+            object_type = resource_type.replace("_", "-")
+            watcher_queues = self._client_queues.get(resource_type).get("watchers")
+
+            for client_queue in watcher_queues:
+                fields = []
+                resources_query = client_queue.query
+                if resources_query:
+                    if resources_query.get(resource_type, None):
+                        fields = resources_query.get(resource_type).get("fields", [])
+                if not fields or resource_oper == "DELETE":
+                    event = self.pack(
+                        event=resource_oper,
+                        data={object_type: resource_data}
+                    )
+                    client_queue.put_nowait(event)
+                    continue
+                resource_data_fields = {}
+                for field in fields:
+                    resource_data_fields[field] = resource_data.get(field, {})
+                event = self.pack(
+                    event=resource_oper,
+                    data={object_type: resource_data_fields}
+                )
                 client_queue.put_nowait(event)
     # end dispatch
 
