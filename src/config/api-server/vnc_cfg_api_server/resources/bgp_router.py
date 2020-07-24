@@ -98,7 +98,7 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
                  obj_dict['bgp_router_parameters'].get('autonomous_system'))):
             ok, result = cls._validate_subcluster_dep(obj_dict, db_conn)
             if not ok:
-                return ok, result
+                return ok, result, None
 
         router_type = None
         bgp_obj = None
@@ -110,34 +110,34 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
             hold_time = bgp_router_prop.get('hold_time')
             ok, result = check_hold_time_in_range(hold_time)
             if not ok:
-                return ok, (400, result)
+                return ok, (400, result), None
 
             asn = bgp_router_prop.get('autonomous_system')
             if asn and asn != 'null':
                 ok, result = cls.server.get_resource_class(
                     'global_system_config').check_asn_range(asn)
                 if not ok:
-                    return ok, (400, result)
+                    return ok, (400, result), None
 
             local_asn = bgp_router_prop.get('local_autonomous_system')
             if local_asn and local_asn != 'null':
                 ok, result = cls.server.get_resource_class(
                     'global_system_config').check_asn_range(local_asn)
                 if not ok:
-                    return ok, (400, result)
+                    return ok, (400, result), None
             router_type = bgp_router_prop.get('router_type')
         control_node_zone_ref = obj_dict.get('control_node_zone_refs')
         if control_node_zone_ref:
             if router_type != 'control-node':
                 msg = ("BgpRouter type should be 'control-node' to refer "
                        "control-node-zone")
-                return False, (400, msg)
+                return False, (400, msg), None
             if not bgp_obj:
                 bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
             cnz_ref_db = ([key for key in list(bgp_obj.keys())
                           if key.startswith('ref:control_node_zone')])
             if len(cnz_ref_db) or len(control_node_zone_ref) > 1:
                 msg = "BgpRouter should refer only one control-node-zone"
-                return False, (400, msg)
+                return False, (400, msg), None
 
-        return True, ''
+        return True, '', None

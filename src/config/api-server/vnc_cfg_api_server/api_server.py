@@ -4267,7 +4267,6 @@ class VncApiServer(object):
     def _put_common(
             self, api_name, obj_type, obj_uuid, db_obj_dict, req_obj_dict=None,
             req_prop_coll_updates=None, ref_args=None):
-
         obj_fq_name = db_obj_dict.get('fq_name', 'missing-fq-name')
         # ZK and rabbitmq should be functional
         self._ensure_services_conn(
@@ -4391,11 +4390,17 @@ class VncApiServer(object):
             _req_obj_dict = {}
             if req_obj_dict:
                 _req_obj_dict = req_obj_dict
-            (ok, result) = r_class.pre_dbe_update(
+
+            (ok, result, zk_update_kwargs) = r_class.pre_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
                 prop_collection_updates=req_prop_coll_updates, ref_update=ref_args)
             if not ok:
-                return (ok, result)
+                if result:
+                    return (ok, result)
+                else:
+                    return (ok, zk_update_kwargs)
+            zk_update_kwargs = zk_update_kwargs or {}
+
             attr_to_publish = None
             if isinstance(result, dict):
                 attr_to_publish = result
@@ -4461,7 +4466,8 @@ class VncApiServer(object):
             # type-specific hook
             (ok, result) = r_class.post_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
-                prop_collection_updates=req_prop_coll_updates)
+                prop_collection_updates=req_prop_coll_updates,
+                ref_update=None, **zk_update_kwargs)
             if not ok:
                 return (ok, result)
 
