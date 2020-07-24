@@ -500,20 +500,21 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 obj_id=obj_dict['uuid'],
                 obj_fields=['physical_interface_refs', 'id_perms'])
             if not ok:
-                return ok, (400, db_obj_dict)
+                return ok, (400, db_obj_dict), None
 
             ok, res = cls.update_physical_intf_type(obj_dict, db_obj_dict)
             if not ok:
-                return ok, res
+                return ok, res, None
             # Allocate/Deallocate AE-IDs for the attached PIs
             ok, res = cls._process_ae_id(
                 db_obj_dict, fq_name[-1], obj_dict)
             if not ok:
-                return ok, res
+                return ok, res, None
             if res[0] and kwargs.get('ref_update'):
                 kwargs['ref_update']['data']['attr'] = res[0]
             ret_val = res[1]
-        return True, ret_val
+
+        return True, ret_val, None
     # end pre_dbe_update
 
     @classmethod
@@ -583,9 +584,10 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                     relax_ref_for_delete=True)
                 if not ok:
                     return ok, result
-        return True, ret_val
 
+        return True, ret_val
     # end post_dbe_update
+
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         ret_val = ''
