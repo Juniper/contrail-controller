@@ -190,7 +190,7 @@ class VirtualRouterServer(ResourceMixin, VirtualRouter):
         ok, result = cls._vrouter_check_alloc_pool_delete(db_dict, obj_dict,
                                                           db_conn)
         if not ok:
-            return False, result
+            return False, result, None
 
         ipam_refs = obj_dict.get('network_ipam_refs')
         if ipam_refs:
@@ -198,6 +198,6 @@ class VirtualRouterServer(ResourceMixin, VirtualRouter):
                                                            db_conn,
                                                            ipam_refs)
             if not ok:
-                return False, (400, result)
+                return False, (400, result), None
 
-        return True, ''
+        return True, '', None
