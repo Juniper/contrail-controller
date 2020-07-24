@@ -128,13 +128,13 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 obj_id=obj_dict['uuid'],
                 obj_fields=['physical_interface_refs'])
             if not ok:
-                return ok, (400, result)
+                return ok, (400, result), None
 
             ok, res = cls.update_physical_intf_type(obj_dict, result)
             if not ok:
-                return ok, res
+                return ok, res, None
 
-        return True, ''
+        return True, '', None
     # end pre_dbe_update
 
     @classmethod

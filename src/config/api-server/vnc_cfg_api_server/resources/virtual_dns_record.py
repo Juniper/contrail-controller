@@ -17,7 +17,11 @@ class VirtualDnsRecordServer(ResourceMixin, VirtualDnsRecord):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.validate_dns_record(obj_dict, db_conn)
+        ok, result = cls.validate_dns_record(obj_dict, db_conn)
+        if not ok:
+            return False, result, None
+
+        return True, '', None
 
     @classmethod
     def validate_dns_record(cls, obj_dict, db_conn):

@@ -39,7 +39,11 @@ class TelemetryProfileServer(ResourceMixin, TelemetryProfile):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.validate_sflow_back_refs(obj_dict)
         if not ok:
-            return ok, result
+            return ok, result, None
 
-        return cls.is_profile_editable(obj_dict)
+        ok, result = cls.is_profile_editable(obj_dict)
+        if not ok:
+            return ok, result, None
+
+        return True, '', None
     # end pre_dbe_update

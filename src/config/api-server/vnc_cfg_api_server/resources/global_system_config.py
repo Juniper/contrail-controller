@@ -287,35 +287,37 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                        x.get('operation', '') == 'set')]
         ok, result = cls._check_udc(obj_dict, udcs)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         ok, result = cls._check_asn(obj_dict)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         ok, result = cls._check_bgpaas_ports(obj_dict, db_conn)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         if 'enable_security_policy_draft' in obj_dict:
             fields = ['fq_name', 'uuid', 'enable_security_policy_draft']
             ok, result = cls._get_global_system_config(fields)
             if not ok:
-                return False, result
+                return False, result, None
             db_obj_dict = result
 
             obj_dict['fq_name'] = db_obj_dict['fq_name']
             obj_dict['uuid'] = db_obj_dict['uuid']
             SecurityResourceBase.server = cls.server
-            return SecurityResourceBase.\
+            ok, result =  SecurityResourceBase.\
                 set_policy_management_for_security_draft(
                     cls.resource_type,
                     obj_dict,
                     draft_mode_enabled=db_obj_dict.get(
                         'enable_security_policy_draft', False),
                 )
+            if not ok:
+                return False, result, None
 
-        return True, ''
+        return True, '', None
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):

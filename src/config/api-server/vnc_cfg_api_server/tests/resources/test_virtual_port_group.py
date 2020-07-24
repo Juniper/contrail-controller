@@ -1180,6 +1180,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         """Verify annotations are added in the SP VPG."""
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites(
             enterprise_style_flag=False)
+        import pdb
 
         esi_id = '00:11:22:33:44:55:66:77:88:99'
         vlan_1 = 42
@@ -1194,6 +1195,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         fabric_name = fabric_obj.get_fq_name()
         pi_fq_name = pi_obj.get_fq_name()
 
+        pdb.set_trace()
         # Create VPG
         vpg_name = "vpg-1"
         vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)

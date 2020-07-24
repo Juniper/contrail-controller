@@ -40,4 +40,8 @@ class ServiceGroupServer(SecurityResourceBase, ServiceGroup):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.pre_dbe_create(None, obj_dict, db_conn)
+        ok, result = cls.pre_dbe_create(None, obj_dict, db_conn)
+        if not ok:
+            return False, result, None
+
+        return True, '', None

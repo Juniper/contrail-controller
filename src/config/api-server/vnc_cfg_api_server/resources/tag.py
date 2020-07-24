@@ -86,13 +86,13 @@ class TagServer(ResourceMixin, Tag):
                 obj_dict.get('tag_value') is not None or
                 obj_dict.get('tag_id') is not None):
             msg = "Tag name, type, value or ID cannot be updated"
-            return (False, (400, msg))
+            return (False, (400, msg), None)
 
         if obj_dict.get('tag_type_refs') is not None:
             msg = "Tag-type reference cannot be updated"
-            return (False, (400, msg))
+            return (False, (400, msg), None)
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):

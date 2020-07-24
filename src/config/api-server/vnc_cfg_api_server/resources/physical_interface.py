@@ -58,7 +58,7 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
                                        obj_fields=['display_name',
                                                    'logical_interfaces'])
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
 
         # do not allow change in display name
         if 'display_name' in obj_dict:
@@ -69,13 +69,13 @@ class PhysicalInterfaceServer(ResourceMixin, PhysicalInterface):
         if esi and read_result.get('logical_interfaces'):
             ok, result = cls._check_esi_string(esi)
             if not ok:
-                return ok, result
+                return ok, result, None
 
             ok, result = cls._check_esi(obj_dict, db_conn, esi,
                                         read_result.get('logical_interfaces'))
             if not ok:
-                return ok, result
-        return True, ""
+                return ok, result, None
+        return True, "", None
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):

@@ -81,27 +81,27 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
             hold_time = bgp_session_attr.get('hold_time')
             ok, result = check_hold_time_in_range(hold_time)
             if not ok:
-                return ok, (400, result)
+                return ok, (400, result), None
 
         ok, result = cls._check_asn(obj_dict)
         if not ok:
-            return ok, (400, result)
+            return ok, (400, result), None
 
         result = None
         if 'control_node_zone_refs' in obj_dict:
             ok, result = cls.dbe_read(db_conn, 'bgp_as_a_service', id)
             if not ok:
-                return ok, result
+                return ok, result, None
             (ok, msg) = cls._validate_control_node_zone_dep(obj_dict, result)
             if not ok:
-                return ok, msg
+                return ok, msg, None
 
         if 'bgpaas_shared' in obj_dict:
             if not result:
                 ok, result = cls.dbe_read(db_conn, 'bgp_as_a_service', id)
                 if not ok:
-                    return ok, result
+                    return ok, result, None
             if result.get('bgpaas_shared', False) != obj_dict['bgpaas_shared']:
-                return False, (400, 'BGPaaS sharing cannot be modified')
+                return False, (400, 'BGPaaS sharing cannot be modified'), None
 
-        return True, ""
+        return True, "", None

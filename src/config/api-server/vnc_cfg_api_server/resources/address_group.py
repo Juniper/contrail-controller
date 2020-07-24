@@ -14,4 +14,7 @@ class AddressGroupServer(SecurityResourceBase, AddressGroup):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.check_draft_mode_state(obj_dict)
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result, None
+        return True, '', None

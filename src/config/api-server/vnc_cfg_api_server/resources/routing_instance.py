@@ -49,9 +49,13 @@ class RoutingInstanceServer(ResourceMixin, RoutingInstance):
         ok, result = cls.locate(uuid=id, create_it=False, fields=[
             'parent_type', 'parent_uuid', 'routing_instance_is_default'])
         if not ok:
-            return False, result
+            return False, result, None
         db_obj_dict = result
-        return cls._check_default_routing_instance(obj_dict, db_obj_dict)
+        ok, result = cls._check_default_routing_instance(obj_dict, db_obj_dict)
+        if not ok:
+            return False, result, None
+
+        return True, '', None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):

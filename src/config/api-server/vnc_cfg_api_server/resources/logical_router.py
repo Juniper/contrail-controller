@@ -280,20 +280,20 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls._ensure_lr_dci_association(obj_dict)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         ok, result = cls.check_port_gateway_not_in_same_network(
             db_conn, obj_dict, id)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         ok, result = cls.is_port_in_use_by_vm(obj_dict, db_conn)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         (ok, error) = cls._check_route_targets(obj_dict)
         if not ok:
-            return (False, (400, error))
+            return (False, (400, error), None)
 
         # To get the current vxlan_id, read the LR from the DB
         ok, result = cls.dbe_read(cls.db_conn,
@@ -303,13 +303,13 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                                               'logical_router_type',
                                               'vxlan_network_identifier'])
         if not ok:
-            return ok, result
+            return ok, result, None
 
         read_result = result
 
         ok, result = cls._check_type(obj_dict, read_result)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         logical_router_type_in_db = cls.check_lr_type(read_result)
 
@@ -330,7 +330,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
                 if int_fq_name is None:
                     msg = "Internal FQ name not found"
-                    return False, (400, msg)
+                    return False, (400, msg), None
 
                 vxlan_fq_name = ':'.join(int_fq_name) + '_vxlan'
                 if new_vxlan_id is not None:
@@ -342,7 +342,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                         if new_vxlan_fq_name_in_db != vxlan_fq_name:
                             msg = ("Cannot set VXLAN_ID: %s, it has already "
                                    "been set" % new_vxlan_id)
-                            return False, (400, msg)
+                            return False, (400, msg), None
 
                     # Second, set the new_vxlan_id in Zookeeper.
                     cls.vnc_zk_client.alloc_vxlan_id(vxlan_fq_name,
@@ -368,7 +368,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         ok, result = cls.server.get_resource_class(
             'bgpvpn').check_router_supports_vpn_type(obj_dict)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         # Check if we can reference the BGP VPNs
         ok, result = cls.dbe_read(
@@ -377,10 +377,13 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             id,
             obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
         if not ok:
-            return ok, result
-        return cls.server.get_resource_class(
+            return ok, result, None
+        ok, result = cls.server.get_resource_class(
             'bgpvpn').check_router_has_bgpvpn_assoc_via_network(
                 obj_dict, result)
+        if not ok:
+            return ok, result, None
+        return True, '', None
 
     @classmethod
     def get_parent_project(cls, obj_dict, db_conn):
@@ -389,7 +392,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return ok, proj_dict
 
     @classmethod
-    def post_dbe_update(cls, uuid, fq_name, obj_dict, db_conn,
+    def post_dbe_update(cls, uuid, fq_name, obj_dict, db_conn, **kwargs,
                         prop_collection_updates=None):
 
         ok, result = db_conn.dbe_read(

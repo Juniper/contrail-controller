@@ -367,7 +367,7 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                         'data_center_interconnect_type'
                         ])
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
         # changes to DCI type not allowed
         old_dci_type = read_result.get('data_center_interconnect_type')
         new_dci_type = obj_dict.get('data_center_interconnect_type')
@@ -379,7 +379,7 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                 return False, (
                     403, "Cannot change data_center_interconnect_type. Please"
                          " specify data_center_interconnect_type as '%s'" %
-                    old_dci_type)
+                    old_dci_type), None
         # for intra_fabric, changes to source LR (first LR) not allowed
         if intrafabric is True and obj_dict.get('logical_router_refs'):
             def _get_source_lr(lr_refs, check_single_lr):
@@ -388,31 +388,34 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                     if cls._is_this_src_lr(lr):
                         if check_single_lr is False:
                             source_lr = lr.get('uuid')
-                            return True, source_lr
+                            return True, source_lr, None
                         if source_lr is None:
                             source_lr = lr.get('uuid')
                         elif source_lr != lr.get('uuid'):
-                            return False, source_lr
+                            return False, source_lr, None
                 if source_lr is None:
-                    return False, source_lr
-                return True, source_lr
+                    return False, source_lr, None
+                return True, source_lr, None
             ok, new_src_lr = _get_source_lr(
                 obj_dict.get('logical_router_refs'), True)
             if new_src_lr is None:
                 return False, (
                     403, "No Source LR specified in "
                          "logical_router_refs for intra_fabric type "
-                         "data_center_interconnect.")
+                         "data_center_interconnect."), None
             if not ok:
                 return False, (
                     403, "More than one Source LR not allowed for "
-                         "intra_fabric type data_center_interconnect.")
+                         "intra_fabric type data_center_interconnect."), None
             _, old_src_lr = _get_source_lr(
                 read_result.get('logical_router_refs'), False)
             if old_src_lr is not None and new_src_lr != old_src_lr:
                 return False, (
                     403, "Cannot change Source LR for intra_fabric type"
-                         "data_center_interconnect.")
+                         "data_center_interconnect."), None
         # make sure referenced LRs belongs to fabrics based on dcitype
-        return cls._validate_dci_lrs_fabrics_based_on_dcitype(
+        ok, result = cls._validate_dci_lrs_fabrics_based_on_dcitype(
             db_conn, obj_dict)
+        if not ok:
+            return False, result, None
+        return True, '', None
