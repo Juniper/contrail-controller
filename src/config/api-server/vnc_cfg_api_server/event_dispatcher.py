@@ -56,19 +56,26 @@ class EventDispatcher(object):
 
     @classmethod
     def _subscribe_client_queue(cls, client_queue, resource_type):
+        request_fields = client_queue.query.get(resource_type, {"fields": ["all"]})["fields"]
         cls._client_queues.update(
             {
-                resource_type:
-                    cls._client_queues.get(resource_type, []) + [client_queue]
+                resource_type: {
+                    "fields": cls._client_queues.get(resource_type, {"fields": []})["fields"] + request_fields,
+                    "watchers": cls._client_queues.get(resource_type, {"watchers": []})["watchers"] + [client_queue]}
             }
         )
+    # end _subscribe_client_queue
 
     @classmethod
     def _unsubscribe_client_queue(cls, client_queue, resource_type):
         try:
-            cls._client_queues.get(resource_type, []).remove(client_queue)
+            request_fields = client_queue.query.get(resource_type, {"fields": ["all"]})["fields"]
+            cls._client_queues.get(resource_type, []).get("watchers", []).remove(client_queue)
+            for field in request_fields:
+                cls._client_queues.get(resource_type, []).get("fields", []).remove(field)
         except ValueError:
             pass
+    # end _unsubscribe_client_queue
 
     def __init__(self, db_client_mgr=None, spawn_dispatch_greenlet=False):
         if db_client_mgr:
@@ -99,19 +106,32 @@ class EventDispatcher(object):
             if not self._client_queues.get(resource_type, None):
                 # No clients subscribed for this resource type
                 continue
+            if not self._client_queues.get(resource_type).get("watchers", None):
+                continue
+            resource_fields = self._client_queues.get(resource_type).get("fields")
             if resource_oper == "DELETE":
                 resource_data = {"uuid": resource_id}
             else:
                 try:
-                    ok, resource_data = self._db_conn.dbe_read(
-                        resource_type,
-                        resource_id
-                    )
+                    if "all" in resource_fields:
+                        ok, resource_data = self._db_conn.dbe_read(
+                            resource_type,
+                            resource_id,
+                        )
+                    else:
+                        resource_fields = list(set(resource_fields))
+                        ok, resource_data = self._db_conn.dbe_read(
+                            resource_type,
+                            resource_id,
+                            obj_fields=resource_fields
+                        )
+
                     if not ok:
                         resource_oper = "STOP"
                         resource_data = {
                             "error": "dbe_read failure: %s" % resource_data
                         }
+
                 except NoIdError:
                     err_msg = "Resource with id %s already deleted at the \
                         point of dbe_read" % resource_id
@@ -134,11 +154,31 @@ class EventDispatcher(object):
                         "error": str(e)
                     }
 
-            event = self.pack(
-                event=resource_oper,
-                data={resource_type: resource_data}
-            )
-            for client_queue in self._client_queues.get(resource_type, []):
+            object_type = resource_type.replace("_", "-")
+            watcher_queue = self._client_queues.get(resource_type).get("watchers")
+
+            for client_queue in watcher_queue:
+                fields = client_queue.query.get(resource_type, {"fields": ["all"]})["fields"]
+                if "all" in fields or resource_oper == "DELETE":
+                    event = self.pack(
+                        event=resource_oper,
+                        data={object_type: resource_data}
+                    )
+                    client_queue.put_nowait(event)
+                    continue
+
+                resource_data_with_fields = {
+                    'uuid': resource_data.get("uuid"),
+                    'fq_name': resource_data.get("fq_name"),
+                    'parent_type': resource_data.get("parent_type"),
+                    'parent_uuid': resource_data.get("parent_uuid")
+                }
+                for field in fields:
+                    resource_data_with_fields[field] = resource_data.get(field, {})
+                event = self.pack(
+                    event=resource_oper,
+                    data={object_type: resource_data_with_fields}
+                )
                 client_queue.put_nowait(event)
     # end dispatch
 
