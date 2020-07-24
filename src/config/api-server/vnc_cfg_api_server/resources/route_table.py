@@ -14,7 +14,8 @@ class RouteTableServer(ResourceMixin, RouteTable):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls._check_prefixes(obj_dict)
+        ok, result = cls._check_prefixes(obj_dict)
+        return ok, result, None
 
     @staticmethod
     def _check_prefixes(obj_dict):

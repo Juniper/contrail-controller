@@ -473,6 +473,7 @@ class ZookeeperClient(object):
 
         self.delete_node = self._response_time(self.delete_node, "DELETE")
         self.create_node = self._response_time(self.create_node, "CREATE")
+        self.update_node = self._response_time(self.update_node, "UPDATE")
         self.read_node = self._response_time(self.read_node, "READ")
         self.get_children= self._response_time(self.get_children, "GET_CHILDREN")
         self.exists = self._response_time(self.exists, "EXISTS")
@@ -607,6 +608,14 @@ class ZookeeperClient(object):
             pass
 
     # end delete_node
+
+    def update_node(self, path, value):
+        try:
+            retry = self._retry.copy()
+            retry(self._zk_client.set, path, native_str(value))
+        except kazoo.exceptions.NoNodeError:
+            pass
+    # end update_node
 
     def read_node(self, path, include_timestamp=False):
         try:

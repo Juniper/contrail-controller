@@ -317,24 +317,25 @@ class RoutingPolicyServer(ResourceMixin, RoutingPolicy):
                                        obj_fields=['routing_policy_entries',
                                                    'term_type'])
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
         # do not allow change in term type
         old_term_type = read_result.get('term_type')
         new_term_type = obj_dict.get('term_type')
         if old_term_type and new_term_type:
             if old_term_type != new_term_type:
-                return False, (
+                return (False, (
                     403, "Cannot change term_type of routing policy! "
                          "Please specify '%s' as a term_type in "
-                         "routing_policy_entries." % old_term_type)
+                         "routing_policy_entries." % old_term_type),
+                    None)
         try:
             ok, _, result = cls._validate_term_and_get_asnlist(
                 cls, obj_dict, db_conn)
             if not ok:
-                return False, result
+                return False, result, None
         except Exception as e:
-            return False, (400, str(e))
+            return False, (400, str(e)), None
 
         cls._update_irt_refs_pre_dbe(cls, obj_dict, db_conn)
-        return True, ""
+        return True, "", None
     # end pre_dbe_update

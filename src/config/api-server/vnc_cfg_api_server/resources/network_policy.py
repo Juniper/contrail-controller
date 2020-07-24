@@ -17,6 +17,7 @@ class NetworkPolicyServer(ResourceMixin, NetworkPolicy):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.dbe_read(db_conn, 'network_policy', id)
         if not ok:
-            return ok, result
+            return ok, result, None
 
-        return check_policy_rules(obj_dict.get('network_policy_entries'), True)
+        ok, result = check_policy_rules(obj_dict.get('network_policy_entries'), True)
+        return ok, result, None
