@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "13d3ef70_bedcb9b6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1480,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-24T23:57:17Z",
+      "side": 1,
+      "message": "Can we change the path as below, with uuid substituted.\n\n\u0027/validation/fabric/serviceprovider/virtual-port-group:%s/virtual-network:%s/vlan:%s\u0027 % (vpg_uuid, vn_uuid, vlan_id)",
+      "revId": "c9a8543370478870f9b3bf422d137469f241d9bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b5534dab_10f2bbc2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1486,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-24T23:57:17Z",
+      "side": 1,
+      "message": "ephemeral\u003dTrue will, Delete the Znode as soon as the zookeeper client connection is closed. \nOur Znodes to be persisted in zookeeper, so lets not pass ephemeral\u003dTrue, which will default to False",
+      "revId": "c9a8543370478870f9b3bf422d137469f241d9bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "11243675_107e8499",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1497,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-24T23:57:17Z",
+      "side": 1,
+      "message": "ephemeral\u003dTrue will, Delete the Znode as soon as the zookeeper client connection is closed. \nOur Znodes to be persisted in zookeeper, so lets not pass ephemeral\u003dTrue, which will default to False",
+      "revId": "c9a8543370478870f9b3bf422d137469f241d9bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3f078ad0_aa61d83c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1510,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-24T23:57:17Z",
+      "side": 1,
+      "message": "We no need to create the VMI in pre_dbe_create.\nAs dbe_create will create VMI in cassandra. Remember dbe_create will be invoked as part of stateful_create .",
+      "revId": "c9a8543370478870f9b3bf422d137469f241d9bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4200fca6_6345fdaf",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1528,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-24T23:57:17Z",
+      "side": 1,
+      "message": "why do we need to ref-update here",
+      "revId": "c9a8543370478870f9b3bf422d137469f241d9bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
