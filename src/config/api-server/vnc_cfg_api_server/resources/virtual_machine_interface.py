@@ -11,6 +11,7 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.zkclient import ZookeeperLock
+from cgm_common.utils import _DEFAULT_ZK_SERVICE_PROVIDER_PATH_PREFIX
 from netaddr import AddrFormatError
 from netaddr import IPAddress
 from vnc_api.gen.resource_common import VirtualMachineInterface
@@ -551,7 +552,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = vlan_tag
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
                         obj_dict['uuid'], cls.server, db_conn, links,
-                        vpg_name, vn_uuid, vlan_id, is_untagged_vlan)
+                        new_vlan=0, vpg_name=vpg_name, vn_uuid=vn_uuid,
+                        vlan_id=vlan_id, is_untagged_vlan=is_untagged_vlan)
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
@@ -717,8 +719,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     else:
                         vlan_id = new_vlan
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
-                        id, cls.server, db_conn, links, vpg_name,
-                        vn_uuid, vlan_id, is_untagged_vlan)
+                        id, cls.server, db_conn, links, old_vlan,
+                        vpg_name=vpg_name, vn_uuid=vn_uuid, vlan_id=vlan_id,
+                        is_untagged_vlan=is_untagged_vlan)
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
 
@@ -1436,8 +1439,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def _check_serviceprovider_fabric(
-        cls, db_conn, api_server, zk_vpg_lock_path,
-            vpg_uuid, vn_uuid, vlan_id, vmi_uuid, is_untagged_vlan):
+            cls, db_conn, api_server, db_vlan_id, vpg_uuid, vn_uuid,
+            vlan_id, vmi_uuid, is_untagged_vlan):
         """Verify Service Provider Style Fabric's restrictions.
 
         :Args
@@ -1457,13 +1460,80 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         # verify we received a valid vlan-id
         # may be a VMI update
         if not vlan_id:
-            return True, ''
+            return True, '', {}
+        # Define Zookeeper lock path
+        zk_vmi_untagged_lock_path = os.path.join(
+            api_server.fabric_validation_lock_prefix,
+            'serviceprovider', vpg_uuid, vn_uuid, 'untagged')
+        zk_vmi_tagged_lock_path = os.path.join(
+            api_server.fabric_validation_lock_prefix,
+            'serviceprovider', vpg_uuid, vn_uuid, vlan_id)
 
         # Zookeeper lock params
-        zk_vpg_args = {'zookeeper_client': db_conn._zk_db._zk_client,
-                       'path': os.path.join(zk_vpg_lock_path, vpg_uuid),
-                       'name': vpg_uuid, 'timeout': 60}
-        validation = 'serviceprovider'
+        zk_vmi_untagged_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                                'path': zk_vmi_untagged_lock_path,
+                                'name': vmi_uuid, 'timeout': 60}
+        zk_vmi_tagged_args = {'zookeeper_client': db_conn._zk_db._zk_client,
+                              'path': zk_vmi_tagged_lock_path,
+                              'name': vmi_uuid, 'timeout': 60}
+
+        # Path for ZNode creation
+        untagged_validation_path = os.path.join(
+            _DEFAULT_ZK_SERVICE_PROVIDER_PATH_PREFIX, 'untagged')
+        tagged_validation_path = os.path.join(
+            _DEFAULT_ZK_SERVICE_PROVIDER_PATH_PREFIX,
+            ('virtual-port-group:%s/virtual-network:%s/vlan:%s')
+            % (vpg_uuid, vn_uuid, vlan_id))
+
+        result = True
+        if is_untagged_vlan:  # untagged vlan
+            try:
+                self.db_conn._zk_db._zk_client.create_node(
+                    untagged_validation_path, value=vmi_uuid)
+            except ResourceExistsError:
+                value = self.db_conn._zk_db._zk_client.read_node(
+                    untagged_validation_path)
+                self._logger.error(
+                    "Znode with %s untagged VLAN already exists" %
+                    value)
+                result = False
+        else:  # tagged vlan
+            try:
+                self.db_conn._zk_db._zk_client.create_node(
+                    tagged_validation_path, value=vmi_uuid)
+            except ResourceExistsError:
+                value = self.db_conn._zk_db._zk_client.read_node(
+                    tagged_validation_path)
+                self._logger.error(
+                    "Znode with %s untagged VLAN already exists" %
+                    value)
+                result = False
+
+        if result:  # ZNode creation successful
+            if db_vlan_id != vlan_id:  # Check for vlan_update case
+                return ok, result, {'vlan': db_vlan_id}
+        else:  # Check if node is STALE
+            ok, result = cls.dbe_read(
+                db_conn,
+                obj_type,
+                vmi_uuid)
+            if ok:  # Not STALE
+                self._logger.error(
+                    "Znode with %s virtual_machine_interface already exists" %
+                    vmi_uuid)
+                return ok, result, {}
+            else:  # STALE
+                # VMI ZK Lock
+                if is_untagged_vlan:
+                    with ZookeeperLock(**zk_vmi_untagged_args):
+                        self.db_conn._zk_db._zk_client.client.set(
+                            untagged_validation_path, repr(vmi_uuid).encode('ascii'), version=-1)
+                else:
+                    with ZookeeperLock(**zk_vmi_tagged_args):
+                        self.db_conn._zk_db._zk_client.client.set(
+                            tagged_validation_path, repr(vmi_uuid).encode('ascii'), version=-1)
+
+        """
         # VPG ZK Lock
         with ZookeeperLock(**zk_vpg_args):
             ok, result = cls._check_remove_old_vlan_annotation(
@@ -1486,7 +1556,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 vlan_id, vmi_uuid, validation)
             if not ok:
                 return ok, result
-        return True, ''
+        """
+        return True, '', {}
 
     @classmethod
     def _check_enterprise_fabric(
@@ -1568,7 +1639,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def _manage_vpg_association(cls, vmi_id, api_server, db_conn, phy_links,
-                                vpg_name=None, vn_uuid=None,
+                                db_vlan_id=None, vpg_name=None, vn_uuid=None,
                                 vlan_id=None, is_untagged_vlan=False):
         fabric_name = None
         phy_interface_uuids = []
@@ -1682,14 +1753,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             disable_fabric_uniqueness_check = read_result.get(
                 'disable_vlan_vn_uniqueness_check')
             fabric_uuid = fabric.get('uuid')
-
             # define zookeeper locks
             zk_fabric_lock_path = os.path.join(
                 api_server.fabric_validation_lock_prefix, 'fabrics')
             zk_vpg_lock_path = os.path.join(
                 api_server.fabric_validation_lock_prefix,
                 'fabrics', fabric_uuid, 'vpgs')
-
             # VLAN-ID sanitizer
             def vlanid_sanitizer(vlanid):
                 if not vlanid:
@@ -1711,7 +1780,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     return ok, result
             else:
                 ok, result = cls._check_serviceprovider_fabric(
-                    db_conn, api_server, zk_vpg_lock_path, vpg_uuid,
+                    db_conn, api_server, db_vlan_id, vpg_uuid,
                     vn_uuid, vlan_id, vmi_id, is_untagged_vlan)
                 if not ok:
                     return ok, result
