@@ -53,5 +53,6 @@ class StormControlProfileServer(ResourceMixin, StormControlProfile):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.validate_storm_control_params(obj_dict)
+        ok, result = cls.validate_storm_control_params(obj_dict)
+        return ok, result, None
     # end pre_dbe_update

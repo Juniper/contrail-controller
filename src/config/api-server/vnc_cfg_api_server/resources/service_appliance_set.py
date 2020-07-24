@@ -13,9 +13,9 @@ class ServiceApplianceSetServer(ResourceMixin, ServiceApplianceSet):
         ok, result, _ = db_conn.dbe_list(
             'loadbalancer_pool', back_ref_uuids=[id])
         if not ok:
-            return False, result
+            return False, result, None
         if len(result) > 0:
             msg = ("Service appliance set can not be updated as loadbalancer "
                    "pools are using it")
-            return False, (409, msg)
-        return True, ''
+            return False, (409, msg), None
+        return True, '', None
