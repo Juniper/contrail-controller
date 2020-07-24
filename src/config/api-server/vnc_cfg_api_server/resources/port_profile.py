@@ -28,5 +28,8 @@ class PortProfileServer(ResourceMixin, PortProfile):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.validate_storm_control_back_refs(obj_dict)
+        ok, result = cls.validate_storm_control_back_refs(obj_dict)
+        if not ok:
+            return False, result, None
+        return True, '', None
     # end pre_dbe_update

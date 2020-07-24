@@ -26,7 +26,10 @@ class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.check_draft_mode_state(obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
-        return cls.check_associated_firewall_resource_in_same_scope(
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, FirewallRule)
+        if not ok:
+            return False, result, None
+        return True, '', None

@@ -19,5 +19,9 @@ class SflowProfileServer(ResourceMixin, SflowProfile):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.is_profile_editable(obj_dict)
+        ok, result = cls.is_profile_editable(obj_dict)
+        if not ok:
+            return False, result, None
+
+        return True, '', None
     # end pre_dbe_update

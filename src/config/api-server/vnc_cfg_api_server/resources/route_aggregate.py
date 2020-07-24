@@ -34,4 +34,7 @@ class RouteAggregateServer(ResourceMixin, RouteAggregate):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls._check(obj_dict, db_conn)
+        ok, result = cls._check(obj_dict, db_conn)
+        if not ok:
+            return False, result, None
+        return True, '', None

@@ -64,13 +64,13 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, read_result = cls.dbe_read(db_conn, 'network_ipam', id)
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
 
         def ipam_mgmt_check():
             old_ipam_mgmt = read_result.get('network_ipam_mgmt')
             new_ipam_mgmt = obj_dict.get('network_ipam_mgmt')
             if not old_ipam_mgmt or not new_ipam_mgmt:
-                return True, ""
+                return True, "", None
 
             old_dns_method = old_ipam_mgmt.get('ipam_dns_method')
             new_dns_method = new_ipam_mgmt.get('ipam_dns_method')
@@ -78,30 +78,30 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
                                          read_result, db_conn):
                 msg = ("Cannot change DNS Method  with active VMs referring "
                        "to the IPAM")
-                return False, (400, msg)
-            return True, ""
+                return False, (400, msg), None
+            return True, "", None
 
         ok, result = ipam_mgmt_check()
         if not ok:
-            return ok, result
+            return ok, result, None
 
         old_subnet_method = read_result.get('ipam_subnet_method')
         if 'ipam_subnet_method' in obj_dict:
             new_subnet_method = obj_dict.get('ipam_subnet_method')
             if (old_subnet_method != new_subnet_method):
-                return (False, (400, 'ipam_subnet_method can not be changed'))
+                return (False, (400, 'ipam_subnet_method can not be changed'), None)
 
         if (old_subnet_method != 'flat-subnet'):
             if 'ipam_subnets' in obj_dict:
                 msg = "ipam-subnets are allowed only with flat-subnet"
-                return False, (400, msg)
-            return True, ""
+                return False, (400, msg), None
+            return True, "", None
 
         old_subnetting = read_result.get('ipam_subnetting')
         if 'ipam_subnetting' in obj_dict:
             subnetting = obj_dict.get('ipam_subnetting', False)
             if (old_subnetting != subnetting):
-                return (False, (400, 'ipam_subnetting can not be changed'))
+                return (False, (400, 'ipam_subnetting can not be changed'), None)
 
         if 'ipam_subnets' in obj_dict:
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
@@ -110,7 +110,7 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
             ok, result = cls.addr_mgmt.net_check_subnet_overlap(
                 req_subnets_list)
             if not ok:
-                return (ok, (400, result))
+                return (ok, (400, result), None)
 
             # if subnets are modified then make sure new subnet lists are
             # not in overlap conditions with VNs subnets and other ipams
@@ -125,7 +125,7 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
                 except NoIdError:
                     continue
                 if not ok:
-                    return False, vn_dict
+                    return False, vn_dict, None
                 # get existing subnets on this VN and on other ipams
                 # this VN refers and run a overlap check.
                 ipam_refs = vn_dict.get('network_ipam_refs', [])
@@ -162,31 +162,31 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
                 (ok, ipam_dict) = cls.dbe_read(db_conn, 'network_ipam',
                                                ipam_uuid)
                 if not ok:
-                    return (ok, 409, ipam_dict)
+                    return (ok, (409, ipam_dict), None)
                 ref_subnets_list = cls.addr_mgmt._ipam_to_subnets(ipam_dict)
                 refs_subnets_list += ref_subnets_list
 
             (ok, result) = cls.addr_mgmt.check_overlap_with_refs(
                 refs_subnets_list, req_subnets_list)
             if not ok:
-                return (ok, (400, result))
+                return (ok, (400, result), None)
 
         ipam_subnets = obj_dict.get('ipam_subnets')
         if ipam_subnets is not None:
             subnets = ipam_subnets.get('subnets') or []
             (ok, result) = cls.addr_mgmt.net_check_subnet(subnets)
             if not ok:
-                return (ok, (409, result))
+                return (ok, (409, result), None)
 
         (ok, result) = cls.addr_mgmt.ipam_check_subnet_delete(read_result,
                                                               obj_dict)
         if not ok:
-            return (ok, (409, result))
+            return (ok, (409, result), None)
 
         (ok, result) = cls.addr_mgmt.ipam_validate_subnet_update(read_result,
                                                                  obj_dict)
         if not ok:
-            return (ok, (400, result))
+            return (ok, (400, result), None)
 
         try:
             cls.addr_mgmt.ipam_update_req(fq_name, read_result, obj_dict, id)
@@ -197,9 +197,9 @@ class NetworkIpamServer(ResourceMixin, NetworkIpam):
                     fq_name, obj_dict, read_result, id)
             get_context().push_undo(undo)
         except Exception as e:
-            return (False, (500, str(e)))
+            return (False, (500, str(e)), None)
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):

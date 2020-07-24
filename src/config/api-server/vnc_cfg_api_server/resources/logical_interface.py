@@ -36,16 +36,16 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         (ok, result) = cls._check_vlan(obj_dict, db_conn)
         if not ok:
-            return (ok, result)
+            return (ok, result, None)
 
         ok, read_result = cls.dbe_read(db_conn, 'logical_interface', id)
         if not ok:
-            return ok, read_result
+            return ok, read_result, None
 
         # do not allow change in display name
         if 'display_name' in obj_dict:
             if obj_dict['display_name'] != read_result.get('display_name'):
-                return (False, (403, "Cannot change display name !"))
+                return (False, (403, "Cannot change display name !"), None)
 
         vlan = None
         if 'logical_interface_vlan_tag' in obj_dict:
@@ -53,7 +53,7 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
             if 'logical_interface_vlan_tag' in read_result:
                 if (int(vlan) !=
                         int(read_result.get('logical_interface_vlan_tag'))):
-                    return (False, (403, "Cannot change Vlan id"))
+                    return (False, (403, "Cannot change Vlan id"), None)
 
         if vlan is None:
             vlan = read_result.get('logical_interface_vlan_tag')
@@ -69,7 +69,7 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
             'physical_interface')._check_interface_name(
                 obj_dict, db_conn, vlan)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         ok, result = cls._check_esi(
             obj_dict,
@@ -78,9 +78,9 @@ class LogicalInterfaceServer(ResourceMixin, LogicalInterface):
             read_result.get('parent_type'),
             read_result.get('parent_uuid'))
         if not ok:
-            return ok, result
+            return ok, result, None
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def _check_esi(cls, obj_dict, db_conn, vlan, p_type, p_uuid):
