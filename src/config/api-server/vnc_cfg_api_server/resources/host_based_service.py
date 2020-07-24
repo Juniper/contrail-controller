@@ -225,18 +225,18 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
                                 fields=['virtual_network_refs',
                                         'host_based_service_type'])
         if not ok:
-            return False, result
+            return False, result, None
         db_obj_dict = result
 
         non_vn_ref_update = False
 
         ok, result = cls._check_type(obj_dict, db_obj_dict)
         if not ok:
-            return False, result
+            return False, result, None
 
         ok, result = cls._check_only_one_vn_per_type(obj_dict)
         if not ok:
-            return ok, result
+            return ok, result, None
 
         if 'virtual_network_refs' not in obj_dict:
             non_vn_ref_update = True
@@ -244,9 +244,9 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         ok, result = cls._check_default_vn_valid(
             obj_dict, False, non_vn_ref_update)
         if not ok:
-            return ok, result
+            return ok, result, None
 
-        return True, ''
+        return True, '', None
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
