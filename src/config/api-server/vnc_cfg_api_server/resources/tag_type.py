@@ -37,9 +37,9 @@ class TagTypeServer(ResourceMixin, TagType):
         # User can't update type or value once created
         if obj_dict.get('display_name') or obj_dict.get('tag_type_id'):
             msg = "Tag Type value or ID cannot be updated"
-            return False, (400, msg)
+            return False, (400, msg), None
 
-        return True, ""
+        return True, "", None
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):

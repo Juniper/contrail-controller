@@ -24,11 +24,11 @@ class AlarmServer(ResourceMixin, Alarm):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'alarm_rules' in obj_dict:
             if obj_dict['alarm_rules'] is None:
-                return False, (400, 'alarm_rules cannot be removed')
+                return False, (400, 'alarm_rules cannot be removed'), None
             ok, error = cls._check_alarm_rules(obj_dict['alarm_rules'])
             if not ok:
-                return False, error
-        return True, ''
+                return False, error, None
+        return True, '', None
 
     @staticmethod
     def _check_alarm_rules(alarm_rules):
