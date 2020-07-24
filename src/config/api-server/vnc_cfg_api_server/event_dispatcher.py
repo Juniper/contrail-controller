@@ -8,6 +8,7 @@ to specific client queues
 from __future__ import absolute_import
 
 import json
+import copy
 
 from cfgm_common import vnc_greenlets
 from cfgm_common.utils import detailed_traceback
@@ -18,10 +19,34 @@ from gevent.queue import Queue
 from gevent import monkey
 monkey.patch_all()
 
+OP_DELETE = "DELETE"
+
+
+class ResourceWatcher(object):
+    def __init__(self):
+        self.obj_fields = []
+        self.queues = []
+
+    def add(self, client_queue, resource_type):
+        requested_fields = client_queue.query.get(
+            resource_type, {"fields": ["all"]})["fields"]
+        self.obj_fields += requested_fields
+        self.queues += client_queue
+
+    def remove(self, client_queue, resource_type):
+        requested_fields = client_queue.query.get(
+            resource_type, {"fields": ["all"]})["fields"]
+        try:
+            self.queues.remove(client_queue)
+            for field in requested_fields:
+                self.obj_fields.remove(field)
+        except ValueError:
+            pass
+
 
 class EventDispatcher(object):
     _notification_queue = Queue()
-    _client_queues = {}
+    _watchers = {}
     _db_conn = None
 
     @classmethod
@@ -35,14 +60,14 @@ class EventDispatcher(object):
     # end _get_notification_queue
 
     @classmethod
-    def _set_client_queues(cls, client_queues):
-        cls._client_queues = client_queues
-    # end _set_client_queues
+    def _set_watchers(cls, client_queues):
+        cls._watchers = client_queues
+    # end _set_watchers
 
     @classmethod
-    def _get_client_queues(cls):
-        return cls._client_queues
-    # end _get_client_queues
+    def _get_watchers(cls):
+        return cls._watchers
+    # end _get_watchers
 
     @classmethod
     def _set_db_conn(cls, db_conn):
@@ -56,19 +81,15 @@ class EventDispatcher(object):
 
     @classmethod
     def _subscribe_client_queue(cls, client_queue, resource_type):
-        cls._client_queues.update(
-            {
-                resource_type:
-                    cls._client_queues.get(resource_type, []) + [client_queue]
-            }
-        )
+        watcher = cls._watchers.get(resource_type, ResourceWatcher())
+        watcher.add(client_queue, resource_type)
+    # end _subscribe_client_queue
 
     @classmethod
     def _unsubscribe_client_queue(cls, client_queue, resource_type):
-        try:
-            cls._client_queues.get(resource_type, []).remove(client_queue)
-        except ValueError:
-            pass
+        cls._watchers.get(resource_type).remove(client_queue, resource_type)
+
+    # end _unsubscribe_client_queue
 
     def __init__(self, db_client_mgr=None, spawn_dispatch_greenlet=False):
         if db_client_mgr:
@@ -89,58 +110,131 @@ class EventDispatcher(object):
         }
     # end pack
 
+    def dbe_obj_read(self, resource_type, resource_id, obj_fields):
+        try:
+            if "all" in obj_fields:
+                ok, obj_dict = self._db_conn.dbe_read(
+                    resource_type,
+                    resource_id,
+                )
+            else:
+                obj_fields = list(set(obj_fields))
+                ok, obj_dict = self._db_conn.dbe_read(
+                    resource_type,
+                    resource_id,
+                    obj_fields=obj_fields
+                )
+
+            if not ok:
+                resource_oper = "STOP"
+                obj_dict = {
+                    "error": "dbe_read failure: %s" % obj_dict
+                }
+
+        except NoIdError:
+            err_msg = "Resource with id %s already deleted at the \
+                point of dbe_read" % resource_id
+            err_msg += detailed_traceback()
+            self.config_log(
+                err_msg,
+                level=SandeshLevel.SYS_NOTICE
+            )
+            resource_oper = OP_DELETE
+            obj_dict = {"uuid": resource_id}
+        except Exception as e:
+            err_msg = "Exception %s while performing dbe_read" % e
+            err_msg += detailed_traceback()
+            self.config_log(
+                err_msg,
+                level=SandeshLevel.SYS_NOTICE
+            )
+            resource_oper = "STOP"
+            obj_dict = {
+                "error": str(e)
+            }
+        return resource_oper, obj_dict
+    # end dbe_obj_read
+
+    def process_delete(self, resource_type, resource_id):
+        object_type = resource_type.replace("_", "-")
+        obj_dict = {"uuid": resource_id}
+        for client_queue in self._watchers.get(resource_type).queues:
+            event = self.pack(
+                event=OP_DELETE,
+                data={object_type: obj_dict}
+            )
+            client_queue.put_nowait(event)
+    # process_delete
+
+    def process_notification(self, notification, obj_fields, client_queues):
+        if len(client_queues) == 0:
+            return
+        resource_type = notification.get("type")
+        resource_oper = notification.get("oper")
+        resource_id = notification.get("uuid")
+        obj_dict = {}
+        if resource_oper == OP_DELETE:
+            return self.process_delete(resource_type, resource_id)
+
+        resource_oper, obj_dict = self.dbe_obj_read(resource_type,
+                                                    resource_id,
+                                                    obj_fields)
+        object_type = resource_type.replace("_", "-")
+        # [1]-New watchers might be have subscribed their queues
+        # no need to send the event to these new watchers, as
+        # they are recently subscribed after dbe_obj_read. Thus
+        # initialize would have sent this event in init.
+        #
+        # [2]-Existing watchers might have unsubscribed their
+        # queues, so send event only to the remaining queues
+        # original list of queues.
+        for client_queue in list(set(client_queues).intersection(
+                                 set(self._watchers.get(
+                                     resource_type).queues))):
+            fields = client_queue.query.get(
+                resource_type, {"fields": ["all"]})["fields"]
+            if "all" in fields:
+                event = self.pack(
+                    event=resource_oper,
+                    data={object_type: obj_dict}
+                )
+                client_queue.put_nowait(event)
+                continue
+
+            obj_with_fields = {
+                'uuid': obj_dict.get("uuid"),
+                'fq_name': obj_dict.get("fq_name"),
+                'parent_type': obj_dict.get("parent_type"),
+                'parent_uuid': obj_dict.get("parent_uuid")
+            }
+            for field in fields:
+                obj_with_fields[field] = obj_dict.get(field)
+            event = self.pack(
+                event=resource_oper,
+                data={object_type: obj_with_fields}
+            )
+            client_queue.put_nowait(event)
+    # end process_notification
+
     def dispatch(self):
         while True:
             notification = self._notification_queue.get()
             resource_type = notification.get("type")
-            resource_oper = notification.get("oper")
-            resource_id = notification.get("uuid")
-            resource_data = {}
-            if not self._client_queues.get(resource_type, None):
+
+            if not self._watchers.get(resource_type, None):
                 # No clients subscribed for this resource type
                 continue
-            if resource_oper == "DELETE":
-                resource_data = {"uuid": resource_id}
-            else:
-                try:
-                    ok, resource_data = self._db_conn.dbe_read(
-                        resource_type,
-                        resource_id
-                    )
-                    if not ok:
-                        resource_oper = "STOP"
-                        resource_data = {
-                            "error": "dbe_read failure: %s" % resource_data
-                        }
-                except NoIdError:
-                    err_msg = "Resource with id %s already deleted at the \
-                        point of dbe_read" % resource_id
-                    err_msg += detailed_traceback()
-                    self.config_log(
-                        err_msg,
-                        level=SandeshLevel.SYS_NOTICE
-                    )
-                    resource_oper = "DELETE"
-                    resource_data = {"uuid": resource_id}
-                except Exception as e:
-                    err_msg = "Exception %s while performing dbe_read" % e
-                    err_msg += detailed_traceback()
-                    self.config_log(
-                        err_msg,
-                        level=SandeshLevel.SYS_NOTICE
-                    )
-                    resource_oper = "STOP"
-                    resource_data = {
-                        "error": str(e)
-                    }
+            if not self._watchers.get(resource_type).queues:
+                # Last client in middle of unsubscribe
+                continue
+            obj_fields = self._watchers.get(resource_type).obj_fields
+            if len(obj_fields) == 0:
+                # All clients unsubscribed
+                continue
 
-            object_type = resource_type.replace("_", "-")
-            event = self.pack(
-                event=resource_oper,
-                data={object_type: resource_data}
-            )
-            for client_queue in self._client_queues.get(resource_type, []):
-                client_queue.put_nowait(event)
+            self.process_notification(
+                notification, obj_fields, copy.deepcopy(
+                    self._watchers.get(resource_type).queues))
     # end dispatch
 
     def initialize(self, resource_type, resource_query=None):
