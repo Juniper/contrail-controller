@@ -36,6 +36,24 @@ class TestPack(TestCase):
     # end test_pack
 
 
+class MockSubscribeAndUnsubscribe():
+    def __init__(self):
+        self.HOLD_API = True
+        self._dispatcher = EventDispatcher()
+        self.org_subscribe_client_queue = self._dispatcher._subscribe_client_queue
+        self.org_unsubscribe_client_queue = self._dispatcher._unsubscribe_client_queue
+
+    def mock_subscribe_client_queue(self, client_queue, resource_type):
+        while self.HOLD_API:
+            gevent.sleep(0.5)
+        return self.org_subscribe_client_queue(client_queue, resource_type)
+
+    def mock_unsubscribe_client_queue(self, client_queue, resource_type):
+        while self.HOLD_API:
+            gevent.sleep(0.5)
+        return self.org_unsubscribe_client_queue(client_queue, resource_type)
+
+
 class TestRegisterClient(TestCase):
     def setUp(self):
         self._dispatcher = EventDispatcher()
@@ -45,31 +63,411 @@ class TestRegisterClient(TestCase):
         self._dispatcher._set_client_queues({})
         super(TestRegisterClient, self).tearDown()
 
-    def test_subscribe_client(self):
-        client_queue = Queue()
-        watcher_resource_types = [
-            "virtual_network",
-            "virtual_network_interface"]
-        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
+    def test_concurrent_requests_subscribe_client_with_fields_xy_xz(self):
+        def _execute_subscribe_concurrently(
+                client_queue_list, watcher_resource_types):
+            try:
+                mock_subscribe = MockSubscribeAndUnsubscribe()
+                self._dispatcher._subscribe_client_queue = mock_subscribe.mock_subscribe_client_queue
+                for client_queue in client_queue_list:
+                    gevent.spawn(
+                        self._dispatcher.subscribe_client,
+                        client_queue,
+                        watcher_resource_types)
+                gevent.sleep(2)
+                mock_subscribe.HOLD_API = False
+                gevent.sleep(3)
+            except gevent.timeout.Timeout:
+                self.assertFalse(
+                    False, '%s failed unexpectedly' %
+                           self._dispatcher._subscribe_client_queue)
+        # end _execute_subscribe_concurrently
+
+        # client1:subscribe(fields:X,Y) client2:subscribe(VN:fields X,Z)
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "routing_instances",
+                    "id_perms"]}}
+        resources_query2 = {
+            "virtual_network": {
+                "fields": [
+                    "routing_instances",
+                    "display_name"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue_list = [client_queue1, client_queue2]
+        watcher_resource_types = ["virtual_network"]
+        _execute_subscribe_concurrently(
+            client_queue_list, watcher_resource_types)
+        expected_request_fields = [
+            "routing_instances",
+            "id_perms",
+            "display_name",
+            "id_perms"]
         for resource_type in watcher_resource_types:
+            result_request_fields = self._dispatcher._get_client_queues()[
+                resource_type].get("fields")
+            self.assertEquals(len(result_request_fields), 4)
             self.assertEquals(
-                [client_queue],
-                self._dispatcher._get_client_queues()[resource_type]
-            )
+                set(expected_request_fields),
+                set(result_request_fields))
+            self.assertEquals(set([client_queue1, client_queue2]), set(
+                self._dispatcher._get_client_queues()[resource_type].get("watchers")))
+    # end test_concurrent_requests_subscribe_client_with_fields_xy_xz
+
+    def test_concurrent_requests_subscribe_client_with_fields_all_xy(self):
+        def _execute_subscribe_concurrently(
+                client_queue_list, watcher_resource_types):
+            try:
+                mock_subscribe = MockSubscribeAndUnsubscribe()
+                self._dispatcher._subscribe_client_queue = mock_subscribe.mock_subscribe_client_queue
+                for client_queue in client_queue_list:
+                    gevent.spawn(
+                        self._dispatcher.subscribe_client,
+                        client_queue,
+                        watcher_resource_types)
+                gevent.sleep(2)
+                mock_subscribe.HOLD_API = False
+                gevent.sleep(3)
+            except gevent.timeout.Timeout:
+                self.assertFalse(
+                    False, '%s failed unexpectedly' %
+                           self._dispatcher._subscribe_client_queue)
+        # end _execute_subscribe_concurrently
+
+        # Client1:subscribe(fields:all), Client2:subscribe(fields:X,Y)
+        resources_query1 = {}
+        resources_query2 = {
+            "virtual_network": {
+                "fields": [
+                    "display_name",
+                    "id_perms"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue_list = [client_queue1, client_queue2]
+        watcher_resource_types = ["virtual_network"]
+        _execute_subscribe_concurrently(
+            client_queue_list, watcher_resource_types)
+        expected_request_fields = ["all", "display_name", "id_perms"]
+        for resource_type in watcher_resource_types:
+            result_request_fields = self._dispatcher._get_client_queues()[
+                resource_type].get("fields")
+            self.assertEquals(len(result_request_fields), 3)
+            self.assertEquals(
+                set(expected_request_fields),
+                set(result_request_fields))
+            self.assertEquals(set([client_queue1, client_queue2]), set(
+                self._dispatcher._get_client_queues()[resource_type].get("watchers")))
+    # end test_concurrent_requests_subscribe_client_with_fields_all_xy
+
+    def test_concurrent_subscribe_and_unsubscribe_client_with_fields_all_xy(self):
+        def _execute_subscribe_unsubscribe_concurrently(
+                method_invocation_list, client_queue_list, watcher_resource_types):
+            try:
+                mock_obj = MockSubscribeAndUnsubscribe()
+                self._dispatcher._subscribe_client_queue = mock_obj.mock_subscribe_client_queue
+                self._dispatcher._unsubscribe_client_queue = mock_obj.mock_unsubscribe_client_queue
+                for index, method in enumerate(method_invocation_list):
+                    gevent.spawn(
+                        method,
+                        client_queue_list[index],
+                        watcher_resource_types)
+                gevent.sleep(2)
+                mock_obj.HOLD_API = False
+                gevent.sleep(3)
+            except gevent.timeout.Timeout:
+                self.assertFalse(False, 'Failed unexpectedly')
+        # end _execute_subscribe_unsubscribe_concurrently
+
+        # Client1:unsubscribe(fields:all), Client2:subscribe(fields:X,Y)
+        resources_query1 = {}
+        resources_query2 = {
+            "virtual_network": {
+                "fields": [
+                    "id_perms",
+                    "display_name"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue_list = [client_queue1, client_queue2]
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(
+            client_queue1, watcher_resource_types)
+        method_invocation_list = [
+            self._dispatcher.unsubscribe_client,
+            self._dispatcher.subscribe_client]
+        _execute_subscribe_unsubscribe_concurrently(
+            method_invocation_list, client_queue_list, watcher_resource_types)
+        expected_request_fields = ["display_name", "id_perms"]
+        for resource_type in watcher_resource_types:
+            result_request_fields = self._dispatcher._get_client_queues()[
+                resource_type].get("fields")
+            self.assertEquals(len(result_request_fields), 2)
+            self.assertEquals(
+                set(expected_request_fields),
+                set(result_request_fields))
+            self.assertEquals([client_queue2], self._dispatcher._get_client_queues()[
+                resource_type].get("watchers"))
+    # end test_concurrent_subscribe_and_unsubscribe_client_with_fields_all_xy
+
+    def test_concurrent_subscribe_and_unsubscribe_client_with_fields_xy_xz(self):
+        def _execute_subscribe_unsubscribe_concurrently(
+                method_invocation_list, client_queue_list, watcher_resource_types):
+            try:
+                mock_obj = MockSubscribeAndUnsubscribe()
+                self._dispatcher._subscribe_client_queue = mock_obj.mock_subscribe_client_queue
+                self._dispatcher._unsubscribe_client_queue = mock_obj.mock_unsubscribe_client_queue
+                for index, method in enumerate(method_invocation_list):
+                    gevent.spawn(
+                        method,
+                        client_queue_list[index],
+                        watcher_resource_types)
+                gevent.sleep(2)
+                mock_obj.HOLD_API = False
+                gevent.sleep(3)
+            except gevent.timeout.Timeout:
+                self.assertFalse(False, 'Failed unexpectedly')
+        # end _execute_subscribe_unsubscribe_concurrently
+
+        # Client1:subscribe(fields:X,Y), Client2:unsubscribe(fields:X,Z)
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "display_name",
+                    "routing_instances"]}}
+        resources_query2 = {
+            "virtual_network": {
+                "fields": [
+                    "display_name",
+                    "id_perms"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue_list = [client_queue1, client_queue2]
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(
+            client_queue2, watcher_resource_types)
+        method_invocation_list = [
+            self._dispatcher.subscribe_client,
+            self._dispatcher.unsubscribe_client]
+        _execute_subscribe_unsubscribe_concurrently(
+            method_invocation_list, client_queue_list, watcher_resource_types)
+        expected_request_fields = ["display_name", "routing_instances"]
+        for resource_type in watcher_resource_types:
+            result_request_fields = self._dispatcher._get_client_queues()[
+                resource_type].get("fields")
+            self.assertEquals(len(result_request_fields), 2)
+            self.assertEquals(
+                set(expected_request_fields),
+                set(result_request_fields))
+            self.assertEquals([client_queue1], self._dispatcher._get_client_queues()[
+                resource_type].get("watchers"))
+    # end test_concurrent_subscribe_and_unsubscribe_client_with_fields_xy_xz
+
+    def test_concurrent_requests_unsubscribe_client_with_fields_all(self):
+        def _execute_unsubscribe_concurrently(
+                client_queue_list, watcher_resource_types):
+            try:
+                mock_unsubscribe = MockSubscribeAndUnsubscribe()
+                self._dispatcher._unsubscribe_client_queue = mock_unsubscribe.mock_unsubscribe_client_queue
+                for client_queue in client_queue_list:
+                    gevent.spawn(
+                        self._dispatcher.unsubscribe_client,
+                        client_queue,
+                        watcher_resource_types)
+                gevent.sleep(2)
+                mock_unsubscribe.HOLD_API = False
+                gevent.sleep(3)
+            except gevent.timeout.Timeout:
+                self.assertFalse(
+                    False, '%s failed unexpectedly' %
+                           self._dispatcher._unsubscribe_client_queue)
+        # end _execute_unsubscribe_concurrently
+
+        # client1:unsubscribe(fields: all) client2:unsubscribe(fields: all)
+        resources_query1 = {}
+        resources_query2 = {}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue_list = [client_queue1, client_queue2]
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(
+            client_queue1, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue2, watcher_resource_types)
+        _execute_unsubscribe_concurrently(
+            client_queue_list, watcher_resource_types)
+        for resource_type in watcher_resource_types:
+            result_request_fields = self._dispatcher._get_client_queues()[
+                resource_type].get("fields")
+            self.assertEquals(len(result_request_fields), 0)
+            self.assertEquals([], result_request_fields)
+            self.assertEquals([], self._dispatcher._get_client_queues()[
+                resource_type].get("watchers"))
+    # end test_concurrent_requests_unsubscribe_client_with_fields_all
+
+    def test_concurrent_requests_unsubscribe_client_with_fields_xy_xz(self):
+        def _execute_unsubscribe_concurrently(
+                client_queue_list, watcher_resource_types):
+            try:
+                mock_unsubscribe = MockSubscribeAndUnsubscribe()
+                self._dispatcher._unsubscribe_client_queue = mock_unsubscribe.mock_unsubscribe_client_queue
+                for client_queue in client_queue_list:
+                    gevent.spawn(
+                        self._dispatcher.unsubscribe_client,
+                        client_queue,
+                        watcher_resource_types)
+                gevent.sleep(2)
+                mock_unsubscribe.HOLD_API = False
+                gevent.sleep(3)
+            except gevent.timeout.Timeout:
+                self.assertFalse(
+                    False, '%s failed unexpectedly' %
+                           self._dispatcher._unsubscribe_client_queue)
+        # end _execute_unsubscribe_concurrently
+
+        # client1:unsubscribe(fields:X,Y), client2:unsubscribe(fields:X,Z)
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "display_name",
+                    "routing_instances"]}}
+        resources_query2 = {
+            "virtual_network": {
+                "fields": [
+                    "display_name",
+                    "id_perms"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue_list = [client_queue1, client_queue2]
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(
+            client_queue1, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue2, watcher_resource_types)
+        _execute_unsubscribe_concurrently(
+            client_queue_list, watcher_resource_types)
+        for resource_type in watcher_resource_types:
+            result_request_fields = self._dispatcher._get_client_queues()[
+                resource_type].get("fields")
+            self.assertEquals(len(result_request_fields), 0)
+            self.assertEquals([], result_request_fields)
+            self.assertEquals([], self._dispatcher._get_client_queues()[
+                resource_type].get("watchers"))
+    # end test_concurrent_requests_unsubscribe_client_with_fields_xy_xz
+
+    def test_subscribe_client(self):
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "routing_instances",
+                    "id_perms"]}}
+        resources_query2 = {}
+        resources_query3 = {
+            "virtual_network": {
+                "fields": ["display_name"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue3 = WatcherQueue(resources_query3)
+        watcher_resource_types = ["virtual_network"]
+        gevent.joinall(
+            [
+                gevent.spawn(
+                    self._dispatcher.subscribe_client(
+                        client_queue1, watcher_resource_types)), gevent.spawn(
+                    self._dispatcher.subscribe_client(
+                        client_queue2, watcher_resource_types)), gevent.spawn(
+                    self._dispatcher.subscribe_client(
+                        client_queue3, watcher_resource_types))])
+
+        for resource_type in watcher_resource_types:
+            self.assertEquals(set([client_queue1, client_queue2, client_queue3]), set(
+                self._dispatcher._get_client_queues()[resource_type].get("watchers")))
+            self.assertEquals(set(["routing_instances", "id_perms", "display_name", "all"]),
+                              set(self._dispatcher._get_client_queues()[
+                                  resource_type].get("fields")))
+    # end test_subscribe_client
 
     def test_unsubscribe_client(self):
-        client_queue = Queue()
+        resources_query1 = {
+            "virtual_network": {
+                "fields": [
+                    "routing_instances",
+                    "id_perms"]}}
+        resources_query2 = {}
+        resources_query3 = {}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue1 = WatcherQueue(resources_query1)
+        client_queue2 = WatcherQueue(resources_query2)
+        client_queue3 = WatcherQueue(resources_query3)
         watcher_resource_types = [
-            "virtual_network",
-            "virtual_network_interface"]
-        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
-        self._dispatcher.unsubscribe_client(client_queue,
-                                            watcher_resource_types)
+            "virtual_network"]
+        self._dispatcher.subscribe_client(
+            client_queue1, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue2, watcher_resource_types)
+        self._dispatcher.subscribe_client(
+            client_queue3, watcher_resource_types)
+
+        gevent.joinall(
+            [
+                gevent.spawn(
+                    self._dispatcher.unsubscribe_client(
+                        client_queue2, watcher_resource_types)), gevent.spawn(
+                    self._dispatcher.unsubscribe_client(
+                        client_queue3, watcher_resource_types))])
         for resource_type in watcher_resource_types:
-            self.assertEquals(
-                [],
-                self._dispatcher._get_client_queues().get(resource_type, [])
-            )
+            self.assertEquals(set([client_queue1]), set(
+                self._dispatcher._get_client_queues()[resource_type].get("watchers")))
+            self.assertEquals(set(["routing_instances", "id_perms"]), set(
+                self._dispatcher._get_client_queues()[resource_type].get("fields")))
+    # end test_unsubscribe_client
 
 
 class TestNotifyEventDispatcher(TestCase):
@@ -109,6 +507,75 @@ class TestDispatch(TestCase):
         for notification in notifications:
             self._dispatcher.notify_event_dispatcher(notification)
 
+    def test_dispatch_with_field_query(self):
+        vm_resp = {
+            'uuid': '1a9678c5',
+            'fq_name': ['default-domain'],
+            'parent_type': 'project',
+            'parent_uuid': '71d08380',
+            'display_name': {},
+            'routing_instances': {}}
+        mockVncDBClient = flexmock(
+            dbe_read=lambda resource_type,
+            resource_id,
+            obj_fields: (
+                True,
+                vm_resp))
+        self._dispatcher._set_db_conn(mockVncDBClient)
+        notifications = [
+            {
+                "oper": "CREATE",
+                "type": "virtual_network_interface",
+                "uuid": "123"
+            },
+            {
+                "oper": "CREATE",
+                "type": "virtual_network",
+                "uuid": "123"
+            },
+            {
+                "oper": "DELETE",
+                "type": "virtual_network",
+                "uuid": "123"
+            },
+        ]
+        resources_query = {
+            "virtual_network": {
+                "fields": [
+                    "display_name",
+                    "routing_instances"]}}
+
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue(resources_query)
+        watcher_resource_types = ["virtual_network"]
+        self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
+        gevent.spawn(self.notify, notifications).join()
+        gevent.spawn(self._dispatcher.dispatch)
+
+        for notification in notifications:
+            if notification['type'] == "virtual_network_interface":
+                continue
+            event = {
+                "event": notification.get("oper").lower(),
+                "data": json.dumps({"virtual-network": vm_resp})
+            }
+            if notification.get("oper") == "DELETE":
+                event.update(
+                    {
+                        "data": json.dumps(
+                            {"virtual-network": {"uuid": "123"}}
+                        )
+                    }
+                )
+            self.assertEquals(
+                event,
+                client_queue.get()
+            )
+
     def test_dispatch_no_extra_read(self):
         mockVncDBClient = flexmock(
             dbe_read=lambda resource_type, resource_id: (True, {}))
@@ -131,7 +598,12 @@ class TestDispatch(TestCase):
             },
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
@@ -180,7 +652,12 @@ class TestDispatch(TestCase):
             },
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
@@ -222,7 +699,12 @@ class TestDispatch(TestCase):
             }
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
@@ -259,7 +741,12 @@ class TestDispatch(TestCase):
             }
         ]
 
-        client_queue = Queue()
+        class WatcherQueue(gevent.queue.Queue):
+            def __init__(self, query):
+                self.query = query
+                super(WatcherQueue, self).__init__()
+
+        client_queue = WatcherQueue({})
         watcher_resource_types = ["virtual_network"]
         self._dispatcher.subscribe_client(client_queue, watcher_resource_types)
         gevent.spawn(self.notify, notifications).join()
