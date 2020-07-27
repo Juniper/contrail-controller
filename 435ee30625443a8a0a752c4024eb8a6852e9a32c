@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a28d2c0e_46e241c6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-27T16:56:16Z",
+      "side": 1,
+      "message": "I think during concurrent _subscribe_client_queue calls for same resource type will lead to race condition and overwrite each other if we update the _client_queues[resource_type].\n\nSo why don\u0027t we concatenate as below,\ncls._client_queues.get(resource_type, {\"fields\": []})[\"fields\"] + set_field\ncls._client_queues.get(resource_type, {\"watchers\": []})[\"watchers\"] + watchers",
+      "revId": "435ee30625443a8a0a752c4024eb8a6852e9a32c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
