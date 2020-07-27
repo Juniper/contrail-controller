@@ -314,4 +314,22 @@ class FeatureBase(object):
         return vn_dict
     # end _get_vn_li_map
 
+    def _any_rb_role_matches(self, sub_str):
+        if self._physical_router.routing_bridging_roles and sub_str:
+            return any(
+                sub_str.lower() in r.lower()
+                for r in self._physical_router.routing_bridging_roles
+            )
+        return False
+    # end _any_rb_role_matches
+
+    def _is_service_chained(self):
+        return self._any_rb_role_matches('servicechain')
+    # end is_service_chained
+
+    @staticmethod
+    def _get_values_sorted_by_key(dict_obj):
+        return [dict_obj[key] for key in sorted(dict_obj.keys())]
+    # end get_values_sorted_by_key
+
 # end FeatureBase
