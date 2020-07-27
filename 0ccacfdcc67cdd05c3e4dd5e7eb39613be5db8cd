@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "269b3671_79f7e433",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 554,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-27T22:32:28Z",
+      "side": 1,
+      "message": "We can avoid passing 0, 0 by three ways,\n\nWay #1 Make db_vlan_id (a.k.a) old_vlan as the last argument of _manage_vpg_association and let it default to None\n\nWay 2# pass vlan_id as the db_vlan_id as well\n\nWay 3# pass keyword arguments as below,\nvpg_uuid, ret_dict \u003d cls._manage_vpg_association(\n                        obj_dict[\u0027uuid\u0027], cls.server, db_conn, links,\n                        new_vlan\u003d0, vpg_name\u003dvpg_name, vn_uuid\u003dvn_uuid, vlan_id\u003dvlan_id, is_untagged_vlan\u003dis_untagged_vlan)",
+      "revId": "0ccacfdcc67cdd05c3e4dd5e7eb39613be5db8cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1e529bdf_0dd59fc2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1478,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-27T22:32:28Z",
+      "side": 1,
+      "message": "Can we define these paths vnc_db.py or cfgm_common which ever is appropriate",
+      "revId": "0ccacfdcc67cdd05c3e4dd5e7eb39613be5db8cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "28de7b6f_2ce5eae0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1638,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-27T22:32:28Z",
+      "side": 1,
+      "message": "vlan_id is already passed, which is the new_vlan. we can use it\n\nsimilarly, instead of old_vlan, we can rename it to db_vlan_id, so that the code will be readable.",
+      "revId": "0ccacfdcc67cdd05c3e4dd5e7eb39613be5db8cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

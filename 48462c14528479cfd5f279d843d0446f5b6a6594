@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "21400899_7328ec09",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-27T22:32:28Z",
+      "side": 1,
+      "message": "Is obj_type required as argument?",
+      "revId": "48462c14528479cfd5f279d843d0446f5b6a6594",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
