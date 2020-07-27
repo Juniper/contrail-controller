@@ -868,8 +868,9 @@ def get_free_port(allocated_sockets):
 
 # end get_free_port
 
-def block_till_port_listened(server_ip, server_port, retries=5):
+def block_till_port_listened(server_ip, server_port, retries=7):
     tries = 0
+    sleep = 2
     while tries < retries:
         try:
             s = socket.create_connection((server_ip, server_port))
@@ -877,9 +878,10 @@ def block_till_port_listened(server_ip, server_port, retries=5):
             return
         except Exception as err:
             tries += 1
-            print("%s:%s not up, retrying in 2 secs, %d tries remaining: %s" %
-                  (server_ip, server_port, retries-tries, err))
-            gevent.sleep(2)
+            print("%s:%s not up, retrying in %d secs, %d tries remaining: %s" %
+                  (server_ip, server_port, sleep, retries-tries, err))
+            gevent.sleep(sleep)
+            sleep += 1
     raise Exception("%s:%s not up after %d retries" % (
         server_ip, server_port, retries))
 # end block_till_port_listened
