@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 import gevent
 import mock
+from netaddr import IPNetwork
 from attrdict import AttrDict
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
@@ -142,7 +143,6 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self.idle_patch.stop()
         super(TestAnsibleRoutedVNDM, self).tearDown()
 
-    @retries(5, hook=retry_exc_handler)
     def _delete_objects(self):
         for obj in self.physical_routers:
             self._vnc_lib.physical_router_delete(id=obj.get_uuid())
@@ -164,7 +164,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
     # end _delete_objects
 
     @retries(2, hook=retry_exc_handler)
-    def _verify_abstract_config_pim(self, cpr, prnew_name, ri_name, pim_params):
+    def _verify_abstract_config_pim(self, cpr, prnew_name,
+                                    ri_name, pim_params):
         cpr.set_physical_router_product_name(prnew_name)
         self._vnc_lib.physical_router_update(cpr)
         gevent.sleep(2)
@@ -272,6 +273,50 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             self.assertEqual(bfd.get('detection_time_multiplier'), 4)
 
     # end _verify_abstract_config_static_routes
+
+    @retries(2, hook=retry_exc_handler)
+    def _get_subnets_in_vn(self, vn_obj):
+        cidr_list = []
+        net_ipam_refs = vn_obj.get_network_ipam_refs()
+        for ref in net_ipam_refs or []:
+            ipam_subnets = ref.get('attr').ipam_subnets
+            for ipam_subnet in ipam_subnets or []:
+                ip_prefix = ipam_subnet.subnet.ip_prefix
+                ip_len = ipam_subnet.subnet.ip_prefix_len
+                cidr_list.append(ip_prefix + '/' + str(ip_len))
+        return cidr_list
+
+    @retries(2, hook=retry_exc_handler)
+    def _check_irb_intf_config(self, vn_obj_list):
+        number_of_vn = len(vn_obj_list)
+        ac1 = self.check_dm_ansible_config_push()
+        dac = ac1.get('device_abstract_config')
+        subnet_list = []
+        for vn_obj in vn_obj_list or []:
+            subnet_list = subnet_list + self._get_subnets_in_vn(vn_obj)
+        # verify irb for each VN and ip addr for each subnet
+        phy_intf_list = dac.get('features').get('l3-gateway').get('physical_interfaces', [])
+        irb_count = 0
+        for phy_intf in phy_intf_list:
+            if phy_intf.get('interface_type') == 'irb':
+                logical_intfs = phy_intf.get('logical_interfaces', [])
+                for log_intf in logical_intfs:
+                    irb_count = irb_count + 1
+                    ip_addrs = log_intf.get('ip_addresses', [])
+                    for ip_addr in ip_addrs:
+                        net = str(IPNetwork(ip_addr.get('address')).cidr)
+                        if net not in subnet_list:
+                            self.assertIsNotNone(None)
+        self.assertEqual(irb_count, number_of_vn)
+
+    def _delete_subnet_from_vn_and_update(self, vn_obj):
+        ipam_uuid = vn_obj.get_network_ipam_refs()[-1].get('uuid')
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam_uuid)
+        ipam1_sn_1 = [IpamSubnetType(subnet=SubnetType('192.168.1.1', 24))]
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam1_sn_1))
+        gevent.sleep(2)
+        self._vnc_lib.virtual_network_update(vn_obj)
+        return self._vnc_lib.virtual_network_read(fq_name=vn_obj.get_fq_name())
 
     @retries(2, hook=retry_exc_handler)
     def _verify_abstract_config_rp_and_bgp(self, cpr, prnew_name, ri_name,
@@ -433,7 +478,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
     def _create_and_validate_routed_vn(self, vn_id, two_fabric=False,
                                        test_static_route=True, test_bgp=True,
-                                       test_ospf=False, test_pim=False):
+                                       test_ospf=False, test_pim=False,
+                                       test_vn=False):
         _, _, pr1, pr2 = self._create_fabrics_two_pr('lr', two_fabric)
         # create 1 routed VN with Static Routes with interface_route_table
         # for PR1 and bgp with routing policys for PR2
@@ -448,6 +494,9 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         gevent.sleep(3)
 
         vn_obj1 = self.create_vn(vn_id, '41.1.1.0')
+        vn_obj2 = self.create_vn(str(int(vn_id) + 1),
+                                 '43.3.3.0', ['192.168.1.1'])
+
         irt_obj1 = None
         rp_obj_dic = {}
         bgp_routed_props = None
@@ -464,8 +513,9 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                                        mode="sparse-dense",
                                        bfd_time=30,
                                        bfd_multiplier=100)
-            pim_routed_props = pimParams.create_pim_routed_properties(pr1.get_uuid(),
-                                                                      lr_uuid)
+            pim_routed_props = pimParams.create_pim_routed_properties(
+                pr1.get_uuid(),
+                lr_uuid)
             vn_routed_props.add_routed_properties(pim_routed_props)
 
         if test_static_route == True:
@@ -474,7 +524,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
                                                  prefix_list=irt_prefix1)
             irt_next_hopes = ['41.1.1.20']
             static_routed_props = self._create_route_props_static_route(
-                [irt_obj1.get_uuid()], irt_next_hopes, pr1, '41.1.1.10', lr_uuid)
+                [irt_obj1.get_uuid()], irt_next_hopes, pr1, '41.1.1.10',
+                lr_uuid)
             vn_routed_props.add_routed_properties(static_routed_props)
 
         rp_inputdict = {
@@ -572,17 +623,27 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             lr1.add_physical_router(pr1)
         if test_bgp == True or test_ospf == True:
             lr1.add_physical_router(pr2)
-
         fq_name1 = ['default-domain', 'default-project',
                     'vmi-routed1-' + vn_id + '-' + self.id()]
+        fq_name2 = ['default-domain', 'default-project',
+                    'vmi-routed2-' + str(int(vn_id) + 1) + '-' + self.id()]
         vmi1 = VirtualMachineInterface(fq_name=fq_name1, parent_type='project')
+        vmi2 = VirtualMachineInterface(fq_name=fq_name2, parent_type='project')
         vmi1.set_virtual_network(vn_obj1)
+        vmi2.set_virtual_network(vn_obj2)
         self._vnc_lib.virtual_machine_interface_create(vmi1)
+        self._vnc_lib.virtual_machine_interface_create(vmi2)
 
         lr1.add_virtual_machine_interface(vmi1)
+        lr1.add_virtual_machine_interface(vmi2)
 
         self._vnc_lib.logical_router_update(lr1)
         gevent.sleep(3)
+        if test_vn:
+            # check IRBs both routed and non routed VN are present in LR
+            self._check_irb_intf_config([vn_obj1, vn_obj2])
+            vn_obj2 = self._delete_subnet_from_vn_and_update(vn_obj2)
+            self._check_irb_intf_config([vn_obj1, vn_obj2])
 
         # update each PR separately to get the abstract config
         # corresponding to that PR
@@ -616,7 +677,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             # change routed VN static routes next hops and verify abstactCfg
             irt_next_hopes_chng = ['41.1.1.15']
             static_routed_props = self._create_route_props_static_route(
-                [irt_obj1.get_uuid()], irt_next_hopes_chng, pr1, '41.1.1.10', lr_uuid)
+                [irt_obj1.get_uuid()], irt_next_hopes_chng, pr1, '41.1.1.10',
+                lr_uuid)
             route_list = []
             route_list.append(static_routed_props)
             if test_bgp == True:
@@ -686,6 +748,10 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
             fq_name=vmi1.get_fq_name())
         self._vnc_lib.virtual_network_delete(
             fq_name=vn_obj1.get_fq_name())
+        self._vnc_lib.virtual_machine_interface_delete(
+            fq_name=vmi2.get_fq_name())
+        self._vnc_lib.virtual_network_delete(
+            fq_name=vn_obj2.get_fq_name())
         if irt_obj1 is not None:
             self._vnc_lib.interface_route_table_delete(
                 fq_name=irt_obj1.get_fq_name())
@@ -699,7 +765,8 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
     # end test_routed_vn_single_fabric
 
     def test_routed_vn_two_fabric(self):
-        self._create_and_validate_routed_vn(vn_id='11', two_fabric=True)
+        self._create_and_validate_routed_vn(vn_id='11', two_fabric=True,
+                                            test_vn=True)
     # end test_routed_vn_two_fabric
 
     def test_routed_vn_single_fabric_pim_ospf(self):

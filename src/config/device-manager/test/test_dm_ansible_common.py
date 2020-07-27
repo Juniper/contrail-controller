@@ -175,7 +175,10 @@ class TestAnsibleCommonDM(DMTestCase):
         return self._vnc_lib.fabric_read(id=fabric_uuid)
     # end create_fabric
 
-    def create_vn(self, vn_id, subnet):
+    def create_vn(self, vn_id, subnet, extra_subnets=None):
+        subnets = [subnet]
+        if extra_subnets and len(extra_subnets) > 0:
+            subnets = subnets + extra_subnets
         vn_name = 'vn' + vn_id + '-' + self.id()
         vn_obj = VirtualNetwork(vn_name)
         vn_obj_properties = VirtualNetworkType()
@@ -186,8 +189,10 @@ class TestAnsibleCommonDM(DMTestCase):
         ipam1_obj = NetworkIpam('ipam' + vn_id + '-' + self.id())
         ipam1_uuid = self._vnc_lib.network_ipam_create(ipam1_obj)
         ipam1_obj = self._vnc_lib.network_ipam_read(id=ipam1_uuid)
-        vn_obj.add_network_ipam(ipam1_obj, VnSubnetsType(
-            [IpamSubnetType(SubnetType(subnet, 24))]))
+        subnet_list = []
+        for subnet in subnets or []:
+            subnet_list.append(IpamSubnetType(SubnetType(subnet, 24)))
+        vn_obj.add_network_ipam(ipam1_obj, VnSubnetsType(subnet_list))
 
         vn_uuid = self._vnc_lib.virtual_network_create(vn_obj)
         return self._vnc_lib.virtual_network_read(id=vn_uuid)
