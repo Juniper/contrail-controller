@@ -1,0 +1,140 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d0d40b6b_046afa8f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1075,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "Need to remove this comment",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3c85974e_09cc901b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 4369,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "All resource types that implements pre_dbe_update should be changed to return three tuple https://github.com/Juniper/contrail-controller/tree/R2008/src/config/api-server/vnc_cfg_api_server/resources",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e5c5a536_b9336e9d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "_DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "28b4332f_f997aa58",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 555,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "old_vlan\u003dNone",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "305f8c29_dc4e267b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1447,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "add new arg in the doc",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "64a8eb72_d61678a2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1560,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "return True, \u0027\u0027, {\"deallocate_vlan_id\": db_vlan_id}",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7119dc39_c7f247d7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1782,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "ok, result, zk_update_kqargs \u003d cls._check_serviceprovider_fabric()",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "49da5028_5bb47dc6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1786,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-28T18:40:41Z",
+      "side": 1,
+      "message": "return ok, result, None",
+      "revId": "14bea163b5de585df97a47d141512d508a59818a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
