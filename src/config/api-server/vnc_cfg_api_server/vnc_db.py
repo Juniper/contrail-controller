@@ -454,6 +454,7 @@ class VncZkClient(object):
     _TAG_VALUE_MAX_ID = (1 << 16) - 1
 
     _AE_ID_ALLOC_PATH = "/id/aggregated-ethernet/%s/"
+    _VPG_AE_ID_ZK_PATH_PREFIX = '/id/ae-id-vpg/'
     _AE_MAX_ID = 1 << 7
 
     _SUB_CLUSTER_ID_ALLOC_PATH = "/id/sub-clusters/id/"
@@ -479,6 +480,7 @@ class VncZkClient(object):
         _vpg_id_alloc_path = zk_path_pfx + self._VPG_ID_ALLOC_PATH
         self._tag_value_id_alloc_path = zk_path_pfx + self._TAG_VALUE_ID_ALLOC_PATH
         self._ae_id_alloc_path = zk_path_pfx + self._AE_ID_ALLOC_PATH
+        self._vpg_ae_id_zk_path_prefix = zk_path_pfx + self._VPG_AE_ID_ZK_PATH_PREFIX
         self._zk_path_pfx = zk_path_pfx
 
         self._sandesh = sandesh_hdl
