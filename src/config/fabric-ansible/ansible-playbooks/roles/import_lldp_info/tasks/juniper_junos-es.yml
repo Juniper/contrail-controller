@@ -1,0 +1,2 @@
+- set_fact:
+    device_info: {'lldp_message': 'lldp not supported for srx'}

@@ -25,7 +25,8 @@
 {%-             set mac_add_info = [mac_add_info] %}
 {%-         endif %}
 {%-         for mac_add in mac_add_info %}
-{%-             set x = priv_base_adds.append(mac_add['private-base-address']) %}
+{%-             if 'private-base-address' in mac_add %}
+{%-                 set x = priv_base_adds.append(mac_add['private-base-address']) %}
 {%-             set y = pub_base_adds.append(mac_add['public-base-address']) %}
 {%-         endfor %}
 {{          add_mac_address_info(priv_base_adds | join(" "), "private") }}{{add_mac_address_info(pub_base_adds | join(" "), "public") }}
