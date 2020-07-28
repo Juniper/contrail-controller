@@ -3,6 +3,7 @@
 #
 
 from builtins import str
+import os
 
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
@@ -11,6 +12,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.resource_common import VirtualPortGroup
 from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
+from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
@@ -45,14 +47,67 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
     @classmethod
-    def _alloc_ae_id(cls, prouter_name, vpg_name):
-        try:
-            pi_ae = cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name)
-        except ResourceExhaustionError:
-            err_msg = ('ResourceExhaustionError: when allocating AE-ID for '
-                       'virtual-port-group (%s) at physical-router (%s)' % (
-                           vpg_name, prouter_name))
-            return False, (400, err_msg)
+    def _alloc_ae_id(cls, prouter_name, vpg_name, vpg_uuid):
+        # create vpg node at /id/ae-id-vpg/
+        vpg_zk_path = os.path.join(
+            cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+            'vpg:%s' % vpg_uuid,
+            prouter_name)
+        pi_ae = None
+        if not cls.vnc_zk_client._zk_client.exists(vpg_zk_path):
+            while True:
+                try:
+                    ae_id = cls.vnc_zk_client.alloc_ae_id(
+                        prouter_name, vpg_name)
+
+                    def undo_alloc_ae_id():
+                        ok, result = cls._dealloc_ae_id(
+                            prouter_name, ae_id, vpg_name, vpg_uuid)
+                        return ok, result
+                    get_context().push_undo(undo_alloc_ae_id)
+                    break
+                except ResourceExhaustionError:
+                    # reraise if its real exhaustion
+                    in_use_aes = 0
+                    vpg_nodes = cls.vnc_zk_client._zk_client.get_children(
+                        cls.vnc_zk_client._vpg_ae_id_zk_path_prefix)
+                    for vpg_node in vpg_nodes:
+                        pr_path = cls.vnc_zk_client._zk_client.exists(
+                            os.path.join(
+                                cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+                                vpg_node, prouter_name))
+                        if pr_path:
+                            in_use_aes += 1
+                    if in_use_aes >= cls.vnc_zk_client._AE_MAX_ID:
+                        err_msg = ('ResourceExhaustionError: when allocating '
+                                   'AE-ID for virtual-port-group (%s) at '
+                                   'physical-router (%s)' % (
+                                       vpg_name, prouter_name))
+                        return False, (400, err_msg)
+            try:
+                cls.vnc_zk_client._zk_client.create_node(
+                    vpg_zk_path, ae_id)
+
+                def undo_create_node():
+                    cls.vnc_zk_client._zk_client.delete_node(
+                        vpg_zk_path, True)
+                get_context().push_undo(undo_create_node)
+                pi_ae = ae_id
+            except ResourceExhaustionError:
+                ok, result = cls._dealloc_ae_id(
+                    prouter_name, ae_id, vpg_name, vpg_uuid)
+                if not ok:
+                    return ok, result
+                pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
+                pi_ae = int(pi_ae_str)
+                # TO-DO: can read_node return empty?
+        else:
+            # TO-DO: can read_node return empty?
+            pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
+            pi_ae = int(pi_ae_str)
+
+        # TO-DO: Can pi_ae remain None at any case?
+        # if pi_ae is None:
         attr_obj = VpgInterfaceParametersType(pi_ae)
         attr_dict = attr_obj.__dict__
         alloc_dict = {
@@ -66,17 +121,22 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
         return True, (attr_dict, alloc_dict)
 
     @classmethod
-    def _dealloc_ae_id(cls, prouter_name, ae_id, vpg_name):
-        cls.vnc_zk_client.free_ae_id(prouter_name, ae_id, vpg_name)
-        msg = "De-allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
-            ae_id, vpg_name, prouter_name)
-        cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-        dealloc_dict = {
-            'ae_id': ae_id,
-            'prouter_name': prouter_name,
-            'vpg_name': vpg_name
-        }
-        return dealloc_dict
+    def _dealloc_ae_id(cls, prouter_name, ae_id, vpg_name, vpg_uuid):
+        # delete znode
+        vpg_zk_path = os.path.join(
+            cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+            'vpg:%s' % vpg_uuid,
+            prouter_name)
+        pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
+        pi_ae = int(pi_ae_str)
+        # check if given ae_id is same as one found in zknode path
+        if pi_ae is not None and pi_ae == ae_id:
+            cls.vnc_zk_client.free_ae_id(prouter_name, pi_ae, vpg_name)
+            msg = "De-allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
+                ae_id, vpg_name, prouter_name)
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            cls.vnc_zk_client._zk_client.delete_node(vpg_zk_path)
+        return True, ''
 
     @classmethod
     def _process_ae_id(cls, db_obj_dict, vpg_name, obj_dict=None):
@@ -134,7 +194,7 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
             pi_ae = db_pr_dict.get(pi_pr)
             if pi_ae is None:
                 # allocate
-                ok, result = cls._alloc_ae_id(pi_pr, vpg_name)
+                ok, result = cls._alloc_ae_id(pi_pr, vpg_name, vpg_uuid)
                 if not ok:
                     return ok, result
                 attr_dict, _alloc_dict = result
@@ -152,7 +212,7 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                         curr_pi_dict.get(create_pi_uuids[0])):
                     # allocate a new ae-id as it belongs to different PR
                     db_pr = list(db_pi_dict.values())[0]
-                    ok, result = cls._alloc_ae_id(db_pr, vpg_name)
+                    ok, result = cls._alloc_ae_id(db_pr, vpg_name, vpg_uuid)
                     if not ok:
                         return ok, result
                     attr_dict_leftover_pi, _alloc_dict = result
@@ -162,11 +222,13 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                                attr_dict_leftover_pi, db_pi_uuid,
                                vpg_name, db_pr))
                     cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                    attr_to_publish = alloc_dealloc_dict
                 else:
                     attr_dict_leftover_pi = attr_dict
                     msg = "Re-using AE-ID(%s) for PI(%s) at VPG(%s)/PR(%s)" % (
                         attr_dict_leftover_pi, db_pi_uuid, vpg_name, pi_pr)
                     cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                    attr_to_publish = None
                 (ok, result) = cls.db_conn.ref_update(
                     'virtual_port_group',
                     vpg_uuid,
@@ -175,8 +237,9 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                     {'attr': attr_dict_leftover_pi},
                     'ADD',
                     db_obj_dict.get('id_perms'),
-                    attr_to_publish=None,
+                    attr_to_publish=attr_to_publish,
                     relax_ref_for_delete=True)
+                # TO-DO add undo for ref-update
                 msg = "Updated AE-ID(%s) in PI(%s) ref to VPG(%s)" % (
                     attr_dict_leftover_pi, db_pi_uuid, vpg_name)
                 cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -194,14 +257,16 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
             if (pi_ae is not None and (db_pi_prs < 2 or
                len(delete_pi_uuids) > 1)):
                 ae_id = pi_ae.get('ae_num')
-                # de-allocate
-                _dealloc_dict = cls._dealloc_ae_id(pi_pr, ae_id, vpg_name)
+                # de-allocation moved to post_dbe_update
+                _dealloc_dict = {
+                    'ae_id': ae_id,
+                    'prouter_name': pi_pr,
+                    'vpg_uuid': vpg_uuid,
+                    'vpg_name': vpg_name}
                 alloc_dealloc_dict['deallocated_ae_id'].append(_dealloc_dict)
                 # record deallocated pr/vpg
                 _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
-                msg = "Deallocated AE-ID(%s) for PI(%s) at VPG(%s)/PR(%s)" % (
-                    ae_id, pi_uuid, vpg_name, pi_pr)
-                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                # TO-DO Add undo pi-ref for current pi
 
         # de-allocate leftover single PI, if any
         # in delete case, whatever comes in curr_pi_dict are the
@@ -215,16 +280,18 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
             if '%s:%s' % (pi_pr, vpg_name) not in _in_dealloc_list:
                 if pi_ae is not None:
                     ae_id = pi_ae.get('ae_num')
-                    _dealloc_dict = cls._dealloc_ae_id(pi_pr, ae_id, vpg_name)
+                    # de-allocation moved to post_dbe_update
+                    _dealloc_dict = {
+                        'ae_id': ae_id,
+                        'prouter_name': pi_pr,
+                        'vpg_uuid': vpg_uuid,
+                        'vpg_name': vpg_name}
                     alloc_dealloc_dict['deallocated_ae_id'].append(
                         _dealloc_dict)
                     # record deallocated pr/vpg
                     _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
-                    msg = ("Deallocated AE-ID(%s) from leftover PI(%s) at "
-                           "VPG(%s)/PR(%s)" % (
-                               ae_id, pi_uuid, vpg_name, pi_pr))
-                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            pi_ae = db_pr_dict.get(pi_pr)
+            # TO-DO Add undo pi-ref for leftover pi
+            # remove PI ref from VPG
             (ok, result) = cls.db_conn.ref_update(
                 'virtual_port_group',
                 vpg_uuid,
@@ -400,11 +467,78 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 return ok, res
             if res[0] and kwargs.get('ref_update'):
                 kwargs['ref_update']['data']['attr'] = res[0]
-                ret_val = res[1]
-
+            ret_val = res[1]
         return True, ret_val
     # end pre_dbe_update
 
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ret_val = ''
+        # Handling de-allocation of AE-IDs from ZK
+        vpg_uuid = obj_dict.get('uuid')
+        vpg_name = fq_name[-1]
+        ref_update_result = kwargs.get('ref_update') or {}
+        deallocated_list = ref_update_result.get('deallocated_ae_id') or []
+        for deallocate in deallocated_list:
+            ok, result = cls._dealloc_ae_id(
+                deallocate['prouter_name'],
+                deallocate['ae_id'],
+                deallocate['vpg_name'],
+                deallocate['vpg_uuid'])
+            if not ok:
+                return ok, result
+        ok, db_obj_dict = db_conn.dbe_read(
+            obj_type='virtual_port_group',
+            obj_id=obj_dict['uuid'],
+            obj_fields=['physical_interface_refs', 'id_perms'])
+        if not ok:
+            return ok, db_obj_dict
+        alloc_dealloc_dict = {'allocated_ae_id': [], 'deallocated_ae_id': []}
+        pi_refs = db_obj_dict.get('physical_interface_refs') or []
+        if len(pi_refs) < 2:
+            return True, ''
+        for pi_ref in pi_refs:
+            prouter_name = pi_ref['to'][1]
+            vpg_zk_path = os.path.join(
+                cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+                'vpg:%s' % vpg_uuid,
+                prouter_name)
+            ae_pi = None
+            if pi_ref.get('attr') is not None:
+                ae_at_pi = pi_ref.get('attr') or {}
+                ae_pi = ae_at_pi.get('ae_num')
+            pi_uuid = pi_ref['uuid']
+            if ae_pi is not None:
+                ae_id_str = cls.vnc_zk_client._zk_client.read_node(
+                    vpg_zk_path)
+                ae_id = int(ae_id_str)
+                # allocated ae-id still remains at ZK
+                if ae_pi == ae_id:
+                    continue
+            ok, result = cls._alloc_ae_id(prouter_name, vpg_name, vpg_uuid)
+            if not ok:
+                return ok, result
+            attr_dict, _alloc_dict = result
+            alloc_dealloc_dict['allocated_ae_id'].append(_alloc_dict)
+            msg = "Allocated AE-ID(%s) for PI(%s) at VPG(%s)/PR(%s)" % (
+                attr_dict, pi_uuid, vpg_name, prouter_name)
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            if attr_dict.get('ae_num') is not None:
+                (ok, result) = cls.db_conn.ref_update(
+                    'virtual_port_group',
+                    vpg_uuid,
+                    'physical_interface',
+                    pi_uuid,
+                    {'attr': attr_dict},
+                    'ADD',
+                    db_obj_dict.get('id_perms'),
+                    attr_to_publish=alloc_dealloc_dict,
+                    relax_ref_for_delete=True)
+                if not ok:
+                    return ok, result
+        return True, ret_val
+
+    # end post_dbe_update
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         ret_val = ''

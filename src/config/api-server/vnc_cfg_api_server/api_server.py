@@ -4373,14 +4373,14 @@ class VncApiServer(object):
             _req_obj_dict = {}
             if req_obj_dict:
                 _req_obj_dict = req_obj_dict
-            (ok, result) = r_class.pre_dbe_update(
+            (ok, pre_dbe_result) = r_class.pre_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
                 prop_collection_updates=req_prop_coll_updates, ref_update=ref_args)
             if not ok:
-                return (ok, result)
+                return (ok, pre_dbe_result)
             attr_to_publish = None
-            if isinstance(result, dict):
-                attr_to_publish = result
+            if isinstance(pre_dbe_result, dict):
+                attr_to_publish = pre_dbe_result
 
             # All resource type can have tag refs but there is some constraints
             # Done after PRE_DBE_UPDATE as tag refs can be modifed in that hook
@@ -4443,7 +4443,8 @@ class VncApiServer(object):
             # type-specific hook
             (ok, result) = r_class.post_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
-                prop_collection_updates=req_prop_coll_updates)
+                prop_collection_updates=req_prop_coll_updates,
+                ref_update=pre_dbe_result)
             if not ok:
                 return (ok, result)
 
