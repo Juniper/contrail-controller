@@ -390,7 +390,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
     @classmethod
     def post_dbe_update(cls, uuid, fq_name, obj_dict, db_conn,
-                        prop_collection_updates=None):
+                        prop_collection_updates=None, **kwargs):
 
         ok, result = db_conn.dbe_read(
             'logical_router',
