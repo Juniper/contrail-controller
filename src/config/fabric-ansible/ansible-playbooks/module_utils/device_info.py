@@ -418,7 +418,7 @@ class DeviceInfo(object):
         try:
             # delete the corresponding dhcp state PR object if it exists
             dhcp_fq_name = ['default-global-system-config', oid_mapped.get(
-                'host')]
+                'serial-number')]
             pr_obj = self.vncapi.physical_router_read(
                 fq_name=dhcp_fq_name,fields=['physical_router_managed_state'])
 
