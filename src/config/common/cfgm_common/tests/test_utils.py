@@ -316,6 +316,13 @@ class FakeKombu(object):
         def connected(self):
             return True
 
+        @property
+        def connection(self):
+            return self
+
+        def send_heartbeat(self):
+            self.heartbeat_check()
+
         def heartbeat_check(self):
             gevent.sleep(0.001)
     # end class Connection
