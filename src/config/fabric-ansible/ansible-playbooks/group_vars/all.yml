@@ -137,13 +137,10 @@ role_to_feature_mapping:
     - overlay_lag
     - overlay_multi_homing
   PNF-Servicechain@leaf:
-    - overlay_pim
     - overlay_service_chain
   PNF-Servicechain@spine:
-    - overlay_pim
     - overlay_service_chain
   PNF-Servicechain@pnf:
-    - overlay_pim
     - overlay_service_chain
 
 feature_based_plugin_roles:
@@ -301,6 +298,12 @@ feature_based_plugin_roles:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+  PNF-Servicechain@leaf:
+    - overlay_service_chain
+  PNF-Servicechain@spine:
+    - overlay_service_chain
+  PNF-Servicechain@pnf:
+    - overlay_service_chain
 
 feature_apply_order:
   - basic
