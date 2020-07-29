@@ -295,15 +295,23 @@ class TestCliSyncFilters(test_case.JobTestCase):
         self.init_test()
         return
 
+    def tearDown(self):
+        self._newMock.reset()
+        self._initMock.reset()
+        self._readMock.reset()
+        super(TestCliSyncFilters, self).tearDown()
+
     def init_test(self):
         self.mockFabric()
         for id, val in list(mock_physical_router_db.items()):
             self.mockPhysicalRouter(id)
         self.mockCreateFile()
         flexmock(job_utils.random).should_receive('shuffle').and_return()
-        flexmock(VncApi).should_receive('__init__')
-        flexmock(VncApi).should_receive('__new__').and_return(self._vnc_lib)
-        flexmock(self._vnc_lib).should_receive('job_template_read'). \
+        self._initMock = flexmock(VncApi).should_receive('__init__')
+        self._newMock = flexmock(VncApi).should_receive('__new__'). \
+            and_return(self._vnc_lib)
+        self._readMock = flexmock(self._vnc_lib). \
+            should_receive('job_template_read'). \
             and_return(
             self.mockJobTemplate("cli_sync_template"))
 
