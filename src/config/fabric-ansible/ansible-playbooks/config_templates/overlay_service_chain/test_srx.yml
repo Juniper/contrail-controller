@@ -1,0 +1,206 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_service_chain
+    cfg_group: __contrail_overlay_service_chain__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "comment": "/* Contrail Generated Group Config */",
+          "features": {
+              "pnf-service-chaining": {
+                  "routing_instances": [
+                      {
+                          "comment": "PNF svc routing instance",
+                          "name": "si_left_right",
+                          "routing_instance_type": "virtual-router",
+                          "loopback_interfaces": [
+                              {
+                                  "name": "lo0.1000"
+                              }
+                          ],
+                          "routing_interfaces": [
+                              {
+                                  "name": "xe-1/0/0.1000"
+                              },
+                              {
+                                  "name": "xe-1/0/1.1001"
+                              }
+                          ],
+                          "protocols": {
+                              "bgp": [
+                                  {
+                                      "comment": "PNF left BGP group",
+                                      "peers": [
+                                          {
+                                              "ip_address": "1.1.1.13",
+                                              "name": "si_left-1.1.1.13",
+                                              "autonomous_system": 64512
+                                          }
+                                      ],
+                                      "name": "si_left",
+                                      "type_": "external",
+                                      "ip_address": "1.1.1.14",
+                                      "autonomous_system": "66000"
+                                  },
+                                  {
+                                      "comment": "PNF right BGP group",
+                                      "peers": [
+                                          {
+                                              "ip_address": "1.1.1.5",
+                                              "name": "si_right-1.1.1.5",
+                                              "autonomous_system": 64512
+                                          }
+                                      ],
+                                      "name": "si_right",
+                                      "type_": "external",
+                                      "ip_address": "1.1.1.6",
+                                      "autonomous_system": "66000"
+                                  }
+                              ],
+                              "pim": [
+                                  {
+                                      "pim_interfaces": [
+                                          {
+                                              "interface": {
+                                                  "name": "xe-1/0/0.1000"
+                                              }
+                                          },
+                                          {
+                                              "interface": {
+                                                  "name": "xe-1/0/1.1001"
+                                              }
+                                          }
+                                      ],
+                                      "rp": {
+                                          "ip_address": "3.3.3.252"
+                                      }
+                                  }
+                              ]
+                          }
+                      }
+                  ],
+                  "physical_interfaces": [
+                      {
+                          "interface_type": "loopback",
+                          "name": "lo0",
+                          "logical_interfaces": [
+                              {
+                                  "comment": "PNF loopback interface",
+                                  "ip_addresses": [
+                                      {
+                                          "family": "inet",
+                                          "address": "3.3.3.252"
+                                      }
+                                  ],
+                                  "name": "lo0.1000",
+                                  "unit": "1000",
+                                  "vlan_tag": "1000"
+                              }
+                          ]
+                      },
+                      {
+                          "interface_type": "service",
+                          "name": "xe-1/0/1",
+                          "logical_interfaces": [
+                              {
+                                  "comment": "PNF right svc interface",
+                                  "ip_addresses": [
+                                      {
+                                          "family": "inet",
+                                          "address": "1.1.1.6"
+                                      }
+                                  ],
+                                  "name": "xe-1/0/1.1001",
+                                  "unit": "1001",
+                                  "vlan_tag": "1001"
+                              }
+                          ]
+                      },
+                      {
+                          "interface_type": "service",
+                          "name": "xe-1/0/0",
+                          "logical_interfaces": [
+                              {
+                                  "comment": "PNF left svc interface",
+                                  "ip_addresses": [
+                                      {
+                                          "family": "inet",
+                                          "address": "1.1.1.14"
+                                      }
+                                  ],
+                                  "name": "xe-1/0/0.1000",
+                                  "unit": "1000",
+                                  "vlan_tag": "1000"
+                              }
+                          ]
+                      }
+                  ],
+                  "security_zones": [
+                      {
+                          "interfaces": [
+                              {
+                                  "name": "xe-1/0/0.1000"
+                              }
+                          ],
+                          "name": "si_left"
+                      },
+                      {
+                          "interfaces": [
+                              {
+                                  "name": "xe-1/0/1.1001"
+                              }
+                          ],
+                          "name": "si_right"
+                      }
+                  ],
+                  "security_policies": [
+                      {
+                          "to_zone": "si_right",
+                          "from_zone": "si_left"
+                      },
+                      {
+                          "to_zone": "si_left",
+                          "from_zone": "si_right"
+                      }
+                  ],
+                  "name": "pnf-service-chaining"
+              }
+          },
+          "system": {
+              "loopback_ip_list": [
+                  "5.5.0.1"
+              ],
+              "name": "srx_routertest.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config",
+              "is_ucast_gateway_only": false,
+              "device_family": "junos-es",
+              "management_ip": "2.2.2.2",
+              "routing_bridging_roles": [
+                  "PNF-Servicechain"
+              ],
+              "credentials": {
+                  "authentication_method": "PasswordBasedAuthentication",
+                  "password": "pw",
+                  "user_name": "user"
+              },
+              "vendor_name": "juniper",
+              "product_name": "srx5400",
+              "physical_role": "pnf",
+              "uuid": "1fcb5450-815d-432c-8a2f-d6db59416dea"
+          }
+      }
+
+    - template:
+        src: juniper_junos-es_overlay_pnf_service_chain.j2
+        dest: /tmp/output_srx.json
+
+    - command: cat /tmp/output_srx.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
