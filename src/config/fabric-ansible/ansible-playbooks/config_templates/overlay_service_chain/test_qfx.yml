@@ -1,0 +1,471 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_service_chain
+    cfg_group: __contrail_overlay_service_chain__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "comment": "/* Contrail Generated Group Config */",
+          "features": {
+              "pnf-service-chaining": {
+                  "routing_instances": [
+                      {
+                          "routing_interfaces": [
+                              {
+                                  "name": "irb.11"
+                              }
+                          ],
+                          "name": "_contrail___contrail_lr_internal_vn_34035f7f-511c-4d55-a245-a0e7079dff1a__-l3-9",
+                          "protocols": {
+                              "bgp": [
+                                  {
+                                      "comment": "PNF-Service-Chaining",
+                                      "type_": "external",
+                                      "autonomous_system": "66001",
+                                      "peers": [
+                                          {
+                                              "ip_address": "1.1.1.14",
+                                              "name": "_contrail___contrail_lr_internal_vn_34035f7f-511c-4d55-a245-a0e7079dff1a__-l3-9_left_1.1.1.14",
+                                              "autonomous_system": "66000"
+                                          }
+                                      ],
+                                      "name": "_contrail___contrail_lr_internal_vn_34035f7f-511c-4d55-a245-a0e7079dff1a__-l3-9_left"
+                                  }
+                              ],
+                              "pim": [
+                                  {
+                                      "comment": "PNF-Service-Chaining",
+                                      "rp": {
+                                          "ip_address": "3.3.3.252"
+                                      }
+                                  }
+                              ]
+                          }
+                      },
+                      {
+                          "routing_interfaces": [
+                              {
+                                  "name": "irb.12"
+                              }
+                          ],
+                          "name": "_contrail___contrail_lr_internal_vn_7d983705-aa31-4328-a8d5-26eb6c575eb8__-l3-10",
+                          "protocols": {
+                              "bgp": [
+                                  {
+                                      "comment": "PNF-Service-Chaining",
+                                      "type_": "external",
+                                      "autonomous_system": "66002",
+                                      "peers": [
+                                          {
+                                              "ip_address": "1.1.1.6",
+                                              "name": "_contrail___contrail_lr_internal_vn_7d983705-aa31-4328-a8d5-26eb6c575eb8__-l3-10_right_1.1.1.6",
+                                              "autonomous_system": "66000"
+                                          }
+                                      ],
+                                      "name": "_contrail___contrail_lr_internal_vn_7d983705-aa31-4328-a8d5-26eb6c575eb8__-l3-10_right"
+                                  }
+                              ],
+                              "pim": [
+                                  {
+                                      "comment": "PNF-Service-Chaining",
+                                      "rp": {
+                                          "ip_address": "3.3.3.252"
+                                      }
+                                  }
+                              ]
+                          }
+                      }
+                  ],
+                  "vlans": [
+                      {
+                          "comment": "PNF-Service-Chaining",
+                          "interfaces": [
+                              {
+                                  "name": "irb.11"
+                              }
+                          ],
+                          "name": "bd-11",
+                          "vlan_id": "1000",
+                          "vxlan_id": "11"
+                      },
+                      {
+                          "comment": "PNF-Service-Chaining",
+                          "interfaces": [
+                              {
+                                  "name": "irb.12"
+                              }
+                          ],
+                          "name": "bd-12",
+                          "vlan_id": "1001",
+                          "vxlan_id": "12"
+                      }
+                  ],
+                  "name": "pnf-service-chaining",
+                  "physical_interfaces": [
+                      {
+                          "interface_type": "irb",
+                          "name": "irb",
+                          "logical_interfaces": [
+                              {
+                                  "ip_addresses": [
+                                      {
+                                          "family": "inet",
+                                          "address": "1.1.1.5/29"
+                                      }
+                                  ],
+                                  "name": "irb.12",
+                                  "unit": "12"
+                              },
+                              {
+                                  "ip_addresses": [
+                                      {
+                                          "family": "inet",
+                                          "address": "1.1.1.13/29"
+                                      }
+                                  ],
+                                  "name": "irb.11",
+                                  "unit": "11"
+                              }
+                          ]
+                      },
+                      {
+                          "interface_type": "service",
+                          "name": "xe-1/1/0",
+                          "logical_interfaces": [
+                              {
+                                  "comment": "PNF-Service-Chaining",
+                                  "family": "ethernet-switching",
+                                  "vlans": [
+                                      {
+                                          "name": "bd-12"
+                                      }
+                                  ],
+                                  "name": "xe-1/1/0.0",
+                                  "unit": "0"
+                              }
+                          ]
+                      },
+                      {
+                          "interface_type": "service",
+                          "name": "xe-1/1/1",
+                          "logical_interfaces": [
+                              {
+                                  "comment": "PNF-Service-Chaining",
+                                  "family": "ethernet-switching",
+                                  "vlans": [
+                                      {
+                                          "name": "bd-11"
+                                      }
+                                  ],
+                                  "name": "xe-1/1/1.0",
+                                  "unit": "0"
+                              }
+                          ]
+                      }
+                  ]
+              }
+          },
+          "system": {
+              "loopback_ip_list": [
+                  "6.6.0.1"
+              ],
+              "tunnel_ip": "6.6.0.1",
+              "name": "qfx_routertest.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config",
+              "is_ucast_gateway_only": false,
+              "device_family": "junos-qfx",
+              "management_ip": "4.4.4.4",
+              "routing_bridging_roles": [
+                  "CRB-MCAST-Gateway",
+                  "PNF-Servicechain"
+              ],
+              "credentials": {
+                  "authentication_method": "PasswordBasedAuthentication",
+                  "password": "pw",
+                  "user_name": "user"
+              },
+              "vendor_name": "juniper",
+              "product_name": "qfx5110",
+              "physical_role": "spine",
+              "uuid": "a921427f-2178-48ba-9622-46730e301ff1"
+          },
+          "bgp": [
+              {
+                  "comment": "/* overlay_bgp: BGP Router: qfx_routertest.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: abf04ea4-47a9-4869-b555-e7fe1d2eaa8a */",
+                  "peers": [
+                      {
+                          "comment": "/* overlay_bgp: BGP Router: srx_routertest.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: 41396e12-7f65-4cfc-8040-0c518061ff2d */",
+                          "ip_address": "2.2.2.2",
+                          "name": "2.2.2.2",
+                          "autonomous_system": 64512
+                      }
+                  ],
+                  "families": [
+                      "route-target",
+                      "inet-vpn",
+                      "evpn",
+                      "inet6-vpn"
+                  ],
+                  "name": "_contrail_asn-64512",
+                  "hold_time": 0,
+                  "type_": "internal",
+                  "ip_address": "4.4.4.4",
+                  "autonomous_system": 64512
+              }
+          ],
+          "physical_interfaces": [
+              {
+                  "interface_type": "irb",
+                  "name": "irb",
+                  "logical_interfaces": [
+                      {
+                          "comment": "/* Virtual Network: vn24-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: e0889a22-d30f-409a-aa4e-ada4dabd336f, VRF Type: L2-L3 */",
+                          "ip_addresses": [
+                              {
+                                  "gateway": "7.7.7.254",
+                                  "family": "inet",
+                                  "address": "7.7.7.252/24"
+                              }
+                          ],
+                          "name": "irb.7",
+                          "unit": 7,
+                          "gateway": "7.7.7.254"
+                      },
+                      {
+                          "comment": "/* Virtual Network: vn42-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: 10382021-f80e-4c83-a07b-f63e879a3d9a, VRF Type: L2-L3 */",
+                          "ip_addresses": [
+                              {
+                                  "gateway": "8.8.8.254",
+                                  "family": "inet",
+                                  "address": "8.8.8.252/24"
+                              }
+                          ],
+                          "name": "irb.8",
+                          "unit": 8,
+                          "gateway": "8.8.8.254"
+                      }
+                  ]
+              },
+              {
+                  "interface_type": "loopback",
+                  "name": "lo0",
+                  "logical_interfaces": [
+                      {
+                          "comment": "/* Bogus lo0 intf (PFE limitation), Virtual Network: __contrail_lr_internal_vn_34035f7f-511c-4d55-a245-a0e7079dff1a__, UUID: 14cbc260-e3c4-4cdd-8e00-4f6b8044c8c1 */",
+                          "ip_addresses": [
+                              {
+                                  "family": "inet",
+                                  "address": "127.0.0.1"
+                              }
+                          ],
+                          "name": "lo0.1009",
+                          "unit": 1009
+                      },
+                      {
+                          "comment": "/* Bogus lo0 intf (PFE limitation), Virtual Network: __contrail_lr_internal_vn_7d983705-aa31-4328-a8d5-26eb6c575eb8__, UUID: 7a8c8b50-26ae-49c1-bd71-418250dd80b0 */",
+                          "ip_addresses": [
+                              {
+                                  "family": "inet",
+                                  "address": "127.0.0.1"
+                              }
+                          ],
+                          "name": "lo0.1010",
+                          "unit": 1010
+                      }
+                  ]
+              }
+          ],
+          "routing_instances": [
+              {
+                  "comment": "/* Private Virtual Network: __contrail_lr_internal_vn_34035f7f-511c-4d55-a245-a0e7079dff1a__, UUID: 14cbc260-e3c4-4cdd-8e00-4f6b8044c8c1, VRF Type: L3, Forwarding Mode: L3 */",
+                  "export_targets": [
+                      "target:64512:8000009"
+                  ],
+                  "virtual_network_mode": "l3",
+                  "vxlan_id": "9",
+                  "virtual_network_id": "9",
+                  "routing_instance_type": "vrf",
+                  "virtual_network_is_internal": true,
+                  "loopback_interfaces": [
+                      {
+                          "name": "lo0.1009"
+                      }
+                  ],
+                  "routing_interfaces": [
+                      {
+                          "name": "irb.7"
+                      }
+                  ],
+                  "import_targets": [
+                      "target:64512:8000009"
+                  ],
+                  "name": "_contrail___contrail_lr_internal_vn_34035f7f-511c-4d55-a245-a0e7079dff1a__-l3-9"
+              },
+              {
+                  "comment": "/* Private Virtual Network: __contrail_lr_internal_vn_7d983705-aa31-4328-a8d5-26eb6c575eb8__, UUID: 7a8c8b50-26ae-49c1-bd71-418250dd80b0, VRF Type: L3, Forwarding Mode: L3 */",
+                  "export_targets": [
+                      "target:64512:8000011"
+                  ],
+                  "virtual_network_mode": "l3",
+                  "vxlan_id": "10",
+                  "virtual_network_id": "10",
+                  "routing_instance_type": "vrf",
+                  "virtual_network_is_internal": true,
+                  "loopback_interfaces": [
+                      {
+                          "name": "lo0.1010"
+                      }
+                  ],
+                  "routing_interfaces": [
+                      {
+                          "name": "irb.8"
+                      }
+                  ],
+                  "import_targets": [
+                      "target:64512:8000011"
+                  ],
+                  "name": "_contrail___contrail_lr_internal_vn_7d983705-aa31-4328-a8d5-26eb6c575eb8__-l3-10"
+              },
+              {
+                  "comment": "/* Private Virtual Network: vn24-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: e0889a22-d30f-409a-aa4e-ada4dabd336f, VRF Type: L2, Forwarding Mode: L2-L3 */",
+                  "export_targets": [
+                      "target:64512:8000006"
+                  ],
+                  "virtual_network_mode": "l2-l3",
+                  "vxlan_id": "2024",
+                  "virtual_network_id": "7",
+                  "routing_instance_type": "evpn",
+                  "virtual_network_is_internal": false,
+                  "is_public_network": false,
+                  "gateways": [
+                      {
+                          "ip_address": {
+                              "prefix": "7.7.7.252",
+                              "prefix_len": 24
+                          },
+                          "gateway": {
+                              "prefix": "7.7.7.254",
+                              "prefix_len": 32
+                          }
+                      }
+                  ],
+                  "import_targets": [
+                      "target:64512:8000006"
+                  ],
+                  "name": "_contrail_vn24-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config-l2-7"
+              },
+              {
+                  "comment": "/* Private Virtual Network: vn24-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: e0889a22-d30f-409a-aa4e-ada4dabd336f, VRF Type: L3, Forwarding Mode: L2-L3 */",
+                  "routing_instance_type": "vrf",
+                  "export_targets": [
+                      "target:64512:8000006"
+                  ],
+                  "virtual_network_mode": "l2-l3",
+                  "vxlan_id": "None",
+                  "static_routes": [
+                      {
+                          "prefix": "7.7.7.0",
+                          "prefix_len": 24
+                      }
+                  ],
+                  "virtual_network_id": "7",
+                  "import_targets": [
+                      "target:64512:8000006"
+                  ],
+                  "virtual_network_is_internal": false,
+                  "is_public_network": false,
+                  "prefixes": [
+                      {
+                          "prefix": "7.7.7.0",
+                          "prefix_len": 24
+                      }
+                  ],
+                  "interfaces": [
+                      {
+                          "name": "irb.7"
+                      }
+                  ],
+                  "name": "_contrail_vn24-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config-l3-7"
+              },
+              {
+                  "comment": "/* Private Virtual Network: vn42-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: 10382021-f80e-4c83-a07b-f63e879a3d9a, VRF Type: L2, Forwarding Mode: L2-L3 */",
+                  "export_targets": [
+                      "target:64512:8000007"
+                  ],
+                  "virtual_network_mode": "l2-l3",
+                  "vxlan_id": "2042",
+                  "virtual_network_id": "8",
+                  "routing_instance_type": "evpn",
+                  "virtual_network_is_internal": false,
+                  "is_public_network": false,
+                  "gateways": [
+                      {
+                          "ip_address": {
+                              "prefix": "8.8.8.252",
+                              "prefix_len": 24
+                          },
+                          "gateway": {
+                              "prefix": "8.8.8.254",
+                              "prefix_len": 32
+                          }
+                      }
+                  ],
+                  "import_targets": [
+                      "target:64512:8000007"
+                  ],
+                  "name": "_contrail_vn42-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config-l2-8"
+              },
+              {
+                  "comment": "/* Private Virtual Network: vn42-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: 10382021-f80e-4c83-a07b-f63e879a3d9a, VRF Type: L3, Forwarding Mode: L2-L3 */",
+                  "routing_instance_type": "vrf",
+                  "export_targets": [
+                      "target:64512:8000007"
+                  ],
+                  "virtual_network_mode": "l2-l3",
+                  "vxlan_id": "None",
+                  "static_routes": [
+                      {
+                          "prefix": "8.8.8.0",
+                          "prefix_len": 24
+                      }
+                  ],
+                  "virtual_network_id": "8",
+                  "import_targets": [
+                      "target:64512:8000007"
+                  ],
+                  "virtual_network_is_internal": false,
+                  "is_public_network": false,
+                  "prefixes": [
+                      {
+                          "prefix": "8.8.8.0",
+                          "prefix_len": 24
+                      }
+                  ],
+                  "interfaces": [
+                      {
+                          "name": "irb.8"
+                      }
+                  ],
+                  "name": "_contrail_vn42-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config-l3-8"
+              }
+          ],
+          "evpn": {
+              "comment": "/* Virtual Network: vn24-test.test_dm_pnf_srvc_chaining.TestAnsiblePNFSrvcChainingDM.test_config, UUID: e0889a22-d30f-409a-aa4e-ada4dabd336f, Encapsulation: MPLSoGRE */",
+              "encapsulation": "MPLSoGRE"
+          }
+      }
+
+    - template:
+        src: juniper_junos-qfx_overlay_pnf_service_chain.j2
+        dest: /tmp/output_qfx.json
+
+    - command: cat /tmp/output_qfx.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
