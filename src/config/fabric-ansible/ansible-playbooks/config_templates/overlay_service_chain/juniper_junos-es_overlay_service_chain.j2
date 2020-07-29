@@ -1,5 +1,5 @@
 {# Config for eBGP endpoints #}
-{% for ri in device_abstract_config.get("routing_instances", []) %}
+{% for ri in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} instance-type {{ri.routing_instance_type}}
 {%     for lo_intf in ri.get('loopback_interfaces',[]) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} interface {{lo_intf.name}}
@@ -19,14 +19,14 @@ set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} as-override
 {%                 if peer.get('comment','') %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
-{%                 endif %}
-{%             endfor %}
-{%         endfor %}
-{%     endfor %}
-{% endfor %}
+{%                 endif %}{# peer.get('comment','') #}
+{%             endfor %}{# for bgp.get('peers',[]) #}
+{%         endfor %}{# for bgp in proto.get #}
+{%     endfor %}{# for proto in ri.get() #}
+{% endfor%}{# for device_abstract_config.get("routing_instances", []) #}
 
 {# Config for advertising 0/0 from SRX to QFX #}
-{% for ri in device_abstract_config.get('routing_instances', []) %}
+{% for ri in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) %}
 set groups {{cfg_group}} policy-options policy-statement PFE-LB then load-balance per-packet
 set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 from protocol direct
 set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
@@ -44,24 +44,50 @@ set groups {{cfg_group}} routing-options forwarding-table export PFE-LB
 {%     for protocol in ri.get('protocols', []) %}
 {%         for bgp in protocol.get('bgp', []) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export from_aggregate
-{%         endfor %}
-{%     endfor %}
-{% endfor %}
+{%         endfor %}{# for bgp in protocol.get() #}
+{%     endfor %}{# for proto in ri.get() #}
+{% endfor %}{# for device_abstract_config.get("routing_instances", []) #}
 
 {# Config for adding service VLANs to tenants for service chaining #}
-{% for ifd in device_abstract_config.get('physical_interfaces', []) %}
-{%     if ifd.get('interface_type','') == 'service' %}
-{%         for ifl in ifd.get('logical_interfaces', []) %}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} vlan-id {{ifl.vlan_tag}}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_addresses[0].address}}/29
-set groups {{cfg_group}} interfaces {{ifd.name}} vlan-tagging
-{%         endfor %}{# ifd.get('logical_interfaces', []) #}
-{%     endif %}{# ifd.get('interface_type','') #}
+{% for pi in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('physical_interfaces', []) %}
+{%     if pi.get('interface_type','') == 'service' %}
+{%         for li in pi.get('logical_interfaces', []) %}
+set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} vlan-id {{li.vlan_tag}}
+set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family inet address {{li.ip_addresses[0].address}}/29
+set groups {{cfg_group}} interfaces {{pi.name}} vlan-tagging
+{%         endfor %}{# pi.get('logical_interfaces', []) #}
+{%     endif %}{# pi.get('interface_type','') #}
+{% endfor%}{# device_abstract_config.get('physical_interfaces', []) #}
+
+{# Config for PIM #}
+{% for pi in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('physical_interfaces', []) %}
+{%     if (pi.get('interface_type') == 'loopback') %}
+{%         for li in pi.get('logical_interfaces',[]) %}
+set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family {{li.get('family', 'inet')}} address {{li.ip_addresses[0].address}}
+{%         endfor %}{# pi.get('logical_interfaces',[]) #}
+{%     endif %}
+{% endfor %}{# for device_abstract_config.get('physical_interfaces', []) #}
+{% for ri in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) %}
+{%     for protocol in ri.get('protocols', []) %}
+{%         for pim in protocol.get('pim', []) %}
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from protocol direct
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM then accept
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM then community set no-export
+set groups {{cfg_group}} policy-options community no-export members no-export
+set groups {{cfg_group}} policy-options policy-statement from_aggregate then reject
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim join-prune-timeout 420
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim rp local family inet address {{pim.rp.ip_address}}
+{%             for pim_intf in pim.get('pim_interfaces',[]) %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface {{pim_intf.interface.name}} mode sparse
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface {{pim_intf.interface.name}} version 2
+{%             endfor %}{# pim.get('pim_interfaces',[]) #}
+{%         endfor %}{# for pim in protocol.get #}
+{%     endfor %}{# for protocol in ri.get('protocols', []) #}
 {% endfor %}{# device_abstract_config.get('physical_interfaces', []) #}
 
 {# Config for security zone and security policy (Allow All) #}
-{% set sp = device_abstract_config.get("security_policies", []) %}
-{% set sz = device_abstract_config.get("security_zones", []) %}
+{% set sp = device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get("security_policies", []) %}
+{% set sz = device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get("security_zones", []) %}
 {% for i in range(sp | length) %}
 set groups {{cfg_group}} security policies from-zone {{sp[i].get("from_zone")}} to-zone {{sp[i].get("to_zone")}} policy open-all match source-address any
 set groups {{cfg_group}} security policies from-zone {{sp[i].get("from_zone")}} to-zone {{sp[i].get("to_zone")}} policy open-all match destination-address any
