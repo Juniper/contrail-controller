@@ -8,6 +8,7 @@ import os
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import ResourceExistsError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.resource_common import VirtualPortGroup
 from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
@@ -60,6 +61,10 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                     ae_id = cls.vnc_zk_client.alloc_ae_id(
                         prouter_name, vpg_name)
 
+                    msg = "Reserving AE-ID(%s) for prouter(%s):vpg(%s) " % (
+                        ae_id, prouter_name, vpg_name)
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
                     def undo_alloc_ae_id():
                         ok, result = cls._dealloc_ae_id(
                             prouter_name, ae_id, vpg_name, vpg_uuid)
@@ -84,27 +89,39 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                                    'physical-router (%s)' % (
                                        vpg_name, prouter_name))
                         return False, (400, err_msg)
+                    msg = "Retry reserving AE-ID for prouter(%s)/vpg(%s) " % (
+                        prouter_name, vpg_name)
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             try:
                 cls.vnc_zk_client._zk_client.create_node(
                     vpg_zk_path, ae_id)
+                msg = "Create ZK-node(%s) with AE-ID(%s) is successful" % (
+                    vpg_zk_path, ae_id)
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
                 def undo_create_node():
                     cls.vnc_zk_client._zk_client.delete_node(
                         vpg_zk_path, True)
                 get_context().push_undo(undo_create_node)
                 pi_ae = ae_id
-            except ResourceExhaustionError:
+            except ResourceExistsError:
                 ok, result = cls._dealloc_ae_id(
                     prouter_name, ae_id, vpg_name, vpg_uuid)
                 if not ok:
                     return ok, result
                 pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
                 pi_ae = int(pi_ae_str)
+                msg = ("Reusing AE-ID (%s) from ZK-node(%s) after "
+                       "ResourceExistsError" % (pi_ae, vpg_zk_path))
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
                 # TO-DO: can read_node return empty?
         else:
             # TO-DO: can read_node return empty?
             pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
             pi_ae = int(pi_ae_str)
+            msg = "Reusing AE-ID (%s) from  ZK-node(%s)" % (
+                pi_ae, vpg_zk_path)
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         # TO-DO: Can pi_ae remain None at any case?
         # if pi_ae is None:
@@ -131,11 +148,14 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
         pi_ae = int(pi_ae_str) if pi_ae_str else None
         # check if given ae_id is same as one found in zknode path
         if pi_ae is not None and pi_ae == ae_id:
-            cls.vnc_zk_client.free_ae_id(prouter_name, pi_ae, vpg_name)
-            msg = "De-allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
-                ae_id, vpg_name, prouter_name)
-            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            ae_id = pi_ae
             cls.vnc_zk_client._zk_client.delete_node(vpg_zk_path)
+            msg = "Delete ZK-node(%s) is successful" % vpg_zk_path
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        cls.vnc_zk_client.free_ae_id(prouter_name, ae_id, vpg_name)
+        msg = "De-allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
+            ae_id, vpg_name, prouter_name)
+        cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         return True, ''
 
     @classmethod
