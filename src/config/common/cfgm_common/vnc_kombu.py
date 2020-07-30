@@ -257,15 +257,16 @@ class VncKombuClientBase(object):
         return ret
 
     def shutdown(self):
-        self._running = False
-        self._publisher_greenlet.kill()
-        self._connection_monitor_greenlet.kill()
-        if self._connection_heartbeat_greenlet:
-            self._connection_heartbeat_greenlet.kill()
-        if self._consumer:
-            self._delete_queue()
-        self._conn_drain.close()
-        self._conn_publish.close()
+        if self._running:
+            self._running = False
+            self._publisher_greenlet.kill()
+            self._connection_monitor_greenlet.kill()
+            if self._connection_heartbeat_greenlet:
+                self._connection_heartbeat_greenlet.kill()
+            if self._consumer:
+                self._delete_queue()
+            self._conn_drain.close()
+            self._conn_publish.close()
 
     def reset(self):
         self._publish_queue = Queue()
