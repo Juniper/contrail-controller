@@ -390,9 +390,10 @@ class VerifyServicePolicy(VerifyPolicy):
     @retries(15, 2)
     def get_si_vm_obj(self, si_obj):
         vm_ref = si_obj.get_virtual_machine_back_refs()
-        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_ref[0]['uuid'])
-        return vm_obj
+        if vm_ref is None:
+            raise Exception('Cannot find the VM reference')
 
+        return self._vnc_lib.virtual_machine_read(id=vm_ref[0]['uuid'])
 
 class TestServicePolicy(STTestCase, VerifyServicePolicy):
     def test_match_subnets_in_service_policy(self, version=None):
