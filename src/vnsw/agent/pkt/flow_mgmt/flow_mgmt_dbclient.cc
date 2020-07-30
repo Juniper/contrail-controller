@@ -662,7 +662,7 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     //Trigger RPF NH sync, if active nexthop changes
     const NextHop *active_nh = route->GetActiveNextHop();
     const NextHop *local_nh = NULL;
-    if (active_nh->GetType() == NextHop::COMPOSITE) {
+    if (active_nh && (active_nh->GetType() == NextHop::COMPOSITE)) {
         //If destination is ecmp, all remote flow would
         //have RPF NH set to that local component NH
         local_nh = EcmpData::GetLocalNextHop(route);
