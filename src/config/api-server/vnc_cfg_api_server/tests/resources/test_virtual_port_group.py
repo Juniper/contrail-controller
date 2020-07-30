@@ -6026,3 +6026,185 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         pi_maps = list(zip(pr1_pi_uuids, pr2_pi_uuids))[375:500]
         vpg_infos = {vpg_objs[vpg_names[i]]: pi_maps[i] for i in range(125)}
         _attach_pi_simultaneously_and_verify(vpg_infos, 8)
+
+    # CEM-17796
+    def test_add_delete_simultaneously_to_vpg_check_alloc_dealloc(self):
+        proj_obj, fabric_obj, pr_objs = self._create_prerequisites(
+            create_second_pr=True)
+        test_id = self.id()
+        VPG_CLASS = self._api_server.get_resource_class('virtual-port-group')
+        org_process_ae_id = VPG_CLASS._process_ae_id
+
+        class MockVpg(VPG_CLASS):
+            org_process_ae_id = VPG_CLASS._process_ae_id
+            HOLD_API = 0.1
+            @classmethod
+            def mock_process_ae_id(cls, db_obj_dict, vpg_name, obj_dict=None):
+                sleep_secs = 0.01 * cls.HOLD_API
+                print('sleeping for (%s) to simulate parallel calls '
+                      'args = %s' % (sleep_secs, obj_dict))
+                # gevent.sleep(sleep_secs)
+                print('Released HOLD_API for args = %s' % obj_dict)
+                return cls.org_process_ae_id(db_obj_dict, vpg_name, obj_dict)
+
+        def process_ae_ids(x):
+            return [int(i) for i in sorted(x) if i is not None]
+
+        def get_zk_ae_ids(prs=None):
+            prefix = os.path.join(
+                self.__class__.__name__,
+                'id', 'aggregated-ethernet')
+            zk_client = self._api_server._db_conn._zk_db._zk_client._zk_client
+            if not prs:
+                prs = [os.path.join(prefix, pr.name) for pr in pr_objs]
+            else:
+                if not isinstance(prs, list):
+                    prs = [prs]
+                prs = [os.path.join(prefix, pr) for pr in prs]
+            ae_ids = {}
+            for pr in prs:
+                pr_org = os.path.split(pr)[-1]
+                ae_ids[pr_org] = zk_client.get_children(pr)
+            return ae_ids
+
+        pi_per_pr = 8
+        pi_objs = {}
+        pr1_pi_names = ['%s_pr1_pi%d' % (test_id, i) for
+                        i in range(1, pi_per_pr + 1)]
+        pr2_pi_names = ['%s_pr2_pi%d' % (test_id, i) for
+                        i in range(1, pi_per_pr + 1)]
+        pr1_pi_objs = self._create_pi_objects(pr_objs[0], pr1_pi_names)
+        pr2_pi_objs = self._create_pi_objects(pr_objs[1], pr2_pi_names)
+        pr1_pi_uuids = [pi_obj.uuid for pi_obj in list(pr1_pi_objs.values())]
+        pr2_pi_uuids = [pi_obj.uuid for pi_obj in list(pr2_pi_objs.values())]
+        pi_objs.update(pr1_pi_objs)
+        pi_objs.update(pr2_pi_objs)
+
+        # create VPG
+        vpg_count = 2
+        vpg_names = ['vpg_%s_%s' % (test_id, i) for i in range(
+                     1, vpg_count + 1)]
+        vpg_objs = self._create_vpgs(fabric_obj, vpg_names)
+
+        # record AE-IDs in ZK before creating any VPG
+        ae_ids = [x for x in get_zk_ae_ids().values() if x]
+        self.assertEqual(len(ae_ids), 0)
+
+        def _attach_pi_simultaneously_and_verify(vpg_infos, factor):
+            try:
+                # mock _process_ae_id at VPG resource
+                VPG_CLASS._process_ae_id = MockVpg.mock_process_ae_id
+                vpg_objs = {}
+                MockVpg.HOLD_API = 0.1
+                for vpg_obj, curr_pi_uuids in vpg_infos.items():
+                    create_pi_uuids = curr_pi_uuids[0]
+                    delete_pi_uuids = curr_pi_uuids[1]
+                    vpg_objs[vpg_obj] = (len(create_pi_uuids),
+                                         len(delete_pi_uuids))
+                    for pi_uuid in create_pi_uuids:
+                        gevent.spawn(
+                            self.api.ref_update,
+                            "virtual-port-group",
+                            vpg_obj.uuid,
+                            "physical-interface",
+                            pi_uuid,
+                            None,
+                            "ADD",
+                            None)
+                    for pi_uuid in delete_pi_uuids:
+                        gevent.spawn(
+                            self.api.ref_update,
+                            "virtual-port-group",
+                            vpg_obj.uuid,
+                            "physical-interface",
+                            pi_uuid,
+                            None,
+                            "DELETE",
+                            None)
+                MockVpg.HOLD_API += 0.1
+                gevent.sleep(5)
+            except gevent.timeout.Timeout:
+                self.assertFalse(
+                    False,
+                    '%s failed unexpectedly' % VPG_CLASS._process_ae_id)
+            finally:
+                # reset mock to original
+                VPG_CLASS._process_ae_id = org_process_ae_id
+
+            aes_at_vpgs = {}
+            aes_at_prs = defaultdict(list)
+            for vpg_obj, pi_counts in vpg_objs.items():
+                create_pi_count = pi_counts[0] * factor
+                if not create_pi_count and not factor:
+                    create_pi_count = 1
+                vpg_obj = self._vnc_lib.virtual_port_group_read(
+                    id=vpg_obj.uuid)
+                pi_refs = vpg_obj.get_physical_interface_refs() or []
+                self.assertEqual(len(pi_refs), create_pi_count)
+                ae_ids = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                          for ref in pi_refs}
+                # verify all AE-IDs allocated per prouter are unique
+                if factor == 0:
+                    self.assertIsNone(list(ae_ids.values())[0])
+                    continue
+                self.assertEqual(len(set(ae_ids.keys())), len(pi_refs))
+                self.assertEqual(len(ae_ids.values()), create_pi_count)
+                self.assertEqual(len(set(ae_ids.values())),
+                                 1 if create_pi_count else 0)
+                pi_aes = defaultdict(list)
+                for pi_ref in pi_refs:
+                    pi_aes[pi_ref['to'][1]] += [pi_ref['attr'].ae_num]
+                for pr, aes in pi_aes.items():
+                    aes = list(set(aes))
+                    self.assertEqual(len(aes), 1)
+                    if vpg_obj.uuid not in aes_at_vpgs:
+                        self.assertNotIn(aes[0], aes_at_vpgs.values())
+                        aes_at_vpgs[vpg_obj.uuid] = aes[0]
+                    for ae_pr, pr_ae in aes_at_prs.items():
+                        if ae_pr == pr:
+                            self.assertNotIn(aes[0], pr_ae)
+                    else:
+                        aes_at_prs[pr] += aes
+            # verification at Physical Routers
+            ae_count = len(vpg_objs.keys()) * (
+                factor - 1 if factor > 1 else factor)
+            pr_ae_ids = get_zk_ae_ids()
+            self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), ae_count)
+            self.assertEqual(process_ae_ids(
+                pr_ae_ids[pr_objs[0].name]), list(range(ae_count)))
+            self.assertEqual(len(pr_ae_ids[pr_objs[1].name]), ae_count)
+            self.assertEqual(process_ae_ids(
+                pr_ae_ids[pr_objs[1].name]), list(range(ae_count)))
+
+        # Case 1
+        # Attach 2 PI/PR1 and 2 PI/PR2 to 2 VPGs
+        # one AE-ID per PR is allocated to each VPG
+        pi_uuid_tups = [[pr1_pi_uuids[i], pr1_pi_uuids[i + 1],
+                        pr2_pi_uuids[i], pr2_pi_uuids[i + 1]]
+                        for i in [0, 2]]
+        vpg_infos = {vpg_objs[vpg_names[i]]: (pi_uuid_tups[i], [])
+                     for i in range(2)}
+        _attach_pi_simultaneously_and_verify(vpg_infos, 1)
+
+        # Case 2
+        # Attach 2 more PI/PR1 and 2 more PI/PR2 to 2 VPGs
+        # No change in AE-ID allocations
+        pi_uuid_tups = [[pr1_pi_uuids[i], pr1_pi_uuids[i + 1],
+                        pr2_pi_uuids[i], pr2_pi_uuids[i + 1]]
+                        for i in [4, 6]]
+        vpg_infos = {vpg_objs[vpg_names[i]]: (pi_uuid_tups[i], [])
+                     for i in range(2)}
+        _attach_pi_simultaneously_and_verify(vpg_infos, 2)
+
+        # Case 3
+        # Delete all but 1 PI/PR1 and 1 PI/PR2 from 2 VPGs
+        # All AE-IDs are deallocated
+        vpg_infos = {}
+        for _, vpg in vpg_objs.items():
+            vpg_obj = self._vnc_lib.virtual_port_group_read(
+                id=vpg.uuid)
+            pi_refs = vpg_obj.get_physical_interface_refs()
+            self.assertEqual(len(pi_refs), len(pi_objs) / 2)
+            # deleting PIs
+            vpg_infos[vpg_obj] = ([], [ref['uuid'] for ref in pi_refs[:-1]])
+        _attach_pi_simultaneously_and_verify(vpg_infos, 0)
