@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "84082da1_d3254c88",
+        "filename": "src/vnsw/agent/pkt/flow_mgmt/flow_mgmt_dbclient.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 665,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2020-07-30T10:40:07Z",
+      "side": 1,
+      "message": "Do add a comment in the code as to when it can become NULL.",
+      "revId": "5c4f949026ad83220db7a9920e4184504d6537a1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
