@@ -102,7 +102,7 @@ device_family_info:
 role_to_feature_mapping:
   DC-Gateway@leaf:
     - overlay_networking
-    - overlay_fip_snat
+    - overlay_dc_gateway
     - overlay_evpn
     - overlay_evpn_access
     - overlay_evpn_gateway
@@ -111,7 +111,7 @@ role_to_feature_mapping:
     - overlay_multi_homing
   DC-Gateway@spine:
     - overlay_networking
-    - overlay_fip_snat
+    - overlay_dc_gateway
     - overlay_evpn
     - overlay_evpn_access
     - overlay_evpn_gateway
@@ -120,7 +120,7 @@ role_to_feature_mapping:
     - overlay_multi_homing
   DCI-Gateway@leaf:
     - overlay_networking
-    - overlay_fip_snat
+    - overlay_dc_gateway
     - overlay_evpn
     - overlay_evpn_access
     - overlay_evpn_gateway
@@ -129,7 +129,7 @@ role_to_feature_mapping:
     - overlay_multi_homing
   DCI-Gateway@spine:
     - overlay_networking
-    - overlay_fip_snat
+    - overlay_dc_gateway
     - overlay_evpn
     - overlay_evpn_access
     - overlay_evpn_gateway
@@ -220,6 +220,7 @@ feature_based_plugin_roles:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+    - overlay_dc_gateway
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@spine:
@@ -227,6 +228,7 @@ feature_based_plugin_roles:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+    - overlay_dc_gateway
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-Gateway@leaf:
@@ -263,6 +265,7 @@ feature_based_plugin_roles:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+    - overlay_dc_gateway
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@leaf:
@@ -270,6 +273,7 @@ feature_based_plugin_roles:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+    - overlay_dc_gateway
     - overlay_dhcp_relay
     - overlay_telemetry
   AR-Client@leaf:
@@ -318,7 +322,7 @@ feature_apply_order:
   - overlay_security_group
   - overlay_lag
   - overlay_multi_homing
-  - overlay_fip_snat
+  - overlay_dc_gateway
   - overlay_networking
   - overlay_pim
   - overlay_service_chain

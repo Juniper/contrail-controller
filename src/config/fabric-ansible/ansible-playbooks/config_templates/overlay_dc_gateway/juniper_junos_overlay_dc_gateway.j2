@@ -1,0 +1,200 @@
+{%     set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
+{%     set sys_config = device_abstract_config.get('system') %}
+{%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{# /* Public LR routing instances processing */ #}
+{%     set ns = namespace(public_network='') %}
+{%     for ri in device_abstract_config.features.get('dc-gateway').get('routing_instances', []) %}
+{%         if ri.get('is_master', false) == true or ri.get('virtual_network_is_internal', false) == false %}
+{%             continue %}
+{%         endif %}{# /* PROTO for master_LR */ #}
+{%         set name = ri.get('description', '')[:127] %}
+{%         set router_external = ri.get('is_public_network', '') %}
+{%         if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
+{%             set ns.public_network = 'yes' %}
+{%             set vxlan_id = ri.get('vxlan_id') %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
+set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
+{%             for subnet in ri.get('prefixes', []) %}
+{%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                 if (':' in cidr) %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%                 else %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%                 endif %}
+{%             endfor %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
+{%         endif %}{# /* router_external */ #}
+{%     endfor %}{# /* For loop Public LR routing instances */ #}
+{%     if ns.public_network == 'yes' %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+{%     endif %}
+{# /* Extended Public VN routing instances processing */ #}
+{%     set ns = namespace(fip_accept_term = false, ipv4 = false, ipv6 = false) %}
+{%     for ri in device_abstract_config.features.get('dc-gateway').get('routing_instances', []) %}
+{%         set ri_vn_mode = ri.get('virtual_network_mode') %}
+{%         if (ri_vn_mode == 'l2') or 'virtual-switch' == ri.get('routing_instance_type', '') %}
+{%             continue %}
+{%         endif %}
+{%         set contrail_l3_ri = ri.get('name', '')[:127] %}
+{%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%             set contrail_l3_ri = ri.get('description', '')[:127] %}
+{%         endif %}
+{%         set intfs = ri.get('interfaces', []) %}
+{%         for intf in intfs %}
+{%             set name = intf.get('name') %}
+{%             if 'irb' not in name %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{name}}
+{%             endif %}
+{%         endfor %}
+{%         set ri_type = ri.get('routing_instance_type') %}
+{%         for intf in ri.get('ingress_interfaces', []) %}
+{%             set intf_name = intf.get('name') %}
+{%             set phy_intf = intf_name.split(".")[0] %}
+{%             set lo_unit = intf_name.split(".")[1] %}
+set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} family inet
+{%             set nat_ingress_import = contrail_l3_ri + '-import' %}
+{%             set nat_ingress_export = contrail_l3_ri + '-export' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type {{ri_type}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{nat_ingress_import}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{nat_ingress_export}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-hop {{intf_name}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast
+{%             for import_target in ri.get('import_targets', []) %}
+{%                 set community_target = import_target.replace(':', '_') %}
+set groups {{cfg_group}} policy-options policy-statement {{nat_ingress_import}} term t1 from community {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target | rtfilter}}
+{%             endfor %}
+set policy-options policy-statement {{nat_ingress_import}} term t1 then accept
+set policy-options policy-statement {{nat_ingress_import}} then reject
+set groups {{cfg_group}} policy-options policy-statement {{nat_ingress_export}} term t1 then reject
+set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain inside
+{%         endfor %}{# /* For loop RI ingress_interfaces */ #}
+{%         for intf in ri.get('egress_interfaces', []) %}
+{%             set intf_name = intf.get('name') %}
+{%             set phy_intf = intf_name.split(".")[0] %}
+{%             set lo_unit = intf_name.split(".")[1] %}
+set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} family inet
+{%             for route in ri.get('static_routes', []) %}
+{%                 set cidr = route.get('prefix') + '/' + route.get('prefix_len')|string %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} next-hop {{intf_name}}
+{%             endfor %}
+set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain outside
+{%         endfor %}{# /* For loop RI egress_interfaces */ #}
+{%         set nat_rules = ri.get('nat_rules') %}
+{%         if nat_rules != None %}
+{%             set nat_rules_name = nat_rules.get('name') %}
+{%             if nat_rules_name == None %}
+{%                 set nat_rules_name = 'sv-'+contrail_l3_ri %}
+{%             endif %}
+{%             set rules = nat_rules.get('rules', []) %}
+{%             for rule in rules %}
+set groups {{cfg_group}} services service-set {{nat_rules_name}} nat-rules {{rule.get('name')}}
+set groups {{cfg_group}} services nat rule {{rule.get('name')}} match-direction {{rule.get('direction')}}
+{%                 set source_addrs = rule.get('source_addresses', []) %}
+{%                 set source_prefixes = rule.get('source_prefixes', []) %}
+{%                 for index in range(source_addrs|length) %}
+{%                     set source_addr = source_addrs[index] %}
+{%                     set source_prefix = source_prefixes[index] %}
+{%                     set term_name = 'term_'+source_addr.get('prefix', '').replace('.','_') %}
+{%                     set cidr = source_addr.get('prefix') + '/' + source_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} services nat rule {{rule.name}} term {{term_name}} from source-address {{cidr}}
+{%                     set cidr = source_prefix.get('prefix') + '/' + source_prefix.get('prefix_len')|string %}
+{%                     set ns.fip_accept_term = true %}
+{%                     if ':' in cidr %}
+{%                         set ns.ipv6 = true %}
+{%                     else %}
+{%                         set ns.ipv4 = true %}
+{%                     endif %}
+set groups {{cfg_group}} services nat rule {{rule.get('name')}} term {{term_name}} then translated source-prefix {{cidr}}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term bms_term from destination-address {{cidr}}
+set groups {{cfg_group}} services nat rule {{rule.get('name')}} term {{term_name}} then translated translation-type {{rule.get('translation_type')}}
+{%                 endfor %}{# /* For loop nat_rule rules.source_addresses */ #}
+{%                 set dst_addrs = rule.get('destination_addresses', []) %}
+{%                 set dst_prefixes = rule.get('destination_prefixes', []) %}
+{%                 for index in range(dst_addrs|length) %}
+{%                     set dst_addr = dst_addrs[index] %}
+{%                     set dst_prefix = dst_prefixes[index] %}
+{%                     set term_name = 'term_'+dst_addr.prefix.replace('.','_') %}
+{%                     set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} services nat rule {{rule.name}} term {{term_name}} from destination-address {{cidr}}
+{%                     set cidr = dst_prefix.get('prefix') + '/' + dst_prefix.get('prefix_len')|string %}
+set groups {{cfg_group}} services nat rule {{rule.name}} term {{term_name}} then translated destination-prefix {{cidr}}
+set groups {{cfg_group}} services nat rule {{rule.name}} term {{term_name}} then translated translation-type {{rule.translation_type}}
+{%                 endfor %}{# /* For loop nat_rule rules.destination_addresses */ #}
+{%             endfor %}{# /* For loop nat_rule rules */ #}
+{%             if nat_rules.get('inside_interface') != None %}
+set groups {{cfg_group}} services service-set {{nat_rules_name}} next-hop-service inside-service-interface {{nat_rules.get('inside_interface')}}
+{%             endif %}
+{%             if nat_rules.get('outside_interface') != None %}
+set groups {{cfg_group}} services service-set {{nat_rules_name}} next-hop-service outside-service-interface {{nat_rules.get('outside_interface')}}
+{%             endif %}
+{%         endif %}{# /* if loop nat_rules not None */ #}
+{%     endfor %}{# /* For loop routing Insiances */ #}
+{# /* dc gateway firewall processing */ #}
+{%     set firewall = device_abstract_config.features.get('dc-gateway').get('firewall') %}
+{%     if firewall != None %}
+{%         set family = firewall.get('family') %}
+{%         set firewall_filters = firewall.get('firewall_filters', []) %}
+{%         for filter in firewall_filters %}
+{%             if 'fip' not in filter.get('comment', '') %}
+{%                 continue %}
+{%             endif %}
+{%             set filter_name = filter.get('name', '') %}
+{%             if 'private' in filter.get('comment', '') %}
+{%                 set irb_filter = filter_name %}
+{%             endif %}
+{%             set terms = filter.get('terms', []) %}
+{%             for term in terms %}
+{%                 set term_name = term.get('name') %}
+{%                 set term_from = term.get('fromxx') %}
+{%                 if term_from == None %}
+{%                     continue %}
+{%                 endif %}
+{%                 set src_addrs = term_from.get('source_address', []) %}
+{%                 set dest_addrs = term_from.get('destination_address', []) %}
+{%                 set term_then = term.get('then') %}
+{%                 if term_then == None %}
+{%                     continue %}
+{%                 endif %}
+{%                 set then_ris = term_then.get('routing_instance', []) %}
+{%                 for dst_addr in dest_addrs %}
+{%                     set dst_cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} from destination-address {{dst_cidr}}
+{%                 endfor %}
+{%                 for src_addr in src_addrs %}
+{%                     set src_cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} from source-address {{src_cidr}}
+{%                 endfor %}
+{%                 for then_ri in then_ris %}
+set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} then routing-instance {{then_ri}}
+{%                 endfor %}
+{%             endfor %}{# /* for loop terms */ #}
+set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term default-term then accept
+{%         endfor %}{# /* for loop firewall_filters */ #}
+{%     endif %}{# /* if firewall is not None */ #}
+{# /* dc gateway physical_interfaces processing */ #}
+{%     set intfs = device_abstract_config.features.get('dc-gateway').get('physical_interfaces', []) %}
+{%     for intf in intfs %}
+{%         set intf_type = intf.get('interface_type') %}
+{%         if intf_type == 'irb' %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
+{%             set li_intfs = intf.get('logical_interfaces', []) %}
+{%             for irb_intf in li_intfs %}
+{%                  set irb_unit = irb_intf.get('unit') %}
+{%                  set irb_family = irb_intf.get('family') %}
+{%                  set firewall_filters = irb_intf.get('firewall_filters', []) %}
+{%                  for irb_filter in firewall_filters %}
+set groups {{cfg_group}} interfaces irb unit {{irb_unit}} family {{irb_family}} filter input {{irb_filter}}
+{%                  endfor %}
+{%             endfor %}
+{%         endif %}{# /* if physical_interfaces type is irb */ #}
+{%     endfor %}{# /* for loop physical_interfaces */ #}
+{%     if ns.fip_accept_term == true %}
+{%         if ns.ipv4 == true %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term bms_term then accept
+{%         endif %}
+{%         if ns.ipv6 == true %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term bms_term then accept
+{%         endif %}
+{%     endif %}

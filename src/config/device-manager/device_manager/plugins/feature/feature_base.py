@@ -254,6 +254,28 @@ class FeatureBase(object):
             mode in vn.get_forwarding_mode()
     # end _is_valid_vn
 
+    @staticmethod
+    def _get_values_sorted_by_key(dict_obj):
+        return [dict_obj[key] for key in sorted(dict_obj.keys())]
+    # end get_values_sorted_by_key
+
+    @staticmethod
+    def _get_sorted_key_value_pairs(dict_obj):
+        return [(key, dict_obj[key]) for key in sorted(dict_obj.keys())]
+    # end get_sorted_key_value_pairs
+
+    def _any_rb_role_matches(self, sub_str):
+        if self._physical_router.routing_bridging_roles and sub_str:
+            return any(sub_str.lower() in
+                       r.lower() for r in
+                       self._physical_router.routing_bridging_roles)
+        return False
+    # end _any_rb_role_matches
+
+    def _is_gateway(self):
+        return self._any_rb_role_matches('gateway')
+    # end is_gateway
+
     def _get_connected_vns(self, mode):
         vns = set()
         for lr_uuid in self._physical_router.logical_routers or []:

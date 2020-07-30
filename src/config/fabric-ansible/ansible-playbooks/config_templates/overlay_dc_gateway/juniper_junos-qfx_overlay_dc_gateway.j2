@@ -1,0 +1,25 @@
+{% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
+{% set sys_config = device_abstract_config.get('system') %}
+{% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{% set ns = namespace(public_network='') %}
+{% for ri in device_abstract_config.features.get('dc-gateway').get('routing_instances', []) %}
+{%     if ri.get('is_master', false) == true or ri.get('virtual_network_is_internal', false) == false%}
+{%         continue %}
+{%     endif %}{# /* PROTO for master_LR */ #}
+{%     set name = ri.get('description', '')[:127] %}
+{%     set router_external = ri.get('is_public_network', '') %}
+{%     if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
+{%         set ns.public_network = 'yes' %}
+{%         set vxlan_id = ri.get('vxlan_id') %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
+set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
+{%         for subnet in ri.get('prefixes', []) %}
+{%             set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%         endfor %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
+{%     endif %}{# /* router_external */ #}
+{% endfor %}{# /* routing instances */ #}
+{% if ns.public_network == 'yes' %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+{% endif %}
