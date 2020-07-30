@@ -78,6 +78,18 @@ class DeviceZtpManager(object):
                                        callback=self.handle_tftp_file_request)
     # end _initialize
 
+    def _initial_cleanup(self):
+        # this is to ensure DNSMASQ is at init state at start of DM
+        base_file = os.path.join(self._dnsmasq_conf_dir, "base.conf")
+        dhcp_path = os.path.join(self._dnsmasq_conf_dir, "*.*")
+        cleanupFiles = glob.glob(dhcp_path)
+        if os.path.isfile(base_file):
+            cleanupFiles.remove(base_file)
+        for cleanupFile in cleanupFiles or []:
+            os.remove(cleanupFile)
+        self._restart_dnsmasq()
+    # end _initial_cleanup
+
     def db_read(self, obj_type, obj_id, obj_fields=None,
                 ret_readonly=False):
         try:
