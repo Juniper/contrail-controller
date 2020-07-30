@@ -390,7 +390,9 @@ class VerifyServicePolicy(VerifyPolicy):
     @retries(15, 2)
     def get_si_vm_obj(self, si_obj):
         vm_ref = si_obj.get_virtual_machine_back_refs()
-        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_ref[0]['uuid'])
+        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_ref[0]['uuid']) \
+            if vm_ref else None
+
         return vm_obj
 
 
