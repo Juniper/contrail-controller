@@ -1,0 +1,23 @@
+---
+- name: Execute commands from template (recursive)
+  include_tasks: "{{task_file}}"
+
+- name: Timeout ("{{ delay * retries }}" seconds)
+  debug:
+    msg: Timed out while waiting for bgp sessions to get established.
+  when: count | int > retries | int
+
+- block:
+    - name: Wait for "{{ delay }}" seconds
+      wait_for:
+        timeout: "{{ delay }}"
+
+    - name: Update count to ("{{ count | int + 1 }}")
+      set_fact:
+        try_count: "{{ count | int + 1 }}"
+
+    - name: Call itself recursively
+      include_tasks: "do_until_loop.yml"
+      vars:
+        count: "{{ try_count | int }}"
+  when: required_to_wait and (count | int <= retries | int)
