@@ -316,6 +316,8 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
+    args_str = args_str + "--enable-api-stats-log "
+    args_str = args_str + "--enable_latency_stats-log"
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
     args_str = args_str + "--cluster_id %s " %(test_id)
 
