@@ -34,6 +34,24 @@
       "revId": "c09705dc350fbe527443696daae9809e08a54f9e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "be9d02a2_ba18e355",
+        "filename": "src/config/device-manager/device_manager/device_ztp_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-31T03:12:58Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "5d778df4_decc9ead",
+      "revId": "c09705dc350fbe527443696daae9809e08a54f9e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
