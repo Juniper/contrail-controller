@@ -76,13 +76,15 @@ class ApiContext(object):
     def get_proc_time(self, state):
         return self.proc_times[state]
 
-    def get_keystone_response_time(self):
-        if (('PRE_KEYSTONE_REQ' in self.proc_times)
-                and ('POST_KEYSTONE_REQ' in self.proc_times)):
-            pre = self.proc_times['PRE_KEYSTONE_REQ']
-            post = self.proc_times['POST_KEYSTONE_REQ']
-            return (post - pre)
-        return None
+    def get_keystone_response_time(self, enable_latency_stats_log=False):
+        if enable_latency_stats_log is True:
+            if (('PRE_KEYSTONE_REQ' in self.proc_times)
+                    and ('POST_KEYSTONE_REQ' in self.proc_times)):
+                pre = self.proc_times['PRE_KEYSTONE_REQ']
+                post = self.proc_times['POST_KEYSTONE_REQ']
+                return (post - pre)
+        else:
+            return None
 
     def set_state(self, state):
         # set to enumerated or if no mapping, user-passed state-str
