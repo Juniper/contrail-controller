@@ -535,6 +535,9 @@ class AddrMgmt(object):
 
             subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
             subnet_dict['gw'] = ipam_subnet.get('default_gateway')
+            if subnet_dict['gw'] == 'None':
+                # follow-on code expects NoneType as opposed to string 'None'
+                subnet_dict['gw'] = None
             subnet_dict['alloc_unit'] = ipam_subnet.get('alloc_unit') or 1
             subnet_dict['dns_server_address'] = \
                 ipam_subnet.get('dns_server_address')
