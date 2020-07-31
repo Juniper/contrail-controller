@@ -2106,6 +2106,9 @@ class VncApiServer(object):
             LinkObject('action', self._base_url,  '/set-tag', 'set-tag',
                        'POST'))
 
+        # Add enabling and disabling latency and api logs
+        self.enable_api_stats_log = self._args.enable_api_stats_log
+        self.enable_latency_stats_log = self._args.enable_latency_stats_log
          # Commit or discard draft security policy
         self.route('/security-policy-draft', 'POST',
                    self.security_policy_draft)
@@ -2170,7 +2173,6 @@ class VncApiServer(object):
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
         self._addr_mgmt = addr_mgmt
-
         self._default_domain = None
         self._default_project = None
 
@@ -2425,14 +2427,16 @@ class VncApiServer(object):
         rest_trace.url = url
         rest_trace.method = method
         rest_trace.request_data = req_data
-
         # Also log keystone response time against this request id,
         # before returning the trace message.
-        if ((get_context().get_keystone_response_time()) is not None):
-            response_time = get_context().get_keystone_response_time()
-            response_time_in_usec = ((response_time.days*24*60*60) +
-                                      (response_time.seconds*1000000) +
-                                      response_time.microseconds)
+        if ((get_context().get_keystone_response_time(
+                enable_latency_stats_log=self.enable_latency_stats_log))
+                is not None):
+            response_time = get_context().get_keystone_response_time(
+                enable_latency_stats_log=self.enable_latency_stats_log)
+            response_time_in_usec = ((response_time.days * 24 * 60 * 60) +
+                                     (response_time.seconds * 1000000) +
+                                     response_time.microseconds)
             stats = VncApiLatencyStats(
                 operation_type='VALIDATE',
                 application='KEYSTONE',
@@ -2440,8 +2444,13 @@ class VncApiServer(object):
                 response_size=0,
                 identifier=req_id,
             )
-            stats_log = VncApiLatencyStatsLog(node_name="issu-vm6", api_latency_stats=stats, sandesh=self._sandesh)
-            x=stats_log.send(sandesh=self._sandesh)
+            stats_log = VncApiLatencyStatsLog(
+                node_name="issu-vm6",
+                api_latency_stats=stats,
+                sandesh=self._sandesh
+            )
+
+            stats_log.send(sandesh=self._sandesh)
         return rest_trace
     # end _generate_rest_api_request_trace
 
