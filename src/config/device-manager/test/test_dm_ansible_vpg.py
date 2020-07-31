@@ -75,7 +75,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
             log_intf = self.get_logical_interface(phy_intf,
                                                   name='ae0.'+str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(vlan_tag))
-        self.assertEqual(log_intf.get('unit'), str(vlan_tag))
+        self.assertEqual(log_intf.get('unit'), vlan_tag)
         self.assertTrue(log_intf.get('is_tagged'))
 
         link_members = self.get_lag_members(phy_intf)
@@ -196,7 +196,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
             log_intf = self.get_logical_interface(phy_intf,
                                                   name='ae0.' + str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(vlan_tag))
-        self.assertEqual(log_intf.get('unit'), str(vlan_tag))
+        self.assertEqual(log_intf.get('unit'), vlan_tag)
         self.assertTrue(log_intf.get('is_tagged'))
 
         link_members = self.get_lag_members(phy_intf)
@@ -310,7 +310,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
                                                   name='ae0.' + str(vlan_tag))
 
         self.assertEqual(log_intf.get('vlan_tag'), str(port_vlan_tag))
-        self.assertEqual(log_intf.get('unit'), str(vlan_tag))
+        self.assertEqual(log_intf.get('unit'), vlan_tag)
         self.assertFalse(log_intf.get('is_tagged'))
 
         link_members = self.get_lag_members(phy_intf)
@@ -415,7 +415,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         log_intf = self.get_logical_interface(phy_intf,
                                               name='ae0.' + str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(port_vlan_tag))
-        self.assertEqual(log_intf.get('unit'), str(vlan_tag))
+        self.assertEqual(log_intf.get('unit'), vlan_tag)
         self.assertFalse(log_intf.get('is_tagged'))
 
         name = str(vxlan_id + 2000)
@@ -813,7 +813,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         log_intf = self.get_logical_interface(phy_intf,
                                               name='ae0.' + str(vlan_tag))
         self.assertEqual(log_intf.get('vlan_tag'), str(port_vlan_tag))
-        self.assertEqual(log_intf.get('unit'), str(vlan_tag))
+        self.assertEqual(log_intf.get('unit'), vlan_tag)
         self.assertFalse(log_intf.get('is_tagged'))
 
         link_members = self.get_lag_members(phy_intf)
