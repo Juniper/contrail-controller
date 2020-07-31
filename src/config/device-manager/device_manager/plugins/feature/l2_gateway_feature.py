@@ -192,6 +192,62 @@ class L2GatewayFeature(FeatureBase):
         return feature_config
     # end push_conf
 
+    def _build_interfaces_config(self, pi, pi_dm_obj, pp_list,
+                                 li_map):
+
+        # get the dm properties and add to a physical interface
+        # object to be attached to the feature_config
+        lacp_force_up = pi_dm_obj.lacp_force_up
+        port_params = pi_dm_obj.port_params
+
+        if lacp_force_up:
+            for pp_uuid in pp_list or []:
+                pp = PortProfileDM.get(pp_uuid)
+                pp_params = pp.port_profile_params
+                if pp_params:
+                    lacp_params = pp_params.get('lacp_params', {})
+                    if lacp_params:
+                        if lacp_params.get('lacp_enable'):
+                            pi.set_lacp_force_up(True)
+        if port_params:
+            port_params_obj = PortParameters()
+            if port_params.get('port_disable'):
+                port_params_obj.set_port_disable(True)
+            if port_params.get('port_description'):
+                port_params_obj.set_port_description(
+                    port_params.get('port_description')
+                )
+            pi.set_port_params(port_params_obj)
+
+        for log_intf in pi_dm_obj.logical_interfaces or []:
+            li_dm_obj = LogicalInterfaceDM.get(log_intf)
+            unit = li_dm_obj.vlan_tag
+
+            add_li_to_li_map = True
+
+            if self._physical_router.device_family != 'junos' and \
+                    (self._is_enterprise_style(self._physical_router) or
+                     self._physical_router.is_erb_only() is True):
+                if unit != 0:
+                    add_li_to_li_map = False
+
+            if add_li_to_li_map:
+                li_name = pi_dm_obj.name + '.' + str(unit)
+                li = self._add_or_lookup_li(li_map, li_name,
+                                            unit)
+                port_params = li_dm_obj.port_params
+                if port_params:
+                    port_params_obj = PortParameters()
+                    if port_params.get('port_mtu'):
+                        port_params_obj.set_port_mtu(
+                            port_params.get('port_mtu')
+                        )
+                    if port_params.get('port_description'):
+                        port_params_obj.set_port_description(
+                            port_params.get('port_description')
+                        )
+                    li.set_port_params(port_params_obj)
+
     def build_vpg_config(self):
         multi_homed = False
         pr = self._physical_router
