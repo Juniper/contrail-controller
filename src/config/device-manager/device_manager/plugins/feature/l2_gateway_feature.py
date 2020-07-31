@@ -230,18 +230,18 @@ class L2GatewayFeature(FeatureBase):
 
         for log_intf in pi_dm_obj.logical_interfaces or []:
             li_dm_obj = LogicalInterfaceDM.get(log_intf)
-            unit = str(li_dm_obj.vlan_tag)
+            unit = li_dm_obj.vlan_tag
 
             add_li_to_li_map = True
 
             if self._physical_router.device_family != 'junos' and \
                     (self._is_enterprise_style(self._physical_router) or
                      self._physical_router.is_erb_only() is True):
-                if unit != '0':
+                if unit != 0:
                     add_li_to_li_map = False
 
             if add_li_to_li_map:
-                li_name = pi_dm_obj.name + '.' + unit
+                li_name = pi_dm_obj.name + '.' + str(unit)
                 li = self._add_or_lookup_li(li_map, li_name,
                                             unit)
                 port_params = li_dm_obj.port_params
