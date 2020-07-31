@@ -1071,15 +1071,19 @@ class VncDbClient(object):
             rabbit_vhost, rabbit_ha_mode, host_ip,
             health_check_interval, **kwargs)
 
-    def log_db_response_time(self, db, response_time, oper, level=SandeshLevel.SYS_DEBUG):
-        response_time_in_usec = ((response_time.days*24*60*60) +
-                                 (response_time.seconds*1000000) +
+    def log_db_response_time(self, db, response_time, oper,
+                             level=SandeshLevel.SYS_DEBUG):
+        if self.get_api_server().enable_latency_stats_log is False:
+            return
+
+        response_time_in_usec = ((response_time.days * 24 * 60 * 60) +
+                                 (response_time.seconds * 1000000) +
                                  response_time.microseconds)
 
         # Create latency stats object
         try:
             req_id = get_trace_id()
-        except Exception as e:
+        except Exception:
             req_id = "NO-REQUESTID"
 
         stats = VncApiLatencyStats(
@@ -1094,7 +1098,8 @@ class VncDbClient(object):
             node_name="issu-vm6",
             api_latency_stats=stats,
             sandesh=self._sandesh)
-        x=stats_log.send(sandesh=self._sandesh)
+
+        stats_log.send(sandesh=self._sandesh)
 
 
     def _update_default_quota(self):
