@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5361e549_37718985",
+        "filename": "src/config/device-manager/device_manager/device_ztp_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-07-31T01:32:10Z",
+      "side": 1,
+      "message": "do we need to check explicitly for base.conf when we are reading *.*?",
+      "revId": "c09705dc350fbe527443696daae9809e08a54f9e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
