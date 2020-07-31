@@ -108,6 +108,8 @@ def parse_args(args_str):
         'tcp_keepalive_idle_time': 7200,
         'tcp_keepalive_interval': 75,
         'tcp_keepalive_probes': 9,
+        'enable_latency_stats_log': False,
+        'enable_api_stats_log': False,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -317,6 +319,12 @@ def parse_args(args_str):
     parser.add_argument("--max_request_size", type=int,
             help="Maximum size of bottle requests served by api server")
     parser.add_argument("--amqp_timeout", help="Timeout for amqp request")
+    parser.add_argument("--enable-latency-stats-log",
+                         help=("Latency logs for Cassandra,"
+                               " Zookeeper, and Keystone"
+                               " will be enabled"))
+    parser.add_argument("--enable-api-stats-log",
+            help="If enabled then api statistics logs will be stored in Db")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
