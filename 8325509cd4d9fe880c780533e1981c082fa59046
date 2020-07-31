@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "39f1b252_d00639b4",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_event_dispatcher.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-31T20:27:27Z",
+      "side": 1,
+      "message": "Please check later  comment for moving  MockSubscribe outside test method.\n\nWhen we move it outside, we need to make org_subscribe_client_queue as object variable, because multiple UT\u0027s will run in parallel and one UT should not unblock another.",
+      "revId": "8325509cd4d9fe880c780533e1981c082fa59046",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "41dd3509_77248d77",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_event_dispatcher.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-31T20:27:27Z",
+      "side": 1,
+      "message": "Please check later  comment for moving  MockSubscribe outside test method.\n\nWhen MockSubscribe is moved out of the test case method, we should use MockSubscribe.org_subscribe_client_queue",
+      "revId": "8325509cd4d9fe880c780533e1981c082fa59046",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dd3e6a11_6fb2a28a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_event_dispatcher.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 121,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-31T20:27:27Z",
+      "side": 1,
+      "message": "I will not have more than one use case/workflow tested in a UT, because if the first use case fails, other use cases\u0027s will not get executed. \n\nSo my suggestion is to have individual UT\u0027s for each use case.\n\nTo reuse the MockSubscribe class in all the UT\u0027s, move it out of the UT and keep it as a common class in the test_event_dispatcher.py",
+      "revId": "8325509cd4d9fe880c780533e1981c082fa59046",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0a735790_087527f2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_event_dispatcher.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 168,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-07-31T20:27:27Z",
+      "side": 1,
+      "message": "typo  \"unsubsribe\"",
+      "revId": "8325509cd4d9fe880c780533e1981c082fa59046",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
