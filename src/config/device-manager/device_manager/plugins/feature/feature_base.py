@@ -169,7 +169,7 @@ class FeatureBase(object):
         if name in li_map:
             li = li_map[name]
         else:
-            li = LogicalInterface(name=name, unit=unit)
+            li = LogicalInterface(name=name, unit=int(unit))
             li_map[name] = li
         return li
     # end _add_or_lookup_li
