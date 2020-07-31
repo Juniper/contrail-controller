@@ -85,8 +85,9 @@ class DeviceZtpManager(object):
         base_file = os.path.join(self._dnsmasq_conf_dir, "base.conf")
         dhcp_path = os.path.join(self._dnsmasq_conf_dir, "*.*")
         cleanupFiles = glob.glob(dhcp_path)
-        cleanupFiles.remove(base_file)
-        for cleanupFile in cleanupFiles:
+        if os.path.isfile(base_file):
+            cleanupFiles.remove(base_file)
+        for cleanupFile in cleanupFiles or []:
             os.remove(cleanupFile)
         self._restart_dnsmasq()
     # end _initial_cleanup
