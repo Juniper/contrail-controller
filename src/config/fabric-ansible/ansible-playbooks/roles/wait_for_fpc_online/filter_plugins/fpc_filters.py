@@ -28,7 +28,7 @@ class FilterModule(object):
                 return False
             pic_slots = fpc.get('pic')
             if pic_slots is None:
-                return False
+                continue
             if isinstance(pic_slots, dict):
                 pic_slots = [pic_slots]
             for pic in pic_slots:
