@@ -120,15 +120,42 @@
 
         - set_fact:
                 next_set: "{{next_batch.next.batch_devices}}"
+
+        - name: Grab the failed devices list if defined
+          set_fact:
+            failed_list: "{{playbook_input.input.failed_list}}"
+          when: playbook_input.input.failed_list is defined
+
+        - name: Grab length of previous error list
+          set_fact:
+            failed_list_length: "{{ failed_list|length }}"
+          when: failed_list is defined
+
+        - name: Grab length of retry devices
+          set_fact:
+            remaining_devices: "{{ next_set|length }}"
+          when: next_set is defined
+
         - set_fact:
                 output: {
                       "status": "Success.",
                       "retry_devices": "{{next_set}}",
+                      "failed_list" :"{{failed_list if failed_list is defined else []}}",
                       "message": "{% if next_set | length > 0 -%}
                                   Finished upgrading device {{pr_name}}. Starting hitless image upgrade on {{next_batch.next.batch_name}}.
                                   {% else -%}
                                   Hitless image upgrade has finished successfully on all devices.{%- endif %}"
                        }
+
+        - set_fact:
+                output: {
+                  "status": "Failure",
+                  "retry_devices": "{{next_set}}",
+                  "message": "Hitless image upgrade has failed on one or more devices. The failure list is {{failed_list}}"
+                }
+          when: failed_list_length is defined and failed_list_length > "0" and remaining_devices == "0"
+
+
         - name: Print the output.
           debug:
             var: output

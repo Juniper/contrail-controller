@@ -45,6 +45,9 @@ class JobResultHandler(object):
     def get_retry_devices(self):
         return (self.playbook_output or {}).get('retry_devices')
 
+    def get_failed_device_list(self):
+        return (self.playbook_output or {}).get('failed_list')
+
     def update_job_status(
             self, status, message=None, device_id=None,
             device_name=None, pb_results=None):
