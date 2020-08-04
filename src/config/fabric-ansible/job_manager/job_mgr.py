@@ -590,10 +590,12 @@ class WFManager(object):
                     # the playbook output
                     job_status = self.result_handler.job_result_status
                     retry_devices = self.result_handler.get_retry_devices()
+                    failed_device_list = self.result_handler.get_failed_device_list()
                     if job_status == JobStatus.FAILURE or not retry_devices \
                             or self.abort_flag:
                         break
                     self.job_input['device_json'] = retry_devices
+                    self.job_input['input']['failed_list'] = failed_device_list
 
                 # update the job input with marked playbook output json
                 pb_output = self.result_handler.playbook_output or {}

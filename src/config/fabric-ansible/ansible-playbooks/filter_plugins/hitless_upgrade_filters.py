@@ -58,10 +58,16 @@ class FilterModule(object):
             'hitless_next_batch': self.get_next_batch,
             'hitless_all_devices': self.get_all_devices,
             'hitless_device_info': self.get_device_info,
+            'hitless_failure_update': self.hitless_failure_update,
             'validate_hitless_critical_roles': self.validate_critical_roles_for_hitless,
             'mm_validate': self.validate_critical_roles_for_mm
         }
     # end filters
+
+    # Return updated list
+    def hitless_failure_update(self, job_ctx, failed_list, pr_name):
+        failed_list.append(pr_name)
+        return failed_list
 
     # Wrapper to call main routine
     def get_hitless_upgrade_plan(self, job_ctx, image_upgrade_list):
