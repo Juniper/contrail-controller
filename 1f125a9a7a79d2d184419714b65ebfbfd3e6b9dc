@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b7625e03_98382243",
+        "filename": "src/config/common/cfgm_common/vnc_api_stats.py",
+        "patchSetId": 10
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-04T23:09:58Z",
+      "side": 1,
+      "message": "if api_server_obj.enable_api_stats_log is True\n    The whole try catch can be inside \nelse:\n  return func(api_server_obj, resource_type, *args, **kwargs)",
+      "revId": "1f125a9a7a79d2d184419714b65ebfbfd3e6b9dc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
