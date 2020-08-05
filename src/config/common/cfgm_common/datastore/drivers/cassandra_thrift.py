@@ -207,8 +207,9 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
 
     def _handle_exceptions(self, func, oper=None):
         def wrapper(*args, **kwargs):
-            if (sys._getframe(1).f_code.co_name != 'multiget' and
-                    func.__name__ in ['get', 'multiget']):
+            if ((sys._getframe(1).f_code.co_name not in
+                     ['_Multiget', 'multiget']) and
+                     func.__name__ in ['get', 'multiget']):
                 msg = ("It is not recommended to use 'get' or 'multiget' "
                        "pycassa methods. It's better to use 'xget' or "
                        "'get_range' methods due to thrift limitations")
