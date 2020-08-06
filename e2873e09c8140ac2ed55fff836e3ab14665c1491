@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cdf3cfbf_414747f9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_crud_basic.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 4819,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-06T20:53:15Z",
+      "side": 1,
+      "message": "We should pass enable_api_stats_log and  enable_latency_stats_log  as extra_config_knobs, \n\nSo that the api-server code, where we parse the args will also be tested.",
+      "revId": "e2873e09c8140ac2ed55fff836e3ab14665c1491",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c3bdaaee_7de5078a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_crud_basic.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 4830,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-06T20:53:15Z",
+      "side": 1,
+      "message": "when passing extra config knobs on SetupClass, this will not required.",
+      "revId": "e2873e09c8140ac2ed55fff836e3ab14665c1491",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
