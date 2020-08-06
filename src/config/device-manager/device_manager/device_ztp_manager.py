@@ -5,6 +5,7 @@
 import base64
 from builtins import object
 from builtins import str
+import glob
 import os
 import re
 import socket
@@ -62,7 +63,7 @@ class DeviceZtpManager(object):
     def _initialize(self):
         if not self._dnsmasq_conf_dir or not self._tftp_dir:
             return
-        self._initialized = True
+        self._initial_cleanup()
         self._amqp_client.add_exchange(self.EXCHANGE)
 
         consumer = 'device_manager_ztp.%s.config_queue' % \
@@ -76,7 +77,19 @@ class DeviceZtpManager(object):
         self._amqp_client.add_consumer(consumer, self.EXCHANGE,
                                        routing_key=self.TFTP_FILE_ROUTING_KEY,
                                        callback=self.handle_tftp_file_request)
+        self._initialized = True
     # end _initialize
+
+    def _initial_cleanup(self):
+        # this is to ensure DNSMASQ is at init state at start of DM
+        base_file = os.path.join(self._dnsmasq_conf_dir, "base.conf")
+        dhcp_path = os.path.join(self._dnsmasq_conf_dir, "*.*")
+        cleanupFiles = glob.glob(dhcp_path)
+        cleanupFiles.remove(base_file)
+        for cleanupFile in cleanupFiles:
+            os.remove(cleanupFile)
+        self._restart_dnsmasq()
+    # end _initial_cleanup
 
     def db_read(self, obj_type, obj_id, obj_fields=None,
                 ret_readonly=False):
