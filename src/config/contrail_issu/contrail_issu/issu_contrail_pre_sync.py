@@ -3,11 +3,10 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from __future__ import absolute_import
-from .issu_contrail_common import ICCassandraClient
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import logging
-from . import issu_contrail_config
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from contrail_issu.issu_contrail_common import ICCassandraClient
+from contrail_issu import issu_contrail_config
 
 
 def _issu_cassandra_pre_sync_main():
@@ -47,6 +46,7 @@ def _issu_cassandra_pre_sync_main():
         issu_contrail_config.issu_keyspace_dm_keyspace)
     issu_contrail_config.lognprint("Done syncing dm keyspace",
                                    level=SandeshLevel.SYS_INFO)
+
 
 if __name__ == "__main__":
     _issu_cassandra_pre_sync_main()

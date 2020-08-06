@@ -2,8 +2,6 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
-from __future__ import print_function
-from __future__ import absolute_import
 import time
 import os
 import paramiko
@@ -11,9 +9,9 @@ import logging
 import ast
 from cfgm_common.vnc_kombu import VncKombuClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from .issu_contrail_common import ICCassandraClient
-from .issu_contrail_common import ICCassandraInfo
-from . import issu_contrail_config
+from contrail_issu.issu_contrail_common import ICCassandraClient
+from contrail_issu.issu_contrail_common import ICCassandraInfo
+from contrail_issu import issu_contrail_config
 
 
 class ICAmqpInfo():
@@ -43,8 +41,7 @@ class ICAmqpInfo():
              str(self.amqp_pwd), str(self.amqp_vhost), str(self.amqp_ha),
              str(self.amqp_q), str(self.amqp_use_ssl),
              str(self.amqp_ssl_version), str(self.amqp_ssl_ca_certs),
-             str(self.amqp_ssl_keyfile), str(self.amqp_ssl_certfile))
-            )
+             str(self.amqp_ssl_keyfile), str(self.amqp_ssl_certfile)))
 
 
 class ICKombuClient(VncKombuClient):
@@ -127,7 +124,7 @@ class ICRMQMain():
         self.logger(msg, level=SandeshLevel.SYS_INFO)
 
     def issu_amqp_callback_handler(self, msg):
-        self.logger(msg,  level=SandeshLevel.SYS_INFO)
+        self.logger(msg, level=SandeshLevel.SYS_INFO)
         if self.rmq_issu_handler is not None:
             msg = self.rmq_issu_handler(msg)
         msg['type'] = msg['type'].replace('-', '_')
@@ -174,8 +171,7 @@ class ICRMQMain():
             kombu_ssl_version=self.new_rabbit.amqp_ssl_version,
             kombu_ssl_keyfile=self.new_rabbit.amqp_ssl_keyfile,
             kombu_ssl_certfile=self.new_rabbit.amqp_ssl_certfile,
-            kombu_ssl_ca_certs=self.new_rabbit.amqp_ssl_ca_certs
-            )
+            kombu_ssl_ca_certs=self.new_rabbit.amqp_ssl_ca_certs)
         self.logger("amqp connection initiated successfully with new server",
                     level=SandeshLevel.SYS_DEBUG)
         # Create a amqp connection with oldversion, passing all the information
@@ -202,12 +198,9 @@ class ICRMQMain():
             kombu_ssl_version=self.old_rabbit.amqp_ssl_version,
             kombu_ssl_keyfile=self.old_rabbit.amqp_ssl_keyfile,
             kombu_ssl_certfile=self.old_rabbit.amqp_ssl_certfile,
-            kombu_ssl_ca_certs=self.old_rabbit.amqp_ssl_ca_certs
-            )
+            kombu_ssl_ca_certs=self.old_rabbit.amqp_ssl_ca_certs)
         self.logger("amqp connection initiated successfully with old server",
                     level=SandeshLevel.SYS_DEBUG)
-    # end
-# end issu_main
 
 
 def _issu_rmq_main():
@@ -266,11 +259,12 @@ def _issu_rmq_main():
                                args.old_rabbit_ssl_keyfile,
                                args.old_rabbit_ssl_certfile)
 
-    issu_rmq = ICRMQMain(
+    _ = ICRMQMain(
         old_cassandra_info, new_cassandra_info, old_amqp_info, new_amqp_info,
         ast.literal_eval(args.new_api_info), issu_contrail_config.logger)
     while (1):
         time.sleep(1)
+
 
 if __name__ == "__main__":
     _issu_rmq_main()

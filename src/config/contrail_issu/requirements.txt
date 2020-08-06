@@ -1,2 +1,1 @@
-gevent==1.1.2
 contrail-config-common

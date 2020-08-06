@@ -5,7 +5,6 @@
 
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-import logging
 
 
 class ICCassandraInfo():
@@ -27,7 +26,6 @@ class ICCassandraClient():
 
     def _issu_basic_function(self, kspace, cfam, cols):
         return dict(cols)
-    # end
 
     def __init__(self, oldversion_server_list, newversion_server_list,
                  old_user, old_password, new_user, new_password,
@@ -66,7 +64,6 @@ class ICCassandraClient():
             level=SandeshLevel.SYS_INFO,
         )
         self.issu_prepare()
-    # end
 
     def issu_prepare(self):
         self._logger(
@@ -98,18 +95,15 @@ class ICCassandraClient():
             credential=self._new_creds,
             ssl_enabled=self._ndb_use_ssl,
             ca_certs=self._ndb_ca_certs)
-    # end
 
     def _fetch_issu_func(self, ks):
         return self._ks_issu_func_info[ks]
-    # end
 
     # Overwrite what is seen in the newer with the old version.
     def _merge_overwrite(self, new, current):
         updated = current
         updated.update(new)
         return updated
-    # end
 
     #  For now this function should be called for only config_db_uuid.
     #  If we separate out config_db_uuid keyspace from VncCassandraClient,
@@ -121,16 +115,13 @@ class ICCassandraClient():
                 str(ks), level=SandeshLevel.SYS_INFO)
             issu_funct = self._fetch_issu_func(ks)
             for cf in cflist:
-                newList = []
-                newversion_result = (self._newversion_handle._cassandra_driver.
-                                        get_range(cf) or {})
+                newversion_result = self._newversion_handle._cassandra_driver.get_range(cf) or {}
                 self._logger(
-                        "Building New DB memory for columnfamily: " + str(cf),
-                        level=SandeshLevel.SYS_INFO)
+                    "Building New DB memory for columnfamily: " + str(cf),
+                    level=SandeshLevel.SYS_INFO)
                 new_db = dict(newversion_result)
 
-                oldversion_result = (self._oldversion_handle._cassandra_driver.
-                                        get_range(cf) or {})
+                oldversion_result = self._oldversion_handle._cassandra_driver.get_range(cf) or {}
                 self._logger(
                     "Doing ISSU copy for columnfamily: " + str(cf),
                     level=SandeshLevel.SYS_INFO)
@@ -139,22 +130,19 @@ class ICCassandraClient():
                     current = new_db.pop(rows, None)
                     if current is not None:
                         updated = self._merge_overwrite(out, dict(current))
-                        x = self._newversion_handle.add(cf, rows, updated)
+                        _ = self._newversion_handle.add(cf, rows, updated)
                     else:
                         updated = []
-                        x = self._newversion_handle.add(cf, rows, out)
+                        _ = self._newversion_handle.add(cf, rows, out)
                     diff = set(updated) - set(out)
-                    y = (self._newversion_handle._cassandra_driver.
-                            get_cf(cf).remove(rows, diff))
+                    _ = self._newversion_handle._cassandra_driver.get_cf(cf).remove(rows, diff)
                 self._logger(
                     "Pruning New DB if entires don't exist in old DB column "
                     "family: " + str(cf), level=SandeshLevel.SYS_INFO)
                 for item in new_db:
                     # TBD should be catch exception and fail ISSU
                     self._newversion_handle.delete(cf, item)
-    # end
 
-    #  This is issu_copy function.
     def issu_copy(self, keyspaces):
         for ks, cflist in keyspaces.items():
             issu_funct = self._fetch_issu_func(ks)
@@ -162,15 +150,11 @@ class ICCassandraClient():
                 self._logger(
                     "Issu Copy KeySpace: " + str(ks) +
                     " Column Family: " + str(cf), level=SandeshLevel.SYS_INFO)
-                oldversion_result = (self._oldversion_handle._cassandra_driver.
-                                        get_range(cf) or {})
-
+                oldversion_result = self._oldversion_handle._cassandra_driver.get_range(cf) or {}
                 for rows, columns in oldversion_result:
                     out = issu_funct(ks, cf, columns)
-
-                    x = self._newversion_handle.add(cf, rows, out)
+                    _ = self._newversion_handle.add(cf, rows, out)
                     # TBD If failure to add, fail ISSU
-    # end
 
     def issu_read_row(self, msg):
         try:

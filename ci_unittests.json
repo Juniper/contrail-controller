@@ -47,6 +47,15 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "contrail-issu" : {
+        "source_directories" : [
+            "controller/src/config/contrail_issu"
+        ],
+        "scons_test_targets" : [
+            "controller/src/config/contrail_issu:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-api-client" : {
         "source_directories" : [
             "src/contrail-api-client/api-lib",
