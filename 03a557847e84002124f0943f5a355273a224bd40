@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0626bdac_f6c9eee8",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 13
+      },
+      "lineNbr": 319,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-06T01:00:00Z",
+      "side": 1,
+      "message": "If you need to enable, from the way its defined it in utils.py it should be \n--enable-api-stats-log True\n--enable-latency-stats-log True\n\nHowever i don\u0027t think we need to enable these two stats during UT by default. latency stats in a UT make less sense as cassandra, zk and keystone are fake\nAlso you can enable stats per test, as you did in your UT testcase. \n\nI suppose you\u0027re looking for enabling it globally rather than by default\nIf thats the case, i\u0027d prefer to have it enable/disable through a tox variable",
+      "revId": "03a557847e84002124f0943f5a355273a224bd40",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
