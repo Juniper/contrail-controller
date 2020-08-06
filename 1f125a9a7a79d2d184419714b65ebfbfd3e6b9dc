@@ -16,6 +16,24 @@
       "revId": "1f125a9a7a79d2d184419714b65ebfbfd3e6b9dc",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f40c2cde_776f8d97",
+        "filename": "src/config/common/cfgm_common/vnc_api_stats.py",
+        "patchSetId": 10
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 834
+      },
+      "writtenOn": "2020-08-06T16:16:26Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "b7625e03_98382243",
+      "revId": "1f125a9a7a79d2d184419714b65ebfbfd3e6b9dc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
