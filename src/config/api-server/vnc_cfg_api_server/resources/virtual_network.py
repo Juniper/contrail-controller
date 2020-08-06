@@ -607,10 +607,6 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         if area_id == '0' or area_id == "0.0.0.0":
             if area_type != 'backbone':
                 return False, "Area id zero should have area type as backbone"
-        else:
-            if area_type == 'backbone':
-                return False, "Area type backbone is only supported with area"\
-                              " id zero"
         return True, ""
 
     @classmethod
