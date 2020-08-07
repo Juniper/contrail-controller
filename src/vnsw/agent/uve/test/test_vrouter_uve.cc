@@ -309,6 +309,15 @@ public:
         if (d1.get_ds_vlan_fwd_enq() != (uint64_t)d2.get_vds_vlan_fwd_enq()) {
             return false;
         }
+        if (d1.get_ds_no_frag_entry()  != (uint64_t)d2.get_vds_no_frag_entry()) {
+            return false;
+        }
+        if (d1.get_ds_icmp_error()  != (uint64_t)d2.get_vds_icmp_error()) {
+            return false;
+        }
+        if (d1.get_ds_clone_fail()  != (uint64_t)d2.get_vds_clone_fail()) {
+            return false;
+        }
         return true;
     }
     TestUveUtil util_;

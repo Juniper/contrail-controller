@@ -526,5 +526,15 @@ void StatsManager::BuildDropStats(const vr_drop_stats_req &req,
 
     ds.set_ds_trap_original(req.get_vds_trap_original());
     drop_pkts += ds.get_ds_trap_original();
+
+    ds.set_ds_no_frag_entry(req.get_vds_no_frag_entry());
+    drop_pkts += ds.get_ds_no_frag_entry();
+
+    ds.set_ds_icmp_error(req.get_vds_icmp_error());
+    drop_pkts += ds.get_ds_icmp_error();
+
+    ds.set_ds_clone_fail(req.get_vds_clone_fail());
+    drop_pkts += ds.get_ds_clone_fail();
+
     ds.set_ds_drop_pkts(drop_pkts);
 }
