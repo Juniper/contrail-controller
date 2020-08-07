@@ -323,8 +323,11 @@ struct AgentDropStats {
     52: optional u64   ds_trap_original
     53: optional u64   ds_no_memory
     54: optional u64   ds_fragment_queue_fail
+    55: optional u64   ds_no_frag_entry
+    56: optional u64   ds_icmp_error
+    57: optional u64   ds_clone_fail
     /** Drop packet count */
-    55: optional u64   ds_drop_pkts
+    58: optional u64   ds_drop_pkts
 }
 /**
  * Structure definition for vrouter host interface statistics
