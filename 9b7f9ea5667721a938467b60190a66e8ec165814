@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2b083a7c_fb95fa8e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 4372,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-07T19:57:00Z",
+      "side": 1,
+      "message": "I think this if/else is not required.  we can just return ok, result if not ok.\n\nBecause, when the pre_dbe_update returns due to failure, it will return (False, (code, msg), zk_update_kwargs). \n\nwhich means in case of failure always (code, msg) which is the result is retuned.",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "68d96598_a3d2d82f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 4444,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-07T19:57:00Z",
+      "side": 1,
+      "message": "I don\u0027t think we need to pass ref_update\u003dNone.\n\nAs the argument in base method defaults to None https://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/resources/_resource_base.py#L156",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d912fdc6_1e7e121c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/application_policy_set.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 112,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-07T19:57:00Z",
+      "side": 1,
+      "message": "We can simply return ok, result, None. without this if check",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fcd76db3_65bffb0c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/application_policy_set.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 116,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-07T19:57:00Z",
+      "side": 1,
+      "message": "We can simply return ok, result, None. without this if check",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
