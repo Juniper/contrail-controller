@@ -376,6 +376,159 @@
     },
     {
       "key": {
+        "uuid": "d1cd7fba_d726e51e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1455,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "zk_vpg_lock_path argument is removed",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ee02a803_153f2ce7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1470,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "zk_vmi_untagged_lock_path is used in only one place, so we dont need a variable, we can directly form in line 1479",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "20b4a2ad_b9235d95",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1473,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "zk_vmi_tagged_lock_path is used in only one place, so we dont need a variable, we can directly form in line 1482",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b94c6ec7_d1b0fdbc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1485,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "Rename the comment to # Service provider fabric validation ZNodes",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a3ab6262_7088c4a4",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1494,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "I see that these line 1470 till 1551 can be refactored to avoid multiple if/else  and code duplication as below,\n\nif is_untagged_vlan:\n    vmi_lock_args \u003d {\u0027zookeeper_client\u0027: db_conn._zk_db._zk_client,\n                \u0027path\u0027: zk_vmi_untagged_lock_path,\n                \u0027name\u0027: vmi_uuid, \u0027timeout\u0027: 60}\n    validation_znode \u003d os.path.join(\n            _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX,\n            (\u0027virtual-port-group:%s/untagged\u0027) % vpg_uuid)\nelse: \n    vmi_lock_args \u003d {\u0027zookeeper_client\u0027: db_conn._zk_db._zk_client,\n                     \u0027path\u0027: zk_vmi_tagged_lock_path,\n                     \u0027name\u0027: vmi_uuid, \u0027timeout\u0027: 60}\n    validation_znode \u003d os.path.join(\n            _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX,\n            (\u0027virtual-port-group:%s/virtual-network:%s/vlan:%s\u0027)\n            % (vpg_uuid, vn_uuid, vlan_id))\n\ntry:\n    cls.db_conn._zk_db._zk_client.create_node(\n        validation_znode, value\u003dvmi_uuid)\n    if db_vlan_id and (db_vlan_id !\u003d vlan_id):  # Check for vlan_update case\n        return True, \u0027\u0027, {\u0027delete_validation_znode\u0027: db_vlan_id}\n    return True, \u0027\u0027, None\nexcept ResourceExistsError: # Might be STALE\n    ok, result \u003d cls.dbe_read(db_conn,\n                              \u0027virtual_machine_interface\u0027,\n                               vmi_uuid)\n    if ok:  # Not STALE\n        msg \u003d \"Znode with %s virtual_machine_interface already exists\" % vmi_uuid\n        return False, (400, msg), None\n    else:  # STALE\n        with ZookeeperLock(**vmi_lock_args):\n            cls.db_conn._zk_db._zk_client.update_node(\n                validation_znode, repr(vmi_uuid).encode(\u0027ascii\u0027))\n        return True, \u0027\u0027, None",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e4c968ab_def54953",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1184,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "remove pdb\u0027s",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "59dd7c93_a813be9c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1199,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "remove pdb\u0027s",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aa60cc50_a552405f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1253,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "Lets have a comment \n\n# verify validation Znodes are created",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "db061139_87c3e90d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1278,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T02:01:33Z",
+      "side": 1,
+      "message": "Let have a comment similar to older version. say,\n\n        # Verify validation ZNodes are removed when VMI is\n        # unassociated",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "ec4a643b_b8b73b7a",
         "filename": "src/config/common/cfgm_common/zkclient.py",
         "patchSetId": 14
