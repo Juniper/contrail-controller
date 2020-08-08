@@ -217,6 +217,14 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                         return ok, result
                     attr_dict_leftover_pi, _alloc_dict = result
                     alloc_dealloc_dict['allocated_ae_id'].append(_alloc_dict)
+
+                    def undo_append_alloc_dict():
+                        try:
+                            alloc_dealloc_dict['allocated_ae_id'].remove(
+                                _alloc_dict)
+                        except ValueError:
+                            pass
+                    get_context().push_undo(undo_append_alloc_dict)
                     msg = ("Allocated AE-ID(%s) for PI(%s) at "
                            "VPG(%s)/PR(%s)" % (
                                attr_dict_leftover_pi, db_pi_uuid,
@@ -239,7 +247,21 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                     db_obj_dict.get('id_perms'),
                     attr_to_publish=attr_to_publish,
                     relax_ref_for_delete=True)
-                # TO-DO add undo for ref-update
+                if not ok:
+                    return ok, result
+
+                def undo_ref_update():
+                    return cls.db_conn.ref_update(
+                        'virtual_port_group',
+                        vpg_uuid,
+                        'physical_interface',
+                        db_pi_uuid,
+                        {'attr': None},
+                        'ADD',
+                        db_obj_dict.get('id_perms'),
+                        attr_to_publish=attr_to_publish,
+                        relax_ref_for_delete=True)
+                get_context().push_undo(undo_ref_update)
                 msg = "Updated AE-ID(%s) in PI(%s) ref to VPG(%s)" % (
                     attr_dict_leftover_pi, db_pi_uuid, vpg_name)
                 cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -264,9 +286,13 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                     'vpg_uuid': vpg_uuid,
                     'vpg_name': vpg_name}
                 alloc_dealloc_dict['deallocated_ae_id'].append(_dealloc_dict)
+
+                def undo_add_dealloc_dict():
+                    alloc_dealloc_dict['deallocated_ae_id'].remove(
+                        _dealloc_dict)
+                get_context().push_undo(undo_add_dealloc_dict)
                 # record deallocated pr/vpg
                 _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
-                # TO-DO Add undo pi-ref for current pi
 
         # de-allocate leftover single PI, if any
         # in delete case, whatever comes in curr_pi_dict are the
@@ -288,6 +314,11 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                         'vpg_name': vpg_name}
                     alloc_dealloc_dict['deallocated_ae_id'].append(
                         _dealloc_dict)
+
+                    def undo_add_dealloc_dict():
+                        alloc_dealloc_dict['deallocated_ae_id'].remove(
+                            _dealloc_dict)
+                    get_context().push_undo(undo_add_dealloc_dict)
                     # record deallocated pr/vpg
                     _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
             # TO-DO Add undo pi-ref for leftover pi
@@ -301,7 +332,21 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 'ADD',
                 db_obj_dict.get('id_perms'),
                 relax_ref_for_delete=True)
+            if not ok:
+                return ok, result
 
+            def undo_ae_dealloc_from_pi():
+                attr_obj = VpgInterfaceParametersType(_dealloc_dict['ae_id'])
+                (ok, result) = cls.db_conn.ref_update(
+                    'virtual_port_group',
+                    vpg_uuid,
+                    'physical_interface',
+                    pi_uuid,
+                    {'attr': attr_obj},
+                    'ADD',
+                    db_obj_dict.get('id_perms'),
+                    relax_ref_for_delete=True)
+            get_context().push_undo(undo_ae_dealloc_from_pi)
         return True, (attr_dict, alloc_dealloc_dict)
 
     @classmethod
