@@ -15,6 +15,359 @@ from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
     @classmethod
+<<<<<<< HEAD   (7bf8c6 Merge "[api-server] Added UT for missing pi case for VMI Cre)
+=======
+    def _notify_ae_id_modified(cls, obj_dict=None, notify=False):
+        if (obj_dict.get('deallocated_ae_id') and
+                len(obj_dict.get('deallocated_ae_id'))):
+            dealloc_dict_list = obj_dict.get('deallocated_ae_id')
+            for dealloc_dict in dealloc_dict_list:
+                ae_id = dealloc_dict.get('ae_id')
+                vpg_name = dealloc_dict.get('vpg_name')
+                prouter_name = dealloc_dict.get('prouter_name')
+                cls.vnc_zk_client.free_ae_id(
+                    prouter_name, ae_id,
+                    vpg_name, notify=notify)
+                msg = "NOTIFY: Deallocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
+                    ae_id, vpg_name, prouter_name)
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        if (obj_dict.get('allocated_ae_id') and
+                len(obj_dict.get('allocated_ae_id'))):
+            alloc_dict_list = obj_dict.get('allocated_ae_id')
+            for alloc_dict in alloc_dict_list:
+                ae_id = alloc_dict.get('ae_id')
+                vpg_name = alloc_dict.get('vpg_name')
+                prouter_name = alloc_dict.get('prouter_name')
+                cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id,
+                                              notify=True)
+                msg = "NOTIFY: Allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
+                    ae_id, vpg_name, prouter_name)
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+    @classmethod
+    def _alloc_ae_id(cls, prouter_name, vpg_name, vpg_uuid):
+        # create vpg node at /id/ae-id-vpg/
+        vpg_zk_path = os.path.join(
+            cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+            'vpg:%s' % vpg_uuid,
+            prouter_name)
+        pi_ae = None
+        if not cls.vnc_zk_client._zk_client.exists(vpg_zk_path):
+            while True:
+                try:
+                    ae_id = cls.vnc_zk_client.alloc_ae_id(
+                        prouter_name, vpg_name)
+
+                    msg = "Reserving AE-ID(%s) for prouter(%s):vpg(%s) " % (
+                        ae_id, prouter_name, vpg_name)
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+                    def undo_alloc_ae_id():
+                        ok, result = cls._dealloc_ae_id(
+                            prouter_name, ae_id, vpg_name, vpg_uuid)
+                        return ok, result
+                    get_context().push_undo(undo_alloc_ae_id)
+                    break
+                except ResourceExhaustionError:
+                    # reraise if its real exhaustion
+                    in_use_aes = 0
+                    vpg_nodes = cls.vnc_zk_client._zk_client.get_children(
+                        cls.vnc_zk_client._vpg_ae_id_zk_path_prefix)
+                    for vpg_node in vpg_nodes:
+                        pr_path = cls.vnc_zk_client._zk_client.exists(
+                            os.path.join(
+                                cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+                                vpg_node, prouter_name))
+                        if pr_path:
+                            in_use_aes += 1
+                    if in_use_aes >= cls.vnc_zk_client._AE_MAX_ID:
+                        err_msg = ('ResourceExhaustionError: when allocating '
+                                   'AE-ID for virtual-port-group (%s) at '
+                                   'physical-router (%s)' % (
+                                       vpg_name, prouter_name))
+                        return False, (400, err_msg)
+                    msg = "Retry reserving AE-ID for prouter(%s)/vpg(%s) " % (
+                        prouter_name, vpg_name)
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            try:
+                cls.vnc_zk_client._zk_client.create_node(
+                    vpg_zk_path, ae_id)
+                msg = "Create ZK-node(%s) with AE-ID(%s) is successful" % (
+                    vpg_zk_path, ae_id)
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+                def undo_create_node():
+                    cls.vnc_zk_client._zk_client.delete_node(
+                        vpg_zk_path, True)
+                get_context().push_undo(undo_create_node)
+                pi_ae = ae_id
+            except ResourceExistsError:
+                ok, result = cls._dealloc_ae_id(
+                    prouter_name, ae_id, vpg_name, vpg_uuid)
+                if not ok:
+                    return ok, result
+                pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
+                pi_ae = int(pi_ae_str)
+                msg = ("Reusing AE-ID (%s) from ZK-node(%s) after "
+                       "ResourceExistsError" % (pi_ae, vpg_zk_path))
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                # TO-DO: can read_node return empty?
+        else:
+            # TO-DO: can read_node return empty?
+            pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
+            pi_ae = int(pi_ae_str)
+            msg = "Reusing AE-ID (%s) from  ZK-node(%s)" % (
+                pi_ae, vpg_zk_path)
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+        # TO-DO: Can pi_ae remain None at any case?
+        # if pi_ae is None:
+        attr_obj = VpgInterfaceParametersType(pi_ae)
+        attr_dict = attr_obj.__dict__
+        alloc_dict = {
+            'ae_id': pi_ae,
+            'prouter_name': prouter_name,
+            'vpg_name': vpg_name,
+        }
+        msg = "Allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
+            pi_ae, vpg_name, prouter_name)
+        cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        return True, (attr_dict, alloc_dict)
+
+    @classmethod
+    def _dealloc_ae_id(cls, prouter_name, ae_id, vpg_name, vpg_uuid):
+        # delete znode
+        vpg_zk_path = os.path.join(
+            cls.vnc_zk_client._vpg_ae_id_zk_path_prefix,
+            'vpg:%s' % vpg_uuid,
+            prouter_name)
+        pi_ae_str = cls.vnc_zk_client._zk_client.read_node(vpg_zk_path)
+        pi_ae = int(pi_ae_str) if pi_ae_str else None
+        # check if given ae_id is same as one found in zknode path
+        if pi_ae is not None and pi_ae == ae_id:
+            ae_id = pi_ae
+            cls.vnc_zk_client._zk_client.delete_node(vpg_zk_path)
+            msg = "Delete ZK-node(%s) is successful" % vpg_zk_path
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        cls.vnc_zk_client.free_ae_id(prouter_name, ae_id, vpg_name)
+        msg = "De-allocated AE-ID (%s) at VPG(%s)/PR(%s)" % (
+            ae_id, vpg_name, prouter_name)
+        cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        return True, ''
+
+    @classmethod
+    def _process_ae_id(cls, db_obj_dict, vpg_name, obj_dict=None):
+        attr_dict = None
+        alloc_dealloc_dict = {'allocated_ae_id': [], 'deallocated_ae_id': []}
+        curr_pr_dict = {}
+        curr_pi_dict = {}
+        db_pi_dict = {}
+        db_pr_dict = {}
+        vpg_uuid = db_obj_dict['uuid']
+        if not obj_dict:
+            obj_dict = {}
+
+        # process incoming PIs
+        for ref in obj_dict.get('physical_interface_refs') or []:
+            curr_pi_dict[ref['uuid']] = ref['to'][1]
+            curr_pr_dict[ref['to'][1]] = ref['attr']
+
+        # process existing PIs in DB
+        for ref in db_obj_dict.get('physical_interface_refs') or []:
+            db_pi_dict[ref['uuid']] = ref['to'][1]
+            if not (ref['to'][1] in db_pr_dict and db_pr_dict[ref['to'][1]]):
+                db_pr_dict[ref['to'][1]] = ref['attr']
+
+        create_pi_uuids = list(set(curr_pi_dict.keys()) -
+                               set(db_pi_dict.keys()))
+        delete_pi_uuids = list(set(db_pi_dict.keys()) -
+                               set(curr_pi_dict.keys()))
+
+        # no PIs in db_obj_dict
+        if len(create_pi_uuids) < 2 and len(db_pi_dict.keys()) == 0:
+            msg = "Skip AE-ID allocation as Creating PI len(%s) < 2" % (
+                create_pi_uuids)
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            return True, (attr_dict, alloc_dealloc_dict)
+
+        # nothing to delete or add
+        if len(create_pi_uuids) == len(delete_pi_uuids) == 0:
+            msg = "Skip AE-ID allocation as no PI to Create / Delete"
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            return True, (attr_dict, alloc_dealloc_dict)
+
+        # nothing to delete, because rest of PIs shares same PR
+        if (len(create_pi_uuids) == 0 and len(delete_pi_uuids) == 1 and
+           len(db_pr_dict.keys()) == 1 and len(db_pi_dict.keys()) > 2):
+            msg = "Skip AE-ID allocation as rest PI(%s) shares same PR(%s)" % (
+                db_pi_dict.keys(), db_pr_dict.keys())
+            cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            return True, (attr_dict, alloc_dealloc_dict)
+
+        # allocate case
+        for pi_uuid in create_pi_uuids:
+            attr_dict = None
+            pi_pr = curr_pi_dict.get(pi_uuid)
+            pi_ae = db_pr_dict.get(pi_pr)
+            if pi_ae is None:
+                # allocate
+                ok, result = cls._alloc_ae_id(pi_pr, vpg_name, vpg_uuid)
+                if not ok:
+                    return ok, result
+                attr_dict, _alloc_dict = result
+                alloc_dealloc_dict['allocated_ae_id'].append(_alloc_dict)
+                msg = "Allocated AE-ID(%s) for PI(%s) at VPG(%s)/PR(%s)" % (
+                    attr_dict, pi_uuid, vpg_name, pi_pr)
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            else:
+                attr_dict = pi_ae
+
+            # re-allocate existing single PI if any
+            if (len(db_pi_dict.keys()) == 1 and len(create_pi_uuids) == 1):
+                db_pi_uuid = list(db_pi_dict.keys())[0]
+                if (list(db_pi_dict.values())[0] !=
+                        curr_pi_dict.get(create_pi_uuids[0])):
+                    # allocate a new ae-id as it belongs to different PR
+                    db_pr = list(db_pi_dict.values())[0]
+                    ok, result = cls._alloc_ae_id(db_pr, vpg_name, vpg_uuid)
+                    if not ok:
+                        return ok, result
+                    attr_dict_leftover_pi, _alloc_dict = result
+                    alloc_dealloc_dict['allocated_ae_id'].append(_alloc_dict)
+
+                    def undo_append_alloc_dict():
+                        try:
+                            alloc_dealloc_dict['allocated_ae_id'].remove(
+                                _alloc_dict)
+                        except ValueError:
+                            pass
+                    get_context().push_undo(undo_append_alloc_dict)
+                    msg = ("Allocated AE-ID(%s) for PI(%s) at "
+                           "VPG(%s)/PR(%s)" % (
+                               attr_dict_leftover_pi, db_pi_uuid,
+                               vpg_name, db_pr))
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                    attr_to_publish = alloc_dealloc_dict
+                else:
+                    attr_dict_leftover_pi = attr_dict
+                    msg = "Re-using AE-ID(%s) for PI(%s) at VPG(%s)/PR(%s)" % (
+                        attr_dict_leftover_pi, db_pi_uuid, vpg_name, pi_pr)
+                    cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                    attr_to_publish = None
+                (ok, result) = cls.db_conn.ref_update(
+                    'virtual_port_group',
+                    vpg_uuid,
+                    'physical_interface',
+                    db_pi_uuid,
+                    {'attr': attr_dict_leftover_pi},
+                    'ADD',
+                    db_obj_dict.get('id_perms'),
+                    attr_to_publish=attr_to_publish,
+                    relax_ref_for_delete=True)
+                if not ok:
+                    return ok, result
+
+                def undo_ref_update():
+                    return cls.db_conn.ref_update(
+                        'virtual_port_group',
+                        vpg_uuid,
+                        'physical_interface',
+                        db_pi_uuid,
+                        {'attr': None},
+                        'ADD',
+                        db_obj_dict.get('id_perms'),
+                        attr_to_publish=attr_to_publish,
+                        relax_ref_for_delete=True)
+                get_context().push_undo(undo_ref_update)
+                msg = "Updated AE-ID(%s) in PI(%s) ref to VPG(%s)" % (
+                    attr_dict_leftover_pi, db_pi_uuid, vpg_name)
+                cls.db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+        # deallocate case
+        _in_dealloc_list = []
+        for pi_uuid in delete_pi_uuids:
+            pi_pr = db_pi_dict.get(pi_uuid)
+            pi_ae = db_pr_dict.get(pi_pr)
+            db_pi_prs = list(db_pi_dict.values()).count(pi_pr)
+            # PR/VPG is already considered for deallocation, so no need
+            # to dealloc again
+            if '%s:%s' % (pi_pr, vpg_name) in _in_dealloc_list:
+                continue
+            if (pi_ae is not None and (db_pi_prs < 2 or
+               len(delete_pi_uuids) > 1)):
+                ae_id = pi_ae.get('ae_num')
+                # de-allocation moved to post_dbe_update
+                _dealloc_dict = {
+                    'ae_id': ae_id,
+                    'prouter_name': pi_pr,
+                    'vpg_uuid': vpg_uuid,
+                    'vpg_name': vpg_name}
+                alloc_dealloc_dict['deallocated_ae_id'].append(_dealloc_dict)
+
+                def undo_add_dealloc_dict():
+                    alloc_dealloc_dict['deallocated_ae_id'].remove(
+                        _dealloc_dict)
+                get_context().push_undo(undo_add_dealloc_dict)
+                # record deallocated pr/vpg
+                _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
+
+        # de-allocate leftover single PI, if any
+        # in delete case, whatever comes in curr_pi_dict are the
+        # leftovers because for delete refs, ref to be deleted
+        # will not be coming in payload
+        if (len(curr_pi_dict.keys()) == 1 and
+                len(db_pi_dict.keys()) == len(delete_pi_uuids) + 1):
+            pi_uuid = list(curr_pi_dict.keys())[0]
+            pi_pr = curr_pi_dict.get(pi_uuid)
+            pi_ae = curr_pr_dict.get(pi_pr)
+            if '%s:%s' % (pi_pr, vpg_name) not in _in_dealloc_list:
+                if pi_ae is not None:
+                    ae_id = pi_ae.get('ae_num')
+                    # de-allocation moved to post_dbe_update
+                    _dealloc_dict = {
+                        'ae_id': ae_id,
+                        'prouter_name': pi_pr,
+                        'vpg_uuid': vpg_uuid,
+                        'vpg_name': vpg_name}
+                    alloc_dealloc_dict['deallocated_ae_id'].append(
+                        _dealloc_dict)
+
+                    def undo_add_dealloc_dict():
+                        alloc_dealloc_dict['deallocated_ae_id'].remove(
+                            _dealloc_dict)
+                    get_context().push_undo(undo_add_dealloc_dict)
+                    # record deallocated pr/vpg
+                    _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
+            # TO-DO Add undo pi-ref for leftover pi
+            # remove PI ref from VPG
+            (ok, result) = cls.db_conn.ref_update(
+                'virtual_port_group',
+                vpg_uuid,
+                'physical_interface',
+                pi_uuid,
+                {'attr': None},
+                'ADD',
+                db_obj_dict.get('id_perms'),
+                relax_ref_for_delete=True)
+            if not ok:
+                return ok, result
+
+            def undo_ae_dealloc_from_pi():
+                attr_obj = VpgInterfaceParametersType(_dealloc_dict['ae_id'])
+                (ok, result) = cls.db_conn.ref_update(
+                    'virtual_port_group',
+                    vpg_uuid,
+                    'physical_interface',
+                    pi_uuid,
+                    {'attr': attr_obj},
+                    'ADD',
+                    db_obj_dict.get('id_perms'),
+                    relax_ref_for_delete=True)
+            get_context().push_undo(undo_ae_dealloc_from_pi)
+        return True, (attr_dict, alloc_dealloc_dict)
+
+    @classmethod
+>>>>>>> CHANGE (771930 Add undo logic for ref_update)
     def update_physical_intf_type(cls, obj_dict=None,
                                   old_obj_dict=None):
         api_server = cls.server
