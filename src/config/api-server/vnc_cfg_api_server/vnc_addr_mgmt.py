@@ -852,6 +852,8 @@ class AddrMgmt(object):
                             subnet_obj._exclude.append(IPAddress(new_dns_addr))
                             subnet_obj.ip_reserve(new_dns_addr, 'dns_server')
                         subnet_obj.dns_server_address = IPAddress(new_dns_addr)
+                # update local subnet_obj with data from notify
+                subnet_obj.subscriber_tag = ipam_subnet.get('subscriber_tag')
 
             except KeyError:
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
