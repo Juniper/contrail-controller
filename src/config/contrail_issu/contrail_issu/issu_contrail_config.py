@@ -5,26 +5,29 @@
 
 import sys
 if sys.version_info[0] < 3:
-    reload(sys)
+    reload(sys) # noqa
     sys.setdefaultencoding('UTF8')
-import requests
 from six.moves import configparser
+from six import string_types
 import argparse
 import logging
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
+
 def _myprint(x, level):
     prefix = SandeshLevel._VALUES_TO_NAMES[level] + " "
     logging.info(prefix + str(x))
+
 
 def lognprint(x, level):
     print(x)
     prefix = SandeshLevel._VALUES_TO_NAMES[level] + " "
     logging.info(prefix + str(x))
 
+
 logger = _myprint
 
-#Apps register respective translation functions and import paths
+# Apps register respective translation functions and import paths
 
 issu_keyspace_config_db_uuid = {
     'config_db_uuid': [
@@ -125,8 +128,9 @@ def parse_args(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     conf_parser = argparse.ArgumentParser(add_help=False)
-    conf_parser.add_argument("-c", "--conf_file", action='append',
-            help="Specify config file", metavar="FILE")
+    conf_parser.add_argument(
+        "-c", "--conf_file", action='append',
+        help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
     if args.conf_file:
         config = configparser.SafeConfigParser()
@@ -271,11 +275,11 @@ def parse_args(args_str=None):
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     if args.conf_file:
         args_obj.config_sections = config
-    if isinstance(args_obj.old_cassandra_address_list, basestring):
-        args_obj.old_cassandra_address_list=\
+    if isinstance(args_obj.old_cassandra_address_list, string_types):
+        args_obj.old_cassandra_address_list =\
             args_obj.old_cassandra_address_list.split()
-    if isinstance(args_obj.new_cassandra_address_list, basestring):
-        args_obj.new_cassandra_address_list=\
+    if isinstance(args_obj.new_cassandra_address_list, string_types):
+        args_obj.new_cassandra_address_list =\
             args_obj.new_cassandra_address_list.split()
     args_obj.old_rabbit_use_ssl = (str(args_obj.old_rabbit_use_ssl).lower() == 'true')
     args_obj.new_rabbit_use_ssl = (str(args_obj.new_rabbit_use_ssl).lower() == 'true')
@@ -285,6 +289,7 @@ def parse_args(args_str=None):
     args_obj.new_cassandra_use_ssl = (str(args_obj.new_cassandra_use_ssl).lower() == 'true')
 
     return args_obj, remaining_argv
+
 
 if __name__ == '__main__':
     parse_args()
