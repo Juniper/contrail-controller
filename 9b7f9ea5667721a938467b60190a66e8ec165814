@@ -373,6 +373,23 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec4a643b_b8b73b7a",
+        "filename": "src/config/common/cfgm_common/zkclient.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 615,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-08T01:17:25Z",
+      "side": 1,
+      "message": "why do we need to support default value for update_node?\nif some one is using update_node api, it means they have a value to update.\n\nSo make value a mandatory argument in update_node api",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
