@@ -14,10 +14,12 @@ from unittest import skip
 
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import NoIdError
+from cfgm_common.tests import test_common
 from cfgm_common.zkclient import ZookeeperLock
 import gevent
 import mock
 from testtools import ExpectedException
+from vnc_api.exceptions import HttpError as vnc_api_HttpError
 from vnc_api.gen.resource_xsd import KeyValuePair
 from vnc_api.gen.resource_xsd import KeyValuePairs
 from vnc_api.vnc_api import Fabric
@@ -30,6 +32,7 @@ from vnc_api.vnc_api import VirtualNetwork
 from vnc_api.vnc_api import VirtualPortGroup
 
 from vnc_cfg_api_server.tests import test_case
+from vnc_cfg_api_server.vnc_db import VncDbClient
 
 logger = logging.getLogger(__name__)
 
@@ -6312,3 +6315,251 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
             # deleting PIs
             vpg_infos[vpg_obj] = ([], [ref['uuid'] for ref in pi_refs[:-1]])
         _attach_pi_simultaneously_and_verify(vpg_infos, 0)
+
+    # CEM-17432
+    def test_ae_id_alloc_dealloc_for_mock_ref_update(self):
+        proj_obj, fabric_obj, pr_objs = self._create_prerequisites(
+            create_second_pr=True)
+        test_id = self.id()
+        VPG_CLASS = self._api_server.get_resource_class('virtual-port-group')
+        # org_process_ae_id = VPG_CLASS._process_ae_id
+
+        def process_ae_ids(x):
+            return [int(i) for i in sorted(x)]
+
+        def get_zk_ae_ids(prs=None):
+            prefix = os.path.join(
+                self.__class__.__name__,
+                'id', 'aggregated-ethernet')
+            zk_client = self._api_server._db_conn._zk_db._zk_client._zk_client
+            if not prs:
+                prs = [os.path.join(prefix, pr.name) for pr in pr_objs]
+            else:
+                if not isinstance(prs, list):
+                    prs = [prs]
+                prs = [os.path.join(prefix, pr) for pr in prs]
+            ae_ids = {}
+            for pr in prs:
+                pr_org = os.path.split(pr)[-1]
+                ae_ids[pr_org] = zk_client.get_children(pr)
+            return ae_ids
+
+        pi_per_pr = 4
+        pi_objs = {}
+        pr1_pi_names = ['%s_pr1_pi%d' % (test_id, i) for
+                        i in range(1, pi_per_pr + 1)]
+        pr2_pi_names = ['%s_pr2_pi%d' % (test_id, i) for
+                        i in range(1, pi_per_pr + 1)]
+        pr1_pi_objs = self._create_pi_objects(pr_objs[0], pr1_pi_names)
+        pr2_pi_objs = self._create_pi_objects(pr_objs[1], pr2_pi_names)
+        pi_objs.update(pr1_pi_objs)
+        pi_objs.update(pr2_pi_objs)
+
+        # create one VPG
+        vpg_count = 1
+        vpg_names = ['vpg_%s_%s' % (test_id, i) for i in range(
+                     1, vpg_count + 1)]
+        vpg_objs = self._create_vpgs(fabric_obj, vpg_names)
+
+        # record AE-IDs in ZK before creating any VPG
+        ae_ids = [x for x in get_zk_ae_ids().values() if x]
+        self.assertEqual(len(ae_ids), 0)
+
+        # Case 1
+        # Attach PI-1/PR-1 to VPG-1
+        ae_ids = {}
+        vpg_name = vpg_names[0]
+        vpg_obj = vpg_objs[vpg_name]
+        for pi in range(1):
+            vpg_obj.add_physical_interface(pi_objs[pr1_pi_names[pi]])
+        self.api.virtual_port_group_update(vpg_obj)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        pi_refs = vpg_obj.get_physical_interface_refs()
+        ae_ids[vpg_name] = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                            for ref in pi_refs}
+        # verify PI-refs are correct
+        self.assertEqual(len(pi_refs), 1)
+        # verify No AE-Id is allocated
+        self.assertEqual(len(set(ae_ids[vpg_name].keys())), len(pi_refs))
+        self.assertIsNone(list(ae_ids[vpg_name].values())[0])
+
+        # verification at Physical Routers
+        pr_ae_ids = get_zk_ae_ids()
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 0)
+
+        # Case 2
+        # Attach PI-2/PR-1 to VPG-1
+        class MockVpg(VPG_CLASS):
+            org_process_ae_id = VPG_CLASS._process_ae_id
+            @classmethod
+            def mock_process_ae_id(cls, db_obj_dict, vpg_name, obj_dict=None):
+                def mock_ref_update_exc(*args, **kwargs):
+                    raise Exception(
+                        "Fake ref update exception while adding PI")
+                with test_common.patch(VncDbClient,
+                                       'ref_update', mock_ref_update_exc):
+                    return cls.org_process_ae_id(db_obj_dict,
+                                                 vpg_name, obj_dict)
+
+        # Mock ref_update (inside _process_ae_id) and attach PI-3/PR-1 to VPG-1
+        def mock_ref_update_fail(*args, **kwargs):
+            raise Exception("Fake ref update in stateful_update")
+
+        def _attach_pi_sequentially(vpg_obj, pi_uuids):
+            # Attach PIs from PR1 to VPG-1
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+            # mock _process_ae_id at VPG resource
+            VPG_CLASS = self._api_server.get_resource_class(
+                'virtual-port-group')
+            org_process_ae_id = VPG_CLASS._process_ae_id
+            try:
+                VPG_CLASS._process_ae_id = MockVpg.mock_process_ae_id
+                with ExpectedException(vnc_api_HttpError):
+                    for pi_uuid in pi_uuids:
+                        self.api.ref_update(
+                            "virtual-port-group",
+                            vpg_obj.uuid,
+                            "physical-interface",
+                            pi_uuid,
+                            None,
+                            "ADD",
+                            None)
+            finally:
+                VPG_CLASS._process_ae_id = org_process_ae_id
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+            pi_refs = vpg_obj.get_physical_interface_refs()
+            return vpg_obj, pi_refs
+
+        # verify PI-refs are correct
+        ae_ids = {}
+        vpg_name = vpg_names[0]
+        vpg_obj = vpg_objs[vpg_name]
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        pi_uuids = [pi_objs[pr1_pi_names[pi]].uuid for pi in range(1, 2)]
+        vpg_obj, pi_refs = _attach_pi_sequentially(vpg_obj, pi_uuids)
+        # verify PI-refs are correct
+        ae_ids[vpg_name] = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                            for ref in pi_refs}
+        # verify PI-refs are correct
+        self.assertEqual(len(pi_refs), 1)
+        # verify No AE-Id is allocated
+        self.assertEqual(len(set(ae_ids[vpg_name].keys())), len(pi_refs))
+        self.assertIsNone(list(ae_ids[vpg_name].values())[0])
+
+        # verification at Physical Routers
+        pr_ae_ids = get_zk_ae_ids()
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 0)
+
+        # Case 3
+        # without mocks, add PI-2/PR-1
+        ae_ids = {}
+        vpg_name = vpg_names[0]
+        vpg_obj = vpg_objs[vpg_name]
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        for pi in range(1, 2):
+            vpg_obj.add_physical_interface(pr1_pi_objs[pr1_pi_names[pi]])
+        self.api.virtual_port_group_update(vpg_obj)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        pi_refs = vpg_obj.get_physical_interface_refs()
+        ae_ids[vpg_name] = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                            for ref in pi_refs}
+        # verify PI-refs are correct
+        self.assertEqual(len(pi_refs), 2)
+        # verify all AE-IDs allocated per prouter are unique
+        self.assertEqual(len(set(ae_ids[vpg_name].keys())), len(pi_refs))
+        self.assertEqual(len(set(ae_ids[vpg_name].values())), 1)
+        self.assertEqual(process_ae_ids(ae_ids[vpg_name].values()), [0, 0])
+
+        # verification at Physical Routers
+        pr_ae_ids = get_zk_ae_ids()
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 1)
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[0].name]), [0])
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[1].name]), [])
+
+        # Case 4
+        # Now attach PI-3/PR-1 to VPG-1
+        def _attach_pi_sequentially(vpg_obj, pi_uuids):
+            # Attach PIs from PR1 to VPG-1
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+            # mock _process_ae_id at VPG resource
+            with test_common.patch(VncDbClient,
+                                   'ref_update', mock_ref_update_fail):
+                with ExpectedException(vnc_api_HttpError):
+                    for pi_uuid in pi_uuids:
+                        self.api.ref_update(
+                            "virtual-port-group",
+                            vpg_obj.uuid,
+                            "physical-interface",
+                            pi_uuid,
+                            None,
+                            "ADD",
+                            None)
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+            pi_refs = vpg_obj.get_physical_interface_refs()
+            return vpg_obj, pi_refs
+
+        ae_ids = {}
+        vpg_name = vpg_names[0]
+        vpg_obj = vpg_objs[vpg_name]
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        pi_uuids = [pi_objs[pr1_pi_names[pi]].uuid for pi in range(2, 3)]
+        vpg_obj, pi_refs = _attach_pi_sequentially(vpg_obj, pi_uuids)
+        # verify PI-refs are correct
+        ae_ids[vpg_name] = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                            for ref in pi_refs}
+        # verify PI-refs are correct
+        self.assertEqual(len(pi_refs), 2)
+        # verify No AE-Id is allocated
+        self.assertEqual(len(set(ae_ids[vpg_name].keys())), len(pi_refs))
+        self.assertEqual(len(set(ae_ids[vpg_name].values())), 1)
+        self.assertEqual(process_ae_ids(ae_ids[vpg_name].values()), [0, 0])
+
+        # verification at Physical Routers
+        pr_ae_ids = get_zk_ae_ids()
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 1)
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[0].name]), [0])
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[1].name]), [])
+
+        # Case 5
+        # Now attach PI-1/PR-2 to VPG-1
+        # verify PI-refs are correct
+        def _attach_pi_sequentially(vpg_obj, pi_uuids):
+            # Attach PIs from PR1 to VPG-1
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+            # mock _process_ae_id at VPG resource
+            with test_common.patch(VncDbClient,
+                                   'ref_update', mock_ref_update_fail):
+                with ExpectedException(vnc_api_HttpError):
+                    for pi_uuid in pi_uuids:
+                        self.api.ref_update(
+                            "virtual-port-group",
+                            vpg_obj.uuid,
+                            "physical-interface",
+                            pi_uuid,
+                            None,
+                            "ADD",
+                            None)
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+            pi_refs = vpg_obj.get_physical_interface_refs()
+            return vpg_obj, pi_refs
+
+        ae_ids = {}
+        vpg_name = vpg_names[0]
+        vpg_obj = vpg_objs[vpg_name]
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        pi_uuids = [pi_objs[pr2_pi_names[pi]].uuid for pi in range(0, 1)]
+        vpg_obj, pi_refs = _attach_pi_sequentially(vpg_obj, pi_uuids)
+        # verify PI-refs are correct
+        self.assertEqual(len(pi_refs), 2)
+        ae_ids[vpg_name] = {ref['href'].split('/')[-1]: ref['attr'].ae_num
+                            for ref in pi_refs}
+        # verify all AE-IDs allocated per prouter are unique
+        self.assertEqual(len(set(ae_ids[vpg_name].keys())), len(pi_refs))
+        self.assertEqual(len(set(ae_ids[vpg_name].values())), 1)
+        self.assertEqual(process_ae_ids(ae_ids[vpg_name].values()), [0, 0])
+
+        # verification at Physical Routers
+        pr_ae_ids = get_zk_ae_ids()
+        self.assertEqual(len(pr_ae_ids[pr_objs[0].name]), 1)
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[0].name]), [0])
+        self.assertEqual(process_ae_ids(pr_ae_ids[pr_objs[1].name]), [])
