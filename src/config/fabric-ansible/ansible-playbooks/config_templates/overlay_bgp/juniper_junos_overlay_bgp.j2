@@ -69,6 +69,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-det
 {%                   set mode='unicast' %}
 {%             elif family == 'evpn' %}
 {%                   set mode='signaling' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} import REJECT-MAINTENANCE-MODE
 {%             else %}
 {%                   set mode='' %}
 {%             endif %}
