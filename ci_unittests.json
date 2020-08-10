@@ -56,6 +56,15 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "neutron-plugin" : {
+        "source_directories" : [
+            "openstack/neutron_plugin"
+        ],
+        "scons_test_targets" : [
+            "openstack/neutron_plugin:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-api-client" : {
         "source_directories" : [
             "src/contrail-api-client/api-lib",
