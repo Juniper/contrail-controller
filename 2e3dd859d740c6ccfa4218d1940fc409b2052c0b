@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1bef0eff_bf8b16d1",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 247,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-10T08:48:06Z",
+      "side": 1,
+      "message": "link_exception method passes Greenlet instance as argument to the callback.\nSo instead of *args I would define one argument \"glet\", and then we can read exception message from it.\n\nsys.exit(\"fatal error: %s\" % glet.exception)\n\nDocs: \nhttp://www.gevent.org/api/gevent.greenlet.html#gevent.Greenlet.link_exception\nhttp://www.gevent.org/api/gevent.greenlet.html#gevent.Greenlet.exception",
+      "range": {
+        "startLine": 247,
+        "startChar": 19,
+        "endLine": 247,
+        "endChar": 25
+      },
+      "revId": "2e3dd859d740c6ccfa4218d1940fc409b2052c0b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
