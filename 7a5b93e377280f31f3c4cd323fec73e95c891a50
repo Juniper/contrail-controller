@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e27895b2_c7d2d57d",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/import_chassis_info/templates/juniper.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-10T16:54:03Z",
+      "side": 1,
+      "message": "Do we need an endif clause here ?",
+      "revId": "7a5b93e377280f31f3c4cd323fec73e95c891a50",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
