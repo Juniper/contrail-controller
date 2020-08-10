@@ -22,6 +22,30 @@
       "revId": "2e3dd859d740c6ccfa4218d1940fc409b2052c0b",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5019ceea_2a6226d0",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 247,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-10T10:00:40Z",
+      "side": 1,
+      "message": "Yes that makes sense. Thank you Pawel I will update the code shortly.",
+      "parentUuid": "1bef0eff_bf8b16d1",
+      "range": {
+        "startLine": 247,
+        "startChar": 19,
+        "endLine": 247,
+        "endChar": 25
+      },
+      "revId": "2e3dd859d740c6ccfa4218d1940fc409b2052c0b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
