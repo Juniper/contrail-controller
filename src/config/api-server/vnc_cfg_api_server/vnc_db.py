@@ -1841,8 +1841,6 @@ class VncDbClient(object):
                 if not new_perms2:
                     return (ok, result)
 
-                share_perms = new_perms2.get('share',
-                                             cur_perms2.get('share') or [])
                 global_access = new_perms2.get('global_access',
                                                cur_perms2.get('global_access',
                                                               0))
@@ -1863,7 +1861,7 @@ class VncDbClient(object):
                     for item in cur_perms2.get('share') or [])
                 new_shared_list = set(
                     item['tenant'] + ':' + str(item['tenant_access'])
-                    for item in share_perms or [])
+                    for item in new_perms2.get('share') or [])
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
@@ -1978,6 +1976,8 @@ class VncDbClient(object):
         if domain_id:
             domain_id = str(uuid.UUID(domain_id))
         project_id = env.get('HTTP_X_PROJECT_ID')
+        if not project_id and 'parent_id' in get_request().query:
+            project_id = get_request().query.parent_id
         if project_id:
             project_id = str(uuid.UUID(project_id))
         return domain_id, project_id
