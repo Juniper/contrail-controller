@@ -171,7 +171,7 @@ class FilterModule(object):
 
             self.vncapi.physical_router_update(device_obj)
 
-            ip_tbl.update({device_uuid: {'dynamic_mgmt_ip': mgmt_ip}})
+            ip_tbl.update({device_uuid: {'dynamic_mgmt_ip': mgmt_ip,'device_serial_number': new_serial_number}})
 
         rma_device_info = {
             'device_info': device_info,
