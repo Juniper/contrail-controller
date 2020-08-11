@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "313b77bb_a2e6c6f7",
+        "filename": "src/config/api-server/tests/test_crud_basic.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-11T17:09:15Z",
+      "side": 1,
+      "message": "hi.. looks like there is rebase issue.",
+      "revId": "dd883ec3970a347c85cd1e0d0070a54281911754",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
