@@ -252,28 +252,6 @@ class AnsibleRoleCommon(AnsibleConf):
         if fip_map is not None:
             self.add_ref_to_list(ri.get_interfaces(), interfaces[0].name)
 
-            public_vrf_ips = {}
-            for pip in list(fip_map.values()):
-                if pip["vrf_name"] not in public_vrf_ips:
-                    public_vrf_ips[pip["vrf_name"]] = set()
-                public_vrf_ips[pip["vrf_name"]].add(pip["floating_ip"])
-
-            for public_vrf, fips in list(public_vrf_ips.items()):
-                ri_public = RoutingInstance(name=public_vrf)
-                self.ri_map[public_vrf] = ri_public
-                self.add_ref_to_list(ri_public.get_interfaces(), interfaces[1].name)
-                floating_ips = []
-                for fip in fips:
-                    ri_public.add_static_routes(
-                        Route(prefix=fip,
-                              prefix_len=32,
-                              next_hop=interfaces[1].name,
-                              comment=DMUtils.fip_egress_comment()))
-                    floating_ips.append(FloatingIpMap(floating_ip=fip + "/32"))
-                ri_public.add_floating_ip_list(FloatingIpList(
-                    public_routing_instance=public_vrf,
-                    floating_ips=floating_ips))
-
         # add firewall config for public VRF
         if router_external and is_l2 is False:
             self.firewall_config = self.firewall_config or Firewall(
