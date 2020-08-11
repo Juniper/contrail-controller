@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "139f99a1_22fd8652",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_crud_basic.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 4900,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-11T22:54:16Z",
+      "side": 1,
+      "message": "len(self.logs) has to be validated for each API run\nalso \nmake self.logs \u003d [] so we\u0027ll know every API works as expected.",
+      "revId": "07411e9a392de3d5ab831b228da844e4ad6a9668",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
