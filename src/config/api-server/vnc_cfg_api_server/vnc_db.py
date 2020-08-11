@@ -1841,8 +1841,6 @@ class VncDbClient(object):
                 if not new_perms2:
                     return (ok, result)
 
-                share_perms = new_perms2.get('share',
-                                             cur_perms2.get('share') or [])
                 global_access = new_perms2.get('global_access',
                                                cur_perms2.get('global_access',
                                                               0))
@@ -1863,7 +1861,7 @@ class VncDbClient(object):
                     for item in cur_perms2.get('share') or [])
                 new_shared_list = set(
                     item['tenant'] + ':' + str(item['tenant_access'])
-                    for item in share_perms or [])
+                    for item in new_perms2.get('share') or [])
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
@@ -1979,8 +1977,19 @@ class VncDbClient(object):
             domain_id = str(uuid.UUID(domain_id))
         project_id = env.get('HTTP_X_PROJECT_ID')
         if project_id:
-            project_id = str(uuid.UUID(project_id))
-        return domain_id, project_id
+            # if project_id exists in env return
+            return domain_id, [str(uuid.UUID(project_id))]
+        elif not project_id and 'parent_id' in get_request().query:
+            # if project_id doesn't exist in env but parent_id exists
+            # in query use it instead.
+            # parent_id may be a coma-separated list of uuids
+            project_ids = [str(uuid.UUID(p_id))
+                for p_id in get_request().query.parent_id.split(',')]
+            return domain_id, project_ids
+        else:
+            # if project_id and parent_id don't exist return domain
+            # and list with None as project_id to fetch globally shared objs
+            return domain_id, [None]
 
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
@@ -1990,8 +1999,12 @@ class VncDbClient(object):
         def collect_shared(owned_fq_name_uuids=None, start=None, count=None):
             shared_result = []
             # include objects shared with tenant
-            domain_id, project_id = self._owner_id()
-            shares = self.get_shared_objects(obj_type, project_id, domain_id)
+            domain_id, project_ids = self._owner_id()
+            shares = []
+            for project_id in project_ids:
+                shares.extend(self.get_shared_objects(obj_type,
+                                                      project_id,
+                                                      domain_id))
             if start is not None:
                 # pick only ones greater than marker
                 shares = sorted(shares, key=lambda uuid_perm: uuid_perm[0])
