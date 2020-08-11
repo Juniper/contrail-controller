@@ -71,7 +71,7 @@
   block:
     - name: Construct leased PR fq name
       set_fact:
-        prouter_fq_name: ["default-global-system-config", "{{prouter_dynamic_ip}}"]
+        prouter_fq_name: ["default-global-system-config", "{{prouter_serial_num}}"]
 
     - name: Fq_name to id for pr
       vnc_db_mod:
