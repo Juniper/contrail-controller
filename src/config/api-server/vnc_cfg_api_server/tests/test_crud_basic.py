@@ -4877,27 +4877,41 @@ class TestVncLatencyStats(test_case.ApiServerTestCase):
     def test_latency_stats(self):
         from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStatsLog
 
-        def _crud_exec(factor):
+        def _crud_exec(logs_enabled):
             with test_common.patch(
                     VncApiLatencyStatsLog,
                     'send', self.mock_send):
                 obj = VirtualNetwork('%s-vn' % (self.id()))
                 self._vnc_lib.virtual_network_create(obj)
-                self.assertEquals(len(self.logs), 59 * factor)
+                if logs_enabled is True:
+                    self.assertTrue(len(self.logs) is not 0)
+                else:
+                    self.assertEquals(len(self.logs), 0)
+                self.logs = []
                 self._vnc_lib.virtual_network_read(id=obj.uuid)
-                self.assertEquals(len(self.logs), 63 * factor)
+                if logs_enabled is True:
+                    self.assertTrue(len(self.logs) is not 0)
+                else:
+                    self.assertEquals(len(self.logs), 0)
+                self.logs = []
                 obj.display_name = 'foo'
                 self._vnc_lib.virtual_network_update(obj)
-                self.assertEquals(len(self.logs), 105 * factor)
+                if logs_enabled is True:
+                    self.assertTrue(len(self.logs) is not 0)
+                else:
+                    self.assertEquals(len(self.logs), 0)
+                self.logs = []
                 self._vnc_lib.virtual_network_delete(id=obj.uuid)
-                self.assertEquals(len(self.logs), 154 * factor)
-
+                if logs_enabled is True:
+                    self.assertTrue(len(self.logs) is not 0)
+                else:
+                    self.assertEquals(len(self.logs), 0)
         self._api_server.enable_latency_stats_log = False
         # try all crud operations
-        _crud_exec(factor=0)
+        _crud_exec(False)
         # Now enable api server logging and logs will be sent
         self._api_server.enable_latency_stats_log = True
-        _crud_exec(factor=1)
+        _crud_exec(True)
     # end test_response_code_on_exception
 
 class TestDbJsonExim(test_case.ApiServerTestCase):
