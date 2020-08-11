@@ -1220,6 +1220,17 @@ class DBInterface(object):
         return net_list
     # end _network_list_filter
 
+    def _network_list_perms_shared(self, tenant_id):
+        all_networks = self._virtual_network_list(detail=True)
+
+        net_list = []
+        for network in all_networks:
+            if self._shared_with_tenant({'tenant': tenant_id},
+                                        network.perms2.share):
+                net_list.append(network)
+        return net_list
+    # end _network_list_perms_shared
+
     # find networks of floating ip pools project has access to
     def _fip_pool_ref_networks(self, project_id):
         ret_net_objs = self._network_list_filter(shared=True)
@@ -3549,6 +3560,7 @@ class DBInterface(object):
         # collect phase
         all_net_objs = []  # all n/ws in all projects
         if context and not context['is_admin']:
+            project_uuid = str(uuid.UUID(context['tenant']))
             if filters and 'id' in filters:
                 _collect_without_prune(filters['id'])
             elif filters and 'name' in filters:
@@ -3567,19 +3579,18 @@ class DBInterface(object):
                     router_external = filters['router:external'][0]
                 if 'shared' in filters and filters['shared'] is True:
                     shared = filters['shared'][0]
-                elif 'shared' in filters and filters['shared'] == False:
-                    project_uuid = str(uuid.UUID(context['tenant']))
+                elif 'shared' in filters and filters['shared'] is False:
                     all_net_objs.extend(
                         self._network_list_project(project_uuid))
                 all_net_objs.extend(self._network_list_filter(
                                     shared, router_external))
             else:
-                project_uuid = str(uuid.UUID(context['tenant']))
                 if not filters:
                     all_net_objs.extend(self._network_list_filter(
                         router_external=True))
                     all_net_objs.extend(self._network_list_filter(shared=True))
                 all_net_objs.extend(self._network_list_project(project_uuid))
+            all_net_objs.extend(self._network_list_perms_shared(project_uuid))
         # admin role from here on
         elif filters and 'tenant_id' in filters:
             # project-id is present
@@ -3595,6 +3606,9 @@ class DBInterface(object):
                 if 'router:external' in filters:
                     all_net_objs.extend(self._network_list_filter(
                         router_external=filters['router:external'][0]))
+            # read all perms shared networks for tenant_id
+            for tenant_id in filters['tenant_id']:
+                all_net_objs.extend(self._network_list_perms_shared(tenant_id))
         elif filters and 'id' in filters:
             # required networks are specified, just read and populate ret_dict
             # prune is skipped because all_net_objs is empty
