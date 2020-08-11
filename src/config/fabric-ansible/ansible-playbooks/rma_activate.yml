@@ -34,6 +34,18 @@
           set_fact:
              device_to_ztp: "{{ job_ctx | rma_devices_to_ztp(rma_devices) }}"
 
+        - name: Fetch the job_input from job_ctx
+          set_fact:
+            job_input: "{{ job_ctx.job_input}}"
+
+        - name: Add to job_input
+          set_fact:
+            job_input: "{{job_input|combine({'device_to_ztp': device_to_ztp})}}"
+
+        - name: Update job input to contain the device_to_ztp
+          set_fact:
+            job_ctx: "{{job_ctx|combine({'job_input':job_input})}}"
+
         - name: Set fabric_uuid
           set_fact:
             fabric_uuid: "{{fabric_obj.obj.uuid}}"
@@ -99,5 +111,3 @@
           vars:
             op_err_message: "Failed to RMA greenfield devices"
             jl_err_message: "Failed to RMA greenfield devices"
-
-
