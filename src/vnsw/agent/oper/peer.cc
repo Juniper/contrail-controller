@@ -108,6 +108,7 @@ BgpPeer::BgpPeer(AgentXmppChannel *channel, const Ip4Address &server_ip,
     delete_stale_walker_cb_(NULL) {
         AllocPeerNotifyWalker();
         AllocDeleteStaleWalker();
+        AllocDeletePeerWalker();
         setup_time_ = UTCTimestampUsec();
 }
 
@@ -119,6 +120,7 @@ BgpPeer::~BgpPeer() {
         agent->vrf_table()->Unregister(id_);
     }
     ReleaseDeleteStaleWalker();
+    ReleaseDeletePeerWalker();
     ReleasePeerNotifyWalker();
 }
 
@@ -185,16 +187,38 @@ void BgpPeer::ReleaseDeleteStaleWalker() {
     delete_stale_walker_.reset();
 }
 
+// Delete stale walker routines
+void BgpPeer::AllocDeletePeerWalker() {
+    if (!delete_peer_walker()) {
+        Agent *agent = channel_->agent();
+        delete_peer_walker_ = new ControllerRouteWalker(server_ip_.to_string(),
+                                                         this);
+        agent->oper_db()->agent_route_walk_manager()->
+            RegisterWalker(static_cast<AgentRouteWalker *>
+                           (delete_peer_walker_.get()));
+    }
+}
+
+void BgpPeer::ReleaseDeletePeerWalker() {
+    if (!delete_peer_walker()) {
+        return;
+    }
+
+    Agent *agent = Agent::GetInstance();
+    agent->oper_db()->agent_route_walk_manager()->
+        ReleaseWalker(delete_peer_walker());
+    delete_peer_walker_.reset();
+}
+
 void BgpPeer::DelPeerRoutes(WalkDoneCb walk_done_cb,
                             uint64_t sequence_number) {
     //Since peer is getting deleted no need of seperate walk to delete stale or
     //non stale paths.
     ReleaseDeleteStaleWalker();
-
-    route_walker_cb_ = walk_done_cb;
-    route_walker()->set_sequence_number(sequence_number);
-    route_walker()->Start(ControllerRouteWalker::DELPEER, false,
-                          route_walker_cb_);
+    delete_peer_walker_cb_ = walk_done_cb;
+    delete_peer_walker()->set_sequence_number(sequence_number);
+    delete_peer_walker()->Start(ControllerRouteWalker::DELPEER, false,
+                          delete_peer_walker_cb_);
 }
 
 void BgpPeer::DeleteStale() {
@@ -221,6 +245,10 @@ ControllerRouteWalker *BgpPeer::route_walker() const {
 
 ControllerRouteWalker *BgpPeer::delete_stale_walker() const {
     return static_cast<ControllerRouteWalker *>(delete_stale_walker_.get());
+}
+
+ControllerRouteWalker *BgpPeer::delete_peer_walker() const {
+    return static_cast<ControllerRouteWalker *>(delete_peer_walker_.get());
 }
 /*
  * Get the VRF state and unregister from all route table using
@@ -314,4 +342,7 @@ void BgpPeer::set_route_walker_cb(WalkDoneCb cb) {
 
 void BgpPeer::set_delete_stale_walker_cb(WalkDoneCb cb) {
     delete_stale_walker_cb_ = cb;
+}
+void BgpPeer::set_delete_peer_walker_cb(WalkDoneCb cb) {
+    delete_peer_walker_cb_ = cb;
 }
