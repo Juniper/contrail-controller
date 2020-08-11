@@ -178,10 +178,13 @@ public:
     void DeleteStale();
     void AllocDeleteStaleWalker();
     void ReleaseDeleteStaleWalker();
+    void AllocDeletePeerWalker();
+    void ReleaseDeletePeerWalker();
     void StopDeleteStale();
 
     ControllerRouteWalker *route_walker() const;
     ControllerRouteWalker *delete_stale_walker() const;
+    ControllerRouteWalker *delete_peer_walker() const;
 
     //Helper routines to get export state for vrf and route
     DBState *GetVrfExportState(DBTablePartBase *partition,
@@ -196,6 +199,7 @@ public:
     uint64_t ChannelSequenceNumber() const;
     void set_route_walker_cb(WalkDoneCb cb);
     void set_delete_stale_walker_cb(WalkDoneCb cb);
+    void set_delete_peer_walker_cb(WalkDoneCb cb);
 
 private:
     AgentXmppChannel *channel_;
@@ -203,9 +207,11 @@ private:
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
     AgentRouteWalkerPtr route_walker_;
+    AgentRouteWalkerPtr delete_peer_walker_;
     AgentRouteWalkerPtr delete_stale_walker_;
     WalkDoneCb route_walker_cb_;
     WalkDoneCb delete_stale_walker_cb_;
+    WalkDoneCb delete_peer_walker_cb_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 
