@@ -110,6 +110,7 @@ def parse_args(args_str):
         'tcp_keepalive_probes': 9,
         'enable_latency_stats_log': False,
         'enable_api_stats_log': False,
+        'watch_keepalive_interval': 60,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -325,6 +326,9 @@ def parse_args(args_str):
                                " will be enabled"))
     parser.add_argument("--enable-api-stats-log",
             help="If enabled then api statistics logs will be stored in Db")
+    parser.add_argument(
+        "--watch_keepalive_interval", type=int,
+        help="Interval in seconds after watch api will send keepalive message")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file

@@ -117,7 +117,9 @@ class TestWatchIntegration(test_case.ApiServerTestCase):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        super(TestWatchIntegration, cls).setUpClass(*args, **kwargs)
+        extra_config_knobs = [('DEFAULTS', 'watch_keepalive_interval', 2)]
+        super(TestWatchIntegration, cls).setUpClass(
+            extra_config_knobs=extra_config_knobs)
     # end setUpClass
 
     @classmethod
@@ -172,6 +174,27 @@ class TestWatchIntegration(test_case.ApiServerTestCase):
             logger.info("Request failed")
             self.assertFalse(False, greenlet.successful())
     # end test_watch
+
+    def test_watch_keepalive(self):
+        param = {
+            "resource_type":
+                "virtual_network,virtual_machine_interface"}
+        self.count = 0
+
+        def watch_client():
+            self.stream_response = requests.get(
+                self.url, params=param, stream=True)
+            client = sseclient.SSEClient(self.stream_response)
+            for event in client.events():
+                logger.info('%s: %s' % (event.event, event.data))
+                if event.data == '':
+                    self.count += 1
+
+        gevent.spawn(watch_client)
+        gevent.sleep(9)
+        self.assertThat(self.stream_response.status_code, Equals(200))
+        self.assertEqual(self.count, 4)
+    # end test_watch_keepalive
 # end TestWatchIntegration
 
 
