@@ -1165,24 +1165,24 @@ class FilterModule(object):
                 % (ipam_name, str(ex))
             )
             existing_ipam = vnc_api.network_ipam_read(fq_name=ipam_fq_name)
-            existing_ipam_subnets = existing_ipam.get_ipam_subnets()
-            subnet_list = existing_ipam_subnets.get_subnets()
-
-            new_ipam_subnet = [IpamSubnetType(
-                    subnet=FilterModule._new_subnet(sn.get('cidr')),
-                    default_gateway=sn.get('gateway'),
-                    subnet_uuid=str(uuid.uuid1())
-                )for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
-            ]
-            subnet_list.extend(new_ipam_subnet)
-            existing_ipam_subnets.set_subnets(subnet_list)
-            existing_ipam.set_ipam_subnets(existing_ipam_subnets)
-            try:
-                vnc_api.network_ipam_update(existing_ipam)
-            except Exception as ex:
-                errmsg = str(ex)
-                _task_log("Not updating IPAM '%s' due to these errors: %s" %(ipam_fq_name, errmsg))
-
+            if existing_ipam:
+                existing_ipam_subnets = existing_ipam.get_ipam_subnets()
+                if existing_ipam_subnets:
+                    subnet_list = existing_ipam_subnets.get_subnets()
+                    new_ipam_subnet = [IpamSubnetType(
+                            subnet=FilterModule._new_subnet(sn.get('cidr')),
+                            default_gateway=sn.get('gateway'),
+                            subnet_uuid=str(uuid.uuid1())
+                        )for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
+                    ]
+                    subnet_list.extend(new_ipam_subnet)
+                    existing_ipam_subnets.set_subnets(subnet_list)
+                    existing_ipam.set_ipam_subnets(existing_ipam_subnets)
+                    try:
+                        vnc_api.network_ipam_update(existing_ipam)
+                    except Exception as ex:
+                        errmsg = str(ex)
+                        _task_log("Not updating IPAM '%s' due to these errors: %s" %(ipam_fq_name, errmsg))
         _task_done()
         return vnc_api.network_ipam_read(fq_name=ipam_fq_name)
     # end _add_network_ipam
