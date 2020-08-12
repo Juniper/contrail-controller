@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a5f95fea_3ee1b08d",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-12T22:39:09Z",
+      "side": 1,
+      "message": "I suppose the existing code is checking if there is any exception at this point of time to quit early while this patch is adding the exception handler. \nmy feeling is that this patch is required but it cant replace the existing validation.",
+      "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
