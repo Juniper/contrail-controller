@@ -1797,14 +1797,14 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     if not disable_fabric_uniqueness_check:
                         zk_path = os.path.join(
                             api_server.fabric_validation_lock_prefix,
-                            'fabrics')
+                            'fabrics', fabric_uuid)
                         zk_lock_uuid = fabric_uuid
                     else:
                         # disable_fabric_uniqueness_check is disabled
                         # ZK lock at VPG is suffice
                         zk_path = os.path.join(
                             api_server.fabric_validation_lock_prefix,
-                            'fabrics', fabric_uuid, 'vpgs')
+                            'fabrics', fabric_uuid, 'vpgs', vpg_uuid)
                         zk_lock_uuid = vpg_uuid
                     zk_args = {
                         'zookeeper_client': db_conn._zk_db._zk_client,
