@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "a247a3d9_3bd0b5ee",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 4372,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "2b083a7c_fb95fa8e",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "68d96598_a3d2d82f",
         "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
         "patchSetId": 14
@@ -33,6 +51,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0a18021a_d09db378",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 4444,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "68d96598_a3d2d82f",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "cade2aed_fb2c70ae",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/application_policy_set.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 112,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d912fdc6_1e7e121c",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fcd76db3_65bffb0c",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/application_policy_set.py",
         "patchSetId": 14
@@ -67,6 +121,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4bb31ee4_3ec425d0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/application_policy_set.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 116,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fcd76db3_65bffb0c",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "a67846b4_bf4f8516",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 419,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7b356295_ca6bf398",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4da58bad_05c77d23",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/domain.py",
         "patchSetId": 14
@@ -101,6 +191,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e242682e_db241545",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/domain.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4da58bad_05c77d23",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -121,6 +229,24 @@
     },
     {
       "key": {
+        "uuid": "aeaac4b3_ee19accd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/firewall_policy.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d790fd5b_3f87794e",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bd822733_e908f755",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/forwarding_class.py",
         "patchSetId": 14
@@ -135,6 +261,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c664e09a_061ae81e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/forwarding_class.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bd822733_e908f755",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -155,6 +299,24 @@
     },
     {
       "key": {
+        "uuid": "66497b93_2f105e1e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 317,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "923bf74c_94e084af",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "09010d52_39c27fb0",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/logical_router.py",
         "patchSetId": 14
@@ -169,6 +331,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "edd956dc_c16725fd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/logical_router.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 384,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "09010d52_39c27fb0",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -189,6 +369,24 @@
     },
     {
       "key": {
+        "uuid": "88139242_450920ae",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/network_policy.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "644b3acd_c03aeb96",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f10cd943_efd89797",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/port_profile.py",
         "patchSetId": 14
@@ -203,6 +401,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "01a8d67e_cbf2407a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/port_profile.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f10cd943_efd89797",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -223,6 +439,24 @@
     },
     {
       "key": {
+        "uuid": "81771c6c_a7a569d9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/qos_config.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7acc83be_d591052a",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "356f70cf_63e571a5",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/route_aggregate.py",
         "patchSetId": 14
@@ -237,6 +471,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a9c7505f_5179c571",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/route_aggregate.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "356f70cf_63e571a5",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -257,6 +509,24 @@
     },
     {
       "key": {
+        "uuid": "4422a937_748e28e8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/route_table.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "da42b416_d81731a1",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "aeb712d8_ebf32d70",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_instance.py",
         "patchSetId": 14
@@ -271,6 +541,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a7f2c87c_43bf6d56",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/routing_instance.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "aeb712d8_ebf32d70",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -291,6 +579,24 @@
     },
     {
       "key": {
+        "uuid": "70b326a6_e19f7de3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/service_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "14f4a7eb_f89b59b5",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "88f65324_912050ec",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/sflow_profile.py",
         "patchSetId": 14
@@ -305,6 +611,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b2321796_58332035",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/sflow_profile.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "88f65324_912050ec",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -325,6 +649,24 @@
     },
     {
       "key": {
+        "uuid": "6acdb37c_b9ec3227",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/storm_control_profile.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bf3b821d_167f8c66",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "209a4b65_f567c567",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/telemetry_profile.py",
         "patchSetId": 14
@@ -339,6 +681,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "daa89c45_f0ab8572",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/telemetry_profile.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "209a4b65_f567c567",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -359,6 +719,24 @@
     },
     {
       "key": {
+        "uuid": "9f3ed285_d8617dbf",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_dns.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "3ecd411c_ccfc270f",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "2b04e72f_39a642d9",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_dns_record.py",
         "patchSetId": 14
@@ -373,6 +751,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bdfd0cb5_39d6ecec",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_dns_record.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2b04e72f_39a642d9",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -393,6 +789,24 @@
     },
     {
       "key": {
+        "uuid": "205fc57b_6a81f881",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1455,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d1cd7fba_d726e51e",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ee02a803_153f2ce7",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 14
@@ -407,6 +821,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c31e44f1_bb5ed9f1",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1470,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ee02a803_153f2ce7",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -427,6 +859,24 @@
     },
     {
       "key": {
+        "uuid": "9a5fcfde_79ca9d85",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1473,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "20b4a2ad_b9235d95",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b94c6ec7_d1b0fdbc",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 14
@@ -441,6 +891,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6b5e2d02_db75b079",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1485,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "b94c6ec7_d1b0fdbc",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -461,6 +929,24 @@
     },
     {
       "key": {
+        "uuid": "0f0b967f_319a24c0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1494,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a3ab6262_7088c4a4",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e4c968ab_def54953",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
         "patchSetId": 14
@@ -478,6 +964,24 @@
     },
     {
       "key": {
+        "uuid": "168e88a9_bdcedb07",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1184,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "e4c968ab_def54953",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "59dd7c93_a813be9c",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
         "patchSetId": 14
@@ -492,6 +996,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "67fefcc5_c09846dd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 1199,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "59dd7c93_a813be9c",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -543,6 +1065,24 @@
       "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7ad1ae92_2ff31d98",
+        "filename": "src/config/common/cfgm_common/zkclient.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 615,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-12T19:09:03Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "ec4a643b_b8b73b7a",
+      "revId": "9b7f9ea5667721a938467b60190a66e8ec165814",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
