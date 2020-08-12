@@ -4,13 +4,13 @@ This template is required to support the old workflow and retain the dc-gateway 
 {% set sys_config = device_abstract_config.get('system', None) %}
 {% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {% if 'DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles %}
-{%     set ns = namespace(irb_interface_list= []) %}
+{%     set irb_interface_list = [] %}
 {# irb_interface_list maintains the list of all the irb interfaces associated with internal vns, which is generated from 
 lr(logical routers marked as public) workflow for DC-gateway. Later interfaces in the l3 routing-instance of public VN 
 are checked against irb_interface list for match. If there is a match, it implies that lr workflow is followed and no
 configs is generated from this template. If the interface is not found in the list, it implies that old workflow is followed
 and this template generates configs to extend VN to the box.#}
-{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%     for ri in device_abstract_config.features.get('dc-gateway').get('routing_instances', []) %}
 {%         if 'nat' in ri.get('name', '') %}
 {%             continue %}
 {%         endif %}
@@ -18,8 +18,8 @@ and this template generates configs to extend VN to the box.#}
 {%             set ri_routing_interfaces = ri.get('routing_interfaces', [])%}
 {%             for routing_interface in ri_routing_interfaces %}
 {# adding all routing interfaces from the internal virtual networks which are marked public #}
-{%                 if routing_interface.name not in ns.irb_interface_list %}
-{%                     do ns.irb_interface_list.append(routing_interface.name) %}
+{%                 if routing_interface.name not in irb_interface_list %}
+{%                     set z = irb_interface_list.append(routing_interface.name) %}
 {%                 endif %}
 {%             endfor %}
 {%         endif %}
@@ -30,7 +30,7 @@ and this template generates configs to extend VN to the box.#}
 {%         if 'evpn' in families %}
 {%             set route_distinguisher = bgp_elem.get('ip_address') %}
 {%             set as_number = bgp_elem.get('autonomous_system') %}
-{%             for ri in device_abstract_config.get('routing_instances', []) %}
+{%             for ri in device_abstract_config.features.get('dc-gateway').get('routing_instances', []) %}
 {%                 if 'nat' in ri.get('name', '') %}
 {%                     continue %}
 {%                 endif %}
@@ -38,7 +38,7 @@ and this template generates configs to extend VN to the box.#}
 {%                     set ns.public_network = 'yes' %}
 {%                     set contrail_l3_ri = ri.name %}
 {%                     set irb_interface = 'irb.'+(ri.get('virtual_network_id')|string)  %}
-{%                     if irb_interface in ns.irb_interface_list %}
+{%                     if irb_interface in irb_interface_list %}
 {# skip config generation if the irb interface is already a part of irb_interface_list #}
 {%                         continue %}
 {%                     endif %}
