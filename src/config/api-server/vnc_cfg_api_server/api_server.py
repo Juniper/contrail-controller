@@ -444,7 +444,13 @@ class VncApiServer(object):
             yield create_sse_pack(init_event)
 
         while True:
-            crud_event = client_queue.get()
+            crud_event = None
+            try:
+                crud_event = client_queue.get(timeout=self._args.watch_keepalive_interval)
+            except gevent.queue.Empty as e:
+                # Send empty message in case of timeout
+                yield create_sse_pack({"event": "", "data": ""})
+                continue
             if crud_event["event"] == "stop":
                 yield create_sse_pack(crud_event)
                 dispatcher.unsubscribe_client(client_queue,
