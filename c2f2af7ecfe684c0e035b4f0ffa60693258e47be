@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3d16d3bc_e6185430",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 447,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-12T22:54:38Z",
+      "side": 1,
+      "message": "We no need crud_event defined here correct?",
+      "revId": "c2f2af7ecfe684c0e035b4f0ffa60693258e47be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5828443b_85d73681",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 449,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-12T22:54:38Z",
+      "side": 1,
+      "message": "I think this line is more than 79 chars long,\ncan you try to execute   \n\nautopep8 --in-place --aggressive --aggressive --line-range 447 453 api_server.py\n\nto fix this",
+      "revId": "c2f2af7ecfe684c0e035b4f0ffa60693258e47be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d3347a11_e0524a54",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 452,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-12T22:54:38Z",
+      "side": 1,
+      "message": "Why dont we just send newline\n\nyield \"\\n\"",
+      "revId": "c2f2af7ecfe684c0e035b4f0ffa60693258e47be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "00897ed7_daad2271",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_watch.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 191,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-12T22:54:38Z",
+      "side": 1,
+      "message": "We can also make sure the event received is \"\\n\" and then increment the counter",
+      "revId": "c2f2af7ecfe684c0e035b4f0ffa60693258e47be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "46eefd59_acba4c92",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_watch.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 196,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-12T22:54:38Z",
+      "side": 1,
+      "message": "why is it 4 while we sleep for 9 seconds",
+      "revId": "c2f2af7ecfe684c0e035b4f0ffa60693258e47be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "512c2a36_c44da3e1",
+        "filename": "src/config/api-server/vnc_cfg_api_server/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 331,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-12T22:54:38Z",
+      "side": 1,
+      "message": "Interval in seconds",
+      "revId": "c2f2af7ecfe684c0e035b4f0ffa60693258e47be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
