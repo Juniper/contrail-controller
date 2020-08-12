@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "36167bd4_a00966a7",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 259,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-08-12T11:20:12Z",
+      "side": 1,
+      "message": "if we allow the master-LR per fabric, we may need to consider tenant project than the default-project?",
+      "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3b00c31f_32ab3ff1",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 322,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-08-12T11:20:12Z",
+      "side": 1,
+      "message": "same comment, as above for default-project.",
+      "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bee1f417_b3aa35b2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 1066,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-08-12T11:20:12Z",
+      "side": 1,
+      "message": "is it default-project or tenant project?",
+      "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
