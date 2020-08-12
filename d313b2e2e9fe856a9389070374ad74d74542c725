@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "240842bc_17d55967",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 259,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-12T17:32:49Z",
+      "side": 1,
+      "message": "This check is to take care of existing master-LRs and delete them if present. Since the existing master-LRs are created only under default project or admin project, this check has been made to read them only from these two projects.",
+      "parentUuid": "36167bd4_a00966a7",
+      "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3b00c31f_32ab3ff1",
         "filename": "src/config/device-manager/device_manager/fabric_manager.py",
         "patchSetId": 16
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "3ccaa1f9_ba7236b5",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 322,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-12T17:32:49Z",
+      "side": 1,
+      "message": "This will try to create a new fabric master-LR in place of the master-LR if it exists. since master-LR would be created in default-project, fabric master-LR would also be created under the same.",
+      "parentUuid": "3b00c31f_32ab3ff1",
+      "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "bee1f417_b3aa35b2",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
         "patchSetId": 16
@@ -47,6 +83,24 @@
       "writtenOn": "2020-08-12T11:20:12Z",
       "side": 1,
       "message": "is it default-project or tenant project?",
+      "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0ee772df_89b9e1ae",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 1066,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-12T17:32:49Z",
+      "side": 1,
+      "message": "since it is still going to be a master-LR per fabric, we will be creating it under the default-project. In the sense, it is still a master-LR and hence created under the default-project.",
+      "parentUuid": "bee1f417_b3aa35b2",
       "revId": "d313b2e2e9fe856a9389070374ad74d74542c725",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
