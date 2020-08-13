@@ -1,68 +1,108 @@
-from __future__ import print_function
 from __future__ import absolute_import
-import sys
-reload(sys)
-sys.setdefaultencoding('UTF8')
+from __future__ import print_function
+
+import argparse
+from builtins import filter
+from builtins import object
+from builtins import str
+from collections import defaultdict
 import copy
+from functools import wraps
+import inspect
+from six import StringIO
+import itertools
+import logging
 import os
 import re
-import inspect
-import itertools
-from functools import wraps
-import logging
-from cfgm_common import jsonutils as json
+import ssl
+import sys
+
+import cfgm_common
 try:
     from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
     from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
-except ImportError as err:
+except ImportError:
     # must be older release, assigning old path
-    print("WARN: Ignoring ImportError (%s)" % err)
     BGP_RTGT_ALLOC_PATH_TYPE0 = '/id/bgp/route-targets'
     BGP_RTGT_ALLOC_PATH_TYPE1_2 = '/id/bgp/route-targets'
 try:
     from cfgm_common import get_bgp_rtgt_min_id
-except ImportError as err:
+except ImportError:
     # must be older release, assigning default min ID
-    print("WARN: Ignoring ImportError (%s)" % err)
-    get_bgp_rtgt_min_id = lambda _get_bgp_rtgt_min_id: 8000000
-from netaddr import IPAddress, IPNetwork
-from netaddr.core import AddrFormatError
-import argparse
-from cStringIO import StringIO
-
-import kazoo.client
-import kazoo.exceptions
-import cfgm_common
+    def get_bgp_rtgt_min_id(asn):
+        return 8000000
+from cfgm_common import jsonutils as json
+from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 try:
     from cfgm_common import vnc_cgitb
 except ImportError:
     import cgitb as vnc_cgitb
 from cfgm_common.utils import cgitb_hook
-import pycassa
-import pycassa.connection
-from thrift.transport import TSSLSocket
-import ssl
-from . import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
-from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
+from future import standard_library
+standard_library.install_aliases()  # noqa
+import kazoo.client
+import kazoo.exceptions
+from netaddr import IPAddress, IPNetwork
+from netaddr.core import AddrFormatError
+from past.builtins import basestring
+import pycassa
+from pycassa.cassandra.ttypes import ConsistencyLevel
+import pycassa.connection
+from pycassa.connection import default_socket_factory
+import schema_transformer.db
+from thrift.transport import TSSLSocket
 
+
+if sys.version_info[0] < 3:
+    reload(sys)  # noqa
+    sys.setdefaultencoding('UTF8')
+
+if __name__ == '__main__' and __package__ is None:
+    parent = os.path.abspath(os.path.dirname(__file__))
+    try:
+        sys.path.remove(str(parent))
+    except ValueError:  # Already removed
+        pass
+    import vnc_cfg_api_server  # noqa
+    __package__ = 'vnc_cfg_api_server'  # noqa
+
+
+from . import utils  # noqa
 try:
     from .vnc_db import VncServerCassandraClient
 except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
-import schema_transformer.db
 
-__version__ = "1.23"
+
+__version__ = "1.34"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.34:
+  - Do not report false positive missing VN for k8s floating ips
+    not in floating ip pool
+* 1.33:
+  - Fix CEM-17261, multiple AE-ID seems allocated due to CEM-17208. Ensure
+    all AE-ID created for a VPG is deleted
+* 1.32:
+  - Fix CEM-17260. Use self._zk_client.delete instead of self.zk_delete as
+    it do not exists.
+* 1.31:
+  - Fix a string comparision bug for Gateway IP String being "None" String
+* 1.30:
+  - Fix for auditing AE ID while using k8s
+* 1.29:
+  - Add error msg to inform when aggregated ethernet ID is not supported
+* 1.28:
+  - Add support to detect aggregated ethernet ID and clean stale ones in ZK.
 * 1.27:
   - Fix StringIO TypeError compatibility between Py2 and Py3 CEM-12619
 * 1.26:
-  - Remove raise Exception for InvalidIPAMRef and FQNStaleIndexError.
+  - Fix import statement compatibility for python 2 and reorganise them
 * 1.25:
   - Fix route target validation code when VN RT list is set to none
 * 1.24:
@@ -143,9 +183,16 @@ try:
     VN_ID_MIN_ALLOC = cfgm_common.VNID_MIN_ALLOC
 except AttributeError:
     VN_ID_MIN_ALLOC = 1
+try:
+    from .vnc_db import VncZkClient
+    AE_MAX_ID = VncZkClient._AE_MAX_ID
+except (ImportError, AttributeError):
+    # It means AE_ID is not supported in this release
+    # and shouldn't be checked / cleaned
+    AE_MAX_ID = None
+
 SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
-def _get_rt_id_min_alloc(asn):
-    return get_bgp_rtgt_min_id(asn)
+
 
 def _parse_rt(rt):
     if isinstance(rt, basestring):
@@ -218,6 +265,8 @@ exceptions = [
     'OrphanResourceError',
     'ZkSubnetPathInvalid',
     'FqNameDuplicateError',
+    'AEIDZookeeperError',
+    'NotSupportedError',
 ]
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
@@ -258,9 +307,9 @@ def get_operations():
 def format_help():
     operations = get_operations()
     help_msg = ''
-    for operater in operations.keys():
+    for operater in list(operations.keys()):
         help_msg += format_line("Supported %s," % operater, 0, 2)
-        for name, oper_func in operations[operater].items():
+        for name, oper_func in list(operations[operater].items()):
             if name.startswith('db_'):
                 name = name.lstrip('db_')
             help_msg += format_line("%s" % name, 1, 1)
@@ -396,6 +445,7 @@ class DatabaseManager(object):
     BASE_VN_ID_ZK_PATH = '/id/virtual-networks'
     BASE_SG_ID_ZK_PATH = '/id/security-groups/id'
     BASE_SUBNET_ZK_PATH = '/api-server/subnets'
+    BASE_AE_ID_ZK_PATH = "/id/aggregated-ethernet"
 
     KV_SUBNET_KEY_TO_UUID_MATCH = re.compile('(.* .*/.*)')
 
@@ -411,7 +461,7 @@ class DatabaseManager(object):
         stdout.setFormatter(logformat)
         self._logger.addHandler(stdout)
         logfile = logging.handlers.RotatingFileHandler(
-                  self._args.log_file, maxBytes=10000000, backupCount=5)
+            self._args.log_file, maxBytes=10000000, backupCount=5)
         logfile.setFormatter(logformat)
         self._logger.addHandler(logfile)
         cluster_id = self._api_args.cluster_id
@@ -420,7 +470,6 @@ class DatabaseManager(object):
         self._cassandra_servers = self._api_args.cassandra_server_list
         self._db_info = VncServerCassandraClient.get_db_info() + \
             schema_transformer.db.SchemaTransformerDB.get_db_info()
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         self._cf_dict = {}
         self.creds = None
         if (self._api_args.cassandra_user is not None and
@@ -429,7 +478,7 @@ class DatabaseManager(object):
                 'username': self._api_args.cassandra_user,
                 'password': self._api_args.cassandra_password,
             }
-        socket_factory = pycassa.connection.default_socket_factory
+        socket_factory = default_socket_factory
         if ('cassandra_use_ssl' in self._api_args and
             self._api_args.cassandra_use_ssl):
             socket_factory = self._make_ssl_socket_factory(
@@ -448,7 +497,7 @@ class DatabaseManager(object):
             for cf_name in cf_name_list:
                 self._cf_dict[cf_name] = pycassa.ColumnFamily(
                     pool, cf_name,
-                    read_consistency_level=rd_consistency,
+                    read_consistency_level=ConsistencyLevel.QUORUM,
                     buffer_size=self._args.buffer_size)
 
         # Get the system global autonomous system
@@ -463,6 +512,7 @@ class DatabaseManager(object):
         self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
         self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
         self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
+        self.base_ae_id_zk_path = cluster_id + self.BASE_AE_ID_ZK_PATH
         self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
 
         self._zk_client.start()
@@ -560,7 +610,7 @@ class DatabaseManager(object):
             res_fq_name_str = self._zk_client.get(rt_zk_path)[0]
             id = int(id)
             zk_set.add((id, res_fq_name_str))
-            if id < _get_rt_id_min_alloc(self.global_asn):
+            if id < get_bgp_rtgt_min_id(self.global_asn):
                 # ZK contain RT ID lock only for system RT
                 errmsg = 'Wrong Route Target range in zookeeper %d' % id
                 ret_errors.append(ZkRTRangeError(errmsg))
@@ -574,7 +624,7 @@ class DatabaseManager(object):
         num_bad_rts = 0
         for res_fq_name_str, cols in rt_table.get_range(columns=['rtgt_num']):
             id = int(cols['rtgt_num'])
-            if id < _get_rt_id_min_alloc(self.global_asn):
+            if id < get_bgp_rtgt_min_id(self.global_asn):
                 # Should never append
                 msg = ("Route Target ID %d allocated for %s by the schema "
                        "transformer is not contained in the system range" %
@@ -597,7 +647,7 @@ class DatabaseManager(object):
             except ValueError:
                 malformed_set.add((fq_name_str, uuid))
             if (asn != self.global_asn or
-                    id < _get_rt_id_min_alloc(self.global_asn)):
+                    id < get_bgp_rtgt_min_id(self.global_asn)):
                 user_rts += 1
                 continue  # Ignore user defined RT
             try:
@@ -644,7 +694,8 @@ class DatabaseManager(object):
                     cols = uuid_table.get(uuid, columns=[list_name])
                 except pycassa.NotFoundException:
                     continue
-                for rt in json.loads(cols[list_name]).get('route_target', []):
+                rts_col = json.loads(cols[list_name]) or {}
+                for rt in rts_col.get('route_target', []):
                     try:
                         asn, id = _parse_rt(rt)
                     except ValueError:
@@ -657,7 +708,7 @@ class DatabaseManager(object):
                             (fq_name_str, uuid, list_name), set()).add(rt)
 
                     if (asn != self.global_asn or
-                            id < _get_rt_id_min_alloc(self.global_asn)):
+                            id < get_bgp_rtgt_min_id(self.global_asn)):
                         num_user_rts += 1
                         continue  # all good
                     num_bad_rts += 1
@@ -756,9 +807,9 @@ class DatabaseManager(object):
                 first_found_sg[sg_id] = (sg_fq_name_str, sg_uuid)
 
         logger.debug("Got %d security-groups with id", len(cassandra_all_sgs))
-        zk_set = set([(id, fqns) for id, fqns in zk_all_sgs.items()])
+        zk_set = set([(id, fqns) for id, fqns in list(zk_all_sgs.items())])
         cassandra_set = set([(id - SG_ID_MIN_ALLOC, fqns)
-                             for id, fqns in cassandra_all_sgs.items()
+                             for id, fqns in list(cassandra_all_sgs.items())
                              if id >= SG_ID_MIN_ALLOC])
 
         return zk_set, cassandra_set, ret_errors, duplicate_sg_ids, missing_ids
@@ -824,9 +875,9 @@ class DatabaseManager(object):
         logger.debug("Got %d virtual-networks with id in Cassandra.",
                      len(cassandra_all_vns))
 
-        zk_set = set([(id, fqns) for id, fqns in zk_all_vns.items()])
+        zk_set = set([(id, fqns) for id, fqns in list(zk_all_vns.items())])
         cassandra_set = set([(id, fqns)
-                             for id, fqns in cassandra_all_vns.items()])
+                             for id, fqns in list(cassandra_all_vns.items())])
 
         return zk_set, cassandra_set, ret_errors, duplicate_vn_ids, missing_ids
     # end audit_virtual_networks_id
@@ -843,8 +894,6 @@ class DatabaseManager(object):
                              Zero prefix (0.0.0.0/0) for IPAM subnets if
                              ipam method is flat-subnet
         """
-
-        logger = self._logger
         subnet_dicts = []
         ua_subnet_dicts = []
         obj_uuid_table = self._cf_dict['obj_uuid_table']
@@ -857,25 +906,23 @@ class DatabaseManager(object):
             try:
                 network_ipam_uuid = network_ipam_ref.split(':')[2]
             except (IndexError, AttributeError) as e:
-                msg = ("InvalidIPAMRef: Exception (%s)\n"
+                msg = ("Exception (%s)\n"
                        "Unable to find Network IPAM UUID "
                        "for (%s). Invalid IPAM?" % (e, network_ipam_ref))
-                logger.debug(msg)
-                continue
+                raise InvalidIPAMRef(msg)
 
             try:
                 network_ipam = obj_uuid_table.get(
                     network_ipam_uuid, columns=['fq_name',
                                                 'prop:ipam_subnet_method'])
             except pycassa.NotFoundException as e:
-                msg = ("FQNStaleIndexError: Exception (%s)\n"
+                msg = ("Exception (%s)\n"
                        "Invalid or non-existing "
                        "UUID (%s)" % (e, network_ipam_uuid))
-                logger.debug(msg)
-                continue
+                raise FQNStaleIndexError(msg)
 
             ipam_method = network_ipam.get('prop:ipam_subnet_method')
-            if isinstance(ipam_method, unicode):
+            if isinstance(ipam_method, str):
                 ipam_method = json.loads(ipam_method)
 
             attr_dict = json.loads(attr_json_dict)['attr']
@@ -964,6 +1011,14 @@ class DatabaseManager(object):
             set_reserved_addrs_in_cassandra(vn_id, fq_name_str)
         # end for all VNs
 
+        def get_vn_ref(obj_cols):
+            for col_name in list(obj_cols.keys()):
+                mch = re.match('ref:virtual_network:(.*)', col_name)
+                if mch:
+                    vn_uuid = mch.group(1)
+                    return vn_uuid
+        # get_vn_ref
+
         for ip_id in ip_uuids:
 
             # get addr
@@ -984,20 +1039,31 @@ class DatabaseManager(object):
             # get vn uuid
             vn_id = None
             if vn_is_ref:
-                for col_name in ip_cols.keys():
-                    mch = re.match('ref:virtual_network:(.*)', col_name)
-                    if not mch:
-                        continue
-                    vn_id = mch.group(1)
+                vn_id = get_vn_ref(obj_cols=ip_cols)
             else:
                 vn_fq_name_str = ':'.join(json.loads(ip_cols['fq_name'])[:-2])
-                vn_cols = obj_fq_name_table.get(
-                    'virtual_network',
-                    column_start='%s:' % (vn_fq_name_str),
-                    column_finish='%s;' % (vn_fq_name_str))
-                vn_id = vn_cols.keys()[0].split(':')[-1]
+                if vn_fq_name_str:
+                    vn_cols = obj_fq_name_table.get(
+                        'virtual_network',
+                        column_start='%s:' % (vn_fq_name_str),
+                        column_finish='%s;' % (vn_fq_name_str))
+                    vn_id = list(vn_cols.keys())[0].split(':')[-1]
+                else:
+                    # short fq_name case, get vn_id from parent object
+                    parent_type = json.loads(ip_cols.get('parent_type'))
+                    for key in ip_cols.keys():
+                        if 'parent:%s' % parent_type in key:
+                            parent_id = key.split(':')[-1]
+                            parent_cols = dict(obj_uuid_table.xget(parent_id))
+                            vn_id = get_vn_ref(obj_cols=parent_cols)
+                            break
 
             if not vn_id:
+                if ip_type == 'floating-ip':
+                    parent_type = json.loads(ip_cols.get('parent_type'))
+                    if parent_type != 'floating-ip-pool':
+                        # This is a k8s-assigned ip and not part of a floating ip pool
+                        continue
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
                 continue
@@ -1022,7 +1088,8 @@ class DatabaseManager(object):
                     continue
                 # gateway not locked on zk, we don't need it
                 gw = cassandra_all_vns[fq_name_str][sn_key]['gw']
-                if gw and IPAddress(ip_addr) == IPAddress(gw):
+                if (gw and (gw != 'None')) and \
+                    IPAddress(ip_addr) == IPAddress(gw):
                     break
                 addrs = cassandra_all_vns[fq_name_str][sn_key]['addrs']
                 founded_ip_addr = [ip[0] for ip in addrs if ip[1] == ip_addr]
@@ -1207,7 +1274,7 @@ class DatabaseManager(object):
             except ValueError:
                 continue
             if (asn != self.global_asn or
-                    id < _get_rt_id_min_alloc(self.global_asn)):
+                    id < get_bgp_rtgt_min_id(self.global_asn)):
                 continue  # Ignore user defined RT
             try:
                 cols = uuid_table.xget(uuid, column_start='backref:',
@@ -1274,7 +1341,7 @@ class DatabaseManager(object):
                         errors.append(RTbackrefError(msg))
                         continue
                     ri_fq_name = json.loads(ri_cols['fq_name'])
-                    is_ri_sc = (any(c in ri_cols.keys() and ri_cols[c] for c in sc_ri_fields) and
+                    is_ri_sc = (any(c in list(ri_cols.keys()) and ri_cols[c] for c in sc_ri_fields) and
                                 ri_fq_name[-1].startswith('service-'))
                     if (is_ri_sc and
                             ri_fq_name[:-1] ==
@@ -1306,7 +1373,7 @@ class DatabaseManager(object):
                     continue
                 # check RI back-refs correspond to LR VMIs
                 vmi_ris = []
-                for col, _ in lr_cols.items():
+                for col, _ in list(lr_cols.items()):
                     if col.startswith('ref:service_instance:'):
                         # if LR have gateway and SNAT, RT have back-ref to SNAT
                         # left VN's RI (only import LR's RT to that RI)
@@ -1391,6 +1458,73 @@ class DatabaseManager(object):
 
         return errors, back_refs_to_remove
 
+    def audit_aggregated_ethernet_id(self):
+        logger = self._logger
+        ret_errors = []
+
+        # read in aggregated-ethernet ids from zookeeper
+        base_path = self.base_ae_id_zk_path
+        logger.debug("Doing recursive zookeeper read from %s", base_path)
+        zk_all_ae_id = {}
+        try:
+            prouters_with_ae_id = self._zk_client.get_children(base_path)
+        except kazoo.exceptions.NoNodeError:
+            prouters_with_ae_id = None
+
+        for prouter_name in prouters_with_ae_id or []:
+            prouter_path = base_path + '/' + prouter_name
+            for ae_id in self._zk_client.get_children(prouter_path) or []:
+                vpg_name = self._zk_client.get(prouter_path + '/' + ae_id)[0]
+                if zk_all_ae_id.get(prouter_name) is None:
+                        zk_all_ae_id[prouter_name] = defaultdict(list)
+                zk_all_ae_id[prouter_name][vpg_name].append(ae_id)
+
+        # read in aggregated-ethernets from cassandra to get id+fq_name
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
+        cassandra_all_ae_id = {}
+        logger.debug("Reading physical routers objects from cassandra")
+
+        for fq_name_uuid_str, _ in fq_name_table.xget('physical_interface'):
+            fq_name, _, pi_uuid = fq_name_uuid_str.rpartition(':')
+            _, prouter_name, pi_name = fq_name.split(':')
+            ae_id = None
+            try:
+                cols = uuid_table.xget(pi_uuid,
+                                       column_start='backref:virtual_port_group:',
+                                       column_finish='backref:virtual_port_group;')
+                # Not more then one VPG for PI
+                _, params = next(cols, (None, None))
+                if params:
+                        ae_id = json.loads(params)['attr']['ae_num']
+            except (pycassa.NotFoundException, KeyError, TypeError):
+                continue
+            if pi_name[:2] == 'ae' and pi_name[2:].isdigit() and \
+                    int(pi_name[2:]) < AE_MAX_ID:
+                ae_id = int(pi_name[2:])
+            if ae_id is not None:
+                if cassandra_all_ae_id.get(prouter_name) is None:
+                        cassandra_all_ae_id[prouter_name] = {}
+                cassandra_all_ae_id[prouter_name][pi_name] = ae_id
+
+        ae_id_to_remove_from_zk = copy.deepcopy(zk_all_ae_id)
+        logger.debug("Getting AE ID which need to be removed from zookeeper")
+        for prouter, pi_to_ae_dict in zk_all_ae_id.items():
+            for vpg_name, ae_id_list in pi_to_ae_dict.items():
+                for ae_id_str in ae_id_list:
+                   ae_id = int(ae_id_str)
+                   if prouter in cassandra_all_ae_id and \
+                           ae_id in cassandra_all_ae_id[prouter].values():
+                       if ae_id_str in ae_id_to_remove_from_zk[prouter][vpg_name]:
+                          ae_id_to_remove_from_zk[prouter][vpg_name].remove(ae_id_str)
+                       if not ae_id_to_remove_from_zk[prouter][vpg_name]:
+                           del ae_id_to_remove_from_zk[prouter][vpg_name]
+                       if not ae_id_to_remove_from_zk[prouter]:
+                           del ae_id_to_remove_from_zk[prouter]
+
+        return zk_all_ae_id, cassandra_all_ae_id, ae_id_to_remove_from_zk, \
+               ret_errors
+
 
 class DatabaseChecker(DatabaseManager):
     def checker(func):
@@ -1447,7 +1581,7 @@ class DatabaseChecker(DatabaseManager):
                 ret_errors.append(ZkStandaloneError(msg))
 
         # Check mode
-        for stat_out in stats.values():
+        for stat_out in list(stats.values()):
             mode = re.search('Mode:(.*)\n', stat_out).group(1).strip()
             modes[mode] += 1
         n_zk_servers = len(self._api_args.zk_server_ip.split(','))
@@ -1467,7 +1601,7 @@ class DatabaseChecker(DatabaseManager):
 
         # Check node count
         node_counts = []
-        for stat_out in stats.values():
+        for stat_out in list(stats.values()):
             nc = int(re.search('Node count:(.*)\n', stat_out).group(1))
             node_counts.append(nc)
         # all nodes should have same count, so set should have 1 elem
@@ -1628,8 +1762,8 @@ class DatabaseChecker(DatabaseManager):
                         "'clean_stale_fq_names' commands to repair that. "
                         "Ignore it", ', '.join(stale_fq_names))
 
-        for type, type_map in resource_map.items():
-            for fq_name_str, uuids in type_map.items():
+        for type, type_map in list(resource_map.items()):
+            for fq_name_str, uuids in list(type_map.items()):
                 if len(uuids) != 1:
                     msg = ("%s with FQ name '%s' is used by %d different "
                            "objects: %s" % (
@@ -1682,10 +1816,10 @@ class DatabaseChecker(DatabaseManager):
         ret_errors.extend(errors)
 
         # check #subnets in useragent table vs #subnets in obj_uuid_table
-        if len(ua_subnet_info.keys()) != len(vnc_subnet_info.keys()):
+        if len(list(ua_subnet_info.keys())) != len(list(vnc_subnet_info.keys())):
             ret_errors.append(SubnetCountMismatchError(
                 "Mismatch #subnets useragent %d #subnets ipam-subnet %d"
-                % (len(ua_subnet_info.keys()), len(vnc_subnet_info.keys()))))
+                % (len(list(ua_subnet_info.keys())), len(list(vnc_subnet_info.keys())))))
 
         # check if subnet-uuids match in useragent table vs obj_uuid_table
         extra_ua_subnets = set(ua_subnet_info.keys()) - set(
@@ -1724,7 +1858,7 @@ class DatabaseChecker(DatabaseManager):
         if extra_vns:
             for sn in extra_vns:
                 # ensure Subnet is found ZK is empty
-                if filter(bool, zk_all_vns[sn].values()):
+                if list(filter(bool, list(zk_all_vns[sn].values()))):
                     errmsg = 'Extra VN in zookeeper (vs. cassandra) for %s' \
                          % (str(sn))
                     ret_errors.append(ZkVNExtraError(errmsg))
@@ -1732,7 +1866,7 @@ class DatabaseChecker(DatabaseManager):
         extra_vn = set()
         # Subnet lock path is not created until an IP is allocated into it
         for vn_key in set(cassandra_all_vns.keys()) - set(zk_all_vns.keys()):
-            for sn_key, addrs in cassandra_all_vns[vn_key].items():
+            for sn_key, addrs in list(cassandra_all_vns[vn_key].items()):
                 if addrs['addrs']:
                     extra_vn.add(vn_key)
         if extra_vn:
@@ -1742,13 +1876,13 @@ class DatabaseChecker(DatabaseManager):
 
         # check for differences in subnets
         zk_all_vn_sn = []
-        for vn_key, vn in zk_all_vns.items():
+        for vn_key, vn in list(zk_all_vns.items()):
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
 
         cassandra_all_vn_sn = []
         # ignore subnet without address and not lock in zk
-        for vn_key, vn in cassandra_all_vns.items():
-            for sn_key, addrs in vn.items():
+        for vn_key, vn in list(cassandra_all_vns.items()):
+            for sn_key, addrs in list(vn.items()):
                 if not addrs['addrs']:
                     if (vn_key not in zk_all_vns or
                             sn_key not in zk_all_vns[vn_key]):
@@ -1760,7 +1894,7 @@ class DatabaseChecker(DatabaseManager):
             # ensure the Subnet is found in Cassandra when
             # ZK keys and Cassandra keys mismatch
             if not any([extra_vn_sn[1] in sdict
-                       for sdict in cassandra_all_vns.values()]):
+                       for sdict in list(cassandra_all_vns.values())]):
                 errmsg = 'Extra VN/SN in zookeeper for %s' % (extra_vn_sn,)
                 ret_errors.append(ZkSubnetExtraError(errmsg))
 
@@ -1770,9 +1904,9 @@ class DatabaseChecker(DatabaseManager):
             ret_errors.append(ZkSubnetMissingError(errmsg))
 
         # Duplicate IPs
-        for vn_key, vn in duplicate_ips.items():
-            for sn_key, subnet in vn.items():
-                for ip_addr, iip_uuids in subnet.items():
+        for vn_key, vn in list(duplicate_ips.items()):
+            for sn_key, subnet in list(vn.items()):
+                for ip_addr, iip_uuids in list(subnet.items()):
                     cols = self._cf_dict['obj_uuid_table'].get(
                         iip_uuids[0], columns=['type'])
                     type = json.loads(cols['type'])
@@ -1838,14 +1972,14 @@ class DatabaseChecker(DatabaseManager):
 
         extra = dict()
         [extra.setdefault(id, set()).add(fq) for id, fq in schema_set - zk_set]
-        for id, res_fq_name_strs in extra.items():
+        for id, res_fq_name_strs in list(extra.items()):
             msg = ("Extra Route Target ID in schema DB for ID %d, used by: "
                    "%s" % (id, ', '.join(res_fq_name_strs)))
             ret_errors.append(SchemaRTgtIdExtraError(msg))
 
         extra = dict()
         [extra.setdefault(id, set()).add(fq) for id, fq in config_set - zk_set]
-        for id, res_fq_name_strs in extra.items():
+        for id, res_fq_name_strs in list(extra.items()):
             msg = ("Extra Route Target ID in API server DB for ID %d, used "
                    "by: %s" % (id, ', '.join(res_fq_name_strs)))
             ret_errors.append(ConfigRTgtIdExtraError(msg))
@@ -1868,7 +2002,7 @@ class DatabaseChecker(DatabaseManager):
             self.audit_virtual_networks_id()
         ret_errors.extend(errors)
 
-        for vn_id, fq_name_uuids in duplicate_ids.items():
+        for vn_id, fq_name_uuids in list(duplicate_ids.items()):
             msg = "VN ID %s is duplicated between %s" % (vn_id, fq_name_uuids)
             ret_errors.append(VNDuplicateIdError(msg))
 
@@ -1901,7 +2035,7 @@ class DatabaseChecker(DatabaseManager):
             self.audit_security_groups_id()
         ret_errors.extend(errors)
 
-        for sg_id, fq_name_uuids in duplicate_ids.items():
+        for sg_id, fq_name_uuids in list(duplicate_ids.items()):
             msg = "SG ID %s is duplicated between %s" % (sg_id, fq_name_uuids)
             ret_errors.append(SGDuplicateIdError(msg))
 
@@ -1939,11 +2073,32 @@ class DatabaseChecker(DatabaseManager):
     def check_route_targets_routing_instance_backrefs(self):
         errors, back_refs_to_remove =\
             self.audit_route_targets_routing_instance_backrefs()
-        for (rt_fq_name_str, rt_uuid), ri_uuids in back_refs_to_remove.items():
+        for (rt_fq_name_str, rt_uuid), ri_uuids in list(back_refs_to_remove.items()):
             msg = ("Extra RI back-ref(s) %s from RT %s(%s)" %
                    (', '.join(ri_uuids), rt_fq_name_str, rt_uuid))
             errors.append(RTbackrefError(msg))
         return errors
+
+    @checker
+    def check_aggregated_ethernet_id(self):
+        """Displays additional (stale) aggregated ethernet ID
+        in zk (vs cassandra)."""
+        if not AE_MAX_ID:
+            errmsg = 'Aggregated ethernet ID are not supported ' \
+                     'in this release. Checker was not ran.'
+            return [NotSupportedError(errmsg)]
+        _, _, ae_id_to_remove_from_zk, ret_errors = \
+            self.audit_aggregated_ethernet_id()
+        for prouter, pi_to_ae_dict in ae_id_to_remove_from_zk.items():
+            for pi_name, ae_id_list in pi_to_ae_dict.items():
+                for ae_id_str in ae_id_list:
+                    ae_id = int(ae_id_str)
+                    errmsg = 'Additional AE ID %d in zookeeper (vs.cassandra) ' \
+                             'for virtual port group: %s connected to ' \
+                             'physical router: %s' \
+                             % (ae_id, pi_name, prouter)
+                ret_errors.append(AEIDZookeeperError(errmsg))
+        return ret_errors
 
 
 class DatabaseCleaner(DatabaseManager):
@@ -1983,7 +2138,7 @@ class DatabaseCleaner(DatabaseManager):
             try:
                 cols = uuid_table.get(uuid, column_start='backref:',
                                       column_finish='backref;')
-                for backref_str in cols.keys():
+                for backref_str in list(cols.keys()):
                     backref_uuid = backref_str.rpartition(':')[-1]
                     ref_str = 'ref:%s:%s' % (type, uuid)
                     try:
@@ -2063,8 +2218,8 @@ class DatabaseCleaner(DatabaseManager):
                 fixups.setdefault(type, {}).setdefault(
                     fq_name_str, set([])).add(uuid)
 
-        for type, fq_name_uuids in fixups.items():
-            for fq_name_str, uuids in fq_name_uuids.items():
+        for type, fq_name_uuids in list(fixups.items()):
+            for fq_name_str, uuids in list(fq_name_uuids.items()):
                 # Check fq_name already used
                 try:
                     fq_name_uuid_str = fq_name_table.get(
@@ -2072,7 +2227,7 @@ class DatabaseCleaner(DatabaseManager):
                         column_start='%s:' % fq_name_str,
                         column_finish='%s;' % fq_name_str,
                     )
-                    fq_name_str, _, uuid = fq_name_uuid_str.keys()[0].\
+                    fq_name_str, _, uuid = list(fq_name_uuid_str.keys())[0].\
                         rpartition(':')
                 except pycassa.NotFoundException:
                     # fq_name index does not exists, need to be healed
@@ -2163,7 +2318,7 @@ class DatabaseCleaner(DatabaseManager):
             if not obj_type or obj_type != 'virtual_machine':
                 continue
             vm_uuid = obj_uuid
-            col_names = cols.keys()
+            col_names = list(cols.keys())
             if (any(['backref' in col_name for col_name in col_names]) or
                     any(['children' in col_name for col_name in col_names])):
                 continue
@@ -2217,7 +2372,7 @@ class DatabaseCleaner(DatabaseManager):
                 fq_name_table.remove('route_target',
                                      columns=[fq_name_uuid_str])
 
-        for (fq_name_str, uuid, list_name), stale_rts in stale_list.items():
+        for (fq_name_str, uuid, list_name), stale_rts in list(stale_list.items()):
             try:
                 cols = uuid_table.get(uuid, columns=[list_name])
             except pycassa.NotFoundException:
@@ -2265,7 +2420,7 @@ class DatabaseCleaner(DatabaseManager):
                 )
             except pycassa.NotFoundException:
                 continue
-            uuid = cols.keys()[0].rpartition(':')[-1]
+            uuid = list(cols.keys())[0].rpartition(':')[-1]
             fq_name_uuid_str = '%s:%s' % (fq_name_str, uuid)
             if not self._args.execute:
                 logger.info("Would removed stale route target %s (%s) in API "
@@ -2310,7 +2465,7 @@ class DatabaseCleaner(DatabaseManager):
                                      zk_set)
         path = '%s/%%s' % self.base_sg_id_zk_path
         uuids_to_deallocate = set()
-        for id, fq_name_uuids in duplicate_ids.items():
+        for id, fq_name_uuids in list(duplicate_ids.items()):
             id_str = "%(#)010d" % {'#': id}
             try:
                 zk_fq_name_str = self._zk_client.get(path % id_str)[0]
@@ -2352,7 +2507,7 @@ class DatabaseCleaner(DatabaseManager):
 
         path = '%s/%%s' % self.base_vn_id_zk_path
         uuids_to_deallocate = set()
-        for id, fq_name_uuids in duplicate_ids.items():
+        for id, fq_name_uuids in list(duplicate_ids.items()):
             id_str = "%(#)010d" % {'#': id - VN_ID_MIN_ALLOC}
             try:
                 zk_fq_name_str = self._zk_client.get(path % id_str)[0]
@@ -2500,7 +2655,7 @@ class DatabaseCleaner(DatabaseManager):
         # Are these extra VNs are due to flat-subnet?
         for vn in extra_vn:
             # Nothing to clean as VN in ZK has empty Subnet
-            if not filter(bool, zk_all_vns[vn].values()):
+            if not list(filter(bool, list(zk_all_vns[vn].values()))):
                 logger.debug('Ignoring Empty VN (%s)' % vn)
                 continue
             for sn_key in zk_all_vns[vn]:
@@ -2513,12 +2668,12 @@ class DatabaseCleaner(DatabaseManager):
             zk_all_vns.pop(vn, None)
 
         zk_all_vn_sn = []
-        for vn_key, vn in zk_all_vns.items():
+        for vn_key, vn in list(zk_all_vns.items()):
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
         cassandra_all_vn_sn = []
         # ignore subnet without address and not lock in zk
-        for vn_key, vn in cassandra_all_vns.items():
-            for sn_key, addrs in vn.items():
+        for vn_key, vn in list(cassandra_all_vns.items()):
+            for sn_key, addrs in list(vn.items()):
                 if not addrs['addrs']:
                     if (vn_key not in zk_all_vns or
                             sn_key not in zk_all_vns[vn_key]):
@@ -2530,7 +2685,7 @@ class DatabaseCleaner(DatabaseManager):
         # Are these extra VNs are due to flat-subnet?
         for vn, sn_key in extra_vn_sn:
             # Ignore if SN is found in Cassandra VN keys
-            if any([sn_key in sdict for sdict in cassandra_all_vns.values()]):
+            if any([sn_key in sdict for sdict in list(cassandra_all_vns.values())]):
                 logger.debug('Ignoring SN (%s) of VN (%s) '
                              'found in cassandra' % (sn_key, vn))
                 continue
@@ -2587,15 +2742,15 @@ class DatabaseCleaner(DatabaseManager):
 
         if not self._args.execute:
             logger.info("Would delete orphan resources in Cassandra DB: %s",
-                        orphan_resources.items())
+                        list(orphan_resources.items()))
         else:
             logger.info("Would delete orphan resources in Cassandra DB: %s",
-                        orphan_resources.items())
+                        list(orphan_resources.items()))
             uuid_bch = self._cf_dict['obj_uuid_table'].batch()
-            for obj_type, obj_uuids in orphan_resources.items():
+            for obj_type, obj_uuids in list(orphan_resources.items()):
                 [uuid_bch.remove(obj_uuid) for obj_uuid in obj_uuids]
             uuid_bch.send()
-            self.clean_stale_fq_names(orphan_resources.keys())
+            self.clean_stale_fq_names(list(orphan_resources.keys()))
 
     def _clean_if_mandatory_refs_missing(self, obj_type, mandatory_refs,
                                          ref_type='ref'):
@@ -2675,7 +2830,7 @@ class DatabaseCleaner(DatabaseManager):
 
         errors, back_refs_to_remove =\
             self.audit_route_targets_routing_instance_backrefs()
-        for (rt_fq_name_str, rt_uuid), ri_uuids in back_refs_to_remove.items():
+        for (rt_fq_name_str, rt_uuid), ri_uuids in list(back_refs_to_remove.items()):
             if not self._args.execute:
                 self._logger.info(
                     "Would remove RI back-refs %s from RT %s(%s)",
@@ -2693,6 +2848,29 @@ class DatabaseCleaner(DatabaseManager):
                         columns=['backref:routing_instance:%s' % ri_uuid])
                 bch.send()
         return errors
+
+    @cleaner
+    def clean_aggregated_ethernet_id(self):
+        """Removes extra AE IDs from zk."""
+        if not AE_MAX_ID:
+            errmsg = 'Aggregated ethernet ID are not supported ' \
+                     'in this release. Cleaner was not ran.'
+            return [NotSupportedError(errmsg)]
+        logger = self._logger
+        _, _, ae_id_to_remove_from_zk, ret_errors = \
+            self.audit_aggregated_ethernet_id()
+        base_path = self.base_ae_id_zk_path
+        for prouter, pi_to_ae_dict in ae_id_to_remove_from_zk.items():
+            prouter_path = base_path + '/' + prouter
+            for ae_id_list in pi_to_ae_dict.values():
+                for ae_id in ae_id_list:
+                    path = prouter_path + '/' + ae_id
+                    if not self._args.execute:
+                        logger.info("Would delete zk: %s", path)
+                    else:
+                        logger.info("Deleting zk path: %s", path)
+                        self._zk_client.delete(path)
+        return ret_errors
 
 
 class DatabaseHealer(DatabaseManager):
@@ -2760,8 +2938,8 @@ class DatabaseHealer(DatabaseManager):
                     fq_name_str, set([])).add((uuid, created_at))
         # for all objects in uuid table
 
-        for type, fq_name_uuids in fixups.items():
-            for fq_name_str, uuids in fq_name_uuids.items():
+        for type, fq_name_uuids in list(fixups.items()):
+            for fq_name_str, uuids in list(fq_name_uuids.items()):
                 try:
                     fq_name_uuid_str = fq_name_table.get(
                         type,
@@ -2838,7 +3016,7 @@ class DatabaseHealer(DatabaseManager):
                 logger.info('Multiple parents %s for %s', cols, obj_uuid)
                 continue
 
-            parent_uuid = cols.keys()[0].split(':')[-1]
+            parent_uuid = list(cols.keys())[0].split(':')[-1]
             try:
                 _ = obj_uuid_table.get(parent_uuid)
             except pycassa.NotFoundException:
@@ -3020,12 +3198,12 @@ class DatabaseHealer(DatabaseManager):
         zk_all_vns, cassandra_all_vns, _, ret_errors, _ =\
             self.audit_subnet_addr_alloc()
         zk_all_vn_sn = []
-        for vn_key, vn in zk_all_vns.items():
+        for vn_key, vn in list(zk_all_vns.items()):
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
         cassandra_all_vn_sn = []
         # ignore subnet without address and not lock in zk
-        for vn_key, vn in cassandra_all_vns.items():
-            for sn_key, addrs in vn.items():
+        for vn_key, vn in list(cassandra_all_vns.items()):
+            for sn_key, addrs in list(vn.items()):
                 if not addrs['addrs']:
                     if (vn_key not in zk_all_vns or
                             sn_key not in zk_all_vns[vn_key]):
@@ -3094,7 +3272,8 @@ def db_check(args, api_args):
     db_checker.check_route_targets_id()
     db_checker.check_virtual_networks_id()
     db_checker.check_security_groups_id()
-
+    if AE_MAX_ID:
+        db_checker.check_aggregated_ethernet_id()
     # db_checker.check_schema_db_mismatch()
 # end db_check
 
@@ -3125,6 +3304,8 @@ def db_clean(args, api_args):
     db_cleaner.clean_stale_virtual_network_id()
     db_cleaner.clean_stale_security_group_id()
     db_cleaner.clean_subnet_addr_alloc()
+    if AE_MAX_ID:
+        db_cleaner.clean_aggregated_ethernet_id()
 
 
 # end db_clean
