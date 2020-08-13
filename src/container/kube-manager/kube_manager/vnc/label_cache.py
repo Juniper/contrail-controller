@@ -22,13 +22,24 @@ class LabelCache(object):
         label = {'namespace': namespace}
         return label
 
+    def _validate_key_value(self, key, value):
+        if '/' in key:
+            key = key.replace("/", "__slash__")
+        if '/' in value:
+            value = value.replace("/", "__slash__")
+        return key, value
+
     def _locate_label(self, key, cache, label, uuid):
+        label = list(label)
+        label[0], label[1] = self._validate_key_value(label[0], label[1])
         key = label[0] + ':' + label[1]
         if key not in cache:
             cache[key] = set()
         cache[key].add(uuid)
 
     def _remove_label(self, key, cache, label, uuid):
+        label = list(label)
+        label[0], label[1] = self._validate_key_value(label[0], label[1])
         key = label[0] + ':' + label[1]
         if key in cache:
             try:
@@ -89,11 +100,21 @@ class XLabelCache(object):
         XLabelCache.k8s_label_to_guid_cache[self.resource_type] = {}
 
     @classmethod
+    def _validate_key_value(cls, key, value):
+        if '/' in key:
+            key = key.replace("/", "__slash__")
+        if '/' in value:
+            value = value.replace("/", "__slash__")
+        return key, value
+
+    @classmethod
     def get_key(cls, k, v):
+        k, v = cls._validate_key_value(k, v)
         return k + ':' + v
 
     def get_key_value(self, label):
         kv = label.split(':')
+        kv[0], kv[1] = self._validate_key_value(kv[0], kv[1])
         return kv[0], kv[1]
 
     def _update_label_to_guid_cache(self, key, value, obj_uuid):
@@ -131,6 +152,7 @@ class XLabelCache(object):
         if curr_labels:
             for key, value in curr_labels.items():
 
+                key, value = self._validate_key_value(key, value)
                 # Construct the label key.
                 label_key = self._update_label_to_guid_cache(key, value, obj_uuid)
 
@@ -140,6 +162,7 @@ class XLabelCache(object):
         if list_curr_labels_dict:
             for labels_dict in list_curr_labels_dict:
                 for key, value in labels_dict.items():
+                    key, value = self._validate_key_value(key, value)
                     # Construct the label key.
                     label_key = self._update_label_to_guid_cache(key, value, obj_uuid)
                     # Construct a set of all input label keys.
