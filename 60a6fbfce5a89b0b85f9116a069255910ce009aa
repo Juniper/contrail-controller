@@ -16,6 +16,24 @@
       "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e7c30326_75a936f0",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-13T09:24:49Z",
+      "side": 1,
+      "message": "This is replacing the previous code to something more specific, as the previous code is as you mentioned based on a specific point of the time. That new code is more reboust. It does not remove any logic.",
+      "parentUuid": "a5f95fea_3ee1b08d",
+      "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
