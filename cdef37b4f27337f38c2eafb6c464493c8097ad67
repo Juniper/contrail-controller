@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ff1c6b3e_65284c87",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 47
+      },
+      "lineNbr": 230,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-08-13T03:45:15Z",
+      "side": 1,
+      "message": "Even here we should check the fqname and not display name",
+      "revId": "cdef37b4f27337f38c2eafb6c464493c8097ad67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0ff0ff42_72827e4f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 47
+      },
+      "lineNbr": 247,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-08-13T03:45:15Z",
+      "side": 1,
+      "message": "Same here",
+      "revId": "cdef37b4f27337f38c2eafb6c464493c8097ad67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
