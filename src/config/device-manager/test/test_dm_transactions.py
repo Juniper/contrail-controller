@@ -126,7 +126,6 @@ class TestTransactionsDM(TestAnsibleCommonDM):
 
         # now create a VPG
         vpg = VirtualPortGroup(vpg_name, parent_obj=self.fabric)
-        vpg.set_physical_interface(self.pi1_0)
         vpg.set_security_group(sg)
         self._vnc_lib.virtual_port_group_create(vpg)
         self._vnc_lib.virtual_machine_interface_create(vmi)
