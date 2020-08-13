@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4dd792ec_32efd52c",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 19
+      },
+      "lineNbr": 2521,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-08-13T03:32:17Z",
+      "side": 1,
+      "message": "If i understand the code right, if someone creates a LR such as their name has master-LR in the string then the behavior would change and all the underlay routes could be leaked to overlay. Believe this could be a security issue.\n\nNot to mention that we already have this security hole in R2005 and prior.",
+      "revId": "d45113290fbda88e0c987f1484b4e92ed19b26be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bac20511_234b4831",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 19
+      },
+      "lineNbr": 1481,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-08-13T03:32:17Z",
+      "side": 1,
+      "message": "Even here we should not compare the string rather the fqname or so or add a check in config-api code resources/logical_router.py to not allow anyone to create an object with master-LR string in their name and display names but i dont know how would you differentiate between DM and third party if the changes are in config code.",
+      "revId": "d45113290fbda88e0c987f1484b4e92ed19b26be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
