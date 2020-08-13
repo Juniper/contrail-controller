@@ -1166,17 +1166,26 @@ class FilterModule(object):
             )
             existing_ipam = vnc_api.network_ipam_read(fq_name=ipam_fq_name)
             existing_ipam_subnets = existing_ipam.get_ipam_subnets()
-            subnet_list = existing_ipam_subnets.get_subnets()
-
-            new_ipam_subnet = [IpamSubnetType(
+            if existing_ipam_subnets:
+                new_ipam_subnet = [IpamSubnetType(
                     subnet=FilterModule._new_subnet(sn.get('cidr')),
                     default_gateway=sn.get('gateway'),
                     subnet_uuid=str(uuid.uuid1())
-                )for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
-            ]
-            subnet_list.extend(new_ipam_subnet)
-            existing_ipam_subnets.set_subnets(subnet_list)
-            existing_ipam.set_ipam_subnets(existing_ipam_subnets)
+                ) for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
+                ]
+                subnet_list = existing_ipam_subnets.get_subnets()
+                subnet_list.extend(new_ipam_subnet)
+                existing_ipam_subnets.set_subnets(subnet_list)
+                existing_ipam.set_ipam_subnets(existing_ipam_subnets)
+            else:
+                create_ipam_subnet_new = IpamSubnets([
+                IpamSubnetType(
+                    subnet=FilterModule._new_subnet(sn.get('cidr')),
+                    default_gateway=sn.get('gateway'),
+                    subnet_uuid=str(uuid.uuid1())
+                ) for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
+            ])
+                existing_ipam.set_ipam_subnets(create_ipam_subnet_new)
             try:
                 vnc_api.network_ipam_update(existing_ipam)
             except Exception as ex:
