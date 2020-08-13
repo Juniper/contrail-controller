@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bfae2dff_cda51b6e",
+        "filename": "src/ifmap/ifmap_exporter.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 347,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-08-13T19:32:31Z",
+      "side": 1,
+      "message": "Overall the changes look good. I am however skeptical about the need to force reset of bits in all cases where force_update is set. Lets have one more discussion on this before we close this.",
+      "revId": "71083cba2c69e311132d9c26008a14993d20335a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
