@@ -165,8 +165,9 @@ class NeutronPluginInterface(object):
         for fil in supported_filters:
             if fil in filters:
                 tags[fil] = filters.pop(fil)
-                if isinstance(tags[fil], six.string_types):
-                    tags[fil] = tags[fil].split(',')
+                if len(tags[fil]) == 1 and \
+                        isinstance(tags[fil][0], six.string_types):
+                    tags[fil] = tags[fil][0].split(',')
 
         tags_to_fetch = {}
         for fil in supported_filters:
@@ -226,8 +227,9 @@ class NeutronPluginInterface(object):
         for fil in supported_filters:
             if fil in filters:
                 tags[fil] = filters.pop(fil)
-                if isinstance(tags[fil], six.string_types):
-                    tags[fil] = tags[fil].split(',')
+                if len(tags[fil]) == 1 and \
+                        isinstance(tags[fil][0], six.string_types):
+                    tags[fil] = tags[fil][0].split(',')
 
         # fetch all backrefs for given tags
         backref_field = resource_to_backref[res_name]
