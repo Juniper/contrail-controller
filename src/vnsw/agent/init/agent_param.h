@@ -564,6 +564,8 @@ public:
 
     float vr_object_high_watermark() const { return vr_object_high_watermark_; }
 
+    bool is_nips_vhost0() const { return nips_vhost0_; }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -836,6 +838,7 @@ private:
     bool cat_MockDPDK_;
     std::string cat_kSocketDir_;
     float vr_object_high_watermark_;
+    bool nips_vhost0_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

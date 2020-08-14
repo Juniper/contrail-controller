@@ -28,6 +28,8 @@
 #include <controller/controller_ifmap.h>
 #include <controller/controller_dns.h>
 #include <controller/controller_export.h>
+#include <init/agent_init.h>
+#include <init/agent_param.h>
 
 using namespace boost::asio;
 
@@ -153,8 +155,8 @@ void VNController::XmppServerConnect() {
 
     uint8_t count = 0;
 
-    if (agent_->is_vhost_interface_up() == false &&   // add checks for nips vhost0 enablement
-        agent_->vrouter_on_host_dpdk()) {
+    if (agent_->is_vhost_interface_up() == false &&
+        agent_->agent_init()->agent_param()->is_nips_vhost0() == false) {
         // Sleep 100 msec to avoid cpu hogging.
         usleep(100000);
         ControllerConnectRetryDataType data(
@@ -270,8 +272,8 @@ void VNController::DnsXmppServerConnect() {
         return;
     }
 
-    if (agent_->is_vhost_interface_up() == false &&  // add checks for nips vhost0 enablement
-        agent_->vrouter_on_host_dpdk()) {
+    if (agent_->is_vhost_interface_up() == false &&
+        agent_->agent_init()->agent_param()->is_nips_vhost0() == false) {
         // Sleep 100 msec to avoid cpu hogging.
         usleep(100000);
         ControllerConnectRetryDataType data(

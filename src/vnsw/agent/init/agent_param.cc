@@ -449,6 +449,7 @@ void AgentParam::ParseVirtualHostArguments
     ParseIpArgument(var_map, vhost_.gw_, "VIRTUAL-HOST-INTERFACE.gateway");
     GetOptValue<string>(var_map, eth_port_,
                         "VIRTUAL-HOST-INTERFACE.physical_interface");
+    GetOptValue<bool>(var_map, nips_vhost0_, "VIRTUAL-HOST-INTERFACE.nips_vhost0");
 }
 
 void AgentParam::ParseDnsArguments
@@ -1595,6 +1596,10 @@ void AgentParam::PostValidateLogConfig() const {
     else {
         LOG(DEBUG, "Platform mode           : Vrouter on host linux kernel ");
     }
+
+    if (nips_vhost0_) {
+        LOG(DEBUG, "nips vhost0 mode        : IP address on physical interface");
+    }
 }
 
 void AgentParam::set_test_mode(bool mode) {
@@ -1712,7 +1717,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize),
         mvpn_ipv4_enable_(false),AgentMock_(false), cat_MockDPDK_(false),
         cat_kSocketDir_("/tmp/"),
-        vr_object_high_watermark_(Agent::kDefaultHighWatermark) {
+        vr_object_high_watermark_(Agent::kDefaultHighWatermark),
+        nips_vhost0_(false) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -2190,6 +2196,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Ethernet Port No-ARP")
             ("VIRTUAL-HOST-INTERFACE.eth_port_encap_type", opt::value<string>(),
              "Ethernet Port Encap Type")
+            ("VIRTUAL-HOST-INTERFACE.nips_vhost0",opt::value<bool>()->default_value(false),
+             "Non-IP-Stealing vhost0")
             ;
         options_.add(vhost);
         config_file_options_.add(vhost);
