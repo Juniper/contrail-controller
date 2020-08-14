@@ -34,6 +34,21 @@
       set_fact:
         prouter_fqname: ['default-global-system-config', '{{ device_name }}' ]
 
+    - name: Check if onboarding state is underlay_configured
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "read"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}"
+          }
+      register: prouter_obj
+
+    - name: Set underlay_configured_state
+      set_fact:
+        underlay_configured_state: "{{prouter_obj.obj.physical_router_onboarding_state}}"
+
     - name: Change onboarding state to underlay_configured
       vnc_db_mod:
         job_ctx: "{{ job_ctx }}"
@@ -44,7 +59,7 @@
             "uuid": "{{ device_uuid }}",
             "physical_router_onboarding_state": "underlay_configured"
           }
-      when: is_delete is undefined or is_delete == False
+      when: (is_delete is undefined or is_delete == False) and underlay_configured_state != "underlay_configured"
 
     - name: PR objectlog update to set onboarding state
       prouter_objectlog:
