@@ -282,11 +282,15 @@ class DeviceZtpManager(object):
     # end _handle_file_request
 
     def _restart_dnsmasq(self):
-        if self._dnsmasq_reload_by_signal:
-            self._restart_dnsmasq_process()
-            return
+        try:
+            if self._dnsmasq_reload_by_signal:
+                self._restart_dnsmasq_process()
+                return
 
-        self._restart_dnsmasq_container()
+            self._restart_dnsmasq_container()
+        except Exception as e:
+            self._logger.error("ZTP manager: Error restarting dnsmasq %s" %
+                               repr(e))
     # end _restart_dnsmasq
 
     def _restart_dnsmasq_process(self):
