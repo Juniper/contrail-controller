@@ -1424,7 +1424,7 @@ class PhysicalRouterDM(DBBaseDM):
                                                 self.management_ip))
             return
 
-        if self.managed_state in ('rma', 'error'):
+        if self.managed_state in ('rma', 'error', 'maintenance'):
             # do not push any config to this device
             self._logger.debug(
                 "No config push for PR(%s) in %s state" % (self.name,
