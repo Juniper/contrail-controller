@@ -88,8 +88,8 @@ class LinuxSysData(object):
     def check_ntp_status(self):
         # chronyc fails faster - it should be first
         ntp_status_cmds = [
-            'chronyc -n sources | grep "^\^\*"',
-            'ntpq -n -c pe | grep "^\*"',
+            'chronyc -n sources | grep "^\^\*"', # noqa
+            'ntpq -n -c pe | grep "^\*"', # noqa
         ]
         for cmd in ntp_status_cmds:
             # TODO: cache chosen method and use it later
@@ -174,8 +174,8 @@ class LinuxSysData(object):
                     disk_usage_stat.partition_space_used_1k + \
                     disk_usage_stat.partition_space_available_1k
                 disk_usage_stat.percentage_partition_space_used = \
-                    int(round((float(disk_usage_stat.partition_space_used_1k)
-                               / float(total_disk_space)) * 100))
+                    int(round((float(disk_usage_stat.partition_space_used_1k) /
+                               float(total_disk_space)) * 100))
             except ValueError:
                 self.msg_log('Failed to get local disk space usage',
                              SandeshLevel.SYS_ERR)

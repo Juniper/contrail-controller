@@ -184,8 +184,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                         help='Rules file to use for processing events')
     parser.add_argument("--collectors",
                         nargs='+',
-                        help='Collector addresses in format'
-                             + 'ip1:port1 ip2:port2')
+                        help='Collector addresses in format ip1:port1 ip2:port2')
     parser.add_argument("--log_local", action="store_true",
                         help="Enable local logging of sandesh messages")
     parser.add_argument(
@@ -205,8 +204,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--hostname",
                         help="Custom Hostname")
     SandeshConfig.add_parser_arguments(parser, add_dscp=True)
-    if (node_type == 'contrail-database'
-            or node_type == 'contrail-config-database'):
+    if node_type in ['contrail-database', 'contrail-config-database']:
         parser.add_argument("--minimum_diskGB",
                             type=int,
                             dest='minimum_diskgb',
