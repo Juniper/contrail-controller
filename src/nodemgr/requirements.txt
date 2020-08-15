@@ -1,0 +1,5 @@
+gevent<1.5.0
+bottle
+six
+pyYAML
+psutil>=0.6.0,!=5.5.0,!=5.5.1

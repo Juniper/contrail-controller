@@ -389,8 +389,7 @@ class EventManager(object):
                                  process_status=process_status_list)
         node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                         data=node_status)
-        msg = ('send_nodemgr_process_status: Sending UVE:'
-               + str(node_status_uve))
+        msg = 'send_nodemgr_process_status: Sending UVE:' + str(node_status_uve)
         self.msg_log(msg, SandeshLevel.SYS_INFO)
         node_status_uve.send()
 
@@ -457,16 +456,16 @@ class EventManager(object):
         return list()
 
     def _event_process_state(self, process_info):
-        msg = ("DBG: event_process_state:" + process_info['name'] + ","
-               + "group:" + process_info['group'] + "," + "state:"
-               + process_info['state'])
+        msg = ("DBG: event_process_state:" + process_info['name'] + "," +
+               "group:" + process_info['group'] + "," + "state:" +
+               process_info['state'])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         self._send_process_state(process_info)
 
     def _event_process_communication(self, pdata):
         flag_and_value = pdata.partition(":")
-        msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0]
-               + " Value:" + flag_and_value[2])
+        msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0] +
+               " Value:" + flag_and_value[2])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
 
     def _event_tick_60(self):
