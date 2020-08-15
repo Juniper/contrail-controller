@@ -1,4 +1,3 @@
-#psutil>=0.4.1
 gevent<1.5.0
 python-novaclient==16.0.0
 kombu==4.0.2

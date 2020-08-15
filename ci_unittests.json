@@ -164,8 +164,7 @@
             "controller/src/nodemgr"
         ],
         "scons_test_targets" : [
-            "contrail-nodemgr:test",
-            "src/contrail-analytics/contrail-opserver:test"
+            "controller/src/nodemgr:test"
         ],
         "misc_test_targets" : [ ]
     },

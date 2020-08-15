@@ -1,38 +1,27 @@
-#
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
-#
+import re
+from setuptools import setup, find_packages
 
-from setuptools import setup
+
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    c = re.compile(r'\s*#.*')
+    return list(filter(bool, map(lambda y: c.sub('', y).strip(), lines)))
+
 
 setup(
     name='nodemgr',
     version='0.1dev',
-    install_requires=[
-        'pyyaml',
-        'psutil>=0.6.0,!=5.5.0,!=5.5.1',
-    ],
-    packages=[
-        'nodemgr',
-        'nodemgr.analytics_nodemgr',
-        'nodemgr.analytics_snmp_nodemgr',
-        'nodemgr.analytics_alarm_nodemgr',
-        'nodemgr.control_nodemgr',
-        'nodemgr.config_nodemgr',
-        'nodemgr.analytics_database_nodemgr',
-        'nodemgr.config_database_nodemgr',
-        'nodemgr.vrouter_nodemgr',
-        'nodemgr.common',
-        'nodemgr.common.cri',
-        'nodemgr.common.sandesh',
-        'nodemgr.common.sandesh.database',
-        'nodemgr.common.sandesh.nodeinfo',
-        'nodemgr.common.sandesh.nodeinfo.cpuinfo',
-        'nodemgr.common.sandesh.nodeinfo.process_info',
-        'nodemgr.common.sandesh.loadbalancer',
-    ],
-    package_data={'': ['*.html', '*.css', '*.xml']},
+    packages=find_packages(),
+    package_data={'': ['*.html', '*.css', '*.xml', '*.yml']},
     zip_safe=False,
     long_description="Nodemgr Implementation",
+
+    test_suite='contrail_issu.test',
+
+    install_requires=requirements('requirements.txt'),
+    tests_require=requirements('test-requirements.txt'),
+
     entry_points={
         'console_scripts': [
             'contrail-nodemgr = nodemgr.main:main',
