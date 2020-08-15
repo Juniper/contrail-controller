@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d9d03e0d_6b6af48b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 73,
+      "author": {
+        "id": 850
+      },
+      "writtenOn": "2020-08-15T06:04:31Z",
+      "side": 1,
+      "message": "I think if the first get returned empty list [], then the second get would return an error.\n\nIf the second get returned empty list [], remove will raise error as I tested.",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f20935fe_93f96edb",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 850
+      },
+      "writtenOn": "2020-08-15T06:04:31Z",
+      "side": 1,
+      "message": "Same as line 73.",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8db31d5e_ad7d197c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 850
+      },
+      "writtenOn": "2020-08-15T06:04:31Z",
+      "side": 1,
+      "message": "Shall we use this client_queue.query.get(resource_type, {\"fields\": [\"all\"]})[\"fields\"] instead to make it safer?",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8d7f698e_9e0baede",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 850
+      },
+      "writtenOn": "2020-08-15T06:04:31Z",
+      "side": 1,
+      "message": "Got a question about how _client_queues work. Why we use accumulated fields from all client queues instead each client queue\u0027s field for each client queue?",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
