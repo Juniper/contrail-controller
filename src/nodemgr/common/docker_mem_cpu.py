@@ -39,10 +39,10 @@ class DockerMemCpuUsageData(object):
         # stat previously
         interval_time = 0
         if last_cpu and (last_time != 0):
-            sys_time = float(current_cpu['cpu_usage']['usage_in_kernelmode']
-                             - last_cpu['cpu_usage']['usage_in_kernelmode']) / 1e9
-            usr_time = float(current_cpu['cpu_usage']['usage_in_usermode']
-                             - last_cpu['cpu_usage']['usage_in_usermode']) / 1e9
+            sys_time = float(current_cpu['cpu_usage']['usage_in_kernelmode'] -
+                             last_cpu['cpu_usage']['usage_in_kernelmode']) / 1e9
+            usr_time = float(current_cpu['cpu_usage']['usage_in_usermode'] -
+                             last_cpu['cpu_usage']['usage_in_usermode']) / 1e9
             interval_time = current_time - last_time
 
         self.last_cpu = current_cpu

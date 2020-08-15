@@ -1,18 +1,18 @@
 # -*- mode: python; -*-
 
-#
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
-#
-
 import sys
 
 Import('BuildEnv')
 OpEnv = BuildEnv.Clone()
 
 setup_sources = [
-           'setup.py',
-           'MANIFEST.in',
-          ]
+    'setup.py',
+    'requirements.txt',
+    'test-requirements.txt',
+    '.stestr.conf',
+    'tox.ini',
+    'MANIFEST.in',
+]
 
 setup_sources_rules = []
 for file in setup_sources:
@@ -20,107 +20,22 @@ for file in setup_sources:
         OpEnv.Install(Dir("."), '#controller/src/nodemgr/' + file))
 
 local_sources = [
-           '__init__.py',
-           'main.py'
-          ]
+    '__init__.py',
+    'main.py',
+    'analytics_nodemgr',
+    'analytics_alarm_nodemgr',
+    'analytics_snmp_nodemgr',
+    'control_nodemgr',
+    'config_nodemgr',
+    'vrouter_nodemgr',
+    'analytics_database_nodemgr',
+    'config_database_nodemgr',
+    'common',
+]
 
 local_sources_rules = []
 for file in local_sources:
-    local_sources_rules.append(OpEnv.Install(Dir("nodemgr"), file))
-
-analytics_sources = [
-           '__init__.py',
-           'analytics_nodemgr/event_manager.py'
-          ]
-analytics_sources_rules = []
-for file in analytics_sources:
-    analytics_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_nodemgr"), file))
-
-analytics_alarm_sources = [
-           '__init__.py',
-           'analytics_alarm_nodemgr/event_manager.py'
-          ]
-analytics_alarm_sources_rules = []
-for file in analytics_alarm_sources:
-    analytics_alarm_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_alarm_nodemgr"), file))
-
-analytics_snmp_sources = [
-           '__init__.py',
-           'analytics_snmp_nodemgr/event_manager.py'
-          ]
-analytics_snmp_sources_rules = []
-for file in analytics_snmp_sources:
-    analytics_snmp_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_snmp_nodemgr"), file))
-
-control_sources = [
-           '__init__.py',
-           'control_nodemgr/event_manager.py'
-          ]
-control_sources_rules = []
-for file in control_sources:
-    control_sources_rules.append(OpEnv.Install(Dir("nodemgr/control_nodemgr"), file))
-
-config_sources = [
-           '__init__.py',
-           'config_nodemgr/event_manager.py'
-          ]
-config_sources_rules = []
-for file in config_sources:
-    config_sources_rules.append(OpEnv.Install(Dir("nodemgr/config_nodemgr"), file))
-
-vrouter_sources = [
-           '__init__.py',
-           'vrouter_nodemgr/loadbalancer_stats.py',
-           'vrouter_nodemgr/haproxy_stats.py',
-           'vrouter_nodemgr/event_manager.py'
-          ]
-vrouter_sources_rules = []
-for file in vrouter_sources:
-    vrouter_sources_rules.append(OpEnv.Install(Dir("nodemgr/vrouter_nodemgr"), file))
-
-database_sources = [
-           '__init__.py',
-           'analytics_database_nodemgr/event_manager.py'
-          ]
-database_sources_rules = []
-for file in database_sources:
-    database_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_database_nodemgr"), file))
-
-config_database_sources = [
-           '__init__.py',
-           'config_database_nodemgr/event_manager.py'
-          ]
-config_database_sources_rules = []
-for file in config_database_sources:
-    config_database_sources_rules.append(OpEnv.Install(Dir("nodemgr/config_database_nodemgr"), file))
-
-common_sources = [
-           '__init__.py',
-           'common/cassandra_manager.py',
-           'common/common_process_manager.py',
-           'common/common_sys_cpu.py',
-           'common/docker_mem_cpu.py',
-           'common/container_process_manager.py',
-           'common/event_manager.py',
-           'common/linux_sys_data.py',
-           'common/process_stat.py',
-           'common/utils.py',
-           'common/podman_containers.py',
-           'common/docker_containers.py',
-           'common/cri_containers.py',
-          ]
-common_sources_rules = []
-for file in common_sources:
-    common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common"), file))
-
-common_cri_sources = [
-           'common/cri/api_pb2.py',
-           'common/cri/__init__.py',
-           'common/cri/gogo_pb2.py',
-           'common/cri/api_pb2_grpc.py',
-          ]
-for file in common_cri_sources:
-    common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common/cri"), file))
+    local_sources_rules.append(OpEnv.Install(Dir("nodemgr"), '#controller/src/nodemgr/' + file))
 
 sandesh_sources = []
 sandesh_sources += OpEnv.SandeshGenPy(
@@ -134,47 +49,20 @@ sandesh_sources += OpEnv.SandeshGenPy(
 sandesh_sources += OpEnv.SandeshGenPy(
     '#controller/src/vnsw/agent/uve/loadbalancer.sandesh', 'nodemgr/common/sandesh/', False)
 
-rel_path = Dir('nodemgr/common').path
-def BuildInfoAction(target, source, env):
-    env.GenerateBuildInfoPyCode(path=rel_path)
-
-build_info_rules = [OpEnv.Command(target='nodemgr/common/buildinfo.py', source = None, action=BuildInfoAction)]
-
-sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rules,
-                 analytics_alarm_sources_rules, analytics_snmp_sources_rules,
-                 control_sources_rules, config_sources_rules, common_sources_rules,
-                 vrouter_sources_rules, database_sources_rules,
-                 config_database_sources_rules, build_info_rules,
-                 sandesh_sources
-                ]
+sdist_depends = [
+    setup_sources_rules, local_sources_rules, sandesh_sources
+]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = OpEnv.Command('dist/nodemgr-0.1dev.tar.gz', 'setup.py',
                           cd_cmd + 'python setup.py sdist')
 
 OpEnv.Depends(sdist_gen, sdist_depends)
-
 OpEnv.Default(sdist_gen)
-
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-config-nodemgr.conf',
-            'config_nodemgr/contrail-config-nodemgr.conf'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-config-database-nodemgr.conf',
-            'config_database_nodemgr/contrail-config-database-nodemgr.conf'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-database-nodemgr.conf',
-            'analytics_database_nodemgr/contrail-database-nodemgr.conf'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-analytics-nodemgr.conf',
-            'analytics_nodemgr/contrail-analytics-nodemgr.conf'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-control-nodemgr.conf',
-            'control_nodemgr/contrail-control-nodemgr.conf'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-vrouter-nodemgr.conf',
-            'vrouter_nodemgr/contrail-vrouter-nodemgr.conf'))
-
 OpEnv.Alias("contrail-nodemgr", sdist_gen)
 
-#dummy scons target for nodemgr test
-test_suite = [ ]
-test_cmd = OpEnv.TestSuite('contrail-nodemgr-test', test_suite)
-OpEnv.Alias('contrail-nodemgr:test', test_cmd)
+test_target = OpEnv.SetupPyTestSuite(sdist_gen, use_tox=True)
+OpEnv.Alias('controller/src/nodemgr:test', test_target)
 
 doc_files = OpEnv.SandeshGenDoc('sandesh/database.sandesh')
 OpEnv.Alias('install', OpEnv.Install(

@@ -100,20 +100,20 @@ class CassandraManager(object):
     # end get_tp_status
 
     def has_cassandra_status_changed(self, current_status, old_status):
-        if (current_status.cassandra_compaction_task.pending_compaction_tasks
-                != old_status.cassandra_compaction_task.pending_compaction_tasks):
+        if (current_status.cassandra_compaction_task.pending_compaction_tasks !=
+                old_status.cassandra_compaction_task.pending_compaction_tasks):
             return True
         i = 0
         if len(current_status.thread_pool_stats) != \
                 len(old_status.thread_pool_stats):
             return True
         while i < len(current_status.thread_pool_stats):
-            if (current_status.thread_pool_stats[i].active
-                    != old_status.thread_pool_stats[i].active
-                    or current_status.thread_pool_stats[i].pending
-                    != old_status.thread_pool_stats[i].pending
-                    or current_status.thread_pool_stats[i].all_time_blocked
-                    != old_status.thread_pool_stats[i].all_time_blocked):
+            if (current_status.thread_pool_stats[i].active !=
+                    old_status.thread_pool_stats[i].active or
+                    current_status.thread_pool_stats[i].pending !=
+                    old_status.thread_pool_stats[i].pending or
+                    current_status.thread_pool_stats[i].all_time_blocked !=
+                    old_status.thread_pool_stats[i].all_time_blocked):
                 return True
             i += 1
         return False
