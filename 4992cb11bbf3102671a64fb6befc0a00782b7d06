@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "571dd6bc_fe26696b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/fabric_config.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-08-15T13:57:45Z",
+      "side": 1,
+      "message": "We can read only the required field instead of the entire object.",
+      "revId": "4992cb11bbf3102671a64fb6befc0a00782b7d06",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45ef3f28_ebac9f14",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-08-15T13:57:45Z",
+      "side": 1,
+      "message": "We may need to check before removing this file.",
+      "revId": "4992cb11bbf3102671a64fb6befc0a00782b7d06",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
