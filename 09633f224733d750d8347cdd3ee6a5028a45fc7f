@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "761a0f50_fbb05898",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 73,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-16T20:33:59Z",
+      "side": 1,
+      "message": "Fixed first by returning {} for get method. second one (ValueError) is handled at line 76/77 already",
+      "parentUuid": "d9d03e0d_6b6af48b",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f20935fe_93f96edb",
         "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
         "patchSetId": 1
@@ -33,6 +51,24 @@
       "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7f777e0e_30edc758",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-16T20:33:59Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "f20935fe_93f96edb",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "4a6edbe9_7c2f1a72",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-16T20:33:59Z",
+      "side": 1,
+      "message": "We should do this, because resource_type not in self._client_queues means no subscribed clients for that resource_type.\n\nresource_fields \u003d self._client_queues.get(resource_type, {}).get(\"fields\", [])",
+      "parentUuid": "8db31d5e_ad7d197c",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8d7f698e_9e0baede",
         "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
         "patchSetId": 1
@@ -64,6 +118,24 @@
       "writtenOn": "2020-08-15T06:04:31Z",
       "side": 1,
       "message": "Got a question about how _client_queues work. Why we use accumulated fields from all client queues instead each client queue\u0027s field for each client queue?",
+      "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3659943f_c486fc15",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-16T20:33:59Z",
+      "side": 1,
+      "message": "We are accumulating it so that at line 123, we can do one dbe_read with obj_fields requested by all clients for a resource_type and then at line 160 to 181, we sent only required fields to each clients.\n\nWe could consolidate the fields at line 122 by iterating over each queue.query, However it will delay the event dispatch.",
+      "parentUuid": "8d7f698e_9e0baede",
       "revId": "09633f224733d750d8347cdd3ee6a5028a45fc7f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
