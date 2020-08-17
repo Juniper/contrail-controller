@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "d7ff6223_5f6c1dbd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 47
+      },
+      "lineNbr": 230,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-17T17:45:44Z",
+      "side": 1,
+      "message": "Yeah. However since this is a cosmetic bug, will track it for 2011 where in will refactor the checks for Create and Delete for default fabric master-LR.",
+      "parentUuid": "ff1c6b3e_65284c87",
+      "revId": "cdef37b4f27337f38c2eafb6c464493c8097ad67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0ff0ff42_72827e4f",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
         "patchSetId": 47
@@ -33,6 +51,24 @@
       "revId": "cdef37b4f27337f38c2eafb6c464493c8097ad67",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3ad9217a_ba1543f9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 47
+      },
+      "lineNbr": 247,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-17T17:45:44Z",
+      "side": 1,
+      "message": "Yeah. However since this is a cosmetic bug, will track it for 2011 where in will refactor the checks for Create and Delete for default fabric master-LR.",
+      "parentUuid": "0ff0ff42_72827e4f",
+      "revId": "cdef37b4f27337f38c2eafb6c464493c8097ad67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
