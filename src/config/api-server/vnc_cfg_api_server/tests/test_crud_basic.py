@@ -4825,9 +4825,10 @@ class TestVncApiStats(test_case.ApiServerTestCase):
         super(TestVncApiStats, cls).tearDownClass(*args, **kwargs)
     # end tearDownClass
 
+    @mock.patch('vnc_cfg_api_server.api_server.VncApiServer', 'enable_api_stats_log', return_value=True)
     def test_response_code_on_exception(self):
         from cfgm_common.vnc_api_stats import VncApiStatistics
-        self._api_server.enable_api_stats_log = True
+        # self._api_server.enable_api_stats_log = True
         try:
             with test_common.patch(VncApiStatistics,
                                    'sendwith', self._check_sendwith):
@@ -4841,6 +4842,7 @@ class TestVncApiStats(test_case.ApiServerTestCase):
                              "but was not raised"))
     # end test_response_code_on_exception
 
+    @mock.patch('vnc_cfg_api_server.api_server.VncApiServer', 'enable_api_stats_log', side_effect=[False, True])
     def test_disabled_vnc_api_stats(self):
         from cfgm_common.vnc_api_stats import VncApiStatistics
 
@@ -4859,11 +4861,8 @@ class TestVncApiStats(test_case.ApiServerTestCase):
                 self._vnc_lib.virtual_network_delete(id=obj.uuid)
                 self.assertEquals(len(self.logs), 7 * factor)
 
-        self._api_server.enable_api_stats_log = False
         # try all crud operations
         _crud_exec(factor=0)
-        # Now enable api server logging and logs will be sent
-        self._api_server.enable_api_stats_log = True
         _crud_exec(factor=1)
 # end TestVncApiStats
 
