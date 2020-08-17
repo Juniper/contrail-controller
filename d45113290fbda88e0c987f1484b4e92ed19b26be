@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4999a62e_d61d8896",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 19
+      },
+      "lineNbr": 2521,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-17T17:43:19Z",
+      "side": 1,
+      "message": "Yes. as we discussed, included a check to compare based on fq_names rather than a simple in check. Comparing the fq_names here so that even in the event someone creates a LR with master-LR in their name or in their own project, they won\u0027t be wrongly marked as the default project fabric-maste-LR.",
+      "parentUuid": "4dd792ec_32efd52c",
+      "revId": "d45113290fbda88e0c987f1484b4e92ed19b26be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bac20511_234b4831",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
         "patchSetId": 19
@@ -33,6 +51,24 @@
       "revId": "d45113290fbda88e0c987f1484b4e92ed19b26be",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "24cd8bd3_3d75ee83",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 19
+      },
+      "lineNbr": 1481,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2020-08-17T17:43:19Z",
+      "side": 1,
+      "message": "As discussed, comparing the fq_names here so that even in the event someone creates a LR with master-LR in their name or in their own project, they won\u0027t be wrongly marked as the default project fabric-maste-LR.",
+      "parentUuid": "bac20511_234b4831",
+      "revId": "d45113290fbda88e0c987f1484b4e92ed19b26be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
