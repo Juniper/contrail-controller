@@ -39,6 +39,7 @@ from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
+from cfgm_common import PERMS_RWX
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
 from . import utils
@@ -1436,6 +1437,38 @@ class VncDbClient(object):
                 'virtual_port_group', vpg_uuid, vpg_dict)
         return True, ''
 
+    def _check_and_add_fabric_refs_to_lr(self, lr_dict):
+
+        # this is to add fabric ref to LR object during cluster update
+        # if fabric ref not already present
+
+        if not lr_dict.get('fabric_refs'):
+            if lr_dict.get('physical_router_refs'):
+                pr_uuid = lr_dict.get('physical_router_refs')[-1].get('uuid')
+                (ok, pr_list) = self._object_db.object_read(
+                        'physical_router',
+                        obj_uuids=[pr_uuid],
+                        field_names=['fabric_refs'])
+
+                if not ok:
+                    return ok, pr_list
+                # this is assuming only one fabric ref to LR
+                # at present so that all PRs in a LR will belong
+                # to the same fabric
+                if pr_list and pr_list[-1].get('fabric_refs'):
+
+                    fab_list = pr_list[-1].get('fabric_refs')
+
+                    fab_uuid = str(fab_list[-1].get('uuid'))
+                    fab_fq_name = fab_list[-1].get('to')
+
+                    ref = {'to': fab_fq_name, 'attr': None, 'uuid': fab_uuid}
+                    lr_dict['fabric_refs'] = [ref]
+                    (ok, res) = self._object_db.object_update(
+                        'logical_router', lr_dict['uuid'], lr_dict)
+                    if not ok:
+                        return ok, res
+
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
@@ -1600,7 +1633,7 @@ class VncDbClient(object):
                                  if vxlan_routing else 'snat-routing'})
 
                             int_vn_uuid = None
-                            for vn_ref in lr['virtual_network_refs']:
+                            for vn_ref in lr.get('virtual_network_refs') or []:
                                 if (vn_ref.get('attr', {}).get(
                                       'logical_router_virtual_network_type') ==
                                       'InternalVirtualNetwork'):
@@ -1623,6 +1656,8 @@ class VncDbClient(object):
                         obj_dict['project_refs'] = [ref]
                         self._object_db.object_update('floating_ip',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'logical_router':
+                    self._check_and_add_fabric_refs_to_lr(obj_dict)
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
