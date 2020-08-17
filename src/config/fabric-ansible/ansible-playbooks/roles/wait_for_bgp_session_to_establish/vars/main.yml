@@ -1,0 +1,10 @@
+---
+prouter_name: "{{pr_name}}"
+prouter_vendor: "{{pr_vendor | lower}}"
+prouter_family: "{{pr_family}}"
+username: "{{pr_user}}"
+host: "{{pr_host}}"
+password: "{{pr_password}}"
+timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"
+health_check_params: "{{advanced_params}}"
+try_count: 0
