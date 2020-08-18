@@ -8,9 +8,9 @@ import re
 
 from gevent import monkey
 monkey.patch_all()  # noqa
-from vnc_api import vnc_api as vnc_api
 import webtest.app
 
+from vnc_api import vnc_api as vnc_api
 from tests import test_case
 
 

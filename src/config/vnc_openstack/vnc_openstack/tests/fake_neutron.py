@@ -6,7 +6,6 @@ import sys
 
 from flexmock import flexmock
 
-
 # Mocking neutron.common.constants
 mock_neutron_pkg = flexmock(name='mock_neutron')
 mock_common_pkg = flexmock(name='mock_common')
