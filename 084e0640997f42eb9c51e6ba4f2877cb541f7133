@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "594d9dfc_50efcec9",
+        "filename": "ci_unittests.json",
+        "patchSetId": 2
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-08-18T19:52:35Z",
+      "side": 1,
+      "message": "log of such run is present here http://nexus.jenkins.progmaticlab.com:8082/jenkins_logs/gerrit/36/60636/10/check_12259/test-unit/logs/neutron_plugin",
+      "parentUuid": "692b6e95_17c11794",
+      "revId": "084e0640997f42eb9c51e6ba4f2877cb541f7133",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "0d735e7c_5710ec49",
         "filename": "src/nodemgr/common/cassandra_manager.py",
         "patchSetId": 2
@@ -30,6 +48,24 @@
       "writtenOn": "2020-08-18T19:22:36Z",
       "side": 1,
       "message": "Why is this change required as a part of this patch? Is this blocking the patch?",
+      "revId": "084e0640997f42eb9c51e6ba4f2877cb541f7133",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3aa9d6ba_6367613b",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-08-18T19:52:35Z",
+      "side": 1,
+      "message": "i tired to recheck this review - without this change CI runs all UT which are flaky in bgp.\nSo I\u0027ve made unrelated change to run less UT targets",
+      "parentUuid": "0d735e7c_5710ec49",
       "revId": "084e0640997f42eb9c51e6ba4f2877cb541f7133",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
