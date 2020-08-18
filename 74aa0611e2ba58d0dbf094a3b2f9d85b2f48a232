@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f7382955_cf2e044e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-18T02:52:12Z",
+      "side": 1,
+      "message": "lets remove _set_watchers method, it is not used anywhere",
+      "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8a40e82b_071ddbd1",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 83,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-18T02:52:12Z",
+      "side": 1,
+      "message": "lets do this\n\n     @classmethod\n     def _subscribe_client_queue(cls, client_queue, resource_type):\n         cls._watchers.update(\n             {resource_type: cls._watchers.get(resource_type, ResourceWatcher())})\n         cls._watchers.get(resource_type).add(client_queue, resource_type)\n     # end _subscribe_client_queue",
+      "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cde10f5b_5a8c00e7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 239,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-18T02:52:12Z",
+      "side": 1,
+      "message": "we can use list slice\n\nself._watchers.get(resource_type).queues[:] instead of [q for q in self._watchers.get(resource_type).queues]",
+      "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
