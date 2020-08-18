@@ -565,6 +565,10 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
             'parent_type': pr.object_type,
             'logical_interface_vlan_tag': 2,
             'logical_interface_type': 'l3',
+            'logical_interface_port_params': PortParameters(
+                port_disable=False,
+                port_mtu=1500,
+                port_description='some string'),
             'annotations': {},
             'display_name': 'some string',
         }
@@ -1225,10 +1229,17 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
         obj = self.set_properties(VirtualRouter, prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
 
-    def test_port_profile_create(self):
         prop_map = {
             'parent_obj': self._project_fetch_or_create(self.id()),
             'parent_type': 'project',
+            'port_profile_params': PortProfileParameters(
+                port_params=PortParameters(port_disable=False, port_mtu=1500,
+                                           port_description='some string'),
+                lacp_params=LacpParams(lacp_enable=True, lacp_interval='slow',
+                                       lacp_mode='passive'),
+                flow_control=False,
+                bpdu_loop_protection=False,
+                port_cos_untrust=False),
             'annotations': {},
             'display_name': 'some string',
         }
@@ -1769,6 +1780,11 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
             'physical_interface_type': 'regular',
             'physical_interface_mac_addresses': MacAddressesType(),
             'physical_interface_port_id': 'some string with ID',
+            'physical_interface_lacp_force_up': False,
+            'physical_interface_flow_control': False,
+            'physical_interface_port_params': PortParameters(
+                port_disable=False, port_mtu=1500,
+                port_description='some string'),
             'annotations': {},
             'display_name': 'some string',
         }
