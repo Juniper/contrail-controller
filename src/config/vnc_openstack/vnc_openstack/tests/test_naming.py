@@ -1,22 +1,23 @@
 from __future__ import absolute_import
-from . import test_case
-from cfgm_common.tests import test_utils
-from cfgm_common.tests import test_common
-from pysandesh.connection_info import ConnectionState
-from vnc_api import vnc_api
-from testtools import content, content_type, ExpectedException
-from testtools.matchers import Equals, Contains, Not
-from flexmock import flexmock
-from builtins import str
-from builtins import range
-import sys
-import json
-import uuid
-import logging
-import gevent
-from gevent import monkey
-monkey.patch_all()
 
+import json
+import logging
+import uuid
+from builtins import range
+from builtins import str
+
+import gevent
+from cfgm_common.tests import test_common
+from cfgm_common.tests import test_utils
+from gevent import monkey
+from pysandesh.connection_info import ConnectionState
+from testtools import ExpectedException
+from testtools.matchers import Contains, Equals, Not
+from vnc_api import vnc_api
+
+from . import test_case
+
+monkey.patch_all()
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,10 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         proj_obj = vnc_api.Project('project-%s' % self.id())
         self._vnc_lib.project_create(proj_obj)
         for res_type in [
-            'network',
-            'subnet',
-            'security_group',
-            'port',
+                'network',
+                'subnet',
+                'security_group',
+                'port',
                 'router']:
             # create a resource
             res_name = '%s-%s' % (res_type, self.id())
@@ -100,17 +101,16 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
                     'name': new_res_name})
             self.assertThat(len(res_list), Equals(1))
             self.assertThat(res_list[0]['name'], Equals(new_res_name))
-
     # end test_name_change
 
     def test_duplicate_name(self):
         proj_obj = vnc_api.Project('project-%s' % self.id())
         self._vnc_lib.project_create(proj_obj)
         for res_type in [
-            'network',
-            'subnet',
-            'security_group',
-            'port',
+                'network',
+                'subnet',
+                'security_group',
+                'port',
                 'router']:
             # create a resource
             res_name = '%s-%s' % (res_type, self.id())
@@ -131,17 +131,16 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
                 res_type, proj_uuid=proj_obj.uuid, req_filters={
                     'name': res_name})
             self.assertThat(len(res_list), Equals(2))
-
     # end test_duplicate_name
 
     def test_uuid(self):
         proj_obj = vnc_api.Project('project-%s' % self.id())
         self._vnc_lib.project_create(proj_obj)
         for res_type in [
-            'network',
-            'subnet',
-            'security_group',
-            'port',
+                'network',
+                'subnet',
+                'security_group',
+                'port',
                 'router']:
             res_uuid = str(uuid.uuid4())
             res_name = '%s-%s' % (res_type, res_uuid)
@@ -149,17 +148,16 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
                 res_type, proj_obj.uuid, extra_res_fields={
                     'name': res_name, 'id': res_uuid})
             self.assertThat(res_q['id'], Equals(res_uuid))
-
     # end test_uuid
 
     def test_uuid_in_duplicate_name(self):
         proj_obj = vnc_api.Project('project-%s' % self.id())
         self._vnc_lib.project_create(proj_obj)
         for res_type in [
-            'network',
-            'subnet',
-            'security_group',
-            'port',
+                'network',
+                'subnet',
+                'security_group',
+                'port',
                 'router']:
             # create a resource
             res_uuid = str(uuid.uuid4())
@@ -186,9 +184,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
                 res_type, proj_uuid=proj_obj.uuid, req_filters={
                     'name': res_name})
             self.assertThat(len(res_list), Equals(2))
-
     # end test_uuid_in_duplicate_name
-
 # end class NBTestNaming
 
 
@@ -208,7 +204,8 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
         logger.info(
             'Creating second project with same name diff id in "keystone"')
         new_proj_id = str(uuid.uuid4())
-        test_case.get_keystone_client().tenants.add_tenant(new_proj_id, proj_name)
+        test_case.get_keystone_client().tenants.add_tenant(new_proj_id,
+                                                           proj_name)
         new_proj_obj = self._vnc_lib.project_read(id=new_proj_id)
         self.assertThat(new_proj_obj.name, Not(Equals(proj_name)))
         self.assertThat(new_proj_obj.name, Contains(proj_name))
@@ -236,7 +233,8 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
             logger.info(
                 'Creating second project with same name diff id in "keystone"')
             new_proj_id = str(uuid.uuid4())
-            test_case.get_keystone_client().tenants.add_tenant(new_proj_id, proj_name)
+            test_case.get_keystone_client().tenants.add_tenant(new_proj_id,
+                                                               proj_name)
             with ExpectedException(vnc_api.NoIdError):
                 self._vnc_lib.project_read(id=new_proj_id)
 
@@ -257,6 +255,7 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
 
         def stub(*args, **kwargs):
             return
+
         with test_common.patch(self.openstack_driver,
                                '_del_project_from_vnc', stub):
             test_case.get_keystone_client().tenants.delete_tenant(proj_id1)
@@ -274,12 +273,15 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
         orig_ks_domains_list = self.openstack_driver._ks_domains_list
         orig_ks_domain_get = self.openstack_driver._ks_domain_get
         try:
-            self.openstack_driver._ks_domains_list = self.openstack_driver._ksv3_domains_list
-            self.openstack_driver._ks_domain_get = self.openstack_driver._ksv3_domain_get
+            self.openstack_driver._ks_domains_list = \
+                self.openstack_driver._ksv3_domains_list
+            self.openstack_driver._ks_domain_get = \
+                self.openstack_driver._ksv3_domain_get
             logger.info('Creating first domain in "keystone"')
             dom_id = str(uuid.uuid4())
             dom_name = self.id()
-            test_case.get_keystone_client().domains.add_domain(dom_id, dom_name)
+            test_case.get_keystone_client().domains.add_domain(dom_id,
+                                                               dom_name)
             dom_obj = self._vnc_lib.domain_read(id=dom_id)
             self.assertThat(dom_obj.name, Equals(dom_name))
             # create a project under domain so synch delete of domain fails
@@ -289,7 +291,8 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
             logger.info(
                 'Creating second domain with same name diff id in "keystone"')
             new_dom_id = str(uuid.uuid4())
-            test_case.get_keystone_client().domains.add_domain(new_dom_id, dom_name)
+            test_case.get_keystone_client().domains.add_domain(new_dom_id,
+                                                               dom_name)
             new_dom_obj = self._vnc_lib.domain_read(id=new_dom_id)
             self.assertThat(new_dom_obj.name, Not(Equals(dom_name)))
             self.assertThat(new_dom_obj.name, Contains(dom_name))
@@ -321,7 +324,8 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
         test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
         proj_obj = self._vnc_lib.project_read(id=proj_id)
         conn_info = [ConnectionState._connection_map[x]
-                     for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+                     for x in ConnectionState._connection_map if
+                     x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('up'))
 
         fake_list_invoked = list()
@@ -336,7 +340,8 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
                          if x[1] == 'Keystone'][0]
             self.assertThat(conn_info.status.lower(), Equals('down'))
 
-        with test_common.flexmocks([(self.openstack_driver._ks.tenants, 'list', fake_list)]):
+        with test_common.flexmocks(
+                [(self.openstack_driver._ks.tenants, 'list', fake_list)]):
             # wait for tenants.list is invoked for 2*self.resync_interval max
             for x in range(10):
                 if len(fake_list_invoked) >= 1:
@@ -357,7 +362,8 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
         # sleep for a retry and verify down->up
         gevent.sleep(self.resync_interval)
         conn_info = [ConnectionState._connection_map[x]
-                     for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+                     for x in ConnectionState._connection_map if
+                     x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('up'))
     # end test_connection_status_change
 # end class KeystoneConnectionStatus
@@ -389,13 +395,15 @@ class TestKeystoneConnection(test_case.KeystoneSyncTestCase):
     def test_connection_status(self):
         # check that connection was not obtained
         conn_info = [ConnectionState._connection_map[x]
-                     for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+                     for x in ConnectionState._connection_map if
+                     x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('initializing'))
 
         # sleep and check again
         gevent.sleep(self.resync_interval)
         conn_info = [ConnectionState._connection_map[x]
-                     for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+                     for x in ConnectionState._connection_map if
+                     x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('initializing'))
 
         # allow to create connection
@@ -404,7 +412,8 @@ class TestKeystoneConnection(test_case.KeystoneSyncTestCase):
         # wait for connection set up
         gevent.sleep(float(self.resync_interval) * 1.5)
         conn_info = [ConnectionState._connection_map[x]
-                     for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+                     for x in ConnectionState._connection_map if
+                     x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('up'))
 
         # check that driver works as required

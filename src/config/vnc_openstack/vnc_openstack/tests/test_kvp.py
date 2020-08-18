@@ -1,21 +1,24 @@
 from __future__ import absolute_import
+
 from . import test_case
+
 from cfgm_common.tests import test_common
+
 import vnc_openstack
-from . import fake_neutron
-from vnc_api.vnc_api import *
-from testtools import content, content_type
-from testtools.matchers import Equals, Contains, Not
+
+from vnc_api.vnc_api import (
+    Domain, IpamSubnetType, IpamType, NetworkIpam, Project,
+    SubnetType, VirtualNetwork, vnc_api, VnSubnetsType)
+
 from builtins import str
 from builtins import object
-import sys
-import json
 import uuid
 import logging
+
 import gevent.event
 import gevent.monkey
-gevent.monkey.patch_all()
 
+gevent.monkey.patch_all()
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +71,14 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
 
         # Ensure entry present in KV
         key = net_obj.uuid + " " + subnet + '/' + str(prefix)
-        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[0].subnet_uuid
+        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[
+            0].subnet_uuid
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
         self.assertEqual(key, key_tmp)
 
         key = net_obj.uuid + " " + subnet_1 + '/' + str(prefix)
-        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[1].subnet_uuid
+        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[
+            1].subnet_uuid
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
         self.assertEqual(key, key_tmp)
 
@@ -103,7 +108,8 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         kvp = self._vnc_lib.kv_retrieve()
         self.assertIn('%s 9.1.1.0/24' % (vn.uuid), [p['value'] for p in kvp])
         key = net_obj.uuid + " " + subnet_2 + '/' + str(prefix)
-        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[0].subnet_uuid
+        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[
+            0].subnet_uuid
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
         self.assertEqual(key, key_tmp)
 
@@ -120,7 +126,8 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         self.assertIn('%s 8.1.1.0/24' % (vn.uuid), [p['value'] for p in kvp])
         key = net_obj.uuid + " " + subnet_3 + '/' + str(prefix)
         net_obj = self._vnc_lib.virtual_network_read(id=net_obj.uuid)
-        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[0].subnet_uuid
+        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[
+            0].subnet_uuid
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
         self.assertEqual(key, key_tmp)
 
@@ -158,7 +165,8 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         self.assertIn('%s 99.1.1.0/24' % (vn.uuid), [p['value'] for p in kvp])
         key = net_obj.uuid + " " + subnet_3 + '/' + str(prefix)
         net_obj = self._vnc_lib.virtual_network_read(id=net_obj.uuid)
-        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[0].subnet_uuid
+        subnet_uuid = net_obj.network_ipam_refs[0]['attr'].ipam_subnets[
+            0].subnet_uuid
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
         self.assertEqual(key, key_tmp)
 
@@ -177,6 +185,8 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
 
         # Test delete
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+
 # end class NetworkKVPTest
 
 
@@ -210,11 +220,14 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
 
                 class BoundedErrorVncApi(object):
                     def __init__(self, *args, **kwargs):
-                        if len(err_instances) < vnc_openstack.RETRIES_BEFORE_LOG:
+                        if len(
+                                err_instances) < \
+                                vnc_openstack.RETRIES_BEFORE_LOG:
                             err_instances.append(True)
                             raise Exception("Faking Api connection exception")
                         vnc_api.VncApi = orig_vnc_api
                         return orig_vnc_api(*args, **kwargs)
+
                 vnc_api.VncApi = BoundedErrorVncApi
 
                 return orig_get_api_connection(
@@ -231,7 +244,9 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
             return orig_post_project_create(
                 self.resource_driver, *args, **kwargs)
 
-        def stub(*args, **kwargs): pass
+        def stub(*args, **kwargs):
+            pass
+
         test_common.setup_extra_flexmock([
             (vnc_openstack.ResourceApiDriver, '_get_api_connection',
              delayed_get_api_connection),
@@ -255,7 +270,6 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
 
         self.addCleanup(unset_mocks)
     # end setUp
-
     # end tearDown
 
     def test_post_project_create_default_sg(self):

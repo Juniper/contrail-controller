@@ -1,26 +1,26 @@
 from __future__ import absolute_import
+
 import vnc_openstack
-from . import fake_neutron
-from cfgm_common.tests.test_common import TestCase, setup_extra_flexmock
+
+from cfgm_common.tests.test_common import setup_extra_flexmock, TestCase
 from cfgm_common.tests.test_utils import get_keystone_client
 from cfgm_common.tests.test_utils import FakeExtensionManager
-from vnc_cfg_api_server import api_server
 import stevedore.extension
-from testtools.matchers import Equals, Contains, Not
-from flexmock import flexmock, Mock
+from testtools.matchers import Equals
 import bottle
-from six.moves import configparser
+
 import json
-import uuid
-import sys
 from builtins import range
+
 from future import standard_library
+
 standard_library.install_aliases()
 
 
 @bottle.hook('after_request')
 def after_request():
-    bottle.response.headers['Content-Type'] = 'application/json; charset="UTF-8"'
+    bottle.response.headers[
+        'Content-Type'] = 'application/json; charset="UTF-8"'
     try:
         del bottle.response.headers['Content-Length']
     except KeyError:
@@ -58,12 +58,14 @@ class VncOpenstackTestCase(TestCase):
             setup_extra_flexmock([(keystone, 'Client', get_keystone_client)])
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [
             vnc_openstack.OpenstackDriver]
-        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [
-            vnc_openstack.ResourceApiDriver]
+        FakeExtensionManager. \
+            _entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [
+                vnc_openstack.ResourceApiDriver]
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [
             vnc_openstack.NeutronApiDriver]
         setup_extra_flexmock(
-            [(stevedore.extension.ExtensionManager, '__new__', FakeExtensionManager)])
+            [(stevedore.extension.ExtensionManager, '__new__',
+              FakeExtensionManager)])
         super(VncOpenstackTestCase, cls).setUpClass(*args, **kwargs)
     # end setUp
 

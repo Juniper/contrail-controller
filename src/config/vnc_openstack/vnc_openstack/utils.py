@@ -2,6 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+
 def filter_fields(resource, fields):
     if fields:
         return dict(((key, item) for key, item in resource.items()

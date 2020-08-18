@@ -13,9 +13,9 @@
 #    under the License.
 #
 
-from builtins import str
-from builtins import range
 import uuid
+from builtins import range
+from builtins import str
 
 from gevent import monkey
 monkey.patch_all()  # noqa
@@ -32,13 +32,13 @@ from vnc_api.vnc_api import PortType
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import VirtualMachineInterface
 from vnc_api.vnc_api import VirtualNetwork
-
 from tests import test_case
-from vnc_openstack.neutron_plugin_db import\
+
+from vnc_openstack.neutron_plugin_db import \
     _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME
-from vnc_openstack.neutron_plugin_db import\
+from vnc_openstack.neutron_plugin_db import \
     _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME
-from vnc_openstack.neutron_plugin_db import\
+from vnc_openstack.neutron_plugin_db import \
     _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME
 from vnc_openstack.neutron_plugin_db import _NEUTRON_FWAAS_TAG_TYPE
 

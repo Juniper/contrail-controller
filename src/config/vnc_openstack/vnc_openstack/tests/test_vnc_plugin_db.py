@@ -1,16 +1,15 @@
 from __future__ import absolute_import
-from builtins import str
-from builtins import object
+
 import unittest
 import uuid
-from flexmock import flexmock
-import sys
+from builtins import object
+from builtins import str
 
+from cfgm_common.tests.test_utils import FakeKazooClient
+from flexmock import flexmock
 import bottle
 
-from . import fake_neutron
 from vnc_openstack import neutron_plugin_db as db
-from cfgm_common.tests.test_utils import FakeKazooClient
 
 
 class MockDbInterface(db.DBInterface):
@@ -18,6 +17,7 @@ class MockDbInterface(db.DBInterface):
         class MockConnection(object):
             def wait(self):
                 return
+
         self._connected_to_api_server = MockConnection()
         self._zookeeper_client = FakeKazooClient()
         self.security_group_lock_prefix = '/vnc_cfg_api_locks/security_group'
@@ -92,7 +92,6 @@ class TestDbInterface(unittest.TestCase):
 
     def test_floating_show_router_id(self):
         dbi = MockDbInterface()
-        vmi_obj = None
 
         def fake_virtual_machine_interface_properties():
             return None
@@ -107,7 +106,8 @@ class TestDbInterface(unittest.TestCase):
                 net_uuid = 'match_vn_uuid'
             return flexmock(
                 uuid=id,
-                get_virtual_machine_interface_properties=fake_virtual_machine_interface_properties,
+                get_virtual_machine_interface_properties=(
+                    fake_virtual_machine_interface_properties),
                 get_virtual_network_refs=lambda: [
                     {
                         'uuid': net_uuid}])
@@ -115,19 +115,24 @@ class TestDbInterface(unittest.TestCase):
         def fake_virtual_machine_interface_list(*args, **kwargs):
             obj_uuids = kwargs.get('obj_uuids', [])
             if 'router_port_uuid' in obj_uuids:
-                return [flexmock(
-                    uuid='router_port_uuid',
-                    get_virtual_machine_interface_properties=fake_virtual_machine_interface_properties,
-                    get_virtual_network_refs=lambda: [{'uuid': 'match_vn_uuid'}])]
+                return [
+                    flexmock(
+                        uuid='router_port_uuid',
+                        get_virtual_machine_interface_properties=(
+                            fake_virtual_machine_interface_properties),
+                        get_virtual_network_refs=(
+                            lambda: [{'uuid': 'match_vn_uuid'}]))]
             return []
 
         dbi._vnc_lib = flexmock(
             fq_name_to_id=lambda res, name: 'fip_pool_uuid',
             virtual_machine_interface_read=fake_virtual_machine_read,
-            virtual_machine_interfaces_list=fake_virtual_machine_interface_list,
+            virtual_machine_interfaces_list=(
+                fake_virtual_machine_interface_list),
             logical_routers_list=lambda parent_id, detail: [
                 flexmock(uuid='router_uuid',
-                         get_virtual_machine_interface_refs=lambda: [{'uuid': 'router_port_uuid'}])])
+                         get_virtual_machine_interface_refs=lambda: [
+                             {'uuid': 'router_port_uuid'}])])
 
         id_perms_obj = flexmock(
             uuid='id_perms_uuid',
@@ -213,7 +218,7 @@ class TestDbInterface(unittest.TestCase):
 
     def test_floating_update_port_from_another_project(self):
         dbi = MockDbInterface()
-        dbi._get_obj_tenant_id=lambda r, id: 'Another project'
+        dbi._get_obj_tenant_id = lambda r, id: 'Another project'
 
         dbi._vnc_lib = flexmock(
             fq_name_to_id=lambda res, name: 'fip_pool_uuid',
@@ -221,7 +226,8 @@ class TestDbInterface(unittest.TestCase):
             virtual_machine_interface_read=lambda id, fq_name, fields: None,
             logical_routers_list=lambda parent_id, detail: [
                 flexmock(uuid='router_uuid',
-                         get_virtual_machine_interface_refs=lambda: [{'uuid': 'router_port_uuid'}])])
+                         get_virtual_machine_interface_refs=lambda: [
+                             {'uuid': 'router_port_uuid'}])])
 
         id_perms_obj = flexmock(
             uuid='id_perms_uuid',

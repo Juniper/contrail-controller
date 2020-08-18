@@ -1,14 +1,9 @@
 from __future__ import absolute_import
-import sys
-import json
-import uuid
+
 import logging
 
-from testtools.matchers import Equals, Contains, Not
-from testtools import content, content_type, ExpectedException
+from testtools import ExpectedException
 import webtest.app
-
-from vnc_api.vnc_api import *
 
 from . import test_case
 
