@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "e5218e35_be43f91b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 971
+      },
+      "writtenOn": "2020-08-18T13:47:53Z",
+      "side": 1,
+      "message": "This is used in test_event_dispatcher.py in teardown() to set it to empty.",
+      "parentUuid": "f7382955_cf2e044e",
+      "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "8a40e82b_071ddbd1",
         "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
         "patchSetId": 12
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "c4cc9405_728ea9dd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 83,
+      "author": {
+        "id": 971
+      },
+      "writtenOn": "2020-08-18T13:47:53Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8a40e82b_071ddbd1",
+      "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "cde10f5b_5a8c00e7",
         "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
         "patchSetId": 12
@@ -50,6 +86,24 @@
       "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "55f74e6d_9baf6dfa",
+        "filename": "src/config/api-server/vnc_cfg_api_server/event_dispatcher.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 239,
+      "author": {
+        "id": 971
+      },
+      "writtenOn": "2020-08-18T13:47:53Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cde10f5b_5a8c00e7",
+      "revId": "74aa0611e2ba58d0dbf094a3b2f9d85b2f48a232",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
