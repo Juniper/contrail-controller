@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "692b6e95_17c11794",
+        "filename": "ci_unittests.json",
+        "patchSetId": 2
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-18T19:22:36Z",
+      "side": 1,
+      "message": "Please test UT is working good before enabling them. Just create a dummy change and let CI run and qualify UT first.",
+      "revId": "084e0640997f42eb9c51e6ba4f2877cb541f7133",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0d735e7c_5710ec49",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-18T19:22:36Z",
+      "side": 1,
+      "message": "Why is this change required as a part of this patch? Is this blocking the patch?",
+      "revId": "084e0640997f42eb9c51e6ba4f2877cb541f7133",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
