@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-from setuptools import setup, find_packages, Command
+from setuptools import find_packages, setup
 
 
 setup(

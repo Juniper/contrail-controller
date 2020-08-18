@@ -1,25 +1,26 @@
 from __future__ import absolute_import
-from builtins import str
-from builtins import range
-from past.builtins import basestring
-from builtins import object
-from datetime import datetime
+
 import json
 import re
-import mock
-import uuid
 import unittest
+import uuid
+from builtins import object
+from builtins import range
+from builtins import str
+from datetime import datetime
 
-from keystonemiddleware import auth_token
-from testtools import ExpectedException
-import webtest.app
-
-from vnc_api import vnc_api
-from vnc_openstack import neutron_plugin_db
-from cfgm_common.exceptions import NoIdError
-from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
-from cfgm_common.tests import test_common
+import mock
 import requests
+import webtest.app
+from cfgm_common import PERMS_NONE, PERMS_RWX, PERMS_RX
+from cfgm_common.exceptions import NoIdError
+from cfgm_common.tests import test_common
+from keystonemiddleware import auth_token
+from past.builtins import basestring
+from testtools import ExpectedException
+from vnc_api import vnc_api
+
+from vnc_openstack import neutron_plugin_db
 from . import test_case
 
 try:
@@ -48,20 +49,20 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         objects = {}
         for (obj_type, obj_class, create_method_name) in \
-            [('virtual_network', vnc_api.VirtualNetwork,
-              'virtual_network_create'),
-             ('network_ipam', vnc_api.NetworkIpam,
-              'network_ipam_create'),
-             ('network_policy', vnc_api.NetworkPolicy,
-              'network_policy_create'),
-             ('logical_router', vnc_api.LogicalRouter,
-              'logical_router_create'),
-             ('security_group', vnc_api.SecurityGroup,
-              'security_group_create'),
-             ('route_table', vnc_api.RouteTable,
-              'route_table_create'),
-             ('service_instance', vnc_api.ServiceInstance,
-              'service_instance_create')]:
+                [('virtual_network', vnc_api.VirtualNetwork,
+                  'virtual_network_create'),
+                 ('network_ipam', vnc_api.NetworkIpam,
+                  'network_ipam_create'),
+                 ('network_policy', vnc_api.NetworkPolicy,
+                  'network_policy_create'),
+                 ('logical_router', vnc_api.LogicalRouter,
+                  'logical_router_create'),
+                 ('security_group', vnc_api.SecurityGroup,
+                  'security_group_create'),
+                 ('route_table', vnc_api.RouteTable,
+                  'route_table_create'),
+                 ('service_instance', vnc_api.ServiceInstance,
+                  'service_instance_create')]:
             objects[obj_type] = [obj_class('%s-%s' % (self.id(), i))
                                  for i in range(3)]
             for obj in objects[obj_type]:
@@ -82,12 +83,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
         sn2_id = str(uuid.uuid4())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28),
-                                    subnet_uuid=sn0_id),
-             vnc_api.IpamSubnetType(vnc_api.SubnetType('2.2.2.0', 28),
-                                    subnet_uuid=sn1_id),
-             vnc_api.IpamSubnetType(vnc_api.SubnetType('3.3.3.0', 28),
-                                    subnet_uuid=sn2_id)]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 28),
+                                        subnet_uuid=sn0_id),
+                                     vnc_api.IpamSubnetType(
+                                         vnc_api.SubnetType('2.2.2.0', 28),
+                                         subnet_uuid=sn1_id),
+                                     vnc_api.IpamSubnetType(
+                                         vnc_api.SubnetType('3.3.3.0', 28),
+                                         subnet_uuid=sn2_id)]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         fip_pool_obj = vnc_api.FloatingIpPool(self.id(), vn_obj)
@@ -185,8 +189,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('1.1.1.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("somehost")
@@ -252,7 +256,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_machine_interface_delete(id=sub_vmi_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
-
     # end test_sub_interfaces_with_vm_attached
 
     def test_sub_interfaces_with_no_vm_attached(self):
@@ -279,7 +282,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=sub_vmi_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
-
     # end test_sub_interfaces_with_no_vm_attached
 
     @unittest.skip("Flaky test in CI")
@@ -296,8 +298,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('1.1.1.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("myhost")
@@ -413,15 +415,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('1.1.1.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vn2_obj = vnc_api.VirtualNetwork(self.id() + 'vn2')
         vn2_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                  vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('2.2.2.0', 24))]))
+                                     [vnc_api.IpamSubnetType(
+                                         vnc_api.SubnetType('2.2.2.0', 24))]))
         self._vnc_lib.virtual_network_create(vn2_obj)
 
         vr_obj = vnc_api.VirtualRouter("myhost")
@@ -574,7 +576,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_router_delete(id=vr_obj)
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
-
     # end test_baremetal_bindings_with_vpg_and_multi_vlan
 
     def test_virtual_port_group_physical_interface_vpg_id_association(self):
@@ -583,15 +584,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('1.1.1.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vn2_obj = vnc_api.VirtualNetwork(self.id() + 'vn2')
         vn2_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                  vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('2.2.2.0', 24))]))
+                                     [vnc_api.IpamSubnetType(
+                                         vnc_api.SubnetType('2.2.2.0', 24))]))
         self._vnc_lib.virtual_network_create(vn2_obj)
 
         vr_obj = vnc_api.VirtualRouter("myhost")
@@ -705,7 +706,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_router_delete(id=vr_obj)
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
-
     # end test_virtual_port_group_physical_interface_vpg_id_association
 
     @unittest.skip("Flaky test in CI")
@@ -727,8 +727,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('1.1.1.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("myhost")
@@ -917,8 +917,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
             vn_obj = vnc_api.VirtualNetwork(self.id())
             vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                     vnc_api.VnSubnetsType(
-                [vnc_api.IpamSubnetType(
-                    vnc_api.SubnetType('1.1.1.0', 24))]))
+                                        [vnc_api.IpamSubnetType(
+                                            vnc_api.SubnetType('1.1.1.0',
+                                                               24))]))
             self._vnc_lib.virtual_network_create(vn_obj)
 
             vr_obj = vnc_api.VirtualRouter("myhost")
@@ -944,7 +945,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
                     pi_name = tor_info['interfaces'][i]
                     pi = vnc_api.PhysicalInterface(
                         name=pi_name, parent_obj=tor_info['pr_obj'])
-                    tor_info['pi_uuid'][pi_name] = self._vnc_lib.physical_interface_create(
+                    tor_info['pi_uuid'][
+                        pi_name] = self._vnc_lib.physical_interface_create(
                         pi)
 
             for bond, bond_info in bonds.items():
@@ -983,7 +985,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 bond_info['port_dict'] = port_dict
                 # Make sure that the binding profile for baremetal is set
                 # correctly
-                match = port_dict['binding:profile'] == bond_info['binding_profile']
+                match = port_dict['binding:profile'] == bond_info[
+                    'binding_profile']
                 self.assertTrue(match)
 
                 for t in range(len(bond_info['tors'])):
@@ -995,17 +998,20 @@ class TestBasic(test_case.NeutronBackendTestCase):
                         lag_dict = self._vnc_lib.link_aggregation_groups_list()
                         lags = lag_dict['link-aggregation-groups']
                         for l in lags:
-                            lag_obj = self._vnc_lib.link_aggregation_group_read(
-                                id=l['uuid'])
+                            lag_obj = self._vnc_lib.\
+                                link_aggregation_group_read(id=l['uuid'])
                             if lag_obj.parent_uuid == tors[bond_info['tors'][
                                     t]['name']]['pr_uuid']:
                                 lag_found = True
                                 zk_element_fq_name = [
-                                    'default-global-system-config', switch_name, switch_interfaces[0]]
+                                    'default-global-system-config',
+                                    switch_name,
+                                    switch_interfaces[0]]
                                 zk_element_fq_name_str = ':'.join(
                                     zk_element_fq_name)
                                 self.assertEqual(
-                                    mock_zk.get_ae_from_id(zk_index), zk_element_fq_name_str)
+                                    mock_zk.get_ae_from_id(zk_index),
+                                    zk_element_fq_name_str)
                                 zk_index += 1
                                 break
                         self.assertTrue(lag_found)
@@ -1035,7 +1041,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
                             expected_parent_uuid = new_pi_uuid
                         else:
                             expected_parent_uuid = (
-                                tors[bond_info['tors'][t]['name']]['pi_uuid'][switch_interfaces[0]])
+                                tors[bond_info['tors'][t]['name']]['pi_uuid'][
+                                    switch_interfaces[0]])
                         if li_obj.parent_uuid == expected_parent_uuid:
                             bound_logical_interface_found = True
                             break
@@ -1142,29 +1149,38 @@ class TestBasic(test_case.NeutronBackendTestCase):
                                    'interfaces': ['int23']}]},
               }
         b2 = {
-            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']}]},
-            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int13', 'int14']}]},
-            'bond-3': {'tors': [{'name': 'tor-2', 'interfaces': ['int21', 'int22']}]},
-            'bond-4': {'tors': [{'name': 'tor-2', 'interfaces': ['int23', 'int24']}]},
+            'bond-1': {
+                'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']}]},
+            'bond-2': {
+                'tors': [{'name': 'tor-1', 'interfaces': ['int13', 'int14']}]},
+            'bond-3': {
+                'tors': [{'name': 'tor-2', 'interfaces': ['int21', 'int22']}]},
+            'bond-4': {
+                'tors': [{'name': 'tor-2', 'interfaces': ['int23', 'int24']}]},
         }
         b3 = {
-            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11']}, {'name': 'tor-2', 'interfaces': ['int21']}]},
-            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int12']}, {'name': 'tor-2', 'interfaces': ['int22']}]},
-            'bond-3': {'tors': [{'name': 'tor-1', 'interfaces': ['int13']}, {'name': 'tor-2', 'interfaces': ['int23']}]},
-            'bond-3': {'tors': [{'name': 'tor-1', 'interfaces': ['int14']}, {'name': 'tor-2', 'interfaces': ['int24']}]},
+            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11']},
+                                {'name': 'tor-2', 'interfaces': ['int21']}]},
+            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int12']},
+                                {'name': 'tor-2', 'interfaces': ['int22']}]},
+            'bond-3': {'tors': [{'name': 'tor-1', 'interfaces': ['int13']},
+                                {'name': 'tor-2', 'interfaces': ['int23']}]},
+            'bond-4': {'tors': [{'name': 'tor-1', 'interfaces': ['int14']},
+                                {'name': 'tor-2', 'interfaces': ['int24']}]},
         }
         b4 = {
-            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']},
-                                {'name': 'tor-2', 'interfaces': ['int21', 'int22']}]},
-            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int13', 'int14']},
-                                {'name': 'tor-2', 'interfaces': ['int23', 'int24']}]},
+            'bond-1': {
+                'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']},
+                         {'name': 'tor-2', 'interfaces': ['int21', 'int22']}]},
+            'bond-2': {
+                'tors': [{'name': 'tor-1', 'interfaces': ['int13', 'int14']},
+                         {'name': 'tor-2', 'interfaces': ['int23', 'int24']}]},
         }
 
         test_scenarios = [b1, b2, b3, b4]
         # Execute test for each bonding topology
         for bonds in test_scenarios:
             _test_multiple_bonds(tors=tors, bonds=bonds)
-
     # end test_baremetal_logical_interface_bindings_multiple_bonds
 
     def test_sg_rules_delete_when_peer_group_deleted_on_read_sg(self):
@@ -1425,7 +1441,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         port_q = self._create_port_with_no_sg(proj_obj.uuid)
         self.assertTrue(port_q['allowed_address_pairs'] is not None)
 
-    @mock.patch('vnc_openstack.neutron_plugin_db.DBInterface._raise_contrail_exception')
+    @mock.patch('vnc_openstack.neutron_plugin_db.DBInterface.'
+                '_raise_contrail_exception')
     def test_delete_port_in_use(self, mock_raise_contrail_exception):
         proj_obj = self._vnc_lib.project_read(
             fq_name=['default-domain', 'default-project'])
@@ -1520,11 +1537,13 @@ class TestBasic(test_case.NeutronBackendTestCase):
             self.create_resource('port', proj_obj.uuid,
                                  extra_res_fields={
                                      'network_id': net_q['id'],
-                                     'fixed_ips': [{'ip_address': fip_q['floating_ip_address']}],
+                                     'fixed_ips': [{'ip_address': fip_q[
+                                         'floating_ip_address']}],
                                      'security_groups': [sg_q['id']],
                                  })
             self.assertTrue(
-                False, 'Create with fixed-ip conflicting with floating-ip passed')
+                False,
+                'Create with fixed-ip conflicting with floating-ip passed')
         except webtest.app.AppError as e:
             self.assertIsNot(re.search('Conflict', str(e)), None)
             self.assertIsNot(re.search('IP address already in use', str(e)),
@@ -1610,7 +1629,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         for i in range(3):
             proj_id = str(uuid.uuid4())
             proj_name = 'proj-%s-%s' % (self.id(), i)
-            test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+            test_case.get_keystone_client().tenants.add_tenant(proj_id,
+                                                               proj_name)
             proj_objs.append(self._vnc_lib.project_read(id=proj_id))
 
         sg_q_list = [self.create_resource('security_group', proj_objs[i].uuid)
@@ -1627,11 +1647,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         )
         self.create_resource('subnet', proj_objs[-1].uuid,
                              extra_res_fields={
-            'name': 'public-subnet-%s-1' % self.id(),
-            'network_id': pub_net1_q['id'],
-            'cidr': '10.1.1.0/24',
-            'ip_version': 4,
-        })
+                                 'name': 'public-subnet-%s-1' % self.id(),
+                                 'network_id': pub_net1_q['id'],
+                                 'cidr': '10.1.1.0/24',
+                                 'ip_version': 4, })
         pub_net2_q = self.create_resource(
             'network',
             proj_objs[-1].uuid,
@@ -1642,11 +1661,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         )
         self.create_resource('subnet', proj_objs[-1].uuid,
                              extra_res_fields={
-            'name': 'public-subnet-%s-2' % self.id(),
-            'network_id': pub_net2_q['id'],
-            'cidr': '20.1.1.0/24',
-            'ip_version': 4,
-        })
+                                 'name': 'public-subnet-%s-2' % self.id(),
+                                 'network_id': pub_net2_q['id'],
+                                 'cidr': '20.1.1.0/24',
+                                 'ip_version': 4, })
 
         def create_net_subnet_port_assoc_fip(i, pub_net_q_list,
                                              has_routers=True):
@@ -1756,9 +1774,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         fip_dicts = dict((fip['port_id'], fip) for fip in fip_dicts)
         # assert fips point to right port
         self.assertEqual(created[0]['ports'][0]['fixed_ips'][0]['ip_address'],
-                         fip_dicts[created[0]['ports'][0]['id']]['fixed_ip_address'])
+                         fip_dicts[created[0]['ports'][0]['id']][
+                             'fixed_ip_address'])
         self.assertEqual(created[0]['ports'][1]['fixed_ips'][0]['ip_address'],
-                         fip_dicts[created[0]['ports'][1]['id']]['fixed_ip_address'])
+                         fip_dicts[created[0]['ports'][1]['id']][
+                             'fixed_ip_address'])
     # end test_floating_ip_list
 
     def test_network_delete_when_fip_associated_w_port(self):
@@ -1768,7 +1788,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id(), proj_obj)
         vn_obj.set_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(vnc_api.SubnetType('20.1.1.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('20.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vmi_obj = vnc_api.VirtualMachineInterface(
@@ -1852,7 +1873,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         with ExpectedException(webtest.app.AppError):
             fip_q_2 = self.create_resource(
                 'floatingip', proj_id, extra_res_fields={
-                    'floating_network_id': net_q['id'], 'port_id': port_q['id']})
+                    'floating_network_id': net_q['id'],
+                    'port_id': port_q['id']})
 
         # cleanup
         self.delete_resource('floatingip', proj_id, fip_q['id'])
@@ -1884,9 +1906,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         sn_id = str(uuid.uuid4())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28),
-                                    subnet_uuid=sn_id, created=timestamp,
-                                    last_modified=timestamp)]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 28),
+                                        subnet_uuid=sn_id, created=timestamp,
+                                        last_modified=timestamp)]))
         self._vnc_lib.virtual_network_create(vn_obj)
         sn_dict = self.read_resource('subnet', sn_id)
         # verify created timestamp and updated timestamp are same
@@ -2095,11 +2118,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         def router_with_fake_si_ref(orig_method, *args, **kwargs):
             if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
                 mock_router_vn_ref = mock.patch.object(
-                    router_obj, 'get_virtual_network_refs',).start()
+                    router_obj, 'get_virtual_network_refs', ).start()
                 mock_router_vn_ref.return_value = [{
                     'uuid': public_net_obj.uuid}]
                 mock_router_si_ref = mock.patch.object(
-                    router_obj, 'get_service_instance_refs',).start()
+                    router_obj, 'get_service_instance_refs', ).start()
                 mock_router_si_ref.return_value = [{'uuid': 'fake_si_uuid'}]
                 return [router_obj]
             return orig_method(*args, **kwargs)
@@ -2118,14 +2141,17 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 return [fake_gw]
             return orig_method(*args, **kwargs)
 
-        with test_common.patch(self.neutron_db_obj._vnc_lib,
-                               'logical_routers_list',
-                               router_with_fake_si_ref), \
-                test_common.patch(self.neutron_db_obj._vnc_lib,
-                                  'service_instance_read', fake_si_obj), \
-                test_common.patch(self.neutron_db_obj._vnc_lib,
-                                  'virtual_machine_interfaces_list',
-                                  return_router_gw_interface):
+        with \
+                test_common.patch(
+                    self.neutron_db_obj._vnc_lib,
+                    'logical_routers_list', router_with_fake_si_ref), \
+                test_common.patch(
+                    self.neutron_db_obj._vnc_lib,
+                    'service_instance_read', fake_si_obj), \
+                test_common.patch(
+                    self.neutron_db_obj._vnc_lib,
+                    'virtual_machine_interfaces_list',
+                    return_router_gw_interface):
             # list with a user that not own the router gw port's network
             router_interfaces = self.list_resource(
                 'port',
@@ -2220,11 +2246,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         def router_with_fake_si_ref(orig_method, *args, **kwargs):
             if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
                 mock_router_vn_ref = mock.patch.object(
-                    router_obj, 'get_virtual_network_refs',).start()
+                    router_obj, 'get_virtual_network_refs', ).start()
                 mock_router_vn_ref.return_value = [{
                     'uuid': public_net_obj.uuid}]
                 mock_router_si_ref = mock.patch.object(
-                    router_obj, 'get_service_instance_refs',).start()
+                    router_obj, 'get_service_instance_refs', ).start()
                 mock_router_si_ref.return_value = [{'uuid': 'fake_si_uuid'}]
                 return [router_obj]
             return orig_method(*args, **kwargs)
@@ -2243,14 +2269,17 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 return [fake_gw]
             return orig_method(*args, **kwargs)
 
-        with test_common.patch(self.neutron_db_obj._vnc_lib,
-                               'logical_routers_list',
-                               router_with_fake_si_ref), \
-                test_common.patch(self.neutron_db_obj._vnc_lib,
-                                  'service_instance_read', fake_si_obj), \
-                test_common.patch(self.neutron_db_obj._vnc_lib,
-                                  'virtual_machine_interfaces_list',
-                                  return_router_gw_interface):
+        with \
+                test_common.patch(
+                    self.neutron_db_obj._vnc_lib,
+                    'logical_routers_list', router_with_fake_si_ref), \
+                test_common.patch(
+                    self.neutron_db_obj._vnc_lib,
+                    'service_instance_read', fake_si_obj), \
+                test_common.patch(
+                    self.neutron_db_obj._vnc_lib,
+                    'virtual_machine_interfaces_list',
+                    return_router_gw_interface):
             # list as admin, project does not matter
             router_interfaces = self.list_resource(
                 'port',
@@ -2399,8 +2428,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('192.168.10.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('192.168.10.0',
+                                                           24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("dpdk-host")
@@ -2464,8 +2494,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('192.168.11.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('192.168.11.0',
+                                                           24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("non-dpdk-host")
@@ -2531,8 +2562,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id(), proj_obj)
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('192.168.11.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('192.168.11.0',
+                                                           24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("myinterface.myhost.foo")
@@ -2548,7 +2580,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         proj_uuid = self._vnc_lib.fq_name_to_id(
             'project', fq_name=[
                 'default-domain', 'proj-%s' %
-                (self.id())])
+                                  (self.id())])
 
         context = {'operation': 'CREATE',
                    'user_id': '',
@@ -2600,8 +2632,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id(), proj_obj)
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('192.168.11.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('192.168.11.0',
+                                                           24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("dpdk-long.foobar")
@@ -2617,7 +2650,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         proj_uuid = self._vnc_lib.fq_name_to_id(
             'project', fq_name=[
                 'default-domain', 'proj-%s' %
-                (self.id())])
+                                  (self.id())])
 
         context = {'operation': 'CREATE',
                    'user_id': '',
@@ -2669,8 +2702,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id(), proj_obj)
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('192.168.11.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('192.168.11.0',
+                                                           24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("dpdk-long1.foo.bar")
@@ -2686,7 +2720,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         proj_uuid = self._vnc_lib.fq_name_to_id(
             'project', fq_name=[
                 'default-domain', 'proj-%s' %
-                (self.id())])
+                                  (self.id())])
 
         context = {'operation': 'CREATE',
                    'user_id': '',
@@ -2736,8 +2770,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(
-                vnc_api.SubnetType('192.168.10.0', 24))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('192.168.10.0',
+                                                           24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         vr_obj = vnc_api.VirtualRouter("dpdk-host.foo")
@@ -2914,7 +2949,8 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork('vn1-%s' % (self.id()), proj_obj)
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 28))]))
         self._vnc_lib.virtual_network_create(vn_obj)
         fip_pool_obj = vnc_api.FloatingIpPool('fip-pool-%s' % (self.id()),
                                               vn_obj)
@@ -2941,8 +2977,11 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         def spy_list(orig_method, *args, **kwargs):
             self.assertIn(sg_obj.uuid, kwargs['obj_uuids'])
             return orig_method(*args, **kwargs)
+
         with test_common.patch(
-                self.neutron_db_obj._vnc_lib, 'security_groups_list', spy_list):
+                self.neutron_db_obj._vnc_lib,
+                'security_groups_list',
+                spy_list):
             context = {'operation': 'READALL',
                        'user_id': '',
                        'tenant_id': proj_obj.uuid,
@@ -2960,6 +2999,7 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         def spy_list(orig_method, *args, **kwargs):
             self.assertIn(fip1_obj.uuid, kwargs['obj_uuids'])
             return orig_method(*args, **kwargs)
+
         with test_common.patch(
                 self.neutron_db_obj._vnc_lib, 'floating_ips_list', spy_list):
             context = {'operation': 'READALL',
@@ -3166,7 +3206,8 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn_obj = vnc_api.VirtualNetwork('vn1-%s' % (self.id()), proj_obj)
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                                 vnc_api.VnSubnetsType(
-            [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28))]))
+                                    [vnc_api.IpamSubnetType(
+                                        vnc_api.SubnetType('1.1.1.0', 28))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
         mac = vnc_api.MacAddressesType(mac_address=['00:01:00:00:0f:3c'])
@@ -3246,7 +3287,7 @@ class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
                 # in multi-tenancy mode only admin role admitted
                 # by api-server till full rbac support
                 if (env['REQUEST_METHOD'] == 'GET' and
-                    env['PATH_INFO'] == '/virtual-network/%s' % (
+                        env['PATH_INFO'] == '/virtual-network/%s' % (
                         self._test_cls.test_obj_uuid)):
                     # always execute but return back assertion
                     # errors
@@ -3265,6 +3306,7 @@ class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
                     return self._app(env, start_response)
             # end __call__
         # end class FakeAuthProtocol
+
         super(TestAuthenticatedAccess, cls).setUpClass(
             extra_config_knobs=[
                 ('DEFAULTS', 'auth', 'keystone'),
@@ -3393,6 +3435,7 @@ class TestKeystoneCallCount(test_case.NeutronBackendTestCase):
 
             def __init__(self, app, *args, **kwargs):
                 self._app = app
+
             # end __init__
 
             def __call__(self, env, start_response):
