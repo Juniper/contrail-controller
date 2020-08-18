@@ -1,5 +1,6 @@
 # Copyright 2019 Juniper Networks. All rights reserved.
 import gevent
+
 import json
 import time
 from unittest import skip
@@ -16,9 +17,10 @@ from vnc_api.vnc_api import Tag
 from vnc_api.vnc_api import VirtualMachineInterface
 from vnc_api.vnc_api import VirtualNetwork
 from vnc_api.vnc_api import VirtualPortGroup
+
 from vnc_openstack.neutron_plugin_db import (
-    _SUBNET_TO_NEUTRON_TAGS,
     _NEUTRON_TAG_TO_SUBNETS,
+    _SUBNET_TO_NEUTRON_TAGS
 )
 
 from tests import test_case
@@ -825,18 +827,6 @@ class TestFloatingIpNeutronTags(NeutronTagsTestCase):
                                                 resources=self.fips,
                                                 tags=tag_case)
 
-    def test_query_all_floating_ip_with_match_not_any(self):
-        """Query floating IPs filtering by not any tags."""
-        tag_test_cases = [
-            [TAG_BLUE],
-            [TAG_RED, TAG_WHITE],
-            ALL_TAGS
-        ]
-        for tag_case in tag_test_cases:
-            self.assert_multiple_not_tags_any_match(resource_name='floatingip',
-                                                    resources=self.fips,
-                                                    tags=tag_case)
-
     def test_query_floating_ip_with_tag_and_not_tag(self):
         """Query floating IPs filtering by both tags and not-tags."""
         fip = FloatingIp("fip-{}_{}-{}".format(TAG_BLUE, TAG_WHITE,
@@ -1159,7 +1149,8 @@ class TestPortNeutronTags(NeutronTagsTestCase):
 
     def test_query_virtual_machine_interfaces_with_tag_and_not_tag(self):
         """Query virtual machine interfaces filtering by both tags
-        and not-tags."""
+        and not-tags.
+        """
         vmi = VirtualMachineInterface(
             'vmi-{}_{}-{}'.format(TAG_BLUE, TAG_WHITE, self.id()),
             parent_obj=self.project)

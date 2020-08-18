@@ -1,16 +1,17 @@
 # Copyright 2019 Juniper Networks. All rights reserved.
 
-from builtins import str
 import uuid
+from builtins import str
 
 from gevent import monkey
+
 monkey.patch_all()  # noqa
+
 from vnc_api.vnc_api import AddressType
 from vnc_api.vnc_api import PolicyEntriesType
 from vnc_api.vnc_api import PolicyRuleType
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import SecurityGroup
-
 from tests import test_case
 
 

@@ -3,19 +3,21 @@
 #
 
 from __future__ import absolute_import
-from cfgm_common.utils import CacheContainer
-from .neutron_plugin_db import DBInterface
-from pysandesh.sandesh_logger import *
-from pysandesh.sandesh_base import *
-from six.moves import configparser
-import six
-from pprint import pformat
-from cfgm_common import jsonutils as json
-import bottle
+
+import collections
 from builtins import object
 from builtins import str
-import collections
+from pprint import pformat
+
+import bottle
+import six
+from cfgm_common import jsonutils as json
+from cfgm_common.utils import CacheContainer
 from future import standard_library
+from six.moves import configparser
+
+from .neutron_plugin_db import DBInterface
+
 standard_library.install_aliases()
 
 
@@ -119,14 +121,14 @@ class NeutronPluginInterface(object):
                 list_optimization_enabled=self._list_optimization_enabled,
                 apply_subnet_host_routes=apply_sn_route,
                 strict_compliance=self._strict_compliance)
+
     # end _connect_to_db
 
     def _get_user_cfgdb(self, context):
         """
-        send admin token if multi_tenancy is disabled
+        Send admin token if multi_tenancy is disabled
         else forward user token along for RBAC if passed by neutron plugin
         """
-
         self._connect_to_db()
 
         # expect a user-token and allow for cases where api-server
@@ -134,7 +136,7 @@ class NeutronPluginInterface(object):
         # descriptive message/token if there is an error
         user_token = bottle.request.headers.get(
             'X_AUTH_TOKEN', 'no user token for %s %s' %
-            (bottle.request.method, bottle.request.url))
+                            (bottle.request.method, bottle.request.url))
         self._cfgdb._vnc_lib.set_auth_token(user_token)
         return self._cfgdb
 
@@ -328,8 +330,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         nets_count = cfgdb.network_count(filters, context)
-        LOG.debug("plugin_get_networks_count(): filters: "
-                  + pformat(filters) + " data: " + str(nets_count))
+        LOG.debug("plugin_get_networks_count(): filters: " +
+                  pformat(filters) + " data: " + str(nets_count))
         return {'count': nets_count}
 
     def plugin_http_post_network(self):
@@ -439,8 +441,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         subnets_count = cfgdb.subnets_count(context, filters)
-        LOG.debug("plugin_get_subnets_count(): filters: "
-                  + pformat(filters) + " data: " + str(subnets_count))
+        LOG.debug("plugin_get_subnets_count(): filters: " +
+                  pformat(filters) + " data: " + str(subnets_count))
         return {'count': subnets_count}
 
     def plugin_http_post_subnet(self):
@@ -521,8 +523,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         ports_count = cfgdb.port_count(filters)
-        LOG.debug("plugin_get_ports_count(): filters: "
-                  + pformat(filters) + " data: " + str(ports_count))
+        LOG.debug("plugin_get_ports_count(): filters: " +
+                  pformat(filters) + " data: " + str(ports_count))
         return {'count': ports_count}
 
     def plugin_http_post_port(self):
@@ -610,8 +612,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         floatingips_count = cfgdb.floatingip_count(context, filters)
-        LOG.debug("plugin_get_floatingips_count(): filters: "
-                  + pformat(filters) + " data: " + str(floatingips_count))
+        LOG.debug("plugin_get_floatingips_count(): filters: " +
+                  pformat(filters) + " data: " + str(floatingips_count))
         return {'count': floatingips_count}
 
     def plugin_http_post_floatingip(self):
@@ -819,8 +821,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         routers_count = cfgdb.router_count(filters)
-        LOG.debug("plugin_get_routers_count(): filters: "
-                  + pformat(filters) + " data: " + str(routers_count))
+        LOG.debug("plugin_get_routers_count(): filters: " +
+                  pformat(filters) + " data: " + str(routers_count))
         return {'count': routers_count}
 
     def plugin_add_router_interface(self, context, interface_info):
@@ -937,8 +939,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         ipams_count = cfgdb.ipam_count(context, filters)
-        LOG.debug("plugin_get_ipams_count(): filters: "
-                  + pformat(filters) + " data: " + str(ipams_count))
+        LOG.debug("plugin_get_ipams_count(): filters: " +
+                  pformat(filters) + " data: " + str(ipams_count))
         return {'count': ipams_count}
 
     def plugin_http_post_ipam(self):
@@ -1019,8 +1021,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         policys_count = cfgdb.policy_count(context, filters)
-        LOG.debug("plugin_get_policys_count(): filters: "
-                  + pformat(filters) + " data: " + str(policys_count))
+        LOG.debug("plugin_get_policys_count(): filters: " +
+                  pformat(filters) + " data: " + str(policys_count))
         return {'count': policys_count}
 
     def plugin_http_post_policy(self):
@@ -1101,8 +1103,8 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         rts_count = cfgdb.route_table_count(filters)
-        LOG.debug("plugin_get_route_tables_count(): filters: "
-                  + pformat(filters) + " data: " + str(rts_count))
+        LOG.debug("plugin_get_route_tables_count(): filters: " +
+                  pformat(filters) + " data: " + str(rts_count))
         return {'count': rts_count}
 
     def plugin_http_post_route_table(self):

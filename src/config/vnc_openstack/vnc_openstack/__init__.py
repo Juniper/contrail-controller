@@ -3,41 +3,48 @@
 #
 
 from __future__ import absolute_import
+
 from future import standard_library
+
 standard_library.install_aliases()
 from builtins import str
 from builtins import range
 import uuid
+
 import gevent
 import gevent.event
 import gevent.monkey
 gevent.monkey.patch_all()
 import requests
+
 import copy
+
 from six import StringIO
 import bottle
+
 import logging
 import logging.handlers
 from datetime import datetime
 import queue
+
 from six.moves import configparser
 from keystoneclient import session as ksession
 from keystoneclient.auth.identity import generic as kauth
 from keystoneclient import client as kclient
 from keystoneclient import exceptions as kexceptions
-from netaddr import *
+from netaddr import IPNetwork
 from cfgm_common import vnc_plugin_base
 from cfgm_common import utils as cfgmutils
 from cfgm_common import exceptions as vnc_exc
 from cfgm_common.utils import cgitb_hook
-from pysandesh.sandesh_base import *
-from pysandesh.sandesh_logger import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from vnc_api import vnc_api
-from vnc_api.gen.resource_xsd import *
-from vnc_api.gen.resource_common import *
+from vnc_api.gen.resource_xsd import (
+    ActionListType, AddressType, FirewallRuleEndpointType, FirewallSequence,
+    FirewallServiceType, IdPermsType, PermType2, PolicyEntriesType,
+    PolicyRuleType, PortType, SubnetType)
 
 from . import neutron_plugin_interface as npi
 from .context import use_context
@@ -58,6 +65,7 @@ _DEFAULT_KS_CERT_BUNDLE = "/tmp/keystonecertbundle.pem"
 DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
 
 RETRIES_BEFORE_LOG = 100
+
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -224,7 +232,8 @@ def _create_default_security_group(vnc_lib, project_fq_name, project_id):
                            description=DEFAULT_SECGROUP_DESCRIPTION)
     sg_obj = vnc_api.SecurityGroup(name=_NEUTRON_DEFAULT_SECURITY_GROUP_NAME,
                                    parent_type='project',
-                                   fq_name=project_fq_name + [_NEUTRON_DEFAULT_SECURITY_GROUP_NAME],
+                                   fq_name=project_fq_name +
+                                   [_NEUTRON_DEFAULT_SECURITY_GROUP_NAME],
                                    id_perms=id_perms,
                                    perms2=PermType2(owner=project_id),
                                    security_group_entries=sg_rules)
@@ -528,8 +537,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 name='Keystone',
                 status=ConnectionStatus.DOWN,
                 message='Error: %s at UTC %s' %
-                (exc,
-                 datetime.utcnow()),
+                        (exc,
+                         datetime.utcnow()),
                 server_addrs=[
                     self._auth_url])
             self._ks_domains_list = None
@@ -568,7 +577,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 self._get_keystone_conn()
                 return {'name': self._ks.tenants.get(id).name, 'id': id}
 
-        id = None
         for tenant in self._ks.tenants.list():
             if tenant.name == name:
                 return {'name': name, 'id': tenant.id}
@@ -651,6 +659,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             return self._vnc_default_domain_id
 
         return str(uuid.UUID(domain_id))
+
     # _ksv3_domain_id_to_uuid
 
     def _ksv3_domain_get(self, id=None):
@@ -683,7 +692,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     'name': project.name,
                     'domain_id': project.domain_id}
 
-        id = None
         for tenant in self._ks.projects.list():
             if tenant.name == name:
                 return {'name': name, 'id': tenant.id}
@@ -843,7 +851,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # replace with uuid of default-domain in vnc
         ks_domain_ids = set(
             [str(uuid.UUID(dom['id']))
-                for dom in self._ks_domains_list() if dom['id'] != 'default'])
+             for dom in self._ks_domains_list() if dom['id'] != 'default'])
         ks_domain_ids.add(self._vnc_default_domain_id)
 
         vnc_domain_ids = self._vnc_domain_ids
@@ -873,7 +881,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # keystone gives uuid without...
         ks_project_ids = set(
             [str(uuid.UUID(proj['id']))
-                for proj in self._ks_projects_list()])
+             for proj in self._ks_projects_list()])
 
         vnc_project_ids = self._vnc_project_ids
         if vnc_project_ids == ks_project_ids:
@@ -924,7 +932,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
             gevent.sleep(self._resync_interval_secs)
         # end while True
-
     # end _resync_domains_projects_forever
 
     def resync_domains_projects(self):
@@ -965,7 +972,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             finally:
                 self.q.task_done()
     # end _resync_worker
-
 # end class OpenstackResync
 
 
@@ -1009,7 +1015,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                                'api_server_port': self._vnc_api_port}
                 # connect with username and password if auth not noauth
                 if (getattr(self, '_auth_user', None) and
-                    getattr(self, '_auth_passwd', None) and
+                        getattr(self, '_auth_passwd', None) and
                         getattr(self, '_admin_tenant', None)):
                     vnc_kw_args.update({'password': self._auth_passwd,
                                         'username': self._auth_user,
@@ -1092,20 +1098,21 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                     projects.append(ext.obj.ks_project_get(id=None, name=name))
             except Exception as e:
                 pass
+
         self._resync_extension_manager.map(ks_project_get_stub)
         if not projects:
             raise Exception('project %s is not present in keystone' % (name))
-        id = projects[0]['id']
+        proj_id = projects[0]['id']
         proj_obj = vnc_api.Project(name)
         proj_obj.fq_name = list(fq_name)
         proj_obj.display_name = name
-        proj_obj.uuid = str(uuid.UUID(id))
+        proj_obj.uuid = str(uuid.UUID(proj_id))
         try:
             self._vnc_lib.project_create(proj_obj)
-        except RefsExistError as e:
+        except vnc_api.RefsExistError as e:
             pass
         self._resync_extension_manager.map_method(
-            'add_project_id_to_cache', id)
+            'add_project_id_to_cache', proj_id)
 
     @wait_for_api_server_connection
     def pre_project_read(self, id):
@@ -1158,13 +1165,13 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
         for aps in proj_obj.get_application_policy_sets() or []:
             if aps['to'][-1] == _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME:
-                fp_fq_name = aps['to'][:-1] +\
+                fp_fq_name = aps['to'][:-1] + \
                     [_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME]
-                fr4_fq_name = aps['to'][:-1] +\
+                fr4_fq_name = aps['to'][:-1] + \
                     [_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME]
-                fr6_fq_name = aps['to'][:-1] +\
+                fr6_fq_name = aps['to'][:-1] + \
                     [_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME]
-                tag_fq_name = aps['to'][:-1] +\
+                tag_fq_name = aps['to'][:-1] + \
                     ['%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps['uuid'])]
                 try:
                     self._vnc_lib.application_policy_set_delete(id=aps['uuid'])
@@ -1253,7 +1260,6 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     def post_virtual_network_delete(self, vn_uuid, vn_dict):
         self._update_subnet_id(vn_uuid, None, vn_dict.get('network_ipam_refs'))
     # end post_virtual_network_delete
-
 # end class ResourceApiDriver
 
 
@@ -1376,7 +1382,7 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
                 # don't log details of bottle.abort i.e handled error cases
                 if not isinstance(e, bottle.HTTPError):
                     string_buf = StringIO()
-                    cgitb_hook(file=string_buf, format="text",)
+                    cgitb_hook(file=string_buf, format="text", )
                     err_msg = string_buf.getvalue()
                     self._logger.error(err_msg)
 

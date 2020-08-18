@@ -1,8 +1,9 @@
-from builtins import str
-from builtins import object
-import gevent
-import bottle
 import uuid
+from builtins import object
+from builtins import str
+
+import bottle
+import gevent
 
 
 class NeutronApiContext(object):
@@ -51,7 +52,7 @@ def use_context(fn):
             context_created = True
             user_token = bottle.request.headers.get(
                 'X_AUTH_TOKEN', 'no user token for %s %s' %
-                (bottle.request.method, bottle.request.url))
+                                (bottle.request.method, bottle.request.url))
             set_context(NeutronApiContext(
                 request=bottle.request, user_token=user_token))
         else:

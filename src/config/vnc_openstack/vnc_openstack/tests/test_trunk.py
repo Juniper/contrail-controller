@@ -2,7 +2,6 @@
 
 from builtins import str
 from builtins import range
-import uuid
 import json
 import re
 
@@ -10,7 +9,6 @@ from gevent import monkey
 monkey.patch_all()  # noqa
 from vnc_api import vnc_api as vnc_api
 import webtest.app
-
 from tests import test_case
 
 
