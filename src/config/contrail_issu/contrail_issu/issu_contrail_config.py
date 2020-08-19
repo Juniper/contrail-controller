@@ -84,12 +84,22 @@ def parse_args(args_str=None):
         'old_rabbit_q_name' : 'vnc-config.issu-queue',
         'old_rabbit_vhost' : None,
         'old_rabbit_port' : '5672',
+        'old_rabbit_use_ssl': False,
+        'old_rabbit_ssl_version': None,
+        'old_rabbit_ssl_ca_certs': None,
+        'old_rabbit_ssl_keyfile': None,
+        'old_rabbit_ssl_certfile': None,
         'new_rabbit_user': 'guest',
         'new_rabbit_password': 'guest',
         'new_rabbit_ha_mode': False,
         'new_rabbit_q_name': 'vnc-config.issu-queue',
         'new_rabbit_vhost' : '',
         'new_rabbit_port': '5672',
+        'new_rabbit_use_ssl': False,
+        'new_rabbit_ssl_version': None,
+        'new_rabbit_ssl_ca_certs': None,
+        'new_rabbit_ssl_keyfile': None,
+        'new_rabbit_ssl_certfile': None,
         'odb_prefix' : '',
         'ndb_prefix': '',
         'reset_config': None,
@@ -152,6 +162,21 @@ def parse_args(args_str=None):
         "--old_rabbit_port",
         help="Old RMQ port")
     parser.add_argument(
+        "--old_rabbit_use_ssl",
+        help="Old RMQ use ssl flag")
+    parser.add_argument(
+        "--old_rabbit_ssl_ca_certs",
+        help="Old RMQ SSL CA certs file path")
+    parser.add_argument(
+        "--old_rabbit_ssl_keyfile",
+        help="Old RMQ SSL key file path")
+    parser.add_argument(
+        "--old_rabbit_ssl_certfile",
+        help="Old RMQ SSL certificate file path")
+    parser.add_argument(
+        "--old_rabbit_ssl_version",
+        help="Old RMQ SSL version")
+    parser.add_argument(
         "--new_rabbit_user",
         help="New RMQ user name")
     parser.add_argument(
@@ -169,6 +194,21 @@ def parse_args(args_str=None):
     parser.add_argument(
         "--new_rabbit_port",
         help="New RMQ port")
+    parser.add_argument(
+        "--new_rabbit_use_ssl",
+        help="New RMQ use ssl flag")
+    parser.add_argument(
+        "--new_rabbit_ssl_ca_certs",
+        help="New RMQ SSL CA certs file path")
+    parser.add_argument(
+        "--new_rabbit_ssl_keyfile",
+        help="New RMQ SSL key file path")
+    parser.add_argument(
+        "--new_rabbit_ssl_certfile",
+        help="New RMQ SSL certificate file path")
+    parser.add_argument(
+        "--new_rabbit_ssl_version",
+        help="New RMQ SSL version")
     parser.add_argument(
         "--old_cassandra_user",
         help="Old Cassandra user name")
