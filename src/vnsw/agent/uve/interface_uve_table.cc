@@ -829,20 +829,19 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceAceStatsMsg
     std::vector<SgAclRuleStats> list;
     AceStatsSet::iterator it = ace_set_.begin();
     bool changed = false;
+    /* Build the updated list */
     while (it != ace_set_.end()) {
-        SgAclRuleStats item;
-        item.set_rule(it->ace_uuid);
         uint64_t diff_count = it->count - it->prev_count;
-        item.set_count(diff_count);
-        //Update prev_count
-        it->prev_count = it->count;
-        list.push_back(item);
-        ++it;
-        /* If diff_count is non-zero for any rule entry, we send the entire
-         * list */
         if (diff_count) {
+            //Update prev_count
+            it->prev_count = it->count;
+            SgAclRuleStats item;
+            item.set_rule(it->ace_uuid);
+            item.set_count(diff_count);
+            list.push_back(item);
             changed = true;
         }
+        ++it;
     }
     /* If all the entries in the list has 0 diff_stats, then UVE won't be
      * sent */
