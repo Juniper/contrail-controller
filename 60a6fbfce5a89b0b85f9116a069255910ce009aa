@@ -34,6 +34,24 @@
       "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "830b1498_7cab628b",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-20T01:13:21Z",
+      "side": 1,
+      "message": "hmm... if there is an exception, it\u0027d have happened a way before this point. so how inserting this exception is excepted to handle that?",
+      "parentUuid": "e7c30326_75a936f0",
+      "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
