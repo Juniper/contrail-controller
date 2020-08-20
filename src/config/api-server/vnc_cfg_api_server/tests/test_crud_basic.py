@@ -19,6 +19,7 @@ import random
 import netaddr
 import mock
 import tempfile
+import datetime
 
 import fixtures
 import testtools
@@ -4800,134 +4801,61 @@ class TestRefValidation(test_case.ApiServerTestCase):
 #end class TestRefValidation
 
 
-class TestVncApiStats(test_case.ApiServerTestCase):
-    _sandesh = None
-    logs = []
+class TestVncApiStats(unittest.TestCase):
+    def test_vnc_api_stats(self):
+        with mock.patch(
+                'cfgm_common.vnc_api_stats.VncApiStatistics') as VncApiStatistics:
+            api_server = mock.MagicMock()
 
-    def _check_sendwith(self, sandesh, stats, *args):
-        self.assertEqual(stats.response_code, 404)
-        self.assertEqual(stats.obj_type, 'virtual_network')
+            api_server.enable_api_stats_log = False
+            r = log_api_stats(lambda x, y: 'response1')(api_server, '')
+            self.assertFalse(VncApiStatistics.called)
+            self.assertEqual('response1', r)
 
-    def _mock_sendwith(self, sandesh, stats, *args):
-        self.logs.append("TestVncApiStatsLog")
+            api_server.enable_api_stats_log = False
+            self.assertRaises(
+                Exception,
+                log_api_stats(Exception)(api_server, ''))
+            self.assertFalse(VncApiStatistics.called)
 
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
-        cls.console_handler = logging.StreamHandler()
-        cls.console_handler.setLevel(logging.DEBUG)
-        logger.addHandler(cls.console_handler)
-        super(TestVncApiStats, cls).setUpClass(*args, **kwargs)
-    # end setUpClass
+            api_server.enable_api_stats_log = True
+            r = log_api_stats(lambda x, y: 'response2')(api_server, 'obj')
+            VncApiStatistics.assert_called_once_with(obj_type='obj')
+            self.assertEqual('response2', r)
 
-    @classmethod
-    def tearDownClass(cls, *args, **kwargs):
-        logger.removeHandler(cls.console_handler)
-        super(TestVncApiStats, cls).tearDownClass(*args, **kwargs)
-    # end tearDownClass
-
-    def test_response_code_on_exception(self):
-        from cfgm_common.vnc_api_stats import VncApiStatistics
-        self._api_server.enable_api_stats_log = True
-        try:
-            with test_common.patch(VncApiStatistics,
-                                   'sendwith', self._check_sendwith):
-                self._vnc_lib.virtual_network_read(
-                    id='5a4f39e3-9fb5-4832-9095-764bd19ffc90')
-        except cfgm_common.exceptions.NoIdError:
-            pass
-        else:
-            self.assertThat(0,
-                            ("Expecting HttpError to be raised ",
-                             "but was not raised"))
-    # end test_response_code_on_exception
-
-    def test_disabled_vnc_api_stats(self):
-        from cfgm_common.vnc_api_stats import VncApiStatistics
-
-        def _crud_exec(factor):
-            with test_common.patch(
-                    VncApiStatistics,
-                    'sendwith', self._mock_sendwith):
-                obj = VirtualNetwork('%s-vn' % (self.id()))
-                self._vnc_lib.virtual_network_create(obj)
-                self.assertEquals(len(self.logs), 2 * factor)
-                self._vnc_lib.virtual_network_read(id=obj.uuid)
-                self.assertEquals(len(self.logs), 3 * factor)
-                obj.display_name = 'foo'
-                self._vnc_lib.virtual_network_update(obj)
-                self.assertEquals(len(self.logs), 5 * factor)
-                self._vnc_lib.virtual_network_delete(id=obj.uuid)
-                self.assertEquals(len(self.logs), 7 * factor)
-
-        self._api_server.enable_api_stats_log = False
-        # try all crud operations
-        _crud_exec(factor=0)
-        # Now enable api server logging and logs will be sent
-        self._api_server.enable_api_stats_log = True
-        _crud_exec(factor=1)
-# end TestVncApiStats
+            api_server.enable_api_stats_log = True
+            self.assertRaises(
+                Exception,
+                log_api_stats(Exception)(api_server, ''))
+            self.assertTrue(VncApiStatistics.called)
 
 
-class TestVncLatencyStats(test_case.ApiServerTestCase):
-    _sandesh = None
-    logs = []
-
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
-        cls.console_handler = logging.StreamHandler()
-        cls.console_handler.setLevel(logging.DEBUG)
-        logger.addHandler(cls.console_handler)
-        super(TestVncLatencyStats, cls).setUpClass(*args, **kwargs)
-    # end setUpClass
-
-    @classmethod
-    def tearDownClass(cls, *args, **kwargs):
-        logger.removeHandler(cls.console_handler)
-        super(TestVncLatencyStats, cls).tearDownClass(*args, **kwargs)
-    # end tearDownClass
-
-    def mock_send(self, *args, **kwargs):
-        self.logs.append("VncLatencyLog")
-
+class TestVncLatencyStats(unittest.TestCase):
     def test_latency_stats(self):
+        from vnc_cfg_api_server.vnc_db import VncDbClient
         from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStatsLog
 
-        def _crud_exec(logs_enabled):
-            with test_common.patch(
-                    VncApiLatencyStatsLog,
-                    'send', self.mock_send):
-                obj = VirtualNetwork('%s-vn' % (self.id()))
-                self._vnc_lib.virtual_network_create(obj)
-                if logs_enabled is True:
-                    self.assertTrue(len(self.logs) is not 0)
-                else:
-                    self.assertEquals(len(self.logs), 0)
-                self.logs = []
-                self._vnc_lib.virtual_network_read(id=obj.uuid)
-                if logs_enabled is True:
-                    self.assertTrue(len(self.logs) is not 0)
-                else:
-                    self.assertEquals(len(self.logs), 0)
-                self.logs = []
-                obj.display_name = 'foo'
-                self._vnc_lib.virtual_network_update(obj)
-                if logs_enabled is True:
-                    self.assertTrue(len(self.logs) is not 0)
-                else:
-                    self.assertEquals(len(self.logs), 0)
-                self.logs = []
-                self._vnc_lib.virtual_network_delete(id=obj.uuid)
-                if logs_enabled is True:
-                    self.assertTrue(len(self.logs) is not 0)
-                else:
-                    self.assertEquals(len(self.logs), 0)
-        self._api_server.enable_latency_stats_log = False
-        # try all crud operations
-        _crud_exec(False)
-        # Now enable api server logging and logs will be sent
-        self._api_server.enable_latency_stats_log = True
-        _crud_exec(True)
-    # end test_response_code_on_exception
+        with mock.patch.object(VncApiLatencyStatsLog, 'send') as mocked_send:
+            # Let's make easy to create the class.
+            VncDbClient.__init__ = lambda self: None
+
+            api_server = mock.MagicMock()
+            sandesh = mock.MagicMock()
+
+            vnc_db = VncDbClient()
+            vnc_db._api_svr_mgr = api_server
+            vnc_db._sandesh = sandesh
+
+            response_time = datetime.datetime.now() - datetime.datetime.now()
+
+            api_server.enable_latency_stats_log = False
+            vnc_db.log_db_response_time(mock.MagicMock(), response_time, 'Fake')
+            self.assertFalse(mocked_send.called)
+
+            api_server.enable_latency_stats_log = True
+            vnc_db.log_db_response_time(mock.MagicMock(), response_time, 'Fake')
+            mocked_send.assert_called_once_with(sandesh=sandesh)
+
 
 class TestDbJsonExim(test_case.ApiServerTestCase):
     @classmethod
