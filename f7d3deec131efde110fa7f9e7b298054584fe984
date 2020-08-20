@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "20b67d80_e7e0c96e",
+        "filename": "src/config/vnc_openstack/vnc_openstack/tests/test_basic.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2814,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-20T23:05:20Z",
+      "side": 1,
+      "message": "Should you create multiple ports so we can ascertain only one is listed?",
+      "revId": "f7d3deec131efde110fa7f9e7b298054584fe984",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
