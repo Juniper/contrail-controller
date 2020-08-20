@@ -16,6 +16,24 @@
       "revId": "5729e72e82d1603cc483bf871de742f9d9fec754",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9b8fd898_0d2857f4",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1227,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-20T05:11:43Z",
+      "side": 1,
+      "message": "I also thought about it. Unfortunately, I haven\u0027t found any example of how to filter Perms2 anywhere in the code. It seems no one has ever done this and I\u0027m not sure if it\u0027s even possible.",
+      "parentUuid": "88122d3c_8d5e3418",
+      "revId": "5729e72e82d1603cc483bf871de742f9d9fec754",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
