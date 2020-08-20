@@ -327,17 +327,17 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 if pi_ae is not None:
                     ae_id = pi_ae.get('ae_num')
                     # de-allocation moved to post_dbe_update
-                    _dealloc_dict = {
+                    _dealloc_lo_dict = {
                         'ae_id': ae_id,
                         'prouter_name': pi_pr,
                         'vpg_uuid': vpg_uuid,
                         'vpg_name': vpg_name}
                     alloc_dealloc_dict['deallocated_ae_id'].append(
-                        _dealloc_dict)
+                        _dealloc_lo_dict)
 
                     def undo_add_dealloc_dict():
                         alloc_dealloc_dict['deallocated_ae_id'].remove(
-                            _dealloc_dict)
+                            _dealloc_lo_dict)
                     get_context().push_undo(undo_add_dealloc_dict)
                     # record deallocated pr/vpg
                     _in_dealloc_list.append('%s:%s' % (pi_pr, vpg_name))
