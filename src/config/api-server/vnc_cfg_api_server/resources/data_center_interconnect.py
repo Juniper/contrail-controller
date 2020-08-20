@@ -125,8 +125,8 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
         : src_lr_uuid: source lr uuid from dci lr_refs
         : dst_lrs_uuid: list of destination lr uuids from dci lr_refs
         : return:
-        : return error message, and dictionary of destination lr to pr list.
-        : On success, error message is empty.
+        : On error, return True, http error code and http error message
+        : On success, returns True and error message is empty.
         """
         dci_rps = dci.get('routing_policy_refs') or []
         dci_vns = dci.get('virtual_network_refs') or []
@@ -143,7 +143,93 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
         return True, ""
 
     @classmethod
-    def _validate_dci_lrs_fabrics_based_on_dcitype(cls, db_conn, dci):
+    def _validate_l2_mode_dci(cls, db_conn, dci, read_dci=None):
+        """Validate l2 mode data_center_interconnect object.
+
+        For inter_fabric l2 dci mode object, it validates following
+        - L2 DCI mode object must have minimum two fabric and one VN.
+        dci object.
+        - Only those Fabric will be allowed to be selected in L2 DCI
+        mode who has at least one DCI-Gateway RB Role assigned to
+        Physical Router Device.
+        - Only non routed type virtual network will be allowed to be
+        selected in L2 DCI mode.
+        : Args:
+        : db_conn: db connection handler
+        : dci: data_center_interconnect object
+        : read_dci: existing dci object from db if called from edit operation
+        : return:
+        : On error, return True, http error code and http error message
+        : On success, returns True and error message is empty.
+        :
+        """
+        dci_fabrics = dci.get('fabric_refs', None)
+        dci_vns = dci.get('virtual_network_refs', None)
+        if read_dci is None:
+            # Create operation validation
+            if dci_fabrics is None or len(dci_fabrics) < 2:
+                return False, (
+                    400, "DCI Mode L2 requires minimum two fabric.")
+            if dci_vns is None or len(dci_vns) < 1:
+                return False, (
+                    400, "DCI Mode L2 requires minimum one virtual network.")
+        else:
+            if dci_fabrics is not None and len(dci_fabrics) < 2:
+                return False, (
+                    400, "DCI Mode L2 requires minimum two fabric.")
+            if dci_vns is not None and len(dci_vns) < 1:
+                return False, (
+                    400, "DCI Mode L2 requires minimum one virtual network.")
+
+        for fabric_ref in dci_fabrics or []:
+            uuid = fabric_ref.get('uuid')
+            if not uuid:
+                continue
+            ok, fabric = cls.dbe_read(
+                db_conn, 'fabric', uuid, obj_fields=[
+                    'physical_router_back_refs', 'display_name'])
+            if not ok:
+                return False, fabric
+            dci_pr_found = False
+            for pr_ref in fabric.get('physical_router_back_refs') or []:
+                ok, pr = cls.dbe_read(
+                    db_conn, 'physical_router', pr_ref.get('uuid'),
+                    obj_fields=['routing_bridging_roles'])
+                if ok and pr:
+                    rb_role = pr.get('routing_bridging_roles', {})
+                    for rb in rb_role.get('rb_roles', []):
+                        if rb == "DCI-Gateway":
+                            dci_pr_found = True
+                            break
+                    if dci_pr_found is True:
+                        break
+            if dci_pr_found is False:
+                return False, (
+                    400, "L2 DCI Mode selected fabric %s does not have any "
+                         "physical router with rb_roles DCI-Gateway. Please "
+                         "select fabric having at least one physical_router "
+                         "with DCI-Gateway rb_roles." %
+                    fabric.get('display_name', ''))
+
+        for vn_ref in dci_vns or []:
+            uuid = vn_ref.get('uuid')
+            if not uuid:
+                continue
+            ok, vn = cls.dbe_read(
+                db_conn, 'virtual_network', uuid, obj_fields=[
+                    'virtual_network_category', 'display_name'])
+            if not ok:
+                return False, vn
+            if vn.get('virtual_network_category', '') == 'routed':
+                return False, (
+                    400, "L2 DCI Mode selected virtual_network %s is routed "
+                         "VN. routed VN is not allowed for L2 dci mode." %
+                    vn.get('display_name', ''))
+        return True, ''
+
+    @classmethod
+    def _validate_dci_lrs_fabrics_based_on_dcitype(cls, db_conn, dci,
+                                                   read_dci=None):
         """Validate data_center_interconnect object based on its type.
 
         For inter_fabric dci object, it validates following condition by
@@ -174,6 +260,7 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
         : Args:
         : db_conn: db connection handler
         : dci: data_center_interconnect object
+        : read_dci: existing dci object from db if called from edit operation
         : return:
         : return True on success else returns False with proper
         : httpStatusCode and http Resonse error Message
@@ -183,6 +270,9 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
         if dci_type is None:
             dci_type = 'inter_fabric'
         if dci_type != 'intra_fabric':
+            dci_mode = dci.get('data_center_interconnect_mode', 'l3')
+            if dci_mode == 'l2':
+                return cls._validate_l2_mode_dci(db_conn, dci, read_dci)
             return cls._make_sure_lrs_belongs_to_different_fabrics(
                 db_conn, dci)
 
@@ -364,10 +454,18 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
         ok, read_result = cls.dbe_read(
             db_conn, 'data_center_interconnect', id,
             obj_fields=['logical_router_refs',
-                        'data_center_interconnect_type'
+                        'data_center_interconnect_type',
+                        'data_center_interconnect_mode'
                         ])
         if not ok:
             return ok, read_result
+        # change to dci mode not allowed.
+        old_dci_mode = read_result.get('data_center_interconnect_mode')
+        new_dci_mode = obj_dict.get('data_center_interconnect_mode')
+        if old_dci_mode and new_dci_mode and old_dci_mode != new_dci_mode:
+            return False, (403, "Cannot change data_center_interconnect_mode. "
+                                "Please specify data_center_interconnect_mode "
+                                "as '%s'" % old_dci_mode)
         # changes to DCI type not allowed
         old_dci_type = read_result.get('data_center_interconnect_type')
         new_dci_type = obj_dict.get('data_center_interconnect_type')
@@ -415,4 +513,4 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                          "data_center_interconnect.")
         # make sure referenced LRs belongs to fabrics based on dcitype
         return cls._validate_dci_lrs_fabrics_based_on_dcitype(
-            db_conn, obj_dict)
+            db_conn, obj_dict, read_result)

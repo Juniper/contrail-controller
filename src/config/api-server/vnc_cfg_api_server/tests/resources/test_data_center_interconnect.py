@@ -12,7 +12,9 @@ from vnc_api.gen.resource_client import LogicalRouter
 from vnc_api.gen.resource_client import NetworkIpam
 from vnc_api.gen.resource_client import VirtualMachineInterface
 from vnc_api.gen.resource_xsd import LogicalRouterPRListParams
-from vnc_api.gen.resource_xsd import LogicalRouterPRListType
+from vnc_api.gen.resource_xsd import LogicalRouterPRListType, \
+    RoutingBridgingRolesType
+from vnc_api.vnc_api import Fabric
 from vnc_api.vnc_api import IpamSubnetType, PhysicalRouter
 from vnc_api.vnc_api import PolicyStatementType, PolicyTermType
 from vnc_api.vnc_api import RoutingPolicy, SubnetType
@@ -77,8 +79,9 @@ class TestDataCenterInterconnect(test_case.ApiServerTestCase):
     # end create_vn_ipam
 
     def create_vn_with_subnets(self, id, vn_name, ipam_obj, subnet,
-                               subnetmask=24):
+                               subnetmask=24, vn_category='tenant'):
         vn_obj = VirtualNetwork(vn_name)
+        vn_obj.set_virtual_network_category(vn_category)
         vn_obj_properties = VirtualNetworkType()
         vn_obj_properties.set_vxlan_network_identifier(2000 + id)
         vn_obj_properties.set_forwarding_mode('l2_l3')
@@ -341,6 +344,70 @@ class TestDataCenterInterconnect(test_case.ApiServerTestCase):
             self._vnc_lib.data_center_interconnect_create(dci)
     # end _validate_master_lr_and_public_lr_cases
 
+    def _verify_l2_dci_create_edit(self, dciname, dict_fabrics, dict_vns,
+                                   non_dci_fabric_name, routed_vn_name,
+                                   dci_obj=None):
+        func_call = self._vnc_lib.data_center_interconnect_update
+        if dci_obj is None:
+            func_call = self._vnc_lib.data_center_interconnect_create
+            dci_fq_name = ["default-global-system-config", dciname]
+            dci_obj = DataCenterInterconnect(
+                fq_name=dci_fq_name, parent_type='global-system-config',
+                data_center_interconnect_type='inter_fabric',
+                data_center_interconnect_mode='l2')
+            vn_list = []
+            for vnname, obj in dict_vns.items():
+                if vnname != routed_vn_name:
+                    vn_list.append(obj)
+                    dci_obj.add_virtual_network(obj)
+            fabric_list = []
+            for fname, obj in dict_fabrics.items():
+                if fname != non_dci_fabric_name:
+                    fabric_list.append(obj)
+                    dci_obj.add_fabric(obj)
+
+            dci_obj.set_virtual_network_list(vn_list)
+            with ExpectedException(
+                    cfgm_common.exceptions.BadRequest,
+                    "DCI Mode L2 requires minimum two fabric."):
+                func_call(dci_obj)
+
+            dci_obj.set_virtual_network([])
+            dci_obj.set_fabric(fabric_list)
+            with ExpectedException(
+                    cfgm_common.exceptions.BadRequest,
+                    "DCI Mode L2 requires minimum one virtual network."):
+                func_call(dci_obj)
+
+            dci_obj.set_virtual_network(vn_list)
+
+        dci_obj.set_virtual_network(vn_list)
+        dci_obj.set_fabric(fabric_list)
+        dci_obj.add_fabric(dict_fabrics[non_dci_fabric_name])
+        with ExpectedException(
+                cfgm_common.exceptions.BadRequest,
+                "L2 DCI Mode selected fabric %s does not have any "
+                "physical router with rb_roles DCI-Gateway. Please "
+                "select fabric having at least one physical_router "
+                "with with DCI-Gateway rb_roles." % non_dci_fabric_name):
+            func_call(dci_obj)
+
+        dci_obj.set_fabric(fabric_list)
+        dci_obj.add_virtual_network(dict_vns[routed_vn_name])
+        with ExpectedException(
+                cfgm_common.exceptions.BadRequest,
+                "L2 DCI Mode selected virtual_network %s is routed "
+                "VN. routed VN is not allowed for L2 dci mode." %
+                routed_vn_name):
+            func_call(dci_obj)
+
+        dci_obj.set_virtual_network(vn_list)
+        dci_uuid = self._vnc_lib.data_center_interconnect_create(dci_obj)
+
+        self._vnc_lib.data_center_interconnect_read(id=dci_uuid)
+        return dci_obj, dci_uuid
+    # end _verify_l2_dci_create_edit
+
     def test_dci_intrafabric(self):
         # prepare all dictionary for input params
         # dict_xx key: name, value is either db object or class object
@@ -458,6 +525,92 @@ class TestDataCenterInterconnect(test_case.ApiServerTestCase):
             self._vnc_lib.routing_policy_delete(id=rpobj.get_uuid())
         for prname, obj in dict_prs.items():
             self._vnc_lib.physical_router_delete(id=obj.get_uuid())
+    # end test_dci_intrafabric
+
+    def test_l2_dci_mode(self):
+        """Validate l2 mode dci object create and edit operation.
+
+        It executes following steps:
+        - Create 3 fabric, each one with one PR, all PR except one PR
+        should be marked not DCI-gateway.
+        - Create 3 VN, two tenant VN and one routed VN
+
+        Validate l2 mode dci create failure by doing following operation:
+        - Remove two fabrics from dci and keep only one fabric in dci
+        and verify create dci fails as not having two fabrics.
+        - Remove all VN from dci and verify create dci fails as not
+        having at least one VN.
+        - Create l2 mode dci with 3 fabric and 2 tenant vn, verify it
+        fails with Error of fabric does not have DCI-gateway RB role PR.
+        - Remove faulty fabric. and add 3rd routed vn to dci. verify
+        create operation fails with error routed vn not allowed.
+
+        Create successfully l2 dci with 2 fabrics and 2 vn. execute
+        following edit operation verification:
+        - Add fabric to dci having no DCI-gw role PR, verify error.
+        - Add routed vnto dci, verify error.
+        : Args:
+        : return:
+        : it generates exception on failure
+        :
+        """
+        dict_fabrics = {}
+        dict_prs = {}
+        dict_vns = {}
+        non_dci_fabric_name = ''
+        routed_vn_name = ''
+        ipam_obj = self.create_vn_ipam(self.id())
+        subnetmask = 24
+        vn_starting_index = 21
+        for i in range(1, 4):
+            fabric_name = '%s-fabric%s' % (self.id(), str(i))
+            fabric_obj = Fabric(fabric_name)
+            dict_fabrics[fabric_name] = fabric_obj
+            fabric_uuid = self._vnc_lib.fabric_create(fabric_obj)
+            self._vnc_lib.fabric_read(id=fabric_uuid)
+
+            pr_name = '%s-PR%s' % (self.id(), str(i))
+            pr = PhysicalRouter(pr_name)
+            pr.set_fabric(fabric_obj)
+            if i != 3:
+                pr.set_routing_bridging_roles(
+                    RoutingBridgingRolesType(rb_roles=['DCI-Gateway']))
+            else:
+                non_dci_fabric_name = fabric_name
+                pr.set_routing_bridging_roles(
+                    RoutingBridgingRolesType(rb_roles=['DC-Gateway']))
+            dict_prs[pr_name] = pr
+            pr_uuid = self._vnc_lib.physical_router_create(pr)
+            self._vnc_lib.physical_router_read(id=pr_uuid)
+
+            subnet = "%s.0.0.0" % vn_starting_index
+            vn_starting_index += 1
+            vn_name = self.make_vn_name(i)
+            vn_category = 'tenant'
+            if i == 3:
+                routed_vn_name = vn_name
+                vn_category = 'routed'
+            dict_vns[vn_name] = self.create_vn_with_subnets(
+                i, vn_name, ipam_obj, subnet, subnetmask, vn_category)
+
+        dci_obj, dci_uuid = self._verify_l2_dci_create_edit(
+            'l2_dci', dict_fabrics, dict_vns, non_dci_fabric_name,
+            routed_vn_name, None)
+
+        # validate Edit Operation
+        dci_obj, dci_uuid = self._verify_l2_dci_create_edit(
+            'l2_dci', dict_fabrics, dict_vns, non_dci_fabric_name,
+            routed_vn_name, dci_obj)
+
+        # cleanup
+        self._vnc_lib.data_center_interconnect_delete(id=dci_uuid)
+        for name, obj in dict_vns.items():
+            self._vnc_lib.virtual_network_delete(id=obj.get_uuid())
+        self._vnc_lib.network_ipam_delete(id=ipam_obj.uuid)
+        for name, obj in dict_prs.items():
+            self._vnc_lib.physical_router_delete(id=obj.get_uuid())
+        for name, obj in dict_fabrics.items():
+            self._vnc_lib.fabric_delete(id=obj.get_uuid())
     # end test_dci_intrafabric
 
 # end TestDataCenterInterconnect
