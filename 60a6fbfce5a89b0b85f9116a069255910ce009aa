@@ -52,6 +52,24 @@
       "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "53ae48c4_3c3ed3a7",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-20T06:41:49Z",
+      "side": 1,
+      "message": "This is basically like an event handler. Timing is not an issue here.",
+      "parentUuid": "830b1498_7cab628b",
+      "revId": "60a6fbfce5a89b0b85f9116a069255910ce009aa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
