@@ -222,8 +222,11 @@ class DatabaseExim(object):
                     cassandra_contents[ks_name][cf_name][r] = c
 
         def get_nodes(path):
-            if not zk.get_children(path):
-                return [(path, zk.get(path))]
+            try:
+                if not zk.get_children(path):
+                    return [(path, zk.get(path))]
+            except kazoo.exceptions.NoNodeError:
+                    return []
 
             nodes = []
             for child in zk.get_children(path):
