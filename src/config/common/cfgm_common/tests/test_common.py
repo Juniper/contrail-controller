@@ -454,7 +454,7 @@ def wait_for_device_manager_down():
     if device_manager.DeviceManager.get_instance():
         raise Exception("DM instance is up, no new instances allowed")
 
-@retries(5, hook=retry_exc_handler)
+@retries(5, delay=2, hook=retry_exc_handler)
 def wait_for_kube_manager_up():
     if not kube_manager.KubeNetworkManager.get_instance():
         raise Exception("KM instance is not up")
