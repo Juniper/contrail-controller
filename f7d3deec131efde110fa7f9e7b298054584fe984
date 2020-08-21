@@ -16,6 +16,24 @@
       "revId": "f7d3deec131efde110fa7f9e7b298054584fe984",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "57fc9cc9_8df936f6",
+        "filename": "src/config/vnc_openstack/vnc_openstack/tests/test_basic.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2814,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-21T05:14:20Z",
+      "side": 1,
+      "message": "Yes, you\u0027re right. I\u0027ll update this test.",
+      "parentUuid": "20b67d80_e7e0c96e",
+      "revId": "f7d3deec131efde110fa7f9e7b298054584fe984",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
