@@ -1,7 +1,6 @@
 #
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
-
 """Overlay Bgp Feature Implementation."""
 
 from collections import OrderedDict
@@ -18,20 +17,24 @@ class OverlayBgpFeature(FeatureBase):
     @classmethod
     def feature_name(cls):
         return 'overlay-bgp'
+
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
         super(OverlayBgpFeature, self).__init__(logger, physical_router,
                                                 configs)
+
     # end __init__
 
     def _is_valid(self, bgp):
         return bgp and bgp.params and bgp.params.get('address')
+
     # end _is_valid
 
     def _get_asn(self, bgp):
         return (bgp.params.get('local_autonomous_system') or
                 bgp.params.get('autonomous_system'))
+
     # end _get_asn
 
     def _add_peer_families(self, config, params):
@@ -43,6 +46,7 @@ class OverlayBgpFeature(FeatureBase):
         if family in ['e-vpn', 'e_vpn']:
             family = 'evpn'
         config.add_families(family)
+
     # end _add_peer_families
 
     def _add_families(self, config, params):
@@ -55,6 +59,7 @@ class OverlayBgpFeature(FeatureBase):
             if family in ['e-vpn', 'e_vpn']:
                 family = 'evpn'
             config.add_families(family)
+
     # end _add_families
 
     def _add_auth_config(self, config, params):
@@ -63,25 +68,25 @@ class OverlayBgpFeature(FeatureBase):
         keys = params['auth_data'].get('key_items', [])
         if len(keys) > 0:
             config.set_authentication_key(keys[0].get('key'))
+
     # end _add_auth_config
 
     def _add_hold_time_config(self, config, params):
         if params.get('hold_time') is None:
             return
         config.set_hold_time(params.get('hold_time'))
+
     # end _add_hold_time_config
 
-    def _get_config(self, bgp, external=False,
-                    is_RR=False):
+    def _get_config(self, bgp, external=False, is_RR=False):
         config = Bgp()
 
         cluster_id = bgp.params.get('cluster_id')
         if cluster_id and not is_RR:
             config.set_cluster_id(cluster_id)
 
-        config.set_name(DMUtils.make_bgp_group_name(self._get_asn(bgp),
-                                                    external,
-                                                    is_RR))
+        config.set_name(
+            DMUtils.make_bgp_group_name(self._get_asn(bgp), external, is_RR))
 
         config.set_type('external' if external else 'internal')
 
@@ -93,6 +98,7 @@ class OverlayBgpFeature(FeatureBase):
         self._add_hold_time_config(config, bgp.params)
 
         return config
+
     # end _get_config
 
     def _update_config_from_session(self, config, attr):
@@ -110,6 +116,7 @@ class OverlayBgpFeature(FeatureBase):
             self._add_peer_families(config, session_attr)
             self._add_auth_config(config, session_attr)
             break
+
     # end _update_config_from_session
 
     def _add_peers(self, config, bgp, peers):
@@ -118,7 +125,14 @@ class OverlayBgpFeature(FeatureBase):
             peer_config.set_ip_address(peer.params['address'])
             peer_config.set_autonomous_system(self._get_asn(peer))
             self._update_config_from_session(peer_config, attr)
+
+            # This peer_config comment will be used to ignore
+            # enabling bfd towards the control node
+            if peer.params.get('router_type') == 'control-node':
+                peer_config.set_comment("Control Node")
+
             config.add_peers(peer_config)
+
     # end _add_peers
 
     def _build_bgp_config(self, feature_config):
@@ -182,6 +196,7 @@ class OverlayBgpFeature(FeatureBase):
             dest_net = Subnet(prefix=subnet['ip_prefix'],
                               prefix_len=subnet['ip_prefix_len'])
             feature_config.add_tunnel_destination_networks(dest_net)
+
     # end _add_dynamic_tunnels
 
     def _build_dynamic_tunnels_config(self, feature_config):
@@ -190,9 +205,9 @@ class OverlayBgpFeature(FeatureBase):
             (bgp_router.params.get('address')
                 if self._is_valid(bgp_router) else None)
         if tunnel_ip and self._physical_router.is_valid_ip(tunnel_ip):
-            self._add_dynamic_tunnels(
-                feature_config, tunnel_ip,
-                GlobalSystemConfigDM.ip_fabric_subnets)
+            self._add_dynamic_tunnels(feature_config, tunnel_ip,
+                                      GlobalSystemConfigDM.ip_fabric_subnets)
+
     # end _build_dynamic_tunnels_config
 
     def feature_config(self, **kwargs):
@@ -200,6 +215,8 @@ class OverlayBgpFeature(FeatureBase):
         self._build_bgp_config(feature_config)
         self._build_dynamic_tunnels_config(feature_config)
         return feature_config
+
     # end push_conf
+
 
 # end OverlayBgpFeature
