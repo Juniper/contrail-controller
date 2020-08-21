@@ -3083,31 +3083,41 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
     # end test_filters_with_shared_and_router_external
 
     def test_filters_port_by_subnet_id_and_ip_address(self):
+        # create 6 subnet ipams
+        subnets = []
+        for i in range(5):
+            subnets.append(
+                vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.%d.0' % i, 28)))
+
         proj_obj = vnc_api.Project('proj-%s' % self.id(), vnc_api.Domain())
         self._vnc_lib.project_create(proj_obj)
 
         vn_obj = vnc_api.VirtualNetwork('vn1-%s' % self.id(), proj_obj)
+        # add previously created ipams to virtual network
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
-                                vnc_api.VnSubnetsType(
-                                    [vnc_api.IpamSubnetType(
-                                     vnc_api.SubnetType('1.1.1.0', 28))]))
+                                vnc_api.VnSubnetsType(subnets))
         self._vnc_lib.virtual_network_create(vn_obj)
         vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+
+        # create port for every subnet
+        for i in range(5):
+            subnet = vn_obj.network_ipam_refs[0]['attr'].ipam_subnets[i]
+            fixed_ip_address = '1.1.%d.5' % i
+            self.create_resource(
+                'port', proj_obj.uuid,
+                extra_res_fields={
+                    'port_security_enabled': True,
+                    'tenant_id': proj_obj.uuid,
+                    'fixed_ips': [{'ip_address': fixed_ip_address,
+                                   'subnet_id': subnet.subnet_uuid}],
+                    'admin_state_up': True,
+                    'name': self.id(),
+                    'binding:vnic_type': u'normal',
+                    'mac_address': u'02:4c:db:5b:ec:%de' % i,
+                    'network_id': vn_obj.uuid})
+
+        # find port for subnet index of 0
         subnet = vn_obj.network_ipam_refs[0]['attr'].ipam_subnets[0]
-
-        port = self.create_resource(
-            'port', proj_obj.uuid,
-            extra_res_fields={
-                'port_security_enabled': True,
-                'tenant_id': proj_obj.uuid,
-                'fixed_ips': [{'ip_address': '1.1.1.5',
-                               'subnet_id': subnet.subnet_uuid}],
-                'admin_state_up': True,
-                'name': self.id(),
-                'binding:vnic_type': u'normal',
-                'mac_address': u'02:4c:db:5b:ec:1e',
-                'network_id': vn_obj.uuid})
-
         port_objs = self.list_resource(
             'port', proj_obj.uuid,
             req_filters={'fixed_ips': {'subnet_id': [subnet.subnet_uuid]}},
