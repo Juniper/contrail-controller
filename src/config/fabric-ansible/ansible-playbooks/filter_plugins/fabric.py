@@ -757,6 +757,15 @@ class FilterModule(object):
             to_ztp = dtz.get('to_ztp')
             device_fq_name = ['default-global-system-config', device_name]
 
+            # Validate if host-name and serial-number are not same
+            # In current implementation we create temp PR object with
+            # serial-number so host-name and serial number same would
+            # be issue.
+            if device_name == ser_num:
+                raise ValueError(
+                    'Device {} serial number and hostname are same'.
+                    format(device_name))
+
             # Validate the loopback_ip is within range
             if not self._valid_loopback_ip(fabric_info, dtz):
                 del dtz['loopback_ip']
