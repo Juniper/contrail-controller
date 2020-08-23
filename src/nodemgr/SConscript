@@ -31,6 +31,7 @@ local_sources = [
     'analytics_database_nodemgr',
     'config_database_nodemgr',
     'common',
+    'tests',
 ]
 
 local_sources_rules = []
