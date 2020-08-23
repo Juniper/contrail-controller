@@ -69,13 +69,13 @@ def _convert_to_process_state(state):
 
 class ContainerProcessInfoManager(object):
     def __init__(self, module_type, unit_names, event_handlers,
-                 update_process_list, strategy_):
+                 update_process_list, strategy):
         self._module_type = module_type
         self._unit_names = unit_names
         self._event_handlers = event_handlers
         self._update_process_list = update_process_list
         self._process_info_cache = cpm.ProcessInfoCache()
-        self._strategy = strategy_
+        self._strategy = strategy
 
     def _get_full_info(self, cid):
         return self._strategy.inspect(cid)
