@@ -120,20 +120,20 @@ class EventManager(object):
         gevent.signal(signal.SIGHUP, self.nodemgr_sighup_handler)
         self.system_data = LinuxSysData(self.msg_log, self.config.corefile_path)
         if ContainerProcessInfoManager:
-            S = None
+            strategy = None
             if utils.is_running_in_docker():
-                S = DockerContainersInterface()
+                strategy = DockerContainersInterface()
             elif utils.is_running_in_podman():
-                S = PodmanContainersInterface()
+                strategy = PodmanContainersInterface()
             elif utils.is_running_in_kubepod():
-                S = CriContainersInterface.craft_crio_peer()
+                strategy = CriContainersInterface.craft_crio_peer()
             elif utils.is_running_in_containerd():
-                S = CriContainersInterface.craft_containerd_peer()
+                strategy = CriContainersInterface.craft_containerd_peer()
 
-            if S:
+            if strategy:
                 self.process_info_manager = ContainerProcessInfoManager(
                     type_info._module_type, unit_names, event_handlers,
-                    update_process_list, S)
+                    update_process_list, strategy)
 
         if not hasattr(self, 'process_info_manager'):
             self.msg_log('Node manager could not detect process manager',
