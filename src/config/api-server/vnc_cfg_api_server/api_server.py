@@ -3792,8 +3792,7 @@ class VncApiServer(object):
             tag.display_name = type_str
             self.create_singleton_entry(tag, user_visible=False)
 
-        if int(self._args.worker_id) == 0:
-            self._db_conn.db_resync()
+        self._db_conn.db_resync()
 
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
