@@ -3764,7 +3764,7 @@ class VncApiServer(object):
         sg_rules = PolicyEntriesType()
         id_perms = IdPermsType(enable=True,
                                description="Security group with no rules",
-                               user_visible=True)
+                               user_visible=False)
         perms2 = PermType2(owner='cloud-admin')
         perms2.set_global_access(PERMS_RX)
         # Creating SG without SG-ID which will then
