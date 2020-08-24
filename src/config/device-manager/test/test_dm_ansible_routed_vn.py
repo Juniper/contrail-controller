@@ -258,6 +258,11 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         dac = ac1.get('device_abstract_config')
         vn_inc = dac.get('features', {}).get('vn-interconnect', {})
         ri = self.get_routing_instance_from_description(vn_inc, ri_name)
+        # this test is to validate if LR names in abstract config and
+        # jinja does not carry spaces.
+        ac_riname = ri.get('name', None)
+        if ac_riname and ac_riname.isspace():
+            self.assertFalse(ac_riname.isspace())
         irt_prefixs_cpy = irt_prefixs[:]
         ri_static_routes = ri.get('static_routes', None)
         self.assertIsNotNone(ri_static_routes)
@@ -484,7 +489,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         # create 1 routed VN with Static Routes with interface_route_table
         # for PR1 and bgp with routing policys for PR2
         # Create LR
-        lr_name = 'lr-routed1-' + self.id()
+        lr_name = 'lr routed1 ' + self.id()
         lr_fq_name1 = ['default-domain', 'default-project', lr_name]
         lr1 = LogicalRouter(fq_name=lr_fq_name1, parent_type='project',
                             logical_router_type='vxlan-routing')
@@ -647,7 +652,7 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
 
         # update each PR separately to get the abstract config
         # corresponding to that PR
-        ri_name = '__contrail_' + lr_name + '_' + lr_uuid
+        ri_name = '__contrail_' + lr_name.replace(' ', '_', -1) + '_' + lr_uuid
         if test_static_route == True:
             # for pr1 - verify static routes
             self._verify_abstract_config_static_routes(
