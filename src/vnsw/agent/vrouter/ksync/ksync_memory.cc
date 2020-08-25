@@ -130,7 +130,7 @@ int KSyncMemory::GetKernelTableSize() {
     assert((cl = nl_register_client()) != NULL);
 
     assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC) > 0);
-    assert(nl_connect(cl, 0, 0) == 0);
+    assert(nl_connect(cl, 0, 0, 0) == 0);
 
     assert(vrouter_obtain_family_id(cl) > 0);
 
