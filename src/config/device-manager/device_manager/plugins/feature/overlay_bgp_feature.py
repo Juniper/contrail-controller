@@ -118,6 +118,12 @@ class OverlayBgpFeature(FeatureBase):
             peer_config.set_ip_address(peer.params['address'])
             peer_config.set_autonomous_system(self._get_asn(peer))
             self._update_config_from_session(peer_config, attr)
+
+            # This peer_config comment will be used to ignore
+            # enabling bfd towards the control node
+            if peer.params.get('router_type') == 'control-node':
+                peer_config.set_comment("Control Node")
+
             config.add_peers(peer_config)
     # end _add_peers
 
