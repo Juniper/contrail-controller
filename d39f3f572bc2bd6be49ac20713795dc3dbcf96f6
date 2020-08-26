@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cc43c0a1_1ec2f187",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-26T14:52:27Z",
+      "side": 1,
+      "message": "How this can be cherry-picked from a stable branch?",
+      "revId": "d39f3f572bc2bd6be49ac20713795dc3dbcf96f6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
