@@ -12,8 +12,15 @@ from flexmock import flexmock
 import sseclient
 from . import test_case
 
+from vnc_api.vnc_api import *
+from cfgm_common.tests import test_utils
 from cfgm_common import vnc_cgitb
 from vnc_cfg_api_server.event_dispatcher import EventDispatcher
+import keystoneclient.v2_0.client as keystone
+from keystonemiddleware import auth_token
+
+from .test_perms2 import (User, set_perms, vnc_read_obj, vnc_aal_create,
+        vnc_aal_add_rule, ks_admin_authenticate, vnc_aal_del_rule)
 
 vnc_cgitb.enable(format='text')
 
@@ -173,6 +180,174 @@ class TestWatchIntegration(test_case.ApiServerTestCase):
             self.assertFalse(False, greenlet.successful())
     # end test_watch
 # end TestWatchIntegration
+
+
+class TestWatchPermission(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        extra_mocks = [(keystone.Client,
+                            '__new__', test_utils.FakeKeystoneClient),
+                       (vnc_api.vnc_api.VncApi,
+                            '_authenticate',  ks_admin_authenticate),
+                       (auth_token, 'AuthProtocol',
+                            test_utils.FakeAuthProtocol)]
+        extra_config_knobs = [
+            ('DEFAULTS', 'aaa_mode', 'rbac'),
+            ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
+            ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
+            ('DEFAULTS', 'auth', 'keystone'),
+        ]
+        super(TestWatchPermission, cls).setUpClass(extra_mocks=extra_mocks,
+            extra_config_knobs=extra_config_knobs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestWatchPermission, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
+    def setUp(self):
+        super(TestWatchPermission, self).setUp()
+        self.ip = self._api_server_ip
+        self.port = self._api_server._args.listen_port
+        self.url = 'http://%s:%s/watch' % (self.ip, self.port)
+        self.kc = keystone.Client(username='admin', password='contrail123',
+                       tenant_name='admin',
+                       auth_url=self.url)
+    # end setUp
+
+    def test_rbac_cloud_admin_role(self):
+        self.admin = User(self.ip, self.port, self.kc, 'admin', 'contrail123',
+                          'cloud-admin', 'admin-%s' % self.id())
+        param = {"resource_type": "virtual_network"}
+        headers = {'X-Auth-Token':self.admin.vnc_lib.get_auth_token()}
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 200)
+    # end test_rbac_cloud_admin_role
+
+    def test_rbac_read_only_role(self):
+        self.adminr = User(self.ip, self.port, self.kc, 'adminr', 'contrail123',
+                           'read-only-role', 'adminr-%s' % self.id())
+        param = {"resource_type": "virtual_network"}
+        headers = {'X-Auth-Token':self.adminr.vnc_lib.get_auth_token()}
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 200)
+    # end test_rbac_read_only_role
+
+    def test_rbac_admin_role(self):
+        self.admin1 = User(self.ip, self.port, self.kc, 'admin1', 'contrail123',
+                           'admin', 'admin1-%s' % self.id())
+        param = {"resource_type": "virtual_network"}
+        headers = {'X-Auth-Token':self.admin1.vnc_lib.get_auth_token()}
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 403)
+    # end test_rbac_admin_role
+
+    def test_rbac_member_role(self):
+        self.admin2 = User(self.ip, self.port, self.kc, 'admin2', 'contrail123',
+                           'member', 'admin2-%s' % self.id())
+        param = {"resource_type": "virtual_network"}
+        headers = {'X-Auth-Token': self.admin2.vnc_lib.get_auth_token()}
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 403)
+    # end test_rbac_member_role
+
+    def test_rbac_user_role_with_resource_read_access(self):
+        self.admin = User(self.ip, self.port, self.kc, 'admin', 'contrail123',
+                          'cloud-admin', 'admin-%s' % self.id())
+        self.alice = User(self.ip, self.port, self.kc, 'alice', 'alice123',
+                          'alice-role', 'alice-proj-%s' % self.id())
+        user = self.alice
+        project_obj = Project(user.project)
+        project_obj.uuid = user.project_uuid
+        self.admin.vnc_lib.project_create(project_obj)
+
+        # read projects back
+        user.project_obj = vnc_read_obj(self.admin.vnc_lib,
+                                        'project', obj_uuid=user.project_uuid)
+        user.domain_id = user.project_obj.parent_uuid
+        user.vnc_lib.set_domain_id(user.project_obj.parent_uuid)
+
+        logger.info('Change owner of project %s to %s' % (user.project, user.project_uuid))
+        set_perms(user.project_obj, owner=user.project_uuid, share=[])
+        self.admin.vnc_lib.project_update(user.project_obj)
+
+        user.proj_rg = vnc_aal_create(self.admin.vnc_lib, self.alice.project_obj)
+        vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                         rule_str='virtual-network %s:CR' % user.role)
+
+        logger.info('')
+        logger.info('alice: trying to create VN in her project')
+        self.vn_name = "alice-vn-%s" % self.id()
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn)
+            logger.info('Created virtual network: %s' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info('Failed to create VN')
+            testfail = True
+        self.assertThat(testfail, Equals(False))
+
+        param = {"resource_type": "virtual_network"}
+        headers = {'X-Auth-Token': self.alice.vnc_lib.get_auth_token()}
+        logger.info("alice has been granted read permission for the resource")
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        vnc_aal_del_rule(self.admin.vnc_lib, self.alice.proj_rg,
+                         rule_str='virtual-network %s:R' % self.alice.role)
+        logger.info("alice's read permission for the resource revoked")
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 403)
+    # end test_rbac_user_role_with_resource_read_access
+
+    def test_rbac_user_role_with_multiple_resources(self):
+        self.admin = User(self.ip, self.port, self.kc, 'admin', 'contrail123',
+                          'cloud-admin', 'admin-%s' % self.id())
+        self.alice = User(self.ip, self.port, self.kc, 'alice', 'alice123',
+                          'alice-role', 'alice-proj-%s' % self.id())
+        user = self.alice
+        project_obj = Project(user.project)
+        project_obj.uuid = user.project_uuid
+        self.admin.vnc_lib.project_create(project_obj)
+
+        # read projects back
+        user.project_obj = vnc_read_obj(self.admin.vnc_lib,
+                                        'project', obj_uuid=user.project_uuid)
+        user.domain_id = user.project_obj.parent_uuid
+        user.vnc_lib.set_domain_id(user.project_obj.parent_uuid)
+
+        logger.info('Change owner of project %s to %s' % (user.project, user.project_uuid))
+        set_perms(user.project_obj, owner=user.project_uuid, share=[])
+        self.admin.vnc_lib.project_update(user.project_obj)
+
+        user.proj_rg = vnc_aal_create(self.admin.vnc_lib, self.alice.project_obj)
+        vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                         rule_str='virtual-network %s:CR' % user.role)
+
+        self.vn_name = "alice-vn-%s" % self.id()
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn)
+            logger.info('Created virtual network %s' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info('Failed to create VN')
+            testfail = True
+        self.assertThat(testfail, Equals(False))
+
+        param = {"resource_type": "virtual_network,virtual_machine"}
+        headers = {'X-Auth-Token': self.alice.vnc_lib.get_auth_token()}
+        logger.info("alice has read permission for only one resource")
+        response = requests.get(self.url, params=param, stream=True, headers=headers)
+        self.assertEqual(response.status_code, 403)
+    # test_rbac_user_role_with_multiple_resources
+# end TestWatchPermission
 
 
 if __name__ == '__main__':

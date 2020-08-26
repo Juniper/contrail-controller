@@ -183,7 +183,7 @@ class VncRbac(object):
     #end
 
     # op is one of 'CRUD'
-    def validate_request(self, request):
+    def validate_request(self, request, obj_type):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
@@ -215,7 +215,8 @@ class VncRbac(object):
             return (False, (403, 'Permission Denied RBAC rule list empty'))
 
         # object of access = 'project', 'virtual-network' ...
-        obj_type = self.request_path_to_obj_type(request.path)
+        if obj_type is None:
+            obj_type = self.request_path_to_obj_type(request.path)
 
         # API operation create, read, update or delete
         api_op = self.op_str[request.method]
