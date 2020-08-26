@@ -318,31 +318,43 @@ class FabricManager(object):
                 # master LR, create new fab_name-master-LR and this will update
                 # VN annotations accordingly.
                 if fab_fq_name:
-                    def_project = self._vnc_api.project_read(
-                        ['default-domain', 'default-project'])
-                    fab_name = fab_fq_name[-1]
-                    lr_fq_name = ['default-domain',
-                                  'default-project',
-                                  fab_name + '-master-LR']
-                    fab_master_lr_obj = LogicalRouter(
-                        name=lr_fq_name[-1],
-                        fq_name=lr_fq_name,
-                        logical_router_gateway_external=False,
-                        logical_router_type='vxlan-routing',
-                        parent_obj=def_project
-                    )
-                    perms2.set_global_access(PERMS_RWX)
-                    fab_master_lr_obj.set_perms2(perms2)
-
-                    fab_master_lr_obj.set_virtual_machine_interface_list(
-                        vmi_refs)
-                    fab_master_lr_obj.set_physical_router_list(pr_refs)
-                    fab_master_lr_obj.set_fabric_list(fabric_refs)
-
-                    self._vnc_api.logical_router_create(
-                        fab_master_lr_obj
-                    )
+                    self._create_fabric_master_LR(fab_fq_name,
+                                                  perms2,
+                                                  fabric_refs=fabric_refs,
+                                                  vmi_refs=vmi_refs,
+                                                  pr_refs=pr_refs)
             except NoIdError:
+                pass
+            except Exception as exc:
+                err_msg = "An exception occurred while attempting to " \
+                          "create fabric master-LR: %s " % exc.message
+                self._logger.warning(err_msg)
+
+        # Handle fabric master LR creation for all fabrics here
+        # iterate through all existing fabric objects
+        # create fabric master LR for all existing fabrics
+
+        obj_list = self._vnc_api._objects_list('fabric')
+        fab_list = obj_list.get('fabrics')
+        for fabric in fab_list or []:
+            try:
+                fab_obj = self._vnc_api. \
+                    fabric_read(id=fabric.get('uuid'))
+                fab_fq_name = fab_obj.get_fq_name()
+
+                # check if not default-fabric, if yes
+                # skip creating fabric master-LR for it
+
+                if fab_fq_name == ["default-global-system-config",
+                                   "default-fabric"]:
+                    continue
+
+                perms2 = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+                # create fabric master LR
+                self._create_fabric_master_LR(fab_fq_name,
+                                              perms2,
+                                              fabric_obj=fab_obj)
+            except RefsExistError:
                 pass
             except Exception as exc:
                 err_msg = "An exception occurred while attempting to " \
@@ -361,6 +373,46 @@ class FabricManager(object):
                 pass
 
     # end _load_init_data
+
+    # create default fabric master LR
+    def _create_fabric_master_LR(self, fab_fq_name,
+                                 perms2, fabric_refs=None,
+                                 fabric_obj=None,
+                                 vmi_refs=None,
+                                 pr_refs=None):
+
+        def_project = self._vnc_api.project_read(
+            ['default-domain', 'default-project'])
+        fab_name = fab_fq_name[-1]
+        lr_fq_name = ['default-domain',
+                      'default-project',
+                      fab_name + '-master-LR']
+        fab_master_lr_obj = LogicalRouter(
+            name=lr_fq_name[-1],
+            fq_name=lr_fq_name,
+            logical_router_gateway_external=False,
+            logical_router_type='vxlan-routing',
+            parent_obj=def_project
+        )
+        perms2.set_global_access(PERMS_RWX)
+        fab_master_lr_obj.set_perms2(perms2)
+
+        if vmi_refs:
+            fab_master_lr_obj.set_virtual_machine_interface_list(
+                vmi_refs)
+        if pr_refs:
+            fab_master_lr_obj.set_physical_router_list(pr_refs)
+
+        if fabric_refs:
+            fab_master_lr_obj.set_fabric_list(fabric_refs)
+
+        if fabric_obj:
+            fab_master_lr_obj.set_fabric(fabric_obj)
+
+        self._vnc_api.logical_router_create(
+            fab_master_lr_obj
+        )
+    # end _create_fabric_master_LR
 
     # Load json data from fabric_ansible_playbooks/conf directory
     def _load_json_data(self):
