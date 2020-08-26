@@ -1,0 +1,67 @@
+# Git Template
+# Guidelines Version: 1.0
+# General
+#     - Use one blank line after each section
+# Title
+#     - Mandatory
+#     - One line, Maximum 50 characters
+#     - Imperative
+# Jira Tags
+#     - Mandatory
+#     - Respective Jira ID must be referenced
+#     - Do not refer a closed ticket
+# Gerrit Dependencies
+#     - Optional
+#     - One Change-ID per line
+# Author
+#     - Mandatory
+#     - Include '-s' during git commit which should add
+#       Signed-Off-by: <Name> <email-ID>
+# Co-Author
+#     - format:
+#           Co-Authored-by: <Name> <email-ID>
+#     - One Co-Author per line
+# Summary
+#     - Mandatory
+#     - Maximum 72 characters per line
+#     - Use hyphen or numbers as bullets
+#     - Add explanation about the problem
+#     - Focus on why this patch is required
+#     - Add side-effects or consequences if any
+#     - Do not assume reviewer understands the
+#       original problem or the patch
+# References
+#     - Optional
+#     - Provide links for further reading or
+#       references if any
+#
+# How to use this template
+#     - Copy this file to ~/.git_template
+#     - Execute
+#       git config --global commit.template ~/.git_template
+#     - Do not work with commit amend
+
+# -------------------- Title ------------------ #
+
+
+# ------------------ Jira Tags ---------------- #
+# closes-jira-bug:
+# partial-jira-bug:
+
+# ------------ Gerrit Dependencies ------------ #
+# Depends-On:
+
+# ------------------ Authors ------------------ #
+# Author:
+# Co-Author:
+
+# ------------ Summary about why the patch is required -------------- #
+
+
+# -------------------- Summary about the patch ---------------------- #
+
+
+# --------------------------- References ---------------------------- #
+
+# -------------------------- End of message ------------------------- #
+
