@@ -34,6 +34,10 @@
     - set_fact:
         job_ctx: "{{job_ctx|combine(final_task_array)}}"
 
+    - name: Get advanced parameters
+      set_fact:
+        advanced_params: "{{upgrade_plan.advanced_parameters}}"
+
     - block:
         - name: Run health check only
           include_role:
