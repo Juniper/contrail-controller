@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b6cf547e_3a448139",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_fake.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-26T11:24:44Z",
+      "side": 1,
+      "message": "THis will not pass because of: https://review.opencontrail.org/c/Juniper/contrail-controller/+/60779 I will write workarounf time it gets merged",
+      "revId": "dd459bb0c55c41bbe65dba933994bc9471fc7a5b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
