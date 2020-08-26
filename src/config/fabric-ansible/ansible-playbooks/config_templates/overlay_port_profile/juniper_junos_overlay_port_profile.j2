@@ -1,3 +1,7 @@
+{# This is to remove any existing storm control config as part of cluster upgrades #}
+{# purge storm control config before creating port profile config #}
+delete apply-groups __contrail_overlay_storm_control__
+delete groups __contrail_overlay_storm_control__
 {% set port_profiles = device_abstract_config.get('features', {}).get('port-profile',{}).get('port_profile', []) %}
 {% set device_product_name = device_abstract_config.get('system', {}).get('product_name', '') %}
 {% set pp_map = {} %}
