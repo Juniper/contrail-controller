@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "75274d98_957206f6",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-26T08:05:37Z",
+      "side": 1,
+      "message": "Rajit, another point, if the patch is specific to this version and not going to be in master I would suggest adding the tag\n\n`Downstream-Only`, so we have an indication of that in history.",
+      "revId": "5ac36820435f02fc773f0d2710791e5cf4a045e9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "b9a9736d_604bb780",
         "filename": "src/config/common/cfgm_common/db_json_exim.py",
         "patchSetId": 1
