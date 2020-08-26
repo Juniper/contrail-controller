@@ -16,6 +16,24 @@
       "revId": "d39f3f572bc2bd6be49ac20713795dc3dbcf96f6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb7c9e9c_eb065ccb",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 930
+      },
+      "writtenOn": "2020-08-26T17:45:46Z",
+      "side": 1,
+      "message": "1. The master branch had various issues regarding device-manager UTs and hence all the master branch commits(including this) were blocked until it was resolved by DM team. Meanwhile, R2008 did not have this issue and the commits were merged there before master. Hence, this commit has been cherry-picked from R2008. Also, R2008 has a strict deadline and there\u0027s unfortunately no time to wait for master commits to be merged first.\n2. Regarding the UT, it has been merged as a part of https://review.opencontrail.org/c/Juniper/contrail-controller/+/60638 and is indicated in the comments of https://contrail-jws.atlassian.net/browse/CEM-17852.",
+      "parentUuid": "cc43c0a1_1ec2f187",
+      "revId": "d39f3f572bc2bd6be49ac20713795dc3dbcf96f6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
