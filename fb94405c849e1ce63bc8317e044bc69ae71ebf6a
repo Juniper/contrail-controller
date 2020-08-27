@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c0b2ab9d_dc94f19e",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-08-27T00:11:21Z",
+      "side": 1,
+      "message": "Do we need Author? \n\ngit commit -s will automatically add \"Signed-off-by: \u003cauthor\u0027s email\u003e\"",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
