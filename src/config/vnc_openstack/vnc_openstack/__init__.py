@@ -46,6 +46,7 @@ from .neutron_plugin_db import _NEUTRON_FWAAS_TAG_TYPE
 from .neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME
 from .neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME
 from .neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME
+from .neutron_plugin_db import _NEUTRON_DEFAULT_SECURITY_GROUP_NAME
 
 Q_CREATE = 'create'
 Q_DELETE = 'delete'
@@ -230,17 +231,23 @@ def _create_default_security_group(vnc_lib, proj_obj):
     vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
 
-def ensure_default_security_group(vnc_lib, proj_obj):
-    sg_groups = proj_obj.get_security_groups()
-    for sg_group in sg_groups or []:
-        if sg_group['to'][-1] == 'default':
-            return
+def ensure_default_security_group(vnc_lib, proj_id):
     try:
-        _create_default_security_group(vnc_lib, proj_obj)
-    except vnc_api.RefsExistError:
-        # Created by different worker/node
-        # so we can ignore the RefsExistError exception
-        pass
+        project_fq_name = vnc_lib.id_to_fq_name(proj_id)
+    except vnc_api.NoIdError:
+        return
+
+    try:
+        vnc_lib.fq_name_to_id(
+            'security-group',
+            project_fq_name + [_NEUTRON_DEFAULT_SECURITY_GROUP_NAME])
+    except vnc_api.NoIdError:
+        try:
+            _create_default_security_group(vnc_lib, proj_obj)
+        except vnc_api.RefsExistError:
+            # Created by different worker/node
+            # so we can ignore the RefsExistError exception
+            pass
 
 
 def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
@@ -1029,7 +1036,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
     def _create_default_security_group(self, proj_dict):
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
-        ensure_default_security_group(self._vnc_lib, proj_obj)
+        ensure_default_security_group(self._vnc_lib, proj_obj.uuid)
 
     def _create_default_firewall_group(self, proj_dict):
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
