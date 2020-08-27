@@ -66,6 +66,14 @@ _NEUTRON_FWAAS_TAG_TYPE = TagTypeIdToName[5]
 _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME = 'default'
 _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME = 'default ipv4'
 _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME = 'default ipv6'
+<<<<<<< HEAD   (188f64 [Fabric] Defining advanced_params var required for wait_for_)
+=======
+# Subnet tags kv keys
+_SUBNET_TO_NEUTRON_TAGS = 'subnet_to_neutron_tags'
+_NEUTRON_TAG_TO_SUBNETS = 'neutron_tag_to_subnets'
+# Security group
+_NEUTRON_DEFAULT_SECURITY_GROUP_NAME = 'default'
+>>>>>>> CHANGE (ea22d1 vnc openstack security group read  was reading the)
 
 
 class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
@@ -412,10 +420,15 @@ class DBInterface(object):
     #end _ensure_instance_exists
 
     def _ensure_default_security_group_exists(self, proj_id):
+<<<<<<< HEAD   (188f64 [Fabric] Defining advanced_params var required for wait_for_)
         proj_id = str(uuid.UUID(proj_id))
         proj_obj = self._vnc_lib.project_read(id=proj_id, fields=['security_groups'])
         vnc_openstack.ensure_default_security_group(self._vnc_lib, proj_obj)
     #end _ensure_default_security_group_exists
+=======
+        vnc_openstack.ensure_default_security_group(self._vnc_lib, str(uuid.UUID(proj_id)))
+    # end _ensure_default_security_group_exists
+>>>>>>> CHANGE (ea22d1 vnc openstack security group read  was reading the)
 
     def _get_obj_tenant_id(self, q_type, obj_uuid):
         # Seed the cache and return
