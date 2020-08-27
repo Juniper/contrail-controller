@@ -77,6 +77,24 @@
     },
     {
       "key": {
+        "uuid": "d526df37_a4aa1ee0",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T12:14:05Z",
+      "side": 1,
+      "message": "No no Pawel it\u0027s not true, at least for today.",
+      "parentUuid": "70668d3a_634736da",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "6be19bd7_ee2687c9",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
