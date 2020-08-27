@@ -2,6 +2,29 @@
   "comments": [
     {
       "key": {
+        "uuid": "2c7fb882_7b45cbca",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-27T05:15:12Z",
+      "side": 1,
+      "message": "- Requires one blank line after title to separate from summary",
+      "range": {
+        "startLine": 3,
+        "startChar": 2,
+        "endLine": 3,
+        "endChar": 7
+      },
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "c0b2ab9d_dc94f19e",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
@@ -13,6 +36,70 @@
       "writtenOn": "2020-08-27T00:11:21Z",
       "side": 1,
       "message": "Do we need Author? \n\ngit commit -s will automatically add \"Signed-off-by: \u003cauthor\u0027s email\u003e\"",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "42edc295_5b3e598e",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-27T05:15:12Z",
+      "side": 1,
+      "message": "I would go with \"mandatory when there is more then one\"",
+      "parentUuid": "c0b2ab9d_dc94f19e",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "50df637d_5f62bc00",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-27T05:15:12Z",
+      "side": 1,
+      "message": "There is no such section in template below.",
+      "range": {
+        "startLine": 33,
+        "startChar": 1,
+        "endLine": 33,
+        "endChar": 8
+      },
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "71279e45_4dcd958f",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-27T05:15:12Z",
+      "side": 1,
+      "message": "Github, Gitlab and others uses format\nCo-Authored-By: Fullname \u003caddress@email\u003e\n\nGithub can automatically match all co-authored-by to registered profiles.",
+      "range": {
+        "startLine": 54,
+        "startChar": 2,
+        "endLine": 54,
+        "endChar": 11
+      },
       "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
