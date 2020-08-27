@@ -59,6 +59,24 @@
     },
     {
       "key": {
+        "uuid": "70668d3a_634736da",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-08-27T09:22:05Z",
+      "side": 1,
+      "message": "AFAIK CI won\u0027t start without jira tag. Is it still true?",
+      "parentUuid": "5b69f0d1_002e8009",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "6be19bd7_ee2687c9",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
