@@ -73,6 +73,8 @@ _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME = 'default ipv6'
 # Subnet tags kv keys
 _SUBNET_TO_NEUTRON_TAGS = 'subnet_to_neutron_tags'
 _NEUTRON_TAG_TO_SUBNETS = 'neutron_tag_to_subnets'
+# Security group
+_NEUTRON_DEFAULT_SECURITY_GROUP_NAME = 'default'
 
 
 class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
@@ -425,10 +427,7 @@ class DBInterface(object):
     # end _ensure_instance_exists
 
     def _ensure_default_security_group_exists(self, proj_id):
-        proj_id = str(uuid.UUID(proj_id))
-        proj_obj = self._vnc_lib.project_read(
-            id=proj_id, fields=['security_groups'])
-        vnc_openstack.ensure_default_security_group(self._vnc_lib, proj_obj)
+        vnc_openstack.ensure_default_security_group(self._vnc_lib, str(uuid.UUID(proj_id)))
     # end _ensure_default_security_group_exists
 
     def _get_obj_tenant_id(self, q_type, obj_uuid):
