@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "013fb3d1_6c63792a",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:06:50Z",
+      "side": 1,
+      "message": "This guideline is added under Others section. Per your other message, i see you\u0027ve a confusion whats \"Others\" I\u0027ll rename the section to General and move it to top.",
+      "parentUuid": "2c7fb882_7b45cbca",
+      "range": {
+        "startLine": 3,
+        "startChar": 2,
+        "endLine": 3,
+        "endChar": 7
+      },
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "7a9ee00e_21c06fcb",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
@@ -36,6 +60,24 @@
       "writtenOn": "2020-08-27T07:58:07Z",
       "side": 1,
       "message": "Such convention regarding the format does not make sense. We should focus on substance rather than form.\n\nI would tend to have a prefix for a commit like:\n  `config/api-server: blabla blaa..` or \n  `fabric:  blabla blabla blaa`\n\nThat would help reviewers to identify on which part the change is for.",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0015e7ca_8d02d1f8",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:06:50Z",
+      "side": 1,
+      "message": "This is a general guideline followed by many projects. You can add your substance on the summary section.",
+      "parentUuid": "7a9ee00e_21c06fcb",
       "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -89,6 +131,24 @@
       "side": 1,
       "message": "No no Pawel it\u0027s not true, at least for today.",
       "parentUuid": "70668d3a_634736da",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7b56ceb1_9212e386",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:06:50Z",
+      "side": 1,
+      "message": "Any change in the code can cause a bug, so all changes needs to be tracked and it helps project managers, they do not come to git but ready only Jira. Btw, Am not sure why creating a Jira ticket is going to discourage developers.",
+      "parentUuid": "d526df37_a4aa1ee0",
       "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -165,6 +225,24 @@
     },
     {
       "key": {
+        "uuid": "cef7ab3b_cf457126",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:06:50Z",
+      "side": 1,
+      "message": "Sure, we can get rid of this. The way i saw signing is to protect the commit with gpg. Opensource projects requires it because of license issues.\nSince we\u0027re closely integrating with TF, i agree to replace Author with Sign-Off",
+      "parentUuid": "b701c6ed_92775e26",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "641889d6_42ab6004",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
@@ -205,6 +283,30 @@
     },
     {
       "key": {
+        "uuid": "0165cd25_4a3bf3d0",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:06:50Z",
+      "side": 1,
+      "message": "@Pawel its a general suggestion to include one blank space after each section. I didnt know where exactly to add it. so added them in this section. But if that gives some confusion, Let me rename as General.",
+      "parentUuid": "50df637d_5f62bc00",
+      "range": {
+        "startLine": 33,
+        "startChar": 1,
+        "endLine": 33,
+        "endChar": 8
+      },
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "71279e45_4dcd958f",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
@@ -216,6 +318,30 @@
       "writtenOn": "2020-08-27T05:15:12Z",
       "side": 1,
       "message": "Github, Gitlab and others uses format\nCo-Authored-By: Fullname \u003caddress@email\u003e\n\nGithub can automatically match all co-authored-by to registered profiles.",
+      "range": {
+        "startLine": 54,
+        "startChar": 2,
+        "endLine": 54,
+        "endChar": 11
+      },
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c3144fa1_115d3d8e",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:06:50Z",
+      "side": 1,
+      "message": "Sure. Will update.",
+      "parentUuid": "71279e45_4dcd958f",
       "range": {
         "startLine": 54,
         "startChar": 2,
