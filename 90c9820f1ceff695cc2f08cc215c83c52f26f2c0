@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "aed0f1f3_0d899b24",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/logical_interface.py",
+        "patchSetId": 23
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-27T00:56:12Z",
+      "side": 1,
+      "message": "Added in next patchset",
+      "revId": "90c9820f1ceff695cc2f08cc215c83c52f26f2c0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "e6c247e1_910be6ab",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/sub_cluster.py",
+        "patchSetId": 23
+      },
+      "lineNbr": 98,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-27T00:56:12Z",
+      "side": 1,
+      "message": "\u0027None\u0027 not required here",
+      "revId": "90c9820f1ceff695cc2f08cc215c83c52f26f2c0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
