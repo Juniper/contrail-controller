@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fcb1efbe_bf5d1bd5",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 4979,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T22:10:49Z",
+      "side": 1,
+      "message": "net_refs may be empty at times due to inconsistencies in the DB. So better ensure net_refs exist before accessing first element.",
+      "revId": "f4c4260680a197ef8b81c0e7018665cff0342159",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
