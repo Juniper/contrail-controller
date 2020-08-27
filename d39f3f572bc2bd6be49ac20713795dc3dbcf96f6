@@ -34,6 +34,24 @@
       "revId": "d39f3f572bc2bd6be49ac20713795dc3dbcf96f6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "89ad016f_86ecd65e",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T09:34:40Z",
+      "side": 1,
+      "message": "Thanks Srividhya for your return.\n\nAbout (1) even with that, the patch should have been first sent to master and cherry-picked to r2008 with a comment explaining the short deadline. It\u0027s the workflow that I would recommend to use in the future to avoid any confusion.\n\nAbout (2) Please don\u0027t assume that reviewer as internet access. It is a good practice during backport (forward-port in this case) to add a comment when something is different. \n\nI would recommend updating the commit message explaining the details about the tests already merged and why this is a forward-port.",
+      "parentUuid": "fb7c9e9c_eb065ccb",
+      "revId": "d39f3f572bc2bd6be49ac20713795dc3dbcf96f6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
