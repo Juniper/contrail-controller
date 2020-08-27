@@ -25,6 +25,57 @@
     },
     {
       "key": {
+        "uuid": "7a9ee00e_21c06fcb",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T07:58:07Z",
+      "side": 1,
+      "message": "Such convention regarding the format does not make sense. We should focus on substance rather than form.\n\nI would tend to have a prefix for a commit like:\n  `config/api-server: blabla blaa..` or \n  `fabric:  blabla blabla blaa`\n\nThat would help reviewers to identify on which part the change is for.",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5b69f0d1_002e8009",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T07:58:07Z",
+      "side": 1,
+      "message": "My feeling is that for patches that do not add logical change it should be OK to do not have Jira ticket.\n\nBasically when removing empty lines, fixing typos, factoring small part of code.\n\nWe should care about to not enter in a too bureaucratic position which would discourage developers to clean the code.",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6be19bd7_ee2687c9",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T07:58:07Z",
+      "side": 1,
+      "message": "This is a Gerrit restriction.",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "c0b2ab9d_dc94f19e",
         "filename": "git_commit_template.txt",
         "patchSetId": 2
@@ -54,6 +105,41 @@
       "side": 1,
       "message": "I would go with \"mandatory when there is more then one\"",
       "parentUuid": "c0b2ab9d_dc94f19e",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b701c6ed_92775e26",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T07:58:07Z",
+      "side": 1,
+      "message": "Agree with Ignatious, adding the Author does not make sense.\n\nAdding `signed-off-by` would make more sense, it is a practice and convention largely used in OpenSource softwares. That would help to understand who is the original author when cherry-picking patch.",
+      "parentUuid": "42edc295_5b3e598e",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "641889d6_42ab6004",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-27T07:58:07Z",
+      "side": 1,
+      "message": "I would suggest to refer on https://www.berrange.com/posts/2012/06/27/thoughts-on-improving-openstack-git-commit-practicehistory/",
       "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
