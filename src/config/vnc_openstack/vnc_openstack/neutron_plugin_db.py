@@ -66,6 +66,8 @@ _NEUTRON_FWAAS_TAG_TYPE = TagTypeIdToName[5]
 _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME = 'default'
 _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME = 'default ipv4'
 _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME = 'default ipv6'
+# Security group
+_NEUTRON_DEFAULT_SECURITY_GROUP_NAME = 'default'
 
 
 class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
@@ -412,10 +414,8 @@ class DBInterface(object):
     #end _ensure_instance_exists
 
     def _ensure_default_security_group_exists(self, proj_id):
-        proj_id = str(uuid.UUID(proj_id))
-        proj_obj = self._vnc_lib.project_read(id=proj_id, fields=['security_groups'])
-        vnc_openstack.ensure_default_security_group(self._vnc_lib, proj_obj)
-    #end _ensure_default_security_group_exists
+        vnc_openstack.ensure_default_security_group(self._vnc_lib, str(uuid.UUID(proj_id)))
+    # end _ensure_default_security_group_exists
 
     def _get_obj_tenant_id(self, q_type, obj_uuid):
         # Seed the cache and return
