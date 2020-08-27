@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5526ddf4_1eb13906",
+        "filename": "src/config/vnc_openstack/vnc_openstack/__init__.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 225,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-27T20:35:15Z",
+      "side": 1,
+      "message": "shouldnt the name be derived from _NEUTRON_DEFAULT_SECURITY_GROUP_NAME ?",
+      "revId": "1272e552a796acd62e102005ac867b2e99520147",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
