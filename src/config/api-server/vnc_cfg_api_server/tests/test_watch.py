@@ -58,15 +58,25 @@ class TestWatch(test_case.ApiServerTestCase):
         self.listen_ip = self._api_server_ip
         self.listen_port = self._api_server._args.listen_port
         self.url = 'http://%s:%s/watch' % (self.listen_ip, self.listen_port)
-        self.mock = flexmock(EventDispatcher)
+        self.mock = None
         self.stream_response = None
     # end setUp
+
+    def tearDown(self):
+        if self.mock:
+            self.mock()
+        super(TestWatch, self).tearDown()
 
     def test_subscribe_exception(self):
         param = {"resource_type": "virtual_network"}
         self.error = "value error occured"
-        self.mock.should_receive('subscribe_client').and_raise(
-            CustomError, self.error)
+        m = flexmock(EventDispatcher)\
+            .should_receive('subscribe_client')\
+            .and_raise(CustomError, self.error)
+        def reset():
+            m.reset()
+
+        self.mock = reset
 
         response = requests.get(self.url, params=param, stream=True)
         self.response_error = "Client queue registration failed with exception %s" % (
@@ -83,10 +93,16 @@ class TestWatch(test_case.ApiServerTestCase):
         self.error = "value error occured"
         init_sample = {
             "event": "init", "data": [{"type": "virtual_network"}], }
-        self.mock.should_receive('subscribe_client').and_return().once()
-        self.mock.should_receive('initialize').and_return(
-            True, init_sample).twice()
+        m = flexmock(EventDispatcher)
+        s = m.should_receive('subscribe_client')\
+            .and_return().once()
+        i = m.should_receive('initialize')\
+            .and_return(True, init_sample).twice()
+        def reset():
+            i.reset()
+            s.reset()
 
+        self.mock = reset
         self.count = 0
         self.data = "[{'type': 'virtual_network'}]"
 
