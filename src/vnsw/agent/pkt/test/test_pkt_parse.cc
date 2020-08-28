@@ -1020,6 +1020,160 @@ TEST_F(PktParseTest, DISABLED_InvalidICMPv6_Vxlan_IP_Tor) {
     client->WaitForIdle();
 }
 
+// test packets enqueued to BFD priority queue
+// and PktHandler generic queue
+TEST_F(PktParseTest, BFD_priority_queue_BasicTest) {
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    std::auto_ptr<PktGen> pkt(new PktGen());
+    uint64_t pkt_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount();
+    uint64_t bfd_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount();
+
+    // create pkt with trap and TRAP_NEXTHOP.
+    // The packet get should enqueued to PktHandler generic workqueue and not in
+    // Bfd priority work queue
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(vnet1->id(), AgentHdr::TRAP_NEXTHOP, 0xc0);
+    pkt->AddEthHdr("00:00:5e:00:01:00", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.4", "1.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(52961, 3784, 0);
+    pkt->AddBfdHdr(0x20, 0x80, 5,
+                   0xabcd, 0x1234,
+                   100, 100);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+    // The packet should get enqueued to generic proto enqueues in PktHandler
+    TASK_UTIL_EXPECT_EQ((pkt_wq_count + 1), Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount());
+    TASK_UTIL_EXPECT_EQ(bfd_wq_count, Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount());
+
+    // create pkt with trap and TRAP_BFD.
+    pkt_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount();
+    bfd_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount();
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(vnet1->id(), AgentHdr::TRAP_BFD, 0xc0);
+    pkt->AddEthHdr("00:00:5e:00:01:00", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.4", "1.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(52961, 3784, 0);
+    pkt->AddBfdHdr(0x20, 0xE0, 5,
+                   0xabcd, 0x1234,
+                   100, 100);
+
+    ptr = (new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+    // The packet should get enqueued to BFD priority work queue
+    TASK_UTIL_EXPECT_EQ(pkt_wq_count, Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount());
+    TASK_UTIL_EXPECT_EQ((bfd_wq_count + 1), Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount());
+}
+
+// Test BFD control and Keepalive packets
+TEST_F(PktParseTest, BFD_priority_queue_BFDPktTest) {
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    std::auto_ptr<PktGen> pkt(new PktGen());
+    uint64_t pkt_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount();
+    uint64_t bfd_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount();
+
+    //BFD "control" packets (state = AdminDown),
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    // set state = AdminDown in AgentHdr's cmd_param
+    pkt->AddAgentHdr(vnet1->id(), AgentHdr::TRAP_BFD, 0x00);
+    pkt->AddEthHdr("00:00:5e:00:01:00", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.4", "1.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(52961, 3784, 0);
+    pkt->AddBfdHdr(0x20, 0x80, 5,
+                   0xabcd, 0x1234,
+                   100, 100);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+    // the packet should get enqueued to PktHandler generic workqueue and not in
+    // Bfd priority work queue
+    TASK_UTIL_EXPECT_EQ((pkt_wq_count + 1), Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount());
+    TASK_UTIL_EXPECT_EQ(bfd_wq_count, Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount());
+
+    //BFD "control" packets (state = Down),
+    pkt_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount();
+    bfd_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount();
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    // set state = Down in AgentHdr's cmd_param
+    pkt->AddAgentHdr(vnet1->id(), AgentHdr::TRAP_BFD, 0x40);
+    pkt->AddEthHdr("00:00:5e:00:01:00", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.4", "1.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(52961, 3784, 0);
+    pkt->AddBfdHdr(0x20, 0xE0, 5,
+                   0xabcd, 0x1234,
+                   100, 100);
+
+    ptr = (new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+    // the packet should get enqueued to PktHandler generic workqueue and not in
+    // Bfd priority work queue
+    TASK_UTIL_EXPECT_EQ((pkt_wq_count + 1), Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount());
+    TASK_UTIL_EXPECT_EQ(bfd_wq_count, Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount());
+
+    //BFD "control" packets (state = Init),
+    pkt_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount();
+    bfd_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount();
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    // set state = Init in AgentHdr's cmd_param
+    pkt->AddAgentHdr(vnet1->id(), AgentHdr::TRAP_BFD, 0x80);
+    pkt->AddEthHdr("00:00:5e:00:01:00", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.4", "1.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(52961, 3784, 0);
+    pkt->AddBfdHdr(0x20, 0xE0, 5,
+                   0xabcd, 0x1234,
+                   100, 100);
+
+    ptr = (new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+    // the packet should get enqueued to PktHandler generic workqueue and not in
+    // Bfd priority work queue
+    TASK_UTIL_EXPECT_EQ((pkt_wq_count + 1), Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount());
+    TASK_UTIL_EXPECT_EQ(bfd_wq_count, Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount());
+
+    //BFD "control" packets (state = Up),
+    pkt_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount();
+    bfd_wq_count = Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount();
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    // set state = UP in AgentHdr's cmd_param
+    pkt->AddAgentHdr(vnet1->id(), AgentHdr::TRAP_BFD, 0xc0);
+    pkt->AddEthHdr("00:00:5e:00:01:00", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.4", "1.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(52961, 3784, 0);
+    pkt->AddBfdHdr(0x20, 0xE0, 5,
+                   0xabcd, 0x1234,
+                   100, 100);
+
+    ptr = (new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+    // the packet should get enqueued to Bfd priority work queue
+    TASK_UTIL_EXPECT_EQ((pkt_wq_count), Agent::GetInstance()->pkt()->pkt_handler()->GetPktEnqueueCount());
+    TASK_UTIL_EXPECT_EQ((bfd_wq_count + 1), Agent::GetInstance()->pkt()->pkt_handler()->GetBfdKaEnqueueCount());
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

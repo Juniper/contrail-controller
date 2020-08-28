@@ -16,13 +16,7 @@ BfdHandler::BfdHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
 BfdHandler::~BfdHandler() {
 }
 
-bool BfdHandler::Run() {
-    Interface *itf =
-        agent()->interface_table()->FindInterface(GetInterfaceIndex());
-    if (itf == NULL) {
-        return true;
-    }
-
+bool BfdHandler::HandleReceive() {
     BfdProto *bfd_proto = agent()->GetBfdProto();
     uint8_t len = ntohs(pkt_info_->transp.udp->len) - 8;
     uint8_t *data = new uint8_t[len];
@@ -34,13 +28,22 @@ bool BfdHandler::Run() {
                                                   pkt_info_->dport);
     boost::asio::ip::udp::endpoint remote_endpoint(pkt_info_->ip_saddr,
                                                    pkt_info_->sport);
-    bfd_proto->bfd_communicator().HandleReceive(
+    // thread safe!
+    bfd_proto->HandleReceiveSafe(
                                   buffer, local_endpoint, remote_endpoint,
                                   BFD::SessionIndex(GetInterfaceIndex()),
                                   len, ec);
-    bfd_proto->IncrementReceived();
-
     return true;
+}
+
+bool BfdHandler::Run() {
+    Interface *itf =
+        agent()->interface_table()->FindInterface(GetInterfaceIndex());
+    if (itf == NULL) {
+        return true;
+    }
+
+    return HandleReceive();
 }
 
 void BfdHandler::SendPacket(

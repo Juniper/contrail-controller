@@ -42,13 +42,30 @@ do {                                                                     \
 const std::size_t PktTrace::kPktMaxTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
+namespace {
+inline bool IsBfdkeepalivePkt(const AgentHdr &hdr)
+{
+    // For the BFD traped packets, BFD state info is available in 'cmd_param'
+    if ((hdr.cmd == AGENT_TRAP_BFD) && (hdr.cmd_param == 0xc0)) {
+        return true;
+    }
+    return false;
+}
+
+} // namespace
 
 PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
     stats_(), agent_(agent), pkt_module_(pkt_module),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::PktHandler"), 0,
-                boost::bind(&PktHandler::ProcessPacket, this, _1)) {
+                boost::bind(&PktHandler::ProcessPacket, this, _1)),
+    work_queue_bfd_ka_(TaskScheduler::GetInstance()->GetTaskId("Agent::BFD_KA"), 0,
+                boost::bind(&PktHandler::ProcessBfdDataPacket, this, _1))
+    {
     work_queue_.set_name("Packet Handler Queue");
     work_queue_.set_measure_busy_time(agent_->MeasureQueueDelay());
+    // BFD keep alive packet processing
+    work_queue_bfd_ka_.set_name("Packet BFD Data Queue");
+    work_queue_bfd_ka_.set_measure_busy_time(agent_->MeasureQueueDelay());
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
             i == PktHandler::DNS)
@@ -64,6 +81,9 @@ PktHandler::~PktHandler() {
 
 void PktHandler::Register(PktModuleName type, Proto *proto) {
     proto_list_.at(type) = proto;
+    if (type == BFD) {
+        bfd_keepalive_proto_ = proto;
+    }
 }
 
 uint32_t PktHandler::EncapHeaderLen() const {
@@ -224,6 +244,35 @@ bool PktHandler::IsSegmentHealthCheckPacket(const PktInfo *pkt_info,
     return false;
 }
 
+// Validate the BFD Keepalive packet received
+PktHandler::PktModuleName PktHandler::ParseBfdDataPacket(const AgentHdr &hdr,
+                                                  PktInfo *pkt_info,
+                                                  uint8_t *pkt) {
+
+    PktType::Type pkt_type = PktType::INVALID;
+    pkt_info->agent_hdr = hdr;
+
+    int len = 0;
+
+    // Parse packet before computing forwarding mode. Packet is parsed
+    // independent of packet forwarding mode
+    len += ParseEthernetHeader(pkt_info, (pkt + len));
+    if (pkt_info->ether_type != ETHERTYPE_IP) {
+        return INVALID;
+    }
+
+    // IP Packets
+    len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
+    // Check if the BFD KA packet
+    if (pkt_info->ip_proto == IPPROTO_UDP &&
+            pkt_info->dport == BFD_SINGLEHOP_CONTROL_PORT &&
+            (pkt_info->data[0] & 0x20)) {
+        return BFD;
+    }
+
+    return INVALID;
+}
+
 // Process the packet received from tap interface
 PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
                                                   PktInfo *pkt_info,
@@ -352,8 +401,14 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
     // exclusion with DB
     boost::shared_ptr<PacketBufferEnqueueItem>
         info(new PacketBufferEnqueueItem(hdr, buff));
-    work_queue_.Enqueue(info);
 
+    // BFD Keepalive packets are enqueued to a seperate work queue
+    // so that its job run without dependence on dB tasks
+    if (IsBfdkeepalivePkt(hdr)) {
+        work_queue_bfd_ka_.Enqueue(info);
+    } else {
+        work_queue_.Enqueue(info);
+    }
 }
 
 bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) {
@@ -364,6 +419,30 @@ bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) 
     uint8_t *pkt = buff->data();
     PktModuleName mod = ParsePacket(hdr, pkt_info.get(), pkt);
     PktModuleEnqueue(mod, hdr, pkt_info, pkt);
+    if (mod == INVALID) {
+        pkt_info.reset();
+    }
+
+    return true;
+}
+// Process BFD keepalives (BFD packets with state 'UP') in a seperate task
+// that is independent of Db Task
+bool PktHandler::ProcessBfdDataPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) {
+    const AgentHdr &hdr = item->hdr;
+    const PacketBufferPtr &buff = item->buff;
+    boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
+    uint8_t *pkt = buff->data();
+    PktModuleName mod = ParseBfdDataPacket(hdr, pkt_info.get(), pkt);
+
+    if (mod == BFD) {
+        pkt_info->is_bfd_keepalive = true;
+        pkt_info->packet_buffer()->set_module(mod);
+        bfd_keepalive_proto_->Enqueue(pkt_info);
+        proto_list_.at(BFD)->ProcessStats(PktStatsType::PKT_RX_ENQUEUE);
+    } else {
+        proto_list_.at(BFD)->ProcessStats(PktStatsType::PKT_RX_DROP_STATS);
+        pkt_info.reset();
+    }
     return true;
 }
 
@@ -1201,7 +1280,7 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
     ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
-    l3_label(false), is_segment_hc_pkt(false),
+    l3_label(false), is_bfd_keepalive(false), is_segment_hc_pkt(false),
     ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
     is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
     is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
@@ -1214,7 +1293,7 @@ PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID),
     agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
     dport(), ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
-    l3_label(false), is_segment_hc_pkt(false),
+    l3_label(false), is_bfd_keepalive(false), is_segment_hc_pkt(false),
     ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
     is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
     is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
@@ -1228,7 +1307,7 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
-    tunnel(), l3_label(false), is_segment_hc_pkt(false),
+    tunnel(), l3_label(false), is_bfd_keepalive(false), is_segment_hc_pkt(false),
     ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
     is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
     is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
@@ -1248,7 +1327,7 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
-    tunnel(), l3_label(false), is_segment_hc_pkt(false),
+    tunnel(), l3_label(false), is_bfd_keepalive(false), is_segment_hc_pkt(false),
     ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
     is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
     is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),

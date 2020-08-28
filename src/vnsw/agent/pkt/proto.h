@@ -22,6 +22,7 @@ public:
 
     virtual bool Validate(PktInfo *msg) { return true; }
     virtual bool Enqueue(boost::shared_ptr<PktInfo> msg);
+    virtual void ProcessStats(PktStatsType::Type type) { return; }
     virtual ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                             boost::asio::io_service &io) = 0;
 
@@ -30,6 +31,7 @@ public:
     bool RunProtoHandler(ProtoHandler *handler);
     void set_trace(bool val) { trace_ = val; }
     void set_free_buffer(bool val) { free_buffer_ = val; }
+    boost::asio::io_service &get_io_service() const { return io_; }
     Agent *agent() const { return agent_; }
     const ProtoWorkQueue *work_queue() const { return &work_queue_; }
     virtual void TokenAvailable(TokenPool *pool) {assert(0);}

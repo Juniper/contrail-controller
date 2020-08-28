@@ -15,6 +15,7 @@ public:
     virtual ~BfdHandler();
 
     bool Run();
+    bool HandleReceive();
     void SendPacket(const boost::asio::ip::udp::endpoint &local_endpoint,
                     const boost::asio::ip::udp::endpoint &remote_endpoint,
                     uint32_t interface_id,

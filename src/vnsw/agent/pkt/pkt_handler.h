@@ -108,6 +108,16 @@ struct PktType {
     };
 };
 
+struct PktStatsType {
+    enum Type {
+        PKT_RX,
+        PKT_RX_ENQUEUE,
+        PKT_RX_DROP_STATS,
+        PKT_TX,
+        PKT_TX_ERROR,
+    };
+};
+
 struct sctphdr {
     u_int16_t th_sport;
     u_int16_t th_dport;
@@ -137,6 +147,7 @@ struct AgentHdr {
         TRAP_ROUTER_ALERT = AGENT_TRAP_ROUTER_ALERT,
         TRAP_MAC_LEARN = AGENT_TRAP_MAC_LEARN,
         TRAP_MAC_MOVE = AGENT_TRAP_MAC_MOVE,
+        TRAP_BFD = AGENT_TRAP_BFD,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -272,9 +283,12 @@ public:
 
     PktModuleName ParsePacket(const AgentHdr &hdr, PktInfo *pkt_info,
                               uint8_t *pkt);
+    PktModuleName ParseBfdDataPacket(const AgentHdr &hdr, PktInfo *pkt_info,
+                              uint8_t *pkt);
     int ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                      PktType::Type &pkt_type, uint8_t *pkt);
     bool ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item);
+    bool ProcessBfdDataPacket(boost::shared_ptr<PacketBufferEnqueueItem> item);
 // identify pkt type and send to the registered handler
     void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg);
@@ -310,6 +324,9 @@ public:
     bool IsSegmentHealthCheckPacket(const PktInfo *pkt_info,
                                     const Interface *interface);
 
+    uint64_t GetBfdKaEnqueueCount() {return work_queue_bfd_ka_.NumEnqueues(); }
+    uint64_t GetPktEnqueueCount() {return work_queue_.NumEnqueues(); }
+
 private:
     void PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
                           boost::shared_ptr<PktInfo> pkt_info, uint8_t *pkt);
@@ -341,6 +358,7 @@ private:
     bool ValidateIpPacket(PktInfo *pkt_info);
 
     boost::array<Proto *, MAX_MODULES> proto_list_;
+    Proto *bfd_keepalive_proto_;
 
     PktStats stats_;
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
@@ -349,6 +367,7 @@ private:
     Agent *agent_;
     PktModule *pkt_module_;
     PktHandlerQueue work_queue_;
+    PktHandlerQueue work_queue_bfd_ka_;
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };
 
@@ -386,6 +405,7 @@ struct PktInfo {
     TunnelInfo          tunnel;
     bool                l3_label;
     bool                multicast_label;
+    bool                is_bfd_keepalive;  // bfd keepalive packet
     bool                is_segment_hc_pkt;
     VmInterface::FatFlowIgnoreAddressType ignore_address; //fat-flow config
     bool                same_port_number;
