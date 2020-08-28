@@ -404,6 +404,13 @@ class VncApiServer(object):
             except TypeError:
                 yield bottle.HTTPError(404, "Invalid Contrail resource type:'%s'" % resource)
 
+            object_type = resource.replace("_", "-")
+            (ok, status) = self._rbac.validate_request(
+                bottle.request, object_type)
+            if not ok:
+                (code, err_msg) = status
+                yield bottle.HTTPError(code, err_msg)
+
             resource_query = request_params.get(resource + "_fields", None)
             if resource_query:
                 resources_query.update(
@@ -3834,6 +3841,11 @@ class VncApiServer(object):
             },
             {
                 'rule_object':'/',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+            },
+            {
+                'rule_object':'watch',
                 'rule_field': '',
                 'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
             },
