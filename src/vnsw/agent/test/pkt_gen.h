@@ -70,6 +70,19 @@ struct udp6_packet {
     uint8_t payload[];
 } __attribute__packed__close__;
 
+__attribute__packed__open__
+struct bfdhdr {
+    uint8_t bh_ver_diag;
+    uint8_t bh_flags;
+    uint8_t bh_multi;
+    uint8_t bh_len;
+    uint32_t bh_my_desc;
+    uint32_t bh_ur_desc;
+    uint32_t bh_min_tx;
+    uint32_t bh_min_rx;
+    uint32_t bh_echo_rx;
+}__attribute__packed__close__;
+
 class IpUtils {
 public:
     static uint16_t IPChecksum(uint16_t *data, uint32_t len) {
@@ -351,6 +364,23 @@ public:
         udp->uh_sport = htons(sport);
         len += sizeof(udphdr) + plen;
     };
+
+    void AddBfdHdr(uint8_t ver_diag, uint8_t flags, uint8_t multi,
+                   uint32_t my_desc, uint32_t ur_desc,
+                   uint32_t min_tx, uint32_t min_rx) {
+        struct bfdhdr *bfd = (struct bfdhdr *)(buff + len);
+        bfd->bh_ver_diag = ver_diag;
+        bfd->bh_flags = flags; // poll and final should not be set
+        bfd->bh_multi = multi;
+        bfd->bh_len = 24; // fixed size, 24 bytes
+        bfd->bh_my_desc = htonl(my_desc);
+        bfd->bh_ur_desc = htonl(ur_desc);
+        bfd->bh_min_tx = htonl(min_tx);
+        bfd->bh_min_rx = htonl(min_rx);
+        bfd->bh_echo_rx = 0;
+        len += sizeof(bfdhdr);
+    }
+
 
     void AddTcpHdr(uint16_t sport, uint16_t dport, bool syn, bool fin, bool ack,
                    int plen) {
