@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "7046e296_71fd419b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 24
+      },
+      "lineNbr": 726,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-08-28T16:42:26Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "d29f9633_dbdd8b24",
+      "revId": "6775de15d64f73700f48280942df56981763c298",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "97455853_01da2fa1",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 24
