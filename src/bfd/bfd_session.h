@@ -45,6 +45,7 @@ struct BFDStats {
     int tx_count;
     int rx_error_count;
     int tx_error_count;
+    uint32_t rx_drop_count;
     uint32_t receive_timer_expired_count;
     uint32_t send_timer_expired_count;
 };
