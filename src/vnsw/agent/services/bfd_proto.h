@@ -6,6 +6,7 @@
 #define vnsw_agent_bfd_proto_h_
 
 #include "pkt/proto.h"
+#include "pkt/pkt_handler.h"
 #include "services/bfd_handler.h"
 #include "oper/health_check.h"
 
@@ -31,10 +32,13 @@ public:
 
     struct BfdStats {
         BfdStats() { Reset(); }
-        void Reset() { bfd_sent = bfd_received = 0; }
+        void Reset() { bfd_sent = bfd_received = bfd_rx_drop_count = 0;
+                       bfd_rx_ka_enqueue_count = 0; }
 
         uint32_t bfd_sent;
         uint32_t bfd_received;
+        uint32_t bfd_rx_drop_count;
+        uint64_t bfd_rx_ka_enqueue_count;
     };
 
     class BfdCommunicator : public BFD::Connection {
@@ -73,6 +77,18 @@ public:
         sessions_.clear();
     }
 
+    bool Enqueue(boost::shared_ptr<PktInfo> msg);
+    void ProcessStats(PktStatsType::Type type);
+    
+    bool ProcessBfdKeepAlive(boost::shared_ptr<PktInfo> msg);
+
+    void HandleReceiveSafe(boost::asio::const_buffer pkt,
+                       const boost::asio::ip::udp::endpoint &local_endpoint,
+                       const boost::asio::ip::udp::endpoint &remote_endpoint,
+                       const BFD::SessionIndex &session_index,
+                       uint8_t pkt_len,
+                       boost::system::error_code ec);
+                       
     bool BfdHealthCheckSessionControl(
                HealthCheckTable::HealthCheckServiceAction action,
                HealthCheckInstanceService *service);
@@ -82,6 +98,8 @@ public:
 
     void IncrementSent() { stats_.bfd_sent++; }
     void IncrementReceived() { stats_.bfd_received++; }
+    void IncrementReceiveDropCount() { stats_.bfd_rx_drop_count++; }
+    void IncrementKaEnqueueCount() { stats_.bfd_rx_ka_enqueue_count++; }
     const BfdStats &GetStats() const { return stats_; }
     uint32_t ActiveSessions() const { return sessions_.size(); }
 
@@ -92,6 +110,7 @@ private:
     typedef std::pair<uint32_t, HealthCheckInstanceService *> SessionsPair;
 
     tbb::mutex mutex_; // lock for sessions_ access between health check & BFD
+    tbb::mutex rx_mutex_; // lock for BFD control & keepalive Rx data
     boost::shared_ptr<PktInfo> msg_;
     BfdCommunicator communicator_;
     BFD::Server *server_;

@@ -230,6 +230,8 @@ void ServicesSandesh::BfdStatsSandesh(std::string ctxt, bool more) {
     const BfdProto::BfdStats &stats = bfd_proto->GetStats();
     bfd->set_bfd_sent(stats.bfd_sent);
     bfd->set_bfd_received(stats.bfd_received);
+    bfd->set_bfd_receive_drop_count(stats.bfd_rx_drop_count);
+    bfd->set_bfd_receive_ka_enqueue_count(stats.bfd_rx_ka_enqueue_count);
     bfd->set_bfd_active_sessions(bfd_proto->ActiveSessions());
 
     std::vector<BfdSandeshSessions> &bfd_list =

@@ -9,6 +9,8 @@
 #include <oper/interface.h>
 #include <oper/vm_interface.h>
 #include <oper/metadata_ip.h>
+#include <pkt/proto_handler.h>
+#include "pkt/pkt_init.h"
 #include <services/bfd_proto.h>
 #include <services/bfd_handler.h>
 #include <services/services_types.h>
@@ -169,6 +171,23 @@ void BfdProto::NotifyHealthCheckInstanceService(uint32_t interface,
 
 }
 
+void BfdProto::HandleReceiveSafe(
+         boost::asio::const_buffer packet,
+         const boost::asio::ip::udp::endpoint &local_endpoint,
+         const boost::asio::ip::udp::endpoint &remote_endpoint,
+         const BFD::SessionIndex &session_index,
+         uint8_t len,
+         boost::system::error_code ec) {
+
+    tbb::mutex::scoped_lock lock(rx_mutex_);
+    bfd_communicator().HandleReceive(
+                                  packet, local_endpoint, remote_endpoint,
+                                  session_index,
+                                  len, ec);
+
+    IncrementReceived();
+}
+
 void BfdProto::BfdCommunicator::SendPacket(
          const boost::asio::ip::udp::endpoint &local_endpoint,
          const boost::asio::ip::udp::endpoint &remote_endpoint,
@@ -183,4 +202,38 @@ void BfdProto::BfdCommunicator::NotifyStateChange(const BFD::SessionKey &key,
                                                   const bool &up) {
     std::string data = up ? "success" : "failure";
     bfd_proto_->NotifyHealthCheckInstanceService(key.index.if_index, data);
+}
+
+bool BfdProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
+
+    if (msg->is_bfd_keepalive) {
+        // Handle BFD keepalive packets
+        return ProcessBfdKeepAlive(msg);
+    }
+    // Handle BFD control packets
+    return Proto::Enqueue(msg);
+}
+
+// Handle BFD packet stats
+void BfdProto::ProcessStats(PktStatsType::Type type) {
+    switch(type) {
+    case PktStatsType::PKT_RX_DROP_STATS:
+        IncrementReceiveDropCount();
+        break;
+    case PktStatsType::PKT_RX_ENQUEUE:
+        IncrementKaEnqueueCount();
+        break;
+    default:
+        return;
+    }
+}
+
+bool BfdProto::ProcessBfdKeepAlive(boost::shared_ptr<PktInfo> msg_info) {
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+
+    BfdHandler *handler = new BfdHandler(agent(), msg_info, get_io_service());
+    if (handler->HandleReceive())
+        delete handler;
+
+    return true;;
 }
