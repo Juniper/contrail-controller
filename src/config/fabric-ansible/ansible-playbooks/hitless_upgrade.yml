@@ -99,6 +99,17 @@
               include_role:
                 name: maintenance_mode_config_push
 
+            - name: Change managed state to maintenance
+              vnc_db_mod:
+                job_ctx: "{{ job_ctx }}"
+                object_type: "physical_router"
+                object_op: "update"
+                object_dict: |
+                  {
+                     "uuid": "{{ pr_uuid }}",
+                     "physical_router_managed_state": "maintenance"
+                  }
+
             - name: Upgrade devices
               include_role:
                 name: image_upgrade_role
@@ -106,6 +117,18 @@
             - name: Deactivate maintenance mode
               include_role:
                 name: maintenance_mode_deactivate
+
+            - name: Change managed state to active
+              vnc_db_mod:
+                job_ctx: "{{ job_ctx }}"
+                object_type: "physical_router"
+                object_op: "update"
+                object_dict: |
+                  {
+                     "uuid": "{{ pr_uuid }}",
+                     "physical_router_managed_state": "active"
+                  }
+
           when: is_hitless_upgrade
 
         - block:
