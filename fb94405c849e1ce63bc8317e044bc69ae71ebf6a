@@ -155,6 +155,24 @@
     },
     {
       "key": {
+        "uuid": "074c7ec2_398c2f0e",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 2
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "\u003e Any change in the code can cause a bug,\n\nHow having a Jira ticket attached to a change that is factoring duplicated code in one function would help? UTs that assert functions will.\n\nI think we are missing the first purpose of having a ticket attached to a commit. It\u0027s to refer the original error from where the change has been initiated which would provide more details or information OR to refer the feature request which would also provide more details or information\n\n\u003e It helps project managers\n\nManagers do not have to track any changes that we make to the code base, even more, those kinds of changes. We are working in an OpenSource software anyone can fix anything.\n\n\u003e Am not sure why creating a Jira ticket is going to discourage developers.\n\nThis is time-consuming and does not create any value, I would personally find discouraging creating ticket, have to triage and maintain it for a change like this [0].\n\n[0] https://review.opencontrail.org/c/Juniper/contrail-controller/+/60124",
+      "parentUuid": "7b56ceb1_9212e386",
+      "revId": "fb94405c849e1ce63bc8317e044bc69ae71ebf6a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "6be19bd7_ee2687c9",
         "filename": "git_commit_template.txt",
         "patchSetId": 2

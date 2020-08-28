@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d05f5f75_e7bcc00a",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 5
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "Even if I like the idea of having conventions. I don\u0027t think using git template would be the right approach. So I\u0027m a little bit mitigate on the real purpose of such change and its necessity as it is now.\n\nThat would need much more work than just an enumeration of some criteria.",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "935f5c64_03822691",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "Such rule should be perform by flakes or git-review",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f9c06faf_0690e395",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "I would avoid that, usually, that means the patch is doing several things at a time.\n\nI think if you want to educate contributors on what is a good commit message, a HACKING file with a much more detailed section would make more sense than just an enumeration of some criteria that anyone can interpret differently.",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec3e614c_d01db4b1",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "s/understans/understand",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "939a0dfd_bfbc395a",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "s/ammend/amend",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b52b10cd_117c170b",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-28T13:15:20Z",
+      "side": 1,
+      "message": "I think that you missed adding related-jira-bug.\n\nIs the case important in this section? That is what remote supporting: (?:Closes|Partial|partial|closes|related|Related)-[Jj]ira-[Bb]ug:\\s*([A-Za-z]+-\\d+)",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
