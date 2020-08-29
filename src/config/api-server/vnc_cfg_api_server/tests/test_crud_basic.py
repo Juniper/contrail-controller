@@ -5065,9 +5065,10 @@ class TestPagination(test_case.ApiServerTestCase):
     # end tearDownClass
 
     class FetchExpect(object):
-        def __init__(self, num_objs, marker):
+        def __init__(self, num_objs, marker, count=None):
             self.num_objs = num_objs
             self.marker = marker
+            self.count = count
     # end FetchExpect
 
     def _create_vn_collection(self, count, proj_obj=None):
@@ -5454,7 +5455,7 @@ class TestPagination(test_case.ApiServerTestCase):
         listen_ip = self._api_server_ip
         listen_port = self._api_server._args.listen_port
 
-        def verify_collection_walk(page_limit=None, fetch_expects=None):
+        def verify_collection_walk(page_limit=None, fetch_expects=None, count=False):
             all_proj_ids = []
 
             def request_with_query_params(marker):
@@ -5463,6 +5464,8 @@ class TestPagination(test_case.ApiServerTestCase):
                     ','.join([o.uuid for o in proj_objs]))
                 if page_limit is not None:
                     url += '&page_limit=%s' %(page_limit)
+                if count:
+                    url += '&count=True'
                 resp = requests.get(url,
                     headers={'Content-type': 'application/json; charset="UTF-8"'})
                 return resp
@@ -5474,6 +5477,8 @@ class TestPagination(test_case.ApiServerTestCase):
                         'page_marker': marker}
                 if page_limit is not None:
                     body['page_limit'] = page_limit
+                if count:
+                    body['count'] = True
                 resp = requests.post(url,
                     headers={'Content-type': 'application/json; charset="UTF-8"'},
                     data=json.dumps(body))
@@ -5493,6 +5498,9 @@ class TestPagination(test_case.ApiServerTestCase):
                     self.assertEqual(len(read_proj_ids), fe_obj.num_objs)
                     marker = json.loads(resp.text)['marker']
                     self.assertEqual(marker, fe_obj.marker)
+                    if fe.obj.count:
+                        count = json.loads(resp.text)['count']
+                        self.assertEqual(count, fe.obj.count)
                     all_proj_ids.extend(read_proj_ids)
 
                 if page_limit is not None and page_limit <= 0:

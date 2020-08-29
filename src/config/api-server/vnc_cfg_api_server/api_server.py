@@ -4060,7 +4060,7 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(404, result)
 
             # If only counting, return early
-            if is_count and is_admin:
+            if 'marker' not in pagination and is_count and is_admin:
                 ret_result += result
                 return {'%ss' %(resource_type): {'count': ret_result}}
 
