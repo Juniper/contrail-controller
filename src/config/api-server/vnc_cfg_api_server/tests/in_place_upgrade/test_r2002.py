@@ -1644,6 +1644,7 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
                     "virtual_network_properties": VirtualNetworkType(
                         forwarding_mode='l3'),
                     "address_allocation_mode": 'flat-subnet-only',
+                    "mac_ip_learning_enable": True,
                     "mac_learning_enabled": True,
                     "pbb_evpn_enable": True,
                     "pbb_etree_enable": True,
