@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "7d713f1b_08bedd86",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-29T04:11:06Z",
+      "side": 1,
+      "message": "72 char restriction is the git commit summary. Its convention for better readability. if you know how to add this check in flakes or git-review, add the support please.",
+      "parentUuid": "935f5c64_03822691",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "f9c06faf_0690e395",
         "filename": "git_commit_template.txt",
         "patchSetId": 5
@@ -47,6 +65,24 @@
       "writtenOn": "2020-08-28T13:15:20Z",
       "side": 1,
       "message": "I would avoid that, usually, that means the patch is doing several things at a time.\n\nI think if you want to educate contributors on what is a good commit message, a HACKING file with a much more detailed section would make more sense than just an enumeration of some criteria that anyone can interpret differently.",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "05dfdf7f_34318e91",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-29T04:11:06Z",
+      "side": 1,
+      "message": "Looks like its your presumption. The suggestion was given for better readability. Its not a restriction.",
+      "parentUuid": "f9c06faf_0690e395",
       "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "cb7cb08a_3f4a4f33",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-29T04:11:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "ec3e614c_d01db4b1",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "939a0dfd_bfbc395a",
         "filename": "git_commit_template.txt",
         "patchSetId": 5
@@ -87,6 +141,24 @@
     },
     {
       "key": {
+        "uuid": "be41268e_b1ac39e3",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-29T04:11:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "939a0dfd_bfbc395a",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b52b10cd_117c170b",
         "filename": "git_commit_template.txt",
         "patchSetId": 5
@@ -98,6 +170,24 @@
       "writtenOn": "2020-08-28T13:15:20Z",
       "side": 1,
       "message": "I think that you missed adding related-jira-bug.\n\nIs the case important in this section? That is what remote supporting: (?:Closes|Partial|partial|closes|related|Related)-[Jj]ira-[Bb]ug:\\s*([A-Za-z]+-\\d+)",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2c0b3e53_325a2123",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-08-29T04:11:06Z",
+      "side": 1,
+      "message": "I dont understand whats related-jira-ticket. IMO it\u0027ll lead to confusion. I\u0027d suggest just to stick with closes or partial. why introduce different conventions if we can stick to one lower case pattern?",
+      "parentUuid": "b52b10cd_117c170b",
       "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
