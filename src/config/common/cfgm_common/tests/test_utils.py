@@ -884,7 +884,7 @@ def block_till_port_listened(server_ip, server_port, retries=30):
             s = socket.create_connection((server_ip, server_port))
             s.close()
             return
-        except Exception as err:
+        except socket.error as err:
             tries += 1
             print("%s:%s not up, retrying in %d secs, %d tries remaining: %s" %
                   (server_ip, server_port, sleep, retries-tries, err))
