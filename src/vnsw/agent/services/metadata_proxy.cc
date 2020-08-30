@@ -93,6 +93,14 @@ MetadataProxy::MetadataProxy(ServicesModule *module,
         services_->agent()->router_id());
     services_->agent()->set_metadata_server_port(http_server_->GetPort());
 
+    if (services_->agent()->params()->metadata_tcp_ka_en()) {
+        int metadata_tcp_ka_en = 1;
+        http_server_->SetKeepAliveSocketOption(metadata_tcp_ka_en,
+                        services_->agent()->params()->metadata_tcp_ka_idle_time(),
+                        services_->agent()->params()->metadata_tcp_ka_probes(),
+                        services_->agent()->params()->metadata_tcp_ka_interval());
+    }
+
     http_client_->Init();
 }
 
