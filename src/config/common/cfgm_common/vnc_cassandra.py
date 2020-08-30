@@ -1004,6 +1004,10 @@ class VncCassandraClient(object):
                     return list(filt_obj_infos.values()), marker
                 # end filter_rows_no_anchor
 
+                if count and not filters:
+                    # when listing all objects of a type
+                    # return early if only count query is in request
+                    return (True, sum(1 for col in cols), None)
                 filtered_rows, ret_marker = filter_rows_no_anchor()
                 children_fq_names_uuids.extend(filtered_rows)
 
