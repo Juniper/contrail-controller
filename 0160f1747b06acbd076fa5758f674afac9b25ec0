@@ -89,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "9c898bd5_cb7be8e2",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-30T15:08:38Z",
+      "side": 1,
+      "message": "My presumption count as your Nagandra, please consider contributors\u0027 point of views even if they don\u0027t follow your idea.\n\nThat is said I can understand that, this is the first initiative, I was just suggesting using HACKING would have given more flexibility.",
+      "parentUuid": "05dfdf7f_34318e91",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "ec3e614c_d01db4b1",
         "filename": "git_commit_template.txt",
         "patchSetId": 5
@@ -188,6 +206,24 @@
       "side": 1,
       "message": "I dont understand whats related-jira-ticket. IMO it\u0027ll lead to confusion. I\u0027d suggest just to stick with closes or partial. why introduce different conventions if we can stick to one lower case pattern?",
       "parentUuid": "b52b10cd_117c170b",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9fc0e287_dfd9642e",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-08-30T15:08:38Z",
+      "side": 1,
+      "message": "\u003e I dont understand whats related-jira-ticket. IMO it\u0027ll lead to confusion. \n\nLet me give you an example usage of Related-Jira-Ticket:\n  https://review.opencontrail.org/c/tungstenfabric/tf-packages/+/60947\n\n\u003e  why introduce different conventions if we can stick to one lower case pattern?\n\nAll tags in commit messages are usually using the upper case.\n\nSigned-off-by, Co-Authored-by\n\nSo I would prefer you don\u0027t consider your preference as a convention. Personally I would prefer to use upper case to stay coherent with other tags But I won\u0027t argue if people prefer another way, the important is to share the same information.",
+      "parentUuid": "2c0b3e53_325a2123",
       "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
