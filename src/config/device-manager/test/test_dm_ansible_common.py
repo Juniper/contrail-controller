@@ -175,14 +175,16 @@ class TestAnsibleCommonDM(DMTestCase):
         return self._vnc_lib.fabric_read(id=fabric_uuid)
     # end create_fabric
 
-    def create_vn(self, vn_id, subnet, extra_subnets=None):
+    def create_vn(self, vn_id, subnet, extra_subnets=None, vxlan_id=None):
         subnets = [subnet]
         if extra_subnets and len(extra_subnets) > 0:
             subnets = subnets + extra_subnets
         vn_name = 'vn' + vn_id + '-' + self.id()
         vn_obj = VirtualNetwork(vn_name)
         vn_obj_properties = VirtualNetworkType()
-        vn_obj_properties.set_vxlan_network_identifier(2000 + int(vn_id))
+        if vxlan_id is None:
+            vxlan_id = 2000 + int(vn_id)
+        vn_obj_properties.set_vxlan_network_identifier(vxlan_id)
         vn_obj_properties.set_forwarding_mode('l2_l3')
         vn_obj.set_virtual_network_properties(vn_obj_properties)
 
