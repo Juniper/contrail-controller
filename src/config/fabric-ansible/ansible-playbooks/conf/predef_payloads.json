@@ -1456,6 +1456,12 @@
             "default-global-system-config", "infra-bms-access"
           ],
           "name": "infra-bms-access"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "collapsed-spine"
+          ],
+          "name": "collapsed-spine"
         }
       ]
     },
@@ -1502,6 +1508,12 @@
             "default-global-system-config", "crb-gateway"
           ],
           "name": "crb-gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "collapsed-spine"
+          ],
+          "name": "collapsed-spine"
         },
         {
           "fq_name": [
@@ -1574,6 +1586,12 @@
             "default-global-system-config", "crb-gateway-spine"
           ],
           "name": "crb-gateway-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "collapsed-spine"
+          ],
+          "name": "collapsed-spine"
         },
         {
           "fq_name": [
@@ -1793,7 +1811,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["lean", "CRB-Gateway", "Route-Reflector", "PNF-Servicechain"]
+                "rb_roles": ["lean", "CRB-Gateway", "Route-Reflector", "PNF-Servicechain", "Collapsed-Spine"]
               }
             ]
           }
@@ -1814,7 +1832,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client", "AR-Replicator"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client", "AR-Replicator", "Collapsed-Spine"]
               }
             ]
           }
@@ -1871,7 +1889,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway","DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway","ERB-UCAST-Gateway", "PNF-Servicechain", "AR-Client","AR-Replicator"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway","DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway","ERB-UCAST-Gateway", "PNF-Servicechain", "AR-Client","AR-Replicator", "Collapsed-Spine"]
               }
             ]
           }
@@ -2953,6 +2971,66 @@
       "from_fq_name": [ "default-global-system-config", "lean-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "underlay-ip-clos" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "underlay-ip-clos" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "overlay-bgp" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l2-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "firewall" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "collapsed-spine" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "collapsed-spine" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
     },
     {
       "from_type": "node-profile",

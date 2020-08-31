@@ -1,0 +1,6 @@
+set groups {{cfg_group}} protocols evpn no-core-isolation
+set groups {{cfg_group}} protocols evpn default-gateway do-not-advertise
+{%     if device_model.startswith('qfx51') %}
+set groups {{cfg_group}} forwarding-options vxlan-routing next-hop 32768
+set groups {{cfg_group}} forwarding-options vxlan-routing overlay-ecmp
+{%     endif %}
