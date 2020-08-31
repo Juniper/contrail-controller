@@ -79,6 +79,11 @@ class CassandraDriverThrift(datastore_api.CassandraDriver):
     def _Init_Cluster(self):
         self.report_status_init()
 
+        self.options.logger("deprecated datastore's driver, please consider "
+                            "switching from `thrift` to `cql`. "
+                            "See option: `cassandra_driver`",
+                            level=SandeshLevel.SYS_WARN)
+
         pycassa.ColumnFamily.get = self._handle_exceptions(pycassa.ColumnFamily.get, "GET")
         pycassa.ColumnFamily.multiget = self._handle_exceptions(pycassa.ColumnFamily.multiget, "MULTIGET")
         pycassa.ColumnFamily.xget = self._handle_exceptions(pycassa.ColumnFamily.xget, "XGET")
