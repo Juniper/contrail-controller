@@ -341,7 +341,7 @@ class VrouterPortControl(object):
     def WaitForNetlinkSocket(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
         sleep_usecs = 1000
-        for i in range(1, (timeout_usecs/sleep_usecs)):
+        for i in range(1, int(timeout_usecs/sleep_usecs)):
             if os.path.exists(DPDK_NETLINK_SOCK_PATH):
                 # TODO: need to check if the socket path is opened
                 return True
@@ -352,7 +352,7 @@ class VrouterPortControl(object):
     def WaitForSocketFile(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
         sleep_usecs = 1000
-        for i in range(1, (timeout_usecs / sleep_usecs)):
+        for i in range(1, int(timeout_usecs / sleep_usecs)):
             if os.path.exists(self._args.vhostuser_socket):
                 return 0
             # sleep takes time in seconds. Convert usecs to secs.
@@ -374,7 +374,7 @@ class VrouterPortControl(object):
     def WaitForPortOpen(self, port_num):
         timeout_usecs = PORT_OPEN_TIMEOUT_SECS * 1000000
         sleep_usecs = 1000000
-        for i in range(1, (timeout_usecs / sleep_usecs)):
+        for i in range(1, int(timeout_usecs / sleep_usecs)):
             if self.IsPortOpen(port_num):
                 return True
             # sleep takes time in seconds. Convert usecs to secs.
