@@ -243,6 +243,22 @@ feature_based_plugin_roles:
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
+  Collapsed-Spine@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_port_profile
+    - overlay_evpn_collapsed_gateway
   CRB-MCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
@@ -326,6 +342,7 @@ feature_apply_order:
   - overlay_assisted_replicator_client
   - overlay_port_profile
   - overlay_telemetry
+  - overlay_evpn_collapsed_gateway
 
 DEVICE_FACTS_TIMEOUT: 120
 DEVICE_COMMAND_TIMEOUT: 600
