@@ -76,12 +76,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.34"
+__version__ = "1.35"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.35:
+  - Fix CEM-18752, Do not report false positive - Missing VN/SN in zookeeper
 * 1.34:
   - Do not report false positive missing VN for k8s floating ips
     not in floating ip pool
@@ -1880,6 +1882,7 @@ class DatabaseChecker(DatabaseManager):
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
 
         cassandra_all_vn_sn = []
+        cassandra_all_vn_sn_owned = []
         # ignore subnet without address and not lock in zk
         for vn_key, vn in list(cassandra_all_vns.items()):
             for sn_key, addrs in list(vn.items()):
@@ -1887,6 +1890,9 @@ class DatabaseChecker(DatabaseManager):
                     if (vn_key not in zk_all_vns or
                             sn_key not in zk_all_vns[vn_key]):
                         continue
+                # add only owned sns
+                if  ":".join(json.loads(addrs['nw_ipam_fq'])) == vn_key:
+                    cassandra_all_vn_sn_owned.extend([(vn_key, sn_key)])
                 cassandra_all_vn_sn.extend([(vn_key, sn_key)])
 
         extra_vn_sns = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
@@ -1898,7 +1904,7 @@ class DatabaseChecker(DatabaseManager):
                 errmsg = 'Extra VN/SN in zookeeper for %s' % (extra_vn_sn,)
                 ret_errors.append(ZkSubnetExtraError(errmsg))
 
-        extra_vn_sn = set(cassandra_all_vn_sn) - set(zk_all_vn_sn)
+        extra_vn_sn = set(cassandra_all_vn_sn_owned) - set(zk_all_vn_sn)
         if extra_vn_sn:
             errmsg = 'Missing VN/SN in zookeeper for %s' % (extra_vn_sn)
             ret_errors.append(ZkSubnetMissingError(errmsg))
