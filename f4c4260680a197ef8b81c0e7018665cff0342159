@@ -16,6 +16,24 @@
       "revId": "f4c4260680a197ef8b81c0e7018665cff0342159",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7a027774_ef7d392d",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 4979,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-08-31T09:43:35Z",
+      "side": 1,
+      "message": "yes, that error can only happen in case of DB inconsistencies but I don\u0027t think that will be a good idea to try to catch all that kind of errors, code will be unreadable.",
+      "parentUuid": "fcb1efbe_bf5d1bd5",
+      "revId": "f4c4260680a197ef8b81c0e7018665cff0342159",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
