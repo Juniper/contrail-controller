@@ -4969,11 +4969,16 @@ class DBInterface(object):
             else:
                 instance_id = None
 
-        if port_obj.get_logical_router_back_refs():
+        router_back_refs = port_obj.get_logical_router_back_refs()
+        if router_back_refs:
+            net_refs = port_obj.get_virtual_network_refs()
             self._raise_contrail_exception(
-                'L3PortInUse',
+                'PortInUse',
                 port_id=port_id,
-                device_owner=constants.DEVICE_OWNER_ROUTER_INTF)
+                net_id=net_refs[0]['uuid'],
+                # Even if we have more than one ref, we are limitted
+                # by Neutron to return only one.
+                device_id=router_back_refs[0]['to'][-1])
 
         # release instance IP address
         iip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)

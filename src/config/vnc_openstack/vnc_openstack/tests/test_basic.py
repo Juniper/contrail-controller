@@ -1425,6 +1425,29 @@ class TestBasic(test_case.NeutronBackendTestCase):
         port_q = self._create_port_with_no_sg(proj_obj.uuid)
         self.assertTrue(port_q['allowed_address_pairs'] is not None)
 
+    @mock.patch('vnc_openstack.neutron_plugin_db.DBInterface._raise_contrail_exception')
+    def test_delete_port_in_use(self, mock_raise_contrail_exception):
+        proj_obj = self._vnc_lib.project_read(
+            fq_name=['default-domain', 'default-project'])
+        vn = vnc_api.VirtualNetwork('vn-%s' % (self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+        vmi_obj = vnc_api.VirtualMachineInterface(
+            'vmi-%s' % (self.id()), proj_obj)
+        vmi_obj.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        fake_refs = [{'to': ['router_a']}]
+        with mock.patch.object(
+                vnc_api.VirtualMachineInterface,
+                'get_logical_router_back_refs', return_value=fake_refs
+        ) as mocked_refs:
+            self.delete_resource('port', proj_obj.uuid, vmi_obj.uuid)
+            mock_raise_contrail_exception.assert_called_once_with(
+                'PortInUse',
+                device_id='router_a',
+                net_id=vn.uuid,
+                port_id=vmi_obj.uuid)
+
     def test_allowed_address_with_extra_space(self):
         proj_obj = self._vnc_lib.project_read(
             fq_name=['default-domain', 'default-project'])
