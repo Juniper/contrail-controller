@@ -38,6 +38,7 @@ from cfgm_common.datastore import api as datastore_api
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.utils import shareinfo_from_perms2
+from cfgm_common.utils import _DEFAULT_ZK_FABRIC_SP_PATH_PREFIX
 from cfgm_common import vnc_greenlets
 from cfgm_common import PERMS_RWX
 from cfgm_common import SGID_MIN_ALLOC
@@ -1368,6 +1369,10 @@ class VncDbClient(object):
             'enterprise' if
             fabric.get('fabric_enterprise_style') else
             'serviceprovider')
+        # Skip for serviceprovider fabric
+        if validation == 'serviceprovider':
+            return True, ''
+
         vmi_uuids = [vmi_ref.get('uuid') for vmi_ref in vmi_refs]
         ok, vmi_infos = self._object_db.object_read(
             'virtual-machine-interface', vmi_uuids,
@@ -1518,6 +1523,41 @@ class VncDbClient(object):
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
                         self._object_db.object_update('virtual_machine_interface',
                                                       obj_uuid, obj_dict)
+                    ok, result = self._api_svr_mgr._db_conn.dbe_read(
+                        obj_type='virtual_machine_interface',
+                        obj_id=obj_uuid,
+                        obj_fields=['virtual_port_group_back_refs'])
+                    if not ok:
+                        # dbe_read failed, continue processing next vmi
+                        continue
+                    vpg_ref = result.get('virtual_port_group_back_refs')
+                    if not vpg_ref:
+                        continue
+                    vpg_uuid = vpg_ref[0].get('uuid')
+
+                    r_class = self.get_resource_class(obj_type)
+                    ok, vn_uuid = r_class.get_vn_id(obj_dict, self._api_svr_mgr._db_conn, vpg_uuid)
+                    if not ok:
+                        continue
+                    ok, (vlan_id, is_untagged_vlan, links) = r_class.get_vlan_phy_links(obj_dict)
+                    if not ok:
+                        continue
+
+                    if is_untagged_vlan:
+                        validation_znode = os.path.join(
+                        _DEFAULT_ZK_FABRIC_SP_PATH_PREFIX,
+                        ('virtual-port-group:%s/untagged') % vpg_uuid)
+                    else:
+                        validation_znode = os.path.join(
+                        _DEFAULT_ZK_FABRIC_SP_PATH_PREFIX,
+                        ('virtual-port-group:%s/virtual-network:%s/vlan:%s')
+                        % (vpg_uuid, vn_uuid, vlan_id))
+
+                    try:
+                        self._zk_db._zk_client.create_node(
+                            validation_znode, value=obj_uuid)
+                    except ResourceExistsError:
+                        pass
                 elif obj_type == 'physical_router':
                     # Encrypt PR pwd if not already done
                     if obj_dict.get('physical_router_user_credentials') and \

@@ -21,7 +21,7 @@ class DomainServer(ResourceMixin, Domain):
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-                        prop_collection_updates=None, ref_update=None):
+                        prop_collection_updates=None, ref_update=None, **kwargs):
         if fq_name == Domain().fq_name:
             cls.server.default_domain = None
             cls.server.default_domain

@@ -43,7 +43,7 @@ _DEFAULT_ZK_COUNTER_PATH_PREFIX = '/vnc_api_server_obj_create/'
 _DEFAULT_ZK_LOCK_PATH_PREFIX = '/vnc_api_server_locks/'
 _DEFAULT_ZK_LOCK_TIMEOUT = 120
 
-
+_DEFAULT_ZK_FABRIC_SP_PATH_PREFIX = '/validation/fabric/serviceprovider'
 def cgitb_hook(info=None, **kwargs):
     vnc_cgitb.Hook(**kwargs).handle(info or sys.exc_info())
 # end cgitb_hook

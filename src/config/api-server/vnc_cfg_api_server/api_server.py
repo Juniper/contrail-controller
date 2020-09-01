@@ -4279,7 +4279,6 @@ class VncApiServer(object):
     def _put_common(
             self, api_name, obj_type, obj_uuid, db_obj_dict, req_obj_dict=None,
             req_prop_coll_updates=None, ref_args=None):
-
         obj_fq_name = db_obj_dict.get('fq_name', 'missing-fq-name')
         # ZK and rabbitmq should be functional
         self._ensure_services_conn(
@@ -4403,11 +4402,25 @@ class VncApiServer(object):
             _req_obj_dict = {}
             if req_obj_dict:
                 _req_obj_dict = req_obj_dict
-            (ok, pre_dbe_result) = r_class.pre_dbe_update(
+
+            result = r_class.pre_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
                 prop_collection_updates=req_prop_coll_updates, ref_update=ref_args)
-            if not ok:
-                return (ok, pre_dbe_result)
+            zk_update_kwargs = {}
+            if len(result) == 2:
+                ok, pre_dbe_result = result
+                if not ok:
+                    return (ok, pre_dbe_result)
+            else:
+                # some resources return third args, which will be passed
+                # to post_dbe_update for zookeeper cleanup
+                ok, pre_dbe_result, zk_update_kwargs = result            
+                if not ok:
+                    if pre_dbe_result:
+                        return (ok, pre_dbe_result)
+                    else:
+                        return (ok, zk_update_kwargs)
+            zk_update_kwargs = zk_update_kwargs or {}
             attr_to_publish = None
             if isinstance(pre_dbe_result, dict):
                 attr_to_publish = pre_dbe_result
@@ -4474,7 +4487,7 @@ class VncApiServer(object):
             (ok, result) = r_class.post_dbe_update(
                 obj_uuid, obj_fq_name, _req_obj_dict, self._db_conn,
                 prop_collection_updates=req_prop_coll_updates,
-                ref_update=pre_dbe_result)
+                ref_update=pre_dbe_result, **zk_update_kwargs)
             if not ok:
                 return (ok, result)
 
