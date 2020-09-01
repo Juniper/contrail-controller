@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6f9e1b18_a8d9b44a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 1892,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-01T06:21:57Z",
+      "side": 1,
+      "message": "1. Do we need this as we are not supporting this functioanlity on MX?\n2. We did remove the unsupported roles with https://review.opencontrail.org/c/Juniper/contrail-controller/+/60532/2/src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json can you check how are they present?",
+      "revId": "01ab458a4b6174bd2f300cbdbe1dc59bba9a5b42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "af3e642d_098bb835",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 2976,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-01T06:21:57Z",
+      "side": 1,
+      "message": "We need to support the port profile as well, can yo check and add?",
+      "revId": "01ab458a4b6174bd2f300cbdbe1dc59bba9a5b42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "75c83009_5e939ca9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_collapsed_gateway/juniper_junos_overlay_evpn_collapsed_gateway.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-01T06:21:57Z",
+      "side": 1,
+      "message": "Do we need this? as we are not supporting the MX?",
+      "revId": "01ab458a4b6174bd2f300cbdbe1dc59bba9a5b42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
