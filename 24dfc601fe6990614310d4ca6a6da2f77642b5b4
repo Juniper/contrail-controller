@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "13e3f523_e7c33d10",
+        "filename": "src/config/api-server/vnc_cfg_api_server/api_server.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 4406,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T17:39:11Z",
+      "side": 1,
+      "message": "We can have meeting to discuss this one.",
+      "parentUuid": "b6955daf_a047e121",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "5f0e011c_ea4ab969",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 27
@@ -30,6 +48,24 @@
       "writtenOn": "2020-09-01T01:59:24Z",
       "side": 1,
       "message": "Any chances to shorten this variable name? _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX is about 58 chars",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb9bfa35_813d1994",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T17:39:11Z",
+      "side": 1,
+      "message": "We could change it to ZK_FABRIC_VALIDATION_SP_PATH_PREFIX. Please let me know what you think",
+      "parentUuid": "5f0e011c_ea4ab969",
       "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "059c8289_c0b65c92",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1373,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T17:39:11Z",
+      "side": 1,
+      "message": "Annotations will be of no use after we make similar changes to enterprise mode. This review has only changes for service provider. That is why above check is required.",
+      "parentUuid": "9cb40994_23105d63",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "e956e8d8_00fe08e5",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 27
@@ -70,6 +124,24 @@
     },
     {
       "key": {
+        "uuid": "a0bcee22_fb638c41",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1549,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T17:39:11Z",
+      "side": 1,
+      "message": "@Ignatious: what do you think?",
+      "parentUuid": "e956e8d8_00fe08e5",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "cd9a03bd_f86f53f1",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 27
@@ -81,6 +153,24 @@
       "writtenOn": "2020-09-01T01:59:24Z",
       "side": 1,
       "message": "Same as #1549",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fca1306f_ed0f616c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1553,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T17:39:11Z",
+      "side": 1,
+      "message": "@Ignatious",
+      "parentUuid": "cd9a03bd_f86f53f1",
       "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
