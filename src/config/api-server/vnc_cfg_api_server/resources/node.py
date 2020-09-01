@@ -214,7 +214,7 @@ class NodeServer(ResourceMixin, Node):
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-                        prop_collection_updates=None, ref_update=None):
+                        prop_collection_updates=None, ref_update=None, **kwargs):
         db_conn.config_log('NodeSever: post_dbe_update hit',
                            level=SandeshLevel.SYS_DEBUG)
         msg = ("Node-UPDATE: %s", pformat(obj_dict))
