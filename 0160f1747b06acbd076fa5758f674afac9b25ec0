@@ -263,6 +263,24 @@
       "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "842dba2a_7f8a6c0d",
+        "filename": "git_commit_template.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 40
+      },
+      "writtenOn": "2020-09-01T12:13:29Z",
+      "side": 1,
+      "message": "I\u0027ve opened a thread so we can discuss that",
+      "parentUuid": "809c2080_b0833f50",
+      "revId": "0160f1747b06acbd076fa5758f674afac9b25ec0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
