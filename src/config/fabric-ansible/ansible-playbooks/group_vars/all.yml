@@ -1,0 +1,360 @@
+<<<<<<< HEAD   (4b0f63 [Migration/Juniper/contrail-controller] Remove content and a)
+=======
+# Timeout settings for Ansible junos modules
+JUNOS_COMMIT_TIMEOUT: 600
+JUNOS_FACTS_TIMEOUT: 10
+JUNOS_COMMAND_TIMEOUT: 120
+
+# Device states for prouter object log
+DEVICE_STATE:
+  DISCOVERED: "DISCOVERED"
+  ONBOARDED: "ONBOARDED"
+  UNDERLAY_CONFIGURED: "UNDERLAY_CONFIGURED"
+  REBOOTING: "REBOOTING"
+  IMAGE_UPGRADED: "IMAGE_UPGRADED"
+  VALIDATING: "VALIDATING"
+  HEALTH_CHECK_FAILED: "HEALTH_CHECK_FAILED"
+  HEALTH_CHECK_SUCCESSFUL: "HEALTH_CHECK_SUCCESSFUL"
+  ACTIVATING_MAINTENANCE_MODE: "ACTIVATING_MAINTENANCE_MODE"
+  DEACTIVATING_MAINTENANCE_MODE: "DEACTIVATING_MAINTENANCE_MODE"
+  MAINTENANCE_MODE_ACTIVATED: "MAINTENANCE_MODE_ACTIVATED"
+  MAINTENANCE_MODE_DEACTIVATED: "MAINTENANCE_MODE_DEACTIVATED"
+  MAINTENANCE_MODE_FAILURE: "MAINTENANCE_MODE_FAILURE"
+  HITLESS_IMAGE_UPGRADE_SUCCESSFUL: "HITLESS_IMAGE_UPGRADE_SUCCESSFUL"
+  HITLESS_IMAGE_UPGRADE_FAILED: "HITLESS_IMAGE_UPGRADE_FAILED"
+  SKIPPED: "SKIPPED"
+
+JOBLOG_STATUS:
+  IN_PROGRESS: "IN_PROGRESS"
+
+# Job context to be passed to ansible modules
+job_ctx:
+  job_template_fqname: "{{ playbook_input.job_template_fqname }}"
+  device_password: "{{ playbook_input.device_password if playbook_input.device_password is defined else None }}"
+  job_execution_id: "{{ playbook_input.job_execution_id }}"
+  job_description: "{{ playbook_input.job_description }}"
+  job_transaction_id: "{{ playbook_input.job_transaction_id }}"
+  job_transaction_descr: "{{ playbook_input.job_transaction_descr }}"
+  fabric_fqname: "{{ playbook_input.fabric_fq_name }}"
+  config_args: "{{ playbook_input.args }}"
+  job_input: "{{ playbook_input.input }}"
+  auth_token: "{{ playbook_input.auth_token }}"
+  contrail_cluster_id: "{{ playbook_input.contrail_cluster_id if playbook_input.contrail_cluster_id is defined else None }}"
+  api_server_host: "{{ playbook_input.api_server_host }}"
+  playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
+  vnc_api_init_params: "{{ playbook_input.vnc_api_init_params }}"
+  # This is used to demarcate the marked outputs from playbooks to the common
+  # file
+  unique_pb_id: "{{ playbook_input.unique_pb_id }}"
+  # This is used in the job percentage calculations. Dataype is an int
+  # Example: For the first task in image upgrade - dowloading the image
+  # the current_task_index will be 1. Note: The first task index always needs
+  # to be initialized from 1 and not 0
+  current_task_index: 1
+  # This is used in job percentage calculations. Dataype is int.
+  # It is the total number of tasks in the playbook. For example,
+  # image upgrade has four tasks (creates job logs 4 times)
+  total_task_count: 1
+  # This is used for job percentage calcualtions. Dataype is a array of int
+  # For example for image upgrade it could be set to [5, 40, 45, 10]
+  task_weightage_array:
+
+#pool size
+POOL_SIZE: 500
+
+#Device Retry Timeout in Seconds
+TOTAL_RETRY_TIMEOUT: 600
+
+#vendor mapping
+vendor_mapping:
+  - vendor: Juniper
+    oid: 1.3.6.1.4.1.2636
+  - vendor: Cisco
+    oid: 1.3.6.1.4.1.9
+
+#oid mapping for supported devices
+device_family_info:
+  - vendor: Juniper
+    snmp_probe:
+      - oid: 1.3.6.1.4.1.2636.1.1.1.4.82.8
+        family: junos-qfx
+        product: qfx5100
+      - oid: 1.3.6.1.4.1.2636.1.1.1.4.82.5
+        family: junos-qfx
+        product: qfx5100
+      - oid: 1.3.6.1.4.1.2636.1.1.1.4.82.10
+        family: junos-qfx
+        product: qfx10002
+      - oid: 1.3.6.1.4.1.2636.1.1.1.2.29
+        family: junos
+        product: mx240
+      - oid: 1.3.6.1.4.1.2636.1.1.1.2.11
+        family: junos
+        product: m10i
+      - oid: 1.3.6.1.4.1.2636.1.1.1.2.57
+        family: junos
+        product: mx80
+    ssh_probe:
+      - command: echo "show system information | display xml" | cli
+        data_format: xml
+      - command: show system information | display xml
+        data_format: xml
+
+# Role to feature mapping
+role_to_feature_mapping:
+  DC-Gateway@leaf:
+    - overlay_networking
+    - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
+  DC-Gateway@spine:
+    - overlay_networking
+    - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
+  DCI-Gateway@leaf:
+    - overlay_networking
+    - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
+  DCI-Gateway@spine:
+    - overlay_networking
+    - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_lag
+    - overlay_multi_homing
+  PNF-Servicechain@leaf:
+    - overlay_pim
+    - overlay_service_chain
+  PNF-Servicechain@spine:
+    - overlay_pim
+    - overlay_service_chain
+  PNF-Servicechain@pnf:
+    - overlay_pim
+    - overlay_service_chain
+
+feature_based_plugin_roles:
+  CRB-Access@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_port_profile
+    - overlay_telemetry
+  CRB-Access@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_port_profile
+    - overlay_telemetry
+  ERB-UCAST-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_evpn_erb_access
+    - overlay_evpn_type5
+    - overlay_evpn_ucast_gateway
+    - overlay_dhcp_relay
+    - overlay_port_profile
+    - overlay_telemetry
+  CRB-Gateway@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+  CRB-MCAST-Gateway@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_evpn_mcast_gateway
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+  DC-Gateway@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+  DCI-Gateway@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+  CRB-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+  CRB-MCAST-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_evpn_mcast_gateway
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+  DC-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+  DCI-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_dhcp_relay
+    - overlay_telemetry
+  AR-Client@leaf:
+    - overlay_assisted_replicator_client
+    - overlay_telemetry
+  AR-Client@spine:
+    - overlay_assisted_replicator_client
+    - overlay_telemetry
+  AR-Replicator@leaf:
+    - overlay_assisted_replicator
+    - overlay_telemetry
+  AR-Replicator@spine:
+    - overlay_assisted_replicator
+    - overlay_telemetry
+  Route-Reflector@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_telemetry
+  Route-Reflector@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_telemetry
+  lean@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+  Route-Reflector@superspine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_telemetry
+  lean@superspine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+
+feature_apply_order:
+  - basic
+  - underlay_ip_clos
+  - underlay_infra_bms_access
+  - overlay_bgp
+  - overlay_evpn
+  - overlay_evpn_access
+  - overlay_evpn_erb_access
+  - overlay_evpn_gateway
+  - overlay_evpn_ucast_gateway
+  - overlay_evpn_mcast_gateway
+  - overlay_evpn_type5
+  - overlay_dhcp_relay
+  - overlay_security_group
+  - overlay_lag
+  - overlay_multi_homing
+  - overlay_fip_snat
+  - overlay_networking
+  - overlay_pim
+  - overlay_service_chain
+  - overlay_assisted_replicator
+  - overlay_assisted_replicator_client
+  - overlay_port_profile
+  - overlay_telemetry
+
+DEVICE_FACTS_TIMEOUT: 120
+DEVICE_COMMAND_TIMEOUT: 600
+
+# Server Discovery test variables
+ipmi_subnets:
+  - 2.2.2.2
+  - 3.3.3.3
+  - 4.4.4.4
+
+ipmi_credentials:
+  - ADMIN:ADMIN
+  - admin:admin
+  - admin:password
+
+ipmi_port_ranges:
+  - port_range_start: 623
+    port_range_end: 623
+>>>>>>> CHANGE (38d481 [DM] Initial changes for 5 stage fabric)
