@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5f0e011c_ea4ab969",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-01T01:59:24Z",
+      "side": 1,
+      "message": "Any chances to shorten this variable name? _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX is about 58 chars",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9cb40994_23105d63",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1373,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-01T01:59:24Z",
+      "side": 1,
+      "message": "If I understand correct, VPG annotations wouldnt be discarded after this change. Is that correct? If so, such annotations needs to be removed",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e956e8d8_00fe08e5",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1549,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-01T01:59:24Z",
+      "side": 1,
+      "message": "I suppose all forward slash would be consider as a node. For example\nin above case\nvalidation_znode \u003d _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX/virtual-port-group:\u003cUUID\u003e/untagged\nis that you\u0027re trying to created?\nHow about below one instead?\nvalidation_znode \u003d _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX/virtual-port-groups/\u003cUUID\u003e/untagged ?",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cd9a03bd_f86f53f1",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1553,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-01T01:59:24Z",
+      "side": 1,
+      "message": "Same as #1549",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
