@@ -317,13 +317,16 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
                 password=self.options.credential.get('password'))
 
         # SSL related options
-        ssl_options, ssl_context = None, None
+        ssl_options = None
         if self.options.ssl_enabled:
-            ssl_context = ssl.SSLContext(SSL_VERSION)
-            ssl_context.load_verify_locations(self.options.ca_certs)
-            ssl_context.verify_mode = ssl.CERT_REQUIRED
-            ssl_context.check_hostname = False
-            ssl_options = {}
+            # TODO(sahid): Future versions (>= 3.17) of
+            # cassandra-driver will uses `ssl_context`.
+            ssl_options = {
+                "ssl_version": SSL_VERSION,
+                "ca_certs": self.options.ca_certs,
+                "check_hostname": False,
+                "cert_reqs": ssl.CERT_REQUIRED,
+            }
 
         # Profiles related features
         ExecutionProfile = connector.cluster.ExecutionProfile
@@ -335,12 +338,35 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
         }
 
         # Addresses, ports related options
-        endpoints = []
+        endpoints, port = [], None
         for address in self._server_list:
             try:
-                server, port = address.split(':', 1)
+                server, _port = address.split(':', 1)
+                _port = int(_port)
 
-                endpoints.append((server, int(port)))
+                if port is not None:
+                    if port != _port:
+                        self.options.logger(
+                            "Unsuported configuration for '{}', please "
+                            "consider using same ports for all IPs. "
+                            "Used port '{}'".format(address, port),
+                            level=SandeshLevel.SYS_WARN)
+                else:
+                    port = _port
+
+                if port == 9161:
+                    # This is to help fixing upgrade from Thrift to
+                    # CQL. If we detect that the port used is the one
+                    # for Thrift we try to fallback o the default one
+                    # and send a warning message in logs.
+                    self.options.logger(
+                        "Please consider fixing `cassandra_server_list`'s "
+                        "option to use CQL port. Trying best-effort switching "
+                        "from 9161 to 9042 (default)",
+                        level=SandeshLevel.SYS_WARN)
+                    port = 9041
+
+                endpoints.append(server)
             except ValueError:
                 endpoints.append(address)
 
@@ -348,8 +374,8 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
         try:
             self._cluster = connector.cluster.Cluster(
                 endpoints,
+                port=(port or 9042),
                 ssl_options=ssl_options,
-                ssl_context=ssl_context,
                 auth_provider=auth_provider,
                 execution_profiles=profiles,
                 cql_version=self.CqlVersion)
