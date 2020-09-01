@@ -3227,9 +3227,11 @@ class FilterModule(object):
             local_pi.set_physical_interface_type('service')
             remote_pi.set_physical_interface_type('service')
             return False
-
-        if (local_physical_role ==
-                remote_physical_role == 'leaf'):
+       
+        if ((local_physical_role ==
+                remote_physical_role == 'leaf') or
+            (local_physical_role ==
+                remote_physical_role == 'superspine')):
             _task_log(
                 "Not creating instance ips as both "
                 "physical routers are of the same role type %s"
@@ -3245,8 +3247,8 @@ class FilterModule(object):
                 % device_obj.get_fq_name())
             return False
 
-        if (local_physical_role in ['leaf', 'spine'] and
-                remote_physical_role in ['leaf', 'spine']):
+        if (local_physical_role in ['leaf', 'spine', 'superspine'] and
+                remote_physical_role in ['leaf', 'spine', 'superspine']):
             local_pi.set_physical_interface_type('fabric')
             remote_pi.set_physical_interface_type('fabric')
 

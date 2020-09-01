@@ -301,6 +301,17 @@ feature_based_plugin_roles:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+  Route-Reflector@superspine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
+    - overlay_telemetry
+  lean@superspine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
 
 feature_apply_order:
   - basic

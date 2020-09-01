@@ -12,7 +12,7 @@ from .ansible_role_common import AnsibleRoleCommon
 class OverlayConf(AnsibleRoleCommon):
     """Public class for Overlay config."""
 
-    _roles = ['leaf', 'spine']
+    _roles = ['leaf', 'spine', 'superspine']
 
     def __init__(self, logger, params={}):
         """Init routine for overlay config."""

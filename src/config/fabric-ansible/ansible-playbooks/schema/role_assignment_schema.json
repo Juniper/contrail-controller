@@ -27,7 +27,7 @@
             },
             "physical_role": {
               "type": "string",
-              "enum": [ "leaf", "spine", "pnf"]
+              "enum": [ "leaf", "spine", "pnf", "superspine"]
             },
             "routing_switching_roles": {
               "type": "array",
