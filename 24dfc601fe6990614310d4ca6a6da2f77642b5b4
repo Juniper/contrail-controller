@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "8394b5d3_8d00c6ec",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T19:49:32Z",
+      "side": 1,
+      "message": "Can you suggest some meaningful name? For Service provider we can shorten it as \"SP\". But, what would we do for Enterprise? ENTR perhaps?",
+      "parentUuid": "fb9bfa35_813d1994",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "9cb40994_23105d63",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 27
@@ -136,6 +154,24 @@
       "side": 1,
       "message": "@Ignatious: what do you think?",
       "parentUuid": "e956e8d8_00fe08e5",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e55b6e8e_f11830b8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1549,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-01T19:49:32Z",
+      "side": 1,
+      "message": "We wanted to create \u0027virtual-port-group:%s\u0027 Znode.",
+      "parentUuid": "a0bcee22_fb638c41",
       "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
