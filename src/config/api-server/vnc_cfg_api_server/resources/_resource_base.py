@@ -149,11 +149,12 @@ class ResourceMixin(object, with_metaclass(ResourceMixinMeta)):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, ref_update=None):
-        return True, ''
+        return True, '', None
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-                        prop_collection_updates=None, ref_update=None):
+                        prop_collection_updates=None, ref_update=None,
+                        **kwargs):
         return True, ''
 
     @classmethod
