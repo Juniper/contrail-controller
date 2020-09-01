@@ -137,7 +137,7 @@ def parse_args(args_str):
     cassandraopts = {
         'cassandra_user'     : None,
         'cassandra_password' : None,
-        'cassandra_driver'   : (PY3 and 'cql' or 'thrift'),
+        'cassandra_driver'   : 'cql',
     }
     # sandesh options
     sandeshopts = SandeshConfig.get_default_options()
