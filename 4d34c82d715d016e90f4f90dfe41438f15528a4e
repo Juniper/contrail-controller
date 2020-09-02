@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "59454ba4_836a402e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 538,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T22:15:24Z",
+      "side": 1,
+      "message": "i think vnic_type is not used in pre_dbe_create",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a8931c40_c50bf13a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 1446,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T22:15:24Z",
+      "side": 1,
+      "message": "os.path.join(\n    _DEFAULT_ZK_SERVICE_PROVIDER_FABRIC_VALIDATION_PATH_PREFIX,\n    \u0027virtual-port-group:%s\u0027 % vpg_uuid,\n    \u0027virtual-network:%s\u0027 % vn_uuid,\n    \u0027vlan:%s\u0027 % db_vlan_id)",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ddd63c0b_3499496b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 1830,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T22:15:24Z",
+      "side": 1,
+      "message": "lets rename it to get_vlan_phy_links(),",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
