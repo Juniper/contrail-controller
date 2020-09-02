@@ -160,6 +160,24 @@
     },
     {
       "key": {
+        "uuid": "9779a521_b97e4e87",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T22:35:41Z",
+      "side": 1,
+      "message": "_DEFAULT_ZK_FABRIC_SP_PATH_PREFIX\n_DEFAULT_ZK_FABRIC_ENTERPRISE_PATH_PREFIX",
+      "parentUuid": "8394b5d3_8d00c6ec",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "9cb40994_23105d63",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 27
@@ -277,6 +295,23 @@
       "side": 1,
       "message": "@Ignatious",
       "parentUuid": "cd9a03bd_f86f53f1",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "00b2065e_c4aa3e9e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1601,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T22:35:41Z",
+      "side": 1,
+      "message": "_delete_annotations_from_vpg(obj_dict)",
       "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
