@@ -124,7 +124,7 @@
        <xsd:element name="authentication-method" type="xsd:string"/>
        <xsd:element name="families" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="peers" type="dac:Bgp" maxOccurs="unbounded"/>
-       <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
+       <xsd:element name="bfd" type="dac:Bfd"/>
        <xsd:element name="multihop" type="dac:MultiHop"/>
        <xsd:element name="routing-policies" type="dac:RoutingPolicyParameters"/>
     </xsd:all>
@@ -167,7 +167,7 @@
        <xsd:element name='area-type' type='OspfAreaType'/>
        <xsd:element name='advertise-loopback' type='xsd:boolean'/>
        <xsd:element name='orignate-summary-lsa' type='xsd:boolean'/>
-       <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
+       <xsd:element name="bfd" type="dac:Bfd"/>
        <xsd:element name="routing-policies" type="dac:RoutingPolicyParameters"/>
     </xsd:all>
 </xsd:complexType>
@@ -297,7 +297,7 @@
        <xsd:element name="rp" type="dac:PimRp" maxOccurs="unbounded"/>
        <xsd:element name="mode" type="dac:PimMode"/>
        <xsd:element name="enable-on-all-interfaces" type="dac:boolean"/>
-       <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
+       <xsd:element name="bfd" type="dac:Bfd"/>
     </xsd:all>
 </xsd:complexType>
 
