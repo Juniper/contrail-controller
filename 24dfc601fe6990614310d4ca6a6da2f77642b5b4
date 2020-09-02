@@ -54,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "ba3c11f0_819646ab",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1850,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T21:45:11Z",
+      "side": 1,
+      "message": "Yes get_vlan_id is meant to retrieve vlan-id, we can move Physical links part to seperate function. However the second reason you provided is confusing.\n\nAre you saying that, phy_links will be not be provided by user instead user will create VPG to PI reference? if yes there is no code in the master to handle it. manage-vpg_association is called only if physical_links are provided by user.\n\nReference:\nhttps://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py#L551",
+      "parentUuid": "d90eb10c_1e899e91",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "79394c2d_3c786f03",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 27
@@ -65,6 +83,24 @@
       "writtenOn": "2020-09-02T16:52:32Z",
       "side": 1,
       "message": "Am not clear why untagged or tagged is decided based on links. If you\u0027re moving this code from the old, could you make a quick check with DM team or Ignatious?",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bce4cc69_59b4dfcc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1854,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-02T21:45:11Z",
+      "side": 1,
+      "message": "This part of the code is same as the original code. \n\nReference\n\nhttps://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py#L538\n\nhttps://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py#L546",
+      "parentUuid": "79394c2d_3c786f03",
       "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
