@@ -3440,7 +3440,7 @@ class VncApiServer(object):
                 api_server_ip=hostname,
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections, sandesh=self._sandesh)
-            if (self._args.auth != 'no-auth' or
+            if (self._args.auth != 'no-auth' and
                 self._args.auth != 'noauth'):
                 self._extension_mgrs['resync'] = ExtensionManager(
                     'vnc_cfg_api.resync', api_server_ip=hostname,
