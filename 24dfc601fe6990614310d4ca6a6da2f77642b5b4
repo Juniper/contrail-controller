@@ -37,6 +37,40 @@
     },
     {
       "key": {
+        "uuid": "d90eb10c_1e899e91",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1850,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-02T16:52:32Z",
+      "side": 1,
+      "message": "Do you mind moving this to a new function? because the function is about retrieving vlan_id but links are physical interfaces.\nAnother reason is that now user can directly attach physical interfaces to VPG. In that case i dont think they\u0027ll continue to provide it over VMI bindings",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "79394c2d_3c786f03",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1854,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-02T16:52:32Z",
+      "side": 1,
+      "message": "Am not clear why untagged or tagged is decided based on links. If you\u0027re moving this code from the old, could you make a quick check with DM team or Ignatious?",
+      "revId": "24dfc601fe6990614310d4ca6a6da2f77642b5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "5f0e011c_ea4ab969",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 27
