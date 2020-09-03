@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "70303cf2_71585117",
+        "filename": "src/config/common/cfgm_common/datastore/drivers/cassandra_cql.py",
+        "patchSetId": 18
+      },
+      "lineNbr": 585,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2020-09-03T18:51:43Z",
+      "side": 1,
+      "message": "is future().all() a blocking call?",
+      "revId": "ff275d8901633738dfba26c7ccf56d040936c3a1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
