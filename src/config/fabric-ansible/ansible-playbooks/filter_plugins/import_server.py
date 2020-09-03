@@ -12,11 +12,11 @@ import sys
 import base64
 import uuid
 import collections
-from pprint import pformat
+import pprint
 
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
-from contrail_command import CreateCCNode, CreateCCNodeProfile
+from contrail_command import CreateCCResource, CreateCCNodeProfile
 import jsonschema
 from job_manager.job_utils import JobVncApi
 
@@ -155,6 +155,7 @@ class FilterModule(object):
                 )
         return dict_to_trans
 
+    # TODO: Wrap it with resources
     def get_cc_port_payload(self, port_dict, local_link_dict):
         cc_port = {"kind": "port",
             "data": {
@@ -175,7 +176,7 @@ class FilterModule(object):
 
         return cc_port
 
-    def get_cc_node_payload(self, node_dict, node_uuid):
+    def get_cc_node_payload(self, node_dict):
         cc_node = {"resources":
             [{
                 "kind": "node",
@@ -250,9 +251,49 @@ class FilterModule(object):
                 generated_hostname = "auto-" + port_list[0]['mac_address'].replace(":", "")[6:]
 
         return generated_hostname
-    
-        
-    def create_cc_node(self, node_dict, cc_node_obj):
+
+    def convert(self, data):
+        if isinstance(data, basestring):
+            return str(data)
+        elif isinstance(data, collections.Mapping):
+            return dict(list(map(self.convert, iter(list(data.items())))))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(list(map(self.convert, data)))
+        else:
+            return data
+
+    def import_nodes(self, data, cc_client):
+        if not (isinstance(data, dict) and "nodes" in data):
+            return []
+        added_nodes = []
+        node_list = data['nodes']
+        #self._logger.warn("Creting Job INPUT:" + pformat(node_list))
+
+        for node_dict in node_list:
+
+            node_payload = self.__create_cc_node(node_dict, cc_client)
+            if node_payload is None:
+                self._logger.warn("IGNORING Creation of : " + pprint.pformat(node_dict))
+                continue
+
+            added_nodes.append(node_payload)
+
+
+            added_nodes.append(node_payload)
+            self._logger.warn("Creating : " + str(node_name))
+            self._logger.warn("Creating : " + pprint.pformat(node_payload))
+            resp = cc_client.create_cc_resource(node_payload)
+            node_uuid = json.loads(resp)[0]['data']['uuid']
+            for port in port_list:
+                if not port['data']['parent_uuid']:
+                    port['data']['parent_uuid'] = node_uuid
+            port_payload = {"resources" : []}
+            port_payload['resources'].extend(port_list)
+            self._logger.warn("port-create: " + pprint.pformat(port_payload))
+            cc_client.create_cc_resource(port_payload)
+        return added_nodes
+
+    def __create_cc_node(self, node_dict, cc_client):
         port_list = node_dict.get('ports',[])
 
         if not node_dict.get("name", None):
@@ -263,21 +304,15 @@ class FilterModule(object):
                 node_dict['name'] = node_name
             else:
                 # we are out of luck, we need to exit
-                return {}, "", []
+                return None
 
-        node_uuid = None
-        node_ports = []
-        node_fq_name = ['default-global-system-config', node_dict['name']]
-        cc_nodes = cc_node_obj.get_cc_nodes()
-        for node in cc_nodes['nodes']:
-            if node_fq_name == node['node']['fq_name']:
-                node_uuid = node['node']['uuid']
-                node_ports = node['node'].get('ports', [])
-                self._logger.warn("CC NODES:: " + pformat(node))
-                break
+        node = self._get_cc_node(
+            cc_client,
+            ['default-global-system-config', node_dict['name']]
+        )
 
-        node_dict['uuid'] = node_uuid
-        port_list = self.convert_port_format(port_list, node_dict, node_ports)
+        node_dict['uuid'] = node['uuid']
+        port_list = self.convert_port_format(port_list, node_dict, node.get('ports', []))
 
         if not node_dict.get('hostname', None):
             node_dict['hostname'] = node_dict['name']
@@ -290,44 +325,36 @@ class FilterModule(object):
             if node_sub_dict:
                 node_dict[sub_dict] = self.translate(node_sub_dict)
 
-        cc_node_payload = self.get_cc_node_payload(node_dict, node_uuid)
+        cc_node_payload = self.get_cc_node_payload(node_dict)
 
-        return cc_node_payload, node_dict['name'], port_list
+        self._logger.warn("Creating : " + str(node_name))
+        self._logger.warn("Creating : " + pprint.pformat(node_payload))
 
-    def convert(self, data):
-        if isinstance(data, basestring):
-            return str(data)
-        elif isinstance(data, collections.Mapping):
-            return dict(list(map(self.convert, iter(list(data.items())))))
-        elif isinstance(data, collections.Iterable):
-            return type(data)(list(map(self.convert, data)))
-        else:
-            return data
+        return cc_node_payload
 
-    def import_nodes(self, data, cc_node_obj):
-        added_nodes = []
-        if isinstance(data, dict) and "nodes" in data:
-            node_list = data['nodes']
-            #self._logger.warn("Creting Job INPUT:" + pformat(node_list))
+    def _get_cc_node(self, cc_client, fq_name):
+        cc_url = '%s%s' % (cc_client.auth_uri, '/nodes?detail=true')
+        response = cc_client.get_rest_api_response(cc_url,
+                                              headers=cc_client.auth_headers,
+                                              request_type="get")
+        pprint.pprint(json.loads(response.content))
+        nodes = json.loads(response.content)
 
-            for node_dict in node_list:
-                node_payload, node_name, port_list = self.create_cc_node(node_dict, cc_node_obj)
-                if node_name == "":
-                    self._logger.warn("IGNORING Creation of : " + pformat(node_dict))
-                    continue
-                added_nodes.append(node_payload)
-                self._logger.warn("Creating : " + str(node_name))
-                self._logger.warn("Creating : " + pformat(node_payload))
-                resp = cc_node_obj.create_cc_node(node_payload)
-                node_uuid = json.loads(resp)[0]['data']['uuid']
-                for port in port_list:
-                    if not port['data']['parent_uuid']:
-                        port['data']['parent_uuid'] = node_uuid
-                port_payload = {"resources" : []}
-                port_payload['resources'].extend(port_list)
-                self._logger.warn("port-create: " + pformat(port_payload))
-                cc_node_obj.create_cc_node(port_payload)
-        return added_nodes
+        for node in nodes['nodes']:
+            if fq_name == node['node']['fq_name']:
+                self._logger.warn("CC NODES:: " + pprint.pformat(node))
+                return node['node']
+
+        return None
+
+    def __create_cc_ports(self, port_list, cc_client):
+        pass
+
+    def __create_cc_port(self, port_dict, cc_client):
+        pass
+
+    def __create_cc_tag(self, tag_dict, cc_client):
+        pass
 
     # ***************** import_nodes_from_file filter *********************************
 
@@ -371,7 +398,8 @@ class FilterModule(object):
             cc_password = job_input.get('cc_password')
 
             self._logger.warn("Starting Server Import")
-            cc_node_obj = CreateCCNode(cc_host, cluster_id, cluster_token,
+
+            cc_client = CreateCCResource(cc_host, cluster_id, cluster_token,
                                        cc_username, cc_password)
 
             if file_format.lower() == "yaml":
@@ -383,7 +411,7 @@ class FilterModule(object):
                 raise ValueError('File format not recognized. Only yaml or '
                                  'json supported')
             added_nodes = self.import_nodes(
-                data, cc_node_obj)
+                data, cc_client)
         except Exception as e:
             errmsg = "Unexpected error: %s\n%s" % (
                 str(e), traceback.format_exc()

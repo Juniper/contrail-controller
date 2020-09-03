@@ -13,7 +13,7 @@ from job_manager.job_utils import JobVncApi
 
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
-from contrail_command import CreateCCNode
+from contrail_command import CreateCCResource
 from import_server import FilterModule as FilterModuleImportServer
 
 DOCUMENTATION = '''
@@ -321,16 +321,16 @@ class FilterModule(object):
         return node
 
     @staticmethod
-    def import_nodes_to_contrail(all_nodes, cc_node_obj):
+    def import_nodes_to_contrail(all_nodes, cc_client):
         """
         Using import_server job trigger, import nodes to CC.
 
         :param all_nodes: Dictionary
-        :param cc_node_obj: CreateCCNode object class
+        :param cc_client: CreateCCResource object class
         :return: None
         """
         logging.info("Begin adding nodes {} to Contrail Command".format(str(all_nodes)))
-        FilterModuleImportServer().import_nodes(all_nodes, cc_node_obj)
+        FilterModuleImportServer().import_nodes(all_nodes, cc_client)
 
     @staticmethod
     def get_switch_name(node):
@@ -375,7 +375,7 @@ class FilterModule(object):
         """
         return ip_to_hostname_mapping[device_ip_address]
 
-    def create_os_node(self, vnc_api, devices_command_output, fabric_uuid, cc_node_obj):
+    def create_os_node(self, vnc_api, devices_command_output, fabric_uuid, cc_client):
         """
         Create and return list of OS Object nodes and its properties.
 
@@ -384,7 +384,7 @@ class FilterModule(object):
         contain "node_type: <ovs/sriov>" information in its LLDP description.
         If this description is not added, the device will be skipped.
 
-        :param cc_node_obj: CreateCCNode object class
+        :param cc_client: CreateCCResource object class
         :param fabric_uuid: String
         :param vnc_api: vnc_api class established connection:
         :param devices_command_output: Dictionary
@@ -425,7 +425,7 @@ class FilterModule(object):
             'nodes': nodes
         }
         self._logger.info("Nodes found and created: %s" % created_nodes)
-        FilterModule.import_nodes_to_contrail(created_nodes, cc_node_obj)
+        FilterModule.import_nodes_to_contrail(created_nodes, cc_client)
         return created_nodes
 
     def create_os_node_filter(self, job_ctx, devices_command_outputs):
@@ -507,8 +507,8 @@ class FilterModule(object):
             cc_host = job_input['contrail_command_host']
             cc_username = job_input['cc_username']
             cc_password = job_input['cc_password']
-            cc_node_obj = CreateCCNode(cc_host, cluster_id, cluster_token, cc_username, cc_password)
-            os_compute_nodes = self.create_os_node(vnc_api, devices_command_outputs, fabric_uuid, cc_node_obj)
+            cc_client = CreateCCResource(cc_host, cluster_id, cluster_token, cc_username, cc_password)
+            os_compute_nodes = self.create_os_node(vnc_api, devices_command_outputs, fabric_uuid, cc_client)
         except Exception as e:
             errmsg = "Unexpected error: %s\n%s" % (
                 str(e), traceback.format_exc()

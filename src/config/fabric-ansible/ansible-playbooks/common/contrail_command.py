@@ -170,6 +170,14 @@ class CreateCCResource(object):
                                               request_type="post")
         return response.content
 
+    def get_cc_resource(self, kind):
+        cc_url = '%s%s' % (self.auth_uri, '/{}s?detail=true'.format(kind))
+        response = self.get_rest_api_response(cc_url,
+                                              headers=self.auth_headers,
+                                              request_type="get")
+        pprint.pprint(json.loads(response.content))
+        return json.loads(response.content)
+
 
 class CreateCCNode(CreateCCResource):
 
