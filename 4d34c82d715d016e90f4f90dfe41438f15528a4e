@@ -36,6 +36,57 @@
     },
     {
       "key": {
+        "uuid": "34e51b0a_e5cdbcf6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 544,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-03T13:16:50Z",
+      "side": 1,
+      "message": "zk_update_kwargs was retrieved but never used. if its intentional, you may get pep8 exception",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e8e79935_cfa20033",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 707,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-03T13:16:50Z",
+      "side": 1,
+      "message": "Update exception message to include phy_links if you\u0027re renaming the function",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f82e592a_be331eda",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 1436,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-03T13:16:50Z",
+      "side": 1,
+      "message": "what happens when the value is not same as current vmi UUID? for instance someone tries to create another VMI with same VN/VLAN-ID? is that not possible for value to be same?",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "a8931c40_c50bf13a",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 29
@@ -64,6 +115,23 @@
       "writtenOn": "2020-09-02T22:15:24Z",
       "side": 1,
       "message": "lets rename it to get_vlan_phy_links(),",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a670bdbf_1f0298a9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 2040,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-03T13:16:50Z",
+      "side": 1,
+      "message": "Any test to see if two parallel calls for different VPG with same VN/VLAN-ID? may be in next iter is fine too.",
       "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
