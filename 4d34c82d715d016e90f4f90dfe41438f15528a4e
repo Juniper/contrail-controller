@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "ff725589_80fe5e3f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 538,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "59454ba4_836a402e",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "34e51b0a_e5cdbcf6",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 29
@@ -50,6 +68,24 @@
       "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec505124_49db424f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 544,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "34e51b0a_e5cdbcf6",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "f21dba67_c23eef78",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 707,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "e8e79935_cfa20033",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f82e592a_be331eda",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 29
@@ -81,6 +135,24 @@
       "writtenOn": "2020-09-03T13:16:50Z",
       "side": 1,
       "message": "what happens when the value is not same as current vmi UUID? for instance someone tries to create another VMI with same VN/VLAN-ID? is that not possible for value to be same?",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "24438f6f_0ad0542c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 1436,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "value will be same in that case. But creation of Znode for second request would fail.",
+      "parentUuid": "f82e592a_be331eda",
       "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -104,6 +176,24 @@
     },
     {
       "key": {
+        "uuid": "f7b144ab_b9a4ebaa",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 1446,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a8931c40_c50bf13a",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ddd63c0b_3499496b",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 29
@@ -121,6 +211,24 @@
     },
     {
       "key": {
+        "uuid": "bc20aa4f_dba6f5dc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 1830,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ddd63c0b_3499496b",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a670bdbf_1f0298a9",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
         "patchSetId": 29
@@ -132,6 +240,24 @@
       "writtenOn": "2020-09-03T13:16:50Z",
       "side": 1,
       "message": "Any test to see if two parallel calls for different VPG with same VN/VLAN-ID? may be in next iter is fine too.",
+      "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "378cbb95_fad2e038",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_port_group.py",
+        "patchSetId": 29
+      },
+      "lineNbr": 2040,
+      "author": {
+        "id": 979
+      },
+      "writtenOn": "2020-09-04T05:16:52Z",
+      "side": 1,
+      "message": "Yes. we will add one after Enterprise changes are done.",
+      "parentUuid": "a670bdbf_1f0298a9",
       "revId": "4d34c82d715d016e90f4f90dfe41438f15528a4e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
