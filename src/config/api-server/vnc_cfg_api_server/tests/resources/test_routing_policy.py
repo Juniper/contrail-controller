@@ -7,8 +7,6 @@ import logging
 
 import cfgm_common
 from testtools import ExpectedException
-from vnc_api.vnc_api import ActionCommunityType, ActionUpdateType
-from vnc_api.vnc_api import CommunityListType
 from vnc_api.vnc_api import InterfaceRouteTable
 from vnc_api.vnc_api import PolicyStatementType, PolicyTermType
 from vnc_api.vnc_api import PrefixListMatchType
@@ -242,23 +240,5 @@ class TestRoutingPolicy(test_case.ApiServerTestCase):
         # cleanup
         self._vnc_lib.routing_policy_delete(id=rp_uuid)
     # end test_routing_policy_for_network_device
-
-    def test_routing_policy_community_target(self):
-        rp = RoutingPolicy(name=self.id(), term_type='network-device')
-        rp.set_routing_policy_entries(PolicyStatementType(term=[
-            PolicyTermType(
-                term_match_condition=TermMatchConditionType(),
-                term_action_list=TermActionListType(
-                    action='accept',
-                    update=ActionUpdateType(
-                        community=ActionCommunityType(
-                            add=CommunityListType(community=['color:30:12345',
-                                                             '30:1234556890',
-                                                             '0x030b:1:1'])
-                        )))),
-        ]))
-        self._vnc_lib.routing_policy_create(rp)
-        self.assertIsNotNone(rp.uuid)
-    # end test_routing_policy_community_target
 
 # end TestRoutingPolicy
