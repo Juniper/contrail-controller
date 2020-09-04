@@ -82,6 +82,10 @@ class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
         return self.uuid
 
 
+# VNC to neutron resource type
+_RESOURCE_VNC_TO_NEUTRON = {'virtual_network':
+                            'network'}
+
 class LocalVncApi(VncApi):
     def __init__(self, api_server_obj, *args, **kwargs):
         if api_server_obj:
@@ -637,6 +641,8 @@ class DBInterface(object):
             self._raise_contrail_exception('BadRequest',
                                            resource=resource_type, msg=str(e))
         except OverQuota as e:
+            if resource_type in _RESOURCE_VNC_TO_NEUTRON:
+                resource_type = _RESOURCE_VNC_TO_NEUTRON[resource_type]
             self._raise_contrail_exception('OverQuota',
                                            overs=[resource_type], msg=str(e))
         except AuthFailed as e:
