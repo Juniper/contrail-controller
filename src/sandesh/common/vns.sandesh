@@ -262,7 +262,7 @@ enum Module {
     INVENTORY_AGENT,
     ALARM_GENERATOR,
     TOR_AGENT,
-    CONTRAIL_BROADVIEW,
+    TF_BROADVIEW,
     KUBE_MANAGER,
     MESOS_MANAGER,
     MAX_MODULE,
@@ -352,7 +352,7 @@ const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = SERVICE_SNMP_COLLECTOR
 const string MODULE_CONTRAIL_TOPOLOGY_NAME = SERVICE_TOPOLOGY
 const string MODULE_SERVER_INVENTORY_AGENT_NAME = "InventoryAgent"
 const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
-const string MODULE_CONTRAIL_BROADVIEW_NAME = "contrail-broadview"
+const string MODULE_TF_BROADVIEW_NAME = "tf-broadview"
 const string MODULE_KUBE_MANAGER_NAME = SERVICE_KUBE_MANAGER
 const string MODULE_MESOS_MANAGER_NAME = SERVICE_MESOS_MANAGER
 const string MODULE_IRONIC_NOTIF_MANAGER_NAME = SERVICE_IRONIC_NOTIF_MANAGER
@@ -390,7 +390,7 @@ const map<Module, string> ModuleNames = {
     Module.INVENTORY_AGENT    : MODULE_SERVER_INVENTORY_AGENT_NAME,
     Module.ALARM_GENERATOR    : MODULE_ALARM_GENERATOR_NAME,
     Module.TOR_AGENT          : MODULE_TOR_AGENT_NAME,
-    Module.CONTRAIL_BROADVIEW : MODULE_CONTRAIL_BROADVIEW_NAME,
+    Module.TF_BROADVIEW       : MODULE_TF_BROADVIEW_NAME,
     Module.KUBE_MANAGER       : MODULE_KUBE_MANAGER_NAME,
     Module.MESOS_MANAGER      : MODULE_MESOS_MANAGER_NAME,
     Module.IRONIC_NOTIF_MANAGER    : MODULE_IRONIC_NOTIF_MANAGER_NAME,
@@ -429,7 +429,7 @@ const map<string, Module> ModuleIds = {
     MODULE_CONTRAIL_TOPOLOGY_NAME      : Module.CONTRAIL_TOPOLOGY,
     MODULE_SERVER_INVENTORY_AGENT_NAME : Module.INVENTORY_AGENT,
     MODULE_TOR_AGENT_NAME              : Module.TOR_AGENT
-    MODULE_CONTRAIL_BROADVIEW_NAME     : Module.CONTRAIL_BROADVIEW,
+    MODULE_TF_BROADVIEW_NAME           : Module.TF_BROADVIEW,
     MODULE_KUBE_MANAGER_NAME           : Module.KUBE_MANAGER,
     MODULE_MESOS_MANAGER_NAME          : Module.MESOS_MANAGER,
     MODULE_IRONIC_NOTIF_MANAGER_NAME   : Module.IRONIC_NOTIF_MANAGER,
@@ -526,7 +526,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.CONTRAIL_TOPOLOGY  : NodeType.ANALYTICS_SNMP,
     Module.INVENTORY_AGENT    : NodeType.COMPUTE,
     Module.TOR_AGENT          : NodeType.COMPUTE,
-    Module.CONTRAIL_BROADVIEW : NodeType.ANALYTICS,
+    Module.TF_BROADVIEW       : NodeType.ANALYTICS,
     Module.KUBE_MANAGER       : NodeType.KUBERNETESMGR,
     Module.MESOS_MANAGER      : NodeType.CONFIG,
     Module.FABRIC_ANSIBLE    : NodeType.CONFIG,
@@ -627,7 +627,7 @@ const map<Module, list<Category>> ModuleCategoryMap = {
                                 ],
     Module.CONTRAIL_TOPOLOGY  : [Category.DEFAULT,
                                 ],
-    Module.CONTRAIL_BROADVIEW : [Category.DEFAULT,
+    Module.TF_BROADVIEW       : [Category.DEFAULT,
                                 ],
     Module.KUBE_MANAGER       : [Category.DEFAULT,
                                 ],
