@@ -25,7 +25,17 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         super(TestAnsibleRRRedundancy, self).tearDown()
 
     @retries(5, hook=retry_exc_handler)
-    def check_pr(self, pr, peer_a, peer_b, check_feature=True):
+    def check_pr(self, pr, peer_a, peer_b, peer_c=None, check_feature=True):
+
+        if peer_c:
+            peer_mgmt_ip_list = [peer_a.get_physical_router_management_ip(),
+                peer_b.get_physical_router_management_ip(),
+                peer_c.get_physical_router_management_ip()]
+            peer_len = 3
+        else:
+            peer_mgmt_ip_list = [peer_a.get_physical_router_management_ip(),
+                peer_b.get_physical_router_management_ip()]
+            peer_len = 2
         abstract_config = FakeJobHandler.get_dev_job_input(pr.name)
         self.assertIsNotNone(abstract_config)
         device_abstract_config = abstract_config.get('device_abstract_config')
@@ -43,12 +53,9 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         self.assertEqual(bgp_grp.get('ip_address'),
                          pr.get_physical_router_management_ip())
         peers = bgp_grp.get('peers')
-        self.assertEqual(len(peers), 2)
-
+        self.assertEqual(len(peers), peer_len)
         for peer in peers:
-            self.assertIn(peer.get('ip_address'),
-                          [peer_a.get_physical_router_management_ip(),
-                           peer_b.get_physical_router_management_ip()])
+            self.assertIn(peer.get('ip_address'), peer_mgmt_ip_list)
 
     @retries(5, hook=retry_exc_handler)
     def check_pr_aux(self, pr, peer_a, peer_b, check_feature=True):
@@ -99,6 +106,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr3)
         self.check_pr(pr3, pr1, pr2)
 
+
     def test_02_1_leaf_2_spine_old_way(self):
 
         pr1, pr2, pr3 = self.create_rr_dependencies(
@@ -118,6 +126,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
         self.check_pr_aux(pr3, pr1, pr2)
+
 
     def test_03_1_leaf_2_spine_new_way(self):
 
@@ -139,6 +148,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr3)
         self.check_pr_aux(pr3, pr1, pr2)
 
+
     def test_04_leaf_rr(self):
 
         pr1, pr2, pr3 = self.create_rr_dependencies(
@@ -158,6 +168,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
         self.check_pr_aux(pr3, pr1, pr2)
+
 
     def test_05_1_leaf_2_spine_revert(self):
 
@@ -197,8 +208,24 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr3)
         self.check_pr(pr3, pr1, pr2)
 
+
+    def test_06_leaf_sperspine_rr(self):
+        pr1, pr2, pr3, pr4 = self.create_rr_dependencies('leaf', 'leaf',
+                                                    'CRB-Access',
+                                                    'CRB-Access',
+                                                    route_reflector=True)
+
+        pr1.set_physical_router_product_name('juniper-qfx5110-32q')
+        self._vnc_lib.physical_router_update(pr1)
+        self.check_pr(pr1, pr2, pr3, pr4)
+
+        pr2.set_physical_router_product_name('juniper-qfx5110-32q')
+        self._vnc_lib.physical_router_update(pr2)
+        self.check_pr(pr2, pr1, pr3, pr4)
+
+
     def create_rr_dependencies(self, phy_role1, phy_role2,
-                               rb_role1, rb_role2):
+                               rb_role1, rb_role2, route_reflector=False):
 
         jt = self.create_job_template('job-template-sf' + self.id())
 
@@ -216,6 +243,12 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
                                               AttrDict(
                                                   {
                                                       'physical_role': 'spine',
+                                                      'rb_roles': ['Route-Reflector', 'lean']
+                                                  }
+                                              ),
+                                              AttrDict(
+                                                  {
+                                                      'physical_role': 'superspine',
                                                       'rb_roles': ['Route-Reflector']
                                                   }
                                               )
@@ -243,25 +276,51 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
                                               node_profile=np)
         pr2.set_physical_router_loopback_ip('30.30.0.2')
         self._vnc_lib.physical_router_update(pr2)
+        if not route_reflector:
+            bgp_router3, pr3 = self.create_router('device-3' + self.id(),
+                                                  '3.3.3.5',
+                                                  product='qfx5110-48s-4c', family='junos-qfx',
+                                                  role='spine', rb_roles=['Route-Reflector'],
+                                                  physical_role=self.physical_roles['spine'],
+                                                  overlay_role=self.overlay_roles[
+                                                      'Route-Reflector'.lower()],
+                                                  fabric=fabric,
+                                                  node_profile=np)
+            pr3.set_physical_router_loopback_ip('30.30.0.3')
+            self._vnc_lib.physical_router_update(pr3)
+            return pr1, pr2, pr3
 
-        bgp_router3, pr3 = self.create_router('device-3' + self.id(),
-                                              '3.3.3.5',
-                                              product='qfx5110-48s-4c', family='junos-qfx',
-                                              role='spine', rb_roles=['Route-Reflector'],
-                                              physical_role=self.physical_roles['spine'],
-                                              overlay_role=self.overlay_roles[
-                                                  'Route-Reflector'.lower()],
-                                              fabric=fabric,
-                                              node_profile=np)
-        pr3.set_physical_router_loopback_ip('30.30.0.3')
-        self._vnc_lib.physical_router_update(pr3)
+        else:
+            bgp_router3, pr3 = self.create_router('device-3' + self.id(),
+                                                  '3.3.3.5',
+                                                  product='qfx5110-48s-4c', family='junos-qfx',
+                                                  role='spine', rb_roles=['lean'],
+                                                  physical_role=self.physical_roles['spine'],
+                                                  overlay_role=self.overlay_roles[
+                                                      'lean'.lower()],
+                                                  fabric=fabric,
+                                                  node_profile=np)
+            pr3.set_physical_router_loopback_ip('30.30.0.3')
+            self._vnc_lib.physical_router_update(pr3)
 
-        return pr1, pr2, pr3
+            bgp_router4, pr4 = self.create_router('device-4' + self.id(),
+                                                  '3.3.3.6',
+                                                  product='qfx5110-48s-4c', family='junos-qfx',
+                                                  role='superspine', rb_roles=['Route-Reflector'],
+                                                  physical_role=self.physical_roles['superspine'],
+                                                  overlay_role=self.overlay_roles[
+                                                      'Route-Reflector'.lower()],
+                                                  fabric=fabric,
+                                                  node_profile=np)
+            pr4.set_physical_router_loopback_ip('30.30.0.4')
+            self._vnc_lib.physical_router_update(pr4)
+
+            return pr1, pr2, pr3, pr4
 
     def create_feature_objects_and_params(self):
         self.create_features(['overlay-bgp'])
-        self.create_physical_roles(['leaf', 'spine'])
-        self.create_overlay_roles(['erb-ucast-gateway', 'route-reflector', 'crb-access'])
+        self.create_physical_roles(['leaf', 'spine', 'superspine'])
+        self.create_overlay_roles(['erb-ucast-gateway', 'route-reflector', 'crb-access', 'lean'])
         self.create_role_definitions([
             AttrDict({
                 'name': 'overlay-bgp-role',
@@ -286,7 +345,21 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
             }),
             AttrDict({
                 'name': 'overlay-bgp-role3',
+                'physical_role': 'spine',
+                'overlay_role': 'lean',
+                'features': ['overlay-bgp'],
+                'feature_configs': None
+            }),
+            AttrDict({
+                'name': 'overlay-bgp-role4',
                 'physical_role': 'leaf',
+                'overlay_role': 'route-reflector',
+                'features': ['overlay-bgp'],
+                'feature_configs': None
+            }),
+            AttrDict({
+                'name': 'overlay-bgp-role5',
+                'physical_role': 'superspine',
                 'overlay_role': 'route-reflector',
                 'features': ['overlay-bgp'],
                 'feature_configs': None

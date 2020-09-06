@@ -20,6 +20,7 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         self.create_feature_objects_and_params()
         jt1 = self.create_job_template('job-template-1')
         jt2 = self.create_job_template('job-template-2')
+        jt3 = self.create_job_template('job-template-3')
         name = "test_ipclos"
         fabric_uuid = self.create_fabric(name)
         fabric = self._vnc_lib.fabric_read(id=fabric_uuid)
@@ -43,20 +44,22 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         np1, rc1 = self.create_node_profile(
             'node-profile-1',
             device_family='junos-qfx',
-            role_mappings=[
-            AttrDict(
-                {'physical_role': 'spine',
-                 'rb_roles': ['crb-gateway']}
-            )], job_template=jt1)
+            role_mappings=[AttrDict({'physical_role': 'spine',
+                                     'rb_roles': ['crb-gateway']}
+                                    )], job_template=jt1)
         np2, rc2 = self.create_node_profile(
             'node-profile-2', device_family='junos-qfx',
-            role_mappings=[
-            AttrDict(
-                {'physical_role': 'leaf',
-                 'rb_roles': ['crb-access']}
-            )], job_template=jt2)
+            role_mappings=[AttrDict({'physical_role': 'leaf',
+                                     'rb_roles': ['crb-access']}
+                                    )], job_template=jt2)
+        np3, rc3 = self.create_node_profile(
+            'node-profile-3', device_family='junos-qfx',
+            role_mappings=[AttrDict({'physical_role': 'superspine',
+                                     'rb_roles': ['route-reflector']}
+                                    )], job_template=jt3)
         pr1_mgmtip = '10.10.0.1'
         pr2_mgmtip = '10.10.0.2'
+        pr3_mgmtip = '10.10.0.3'
         bgp_router1, pr1 = self.create_router(
             'router1', pr1_mgmtip, role='spine',
             ignore_bgp=False, fabric=fabric,
@@ -75,26 +78,50 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
                 'crb-access'],
             rb_roles=['crb-access'],
             product='qfx5110', family='junos-qfx')
+        bgp_router3, pr3 = self.create_router(
+            'router3', pr3_mgmtip, role='superspine',
+            ignore_bgp=False, fabric=fabric,
+            node_profile=np3,
+            physical_role=self.physical_roles['superspine'],
+            overlay_role=self.overlay_roles[
+                'route-reflector'],
+            rb_roles=['route-reflector'],
+            product='qfx5110', family='junos-qfx')
         pr1.set_physical_router_underlay_managed(True)
         pr2.set_physical_router_underlay_managed(True)
+        pr3.set_physical_router_underlay_managed(True)
         pr1.set_physical_router_loopback_ip('1.1.1.1')
         pr2.set_physical_router_loopback_ip('1.1.1.2')
+        pr3.set_physical_router_loopback_ip('1.1.1.3')
         self._vnc_lib.physical_router_update(pr1)
         self._vnc_lib.physical_router_update(pr2)
+        self._vnc_lib.physical_router_update(pr3)
         pi1 = PhysicalInterface(name='xe-0/0/0', parent_obj=pr1)
         pi2 = PhysicalInterface(name='xe-0/0/0', parent_obj=pr2)
+        pi3 = PhysicalInterface(name='xe-0/0/1', parent_obj=pr3)
+        pi22 = PhysicalInterface(name='xe-0/0/1', parent_obj=pr2)
         self._vnc_lib.physical_interface_create(pi1)
         self._vnc_lib.physical_interface_create(pi2)
+        self._vnc_lib.physical_interface_create(pi22)
+        self._vnc_lib.physical_interface_create(pi3)
         pi1.set_physical_interface(pi2)
         pi2.set_physical_interface(pi1)
+        pi3.set_physical_interface(pi22)
+        pi22.set_physical_interface(pi3)
         self._vnc_lib.physical_interface_update(pi1)
         self._vnc_lib.physical_interface_update(pi2)
+        self._vnc_lib.physical_interface_update(pi22)
+        self._vnc_lib.physical_interface_update(pi3)
         subnet1 = SubnetType(ip_prefix='192.168.2.0', ip_prefix_len=24)
         net_ipam1 = NetworkIpam()
         li1 = LogicalInterface(name='0', parent_obj=pi1)
         self._vnc_lib.logical_interface_create(li1)
         li2 = LogicalInterface(name='0', parent_obj=pi2)
         self._vnc_lib.logical_interface_create(li2)
+        li22 = LogicalInterface(name='0', parent_obj=pi22)
+        self._vnc_lib.logical_interface_create(li22)
+        li3 = LogicalInterface(name='0', parent_obj=pi3)
+        self._vnc_lib.logical_interface_create(li3)
         vn_obj1 = VirtualNetwork(
             name='vn1',
             virtual_network_category='infra',
@@ -120,38 +147,76 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         ins_ip2.set_logical_interface(li2)
         ins_ip2.set_virtual_network(vn_obj1)
         self._vnc_lib.instance_ip_create(ins_ip2)
+        ins_ip3 = InstanceIp(
+            name='ip3',
+            instance_ip_address='192.168.2.3',
+            instance_ip_family='v4')
+        ins_ip3.set_logical_interface(li3)
+        ins_ip3.set_virtual_network(vn_obj1)
+        self._vnc_lib.instance_ip_create(ins_ip3)
+        ins_ip22 = InstanceIp(
+            name='ip22',
+            instance_ip_address='192.168.2.4',
+            instance_ip_family='v4')
+        ins_ip22.set_logical_interface(li22)
+        ins_ip22.set_virtual_network(vn_obj1)
+        self._vnc_lib.instance_ip_create(ins_ip22)
+
         pr1.set_physical_router_product_name('qfx10k-6s-4c')
         self._vnc_lib.physical_router_update(pr1)
+        pr2.set_physical_router_product_name('qfx5110-6s-4c')
+        self._vnc_lib.physical_router_update(pr2)
+        pr3.set_physical_router_product_name('qfx5110-6s-4c')
+        self._vnc_lib.physical_router_update(pr3)
 
-        self.validate_abstract_configs(pr1, pr2)
+        self.validate_abstract_configs(pr1, pr2, pr3)
 
         self.delete_objects()
 
     @retries(5, hook=retry_exc_handler)
-    def validate_abstract_configs(self, pr1, pr2):
+    def validate_abstract_configs(self, pr1, pr2, pr3):
         abstract_config = FakeJobHandler.get_dev_job_input(pr1.name)
         device_abstract_config1 = abstract_config.get('device_abstract_config')
-        pr2.set_physical_router_product_name('qfx5110-6s-4c')
-        self._vnc_lib.physical_router_update(pr2)
+
         abstract_config = FakeJobHandler.get_dev_job_input(pr2.name)
         device_abstract_config2 = abstract_config.get('device_abstract_config')
-        system1 = device_abstract_config1.get('system')
+
+        abstract_config = FakeJobHandler.get_dev_job_input(pr3.name)
+        device_abstract_config3 = abstract_config.get('device_abstract_config')
+
         bgp_config1 = device_abstract_config1.get('features', {}).get(
             'underlay-ip-clos', {}).get('bgp', [])
         bgp_peer1 = bgp_config1[0].get('peers', [])
-        system2 = device_abstract_config2.get('system')
+
         bgp_config2 = device_abstract_config2.get('features', {}).get(
             'underlay-ip-clos', {}).get('bgp', [])
-        bgp_peer2 = bgp_config2[0].get('peers', [])
+        bgp_peer2 = []
+        for bgp_config in bgp_config2:
+            bgp_peer2.append(bgp_config.get('peers')[-1])
+        bgp_cfg2_verify_list = ['192.168.2.2', '192.168.2.4']
+        bgp_peer2_verify_list = ['192.168.2.1', '192.168.2.3']
+
+        bgp_config3 = device_abstract_config3.get('features', {}).get(
+            'underlay-ip-clos', {}).get('bgp', [])
+        bgp_peer3 = bgp_config3[0].get('peers', [])
+
+        # BGP peers between leaf and spine
         self.assertEqual(bgp_config1[0].get('ip_address'), '192.168.2.1')
         self.assertEqual(bgp_peer1[0].get('ip_address'), '192.168.2.2')
-        self.assertEqual(bgp_config2[0].get('ip_address'), '192.168.2.2')
-        self.assertEqual(bgp_peer2[0].get('ip_address'), '192.168.2.1')
+        self.assertIn(bgp_config2[1].get('ip_address'), bgp_cfg2_verify_list)
+        self.assertIn(bgp_peer2[1].get('ip_address'), bgp_peer2_verify_list)
+
+        # BGP peers between spine and superspine
+        self.assertIn(bgp_config2[0].get('ip_address'), bgp_cfg2_verify_list)
+        self.assertIn(bgp_peer2[0].get('ip_address'), bgp_peer2_verify_list)
+        self.assertEqual(bgp_config3[0].get('ip_address'), '192.168.2.3')
+        self.assertEqual(bgp_peer3[0].get('ip_address'), '192.168.2.4')
 
     def create_feature_objects_and_params(self):
         self.create_features(['underlay-ip-clos'])
-        self.create_physical_roles(['leaf', 'spine'])
-        self.create_overlay_roles(['crb-gateway', 'crb-access'])
+        self.create_physical_roles(['leaf', 'spine', 'superspine'])
+        self.create_overlay_roles(['crb-gateway', 'crb-access',
+                                   'route-reflector'])
         self.create_role_definitions([
             AttrDict({
                 'name': 'crb-gateway@spine',
@@ -164,6 +229,13 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
                 'name': 'crb-access@leaf',
                 'physical_role': 'leaf',
                 'overlay_role': 'crb-access',
+                'features': ['underlay-ip-clos'],
+                'feature_configs': {}
+            }),
+            AttrDict({
+                'name': 'route-reflector@superspine',
+                'physical_role': 'superspine',
+                'overlay_role': 'route-reflector',
                 'features': ['underlay-ip-clos'],
                 'feature_configs': {}
             })
@@ -211,7 +283,8 @@ class TestAnsibleUnderlayIpClosDM(TestAnsibleCommonDM):
         logical_interfaces_list = self._vnc_lib.logical_interfaces_list().get(
             'logical-interfaces', [])
         for logical_interface in logical_interfaces_list:
-            self._vnc_lib.logical_interface_delete(id=logical_interface['uuid'])
+            self._vnc_lib.logical_interface_delete(
+                id=logical_interface['uuid'])
         pi_list = self._vnc_lib.physical_interfaces_list().get(
             'physical-interfaces', [])
         for pi in pi_list:
