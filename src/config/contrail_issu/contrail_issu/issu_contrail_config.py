@@ -112,10 +112,14 @@ def parse_args(args_str=None):
         'old_cassandra_password': None,
         'old_cassandra_use_ssl': False,
         'old_cassandra_ca_certs': None,
+        'old_zookeeper_use_ssl': False,
+        'old_zookeeper_ca_certs': None,
         'new_cassandra_user': None,
         'new_cassandra_password': None,
         'new_cassandra_use_ssl': False,
         'new_cassandra_ca_certs': None,
+        'new_zookeeper_use_ssl': False,
+        'new_zookeeper_ca_certs': None,
         'old_cassandra_address_list': '10.84.24.35:9160',
         'old_zookeeper_address_list': '10.84.24.35:2181',
         'old_rabbit_address_list': '10.84.24.35',
@@ -240,6 +244,18 @@ def parse_args(args_str=None):
         "--new_cassandra_ca_certs",
         help="New Cassandra CA certs file path")
     parser.add_argument(
+        "--old_zookeeper_use_ssl",
+        help="Old Zookeeper use ssl flag")
+    parser.add_argument(
+        "--old_zookeeper_ca_certs",
+        help="Old Zookeeper CA certs file path")
+    parser.add_argument(
+        "--new_zookeeper_use_ssl",
+        help="New Zookeeper use ssl flag")
+    parser.add_argument(
+        "--new_zookeeper_ca_certs",
+        help="New Zookeeper CA certs file path")
+    parser.add_argument(
         "--old_rabbit_address_list",
         help="Old RMQ addresses")
     parser.add_argument(
@@ -287,6 +303,8 @@ def parse_args(args_str=None):
     args_obj.new_rabbit_ha_mode = (str(args_obj.new_rabbit_ha_mode).lower() == 'true')
     args_obj.old_cassandra_use_ssl = (str(args_obj.old_cassandra_use_ssl).lower() == 'true')
     args_obj.new_cassandra_use_ssl = (str(args_obj.new_cassandra_use_ssl).lower() == 'true')
+    args_obj.old_zookeeper_use_ssl = (str(args_obj.old_zookeeper_use_ssl).lower() == 'true')
+    args_obj.new_zookeeper_use_ssl = (str(args_obj.new_zookeeper_use_ssl).lower() == 'true')
 
     return args_obj, remaining_argv
 
