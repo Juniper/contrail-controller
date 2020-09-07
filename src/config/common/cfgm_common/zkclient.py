@@ -427,7 +427,7 @@ class ZookeeperCounter(Counter):
 class ZookeeperClient(object):
 
     def __init__(self, module, server_list, host_ip, logging_fn=None, zk_timeout=400,
-                 log_response_time=None):
+                 log_response_time=None, use_ssl=False, ca_cert=None):
         self.host_ip = host_ip
         # logging
         logger = logging.getLogger(module)
@@ -459,7 +459,9 @@ class ZookeeperClient(object):
                 handler=kazoo.handlers.gevent.SequentialGeventHandler(),
                 logger=logger,
                 connection_retry=self._retry,
-                command_retry=self._retry)
+                command_retry=self._retry,
+                use_ssl=use_ssl,
+                ca=ca_cert)
 
         self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
