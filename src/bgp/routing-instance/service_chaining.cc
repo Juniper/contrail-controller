@@ -265,7 +265,7 @@ template <typename T>
 ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager,
     ServiceChainGroup *group, RoutingInstance *src, RoutingInstance *dest,
     RoutingInstance *connected, const vector<string> &subnets, AddressT addr,
-    bool head)
+    bool head, bool retain_as_path)
     : manager_(manager),
       group_(group),
       src_(src),
@@ -278,6 +278,7 @@ ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager,
       dest_table_unregistered_(false),
       aggregate_(false),
       sc_head_(head),
+      retain_as_path_(retain_as_path),
       src_table_delete_ref_(this, src_table()->deleter()),
       dest_table_delete_ref_(this, dest_table()->deleter()),
       connected_table_delete_ref_(this, connected_table()->deleter()) {
@@ -816,6 +817,7 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
     bool load_balance_present = false;
     const Community *orig_community = NULL;
     const OriginVnPath *orig_ovnpath = NULL;
+    const AsPath *orig_aspath = NULL;
     RouteDistinguisher orig_rd;
     if (orig_route) {
         const BgpPath *orig_path = orig_route->BestPath();
@@ -828,6 +830,7 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
             ext_community = orig_attr->ext_community();
             orig_ovnpath = orig_attr->origin_vn_path();
             orig_rd = orig_attr->source_rd();
+            orig_aspath = orig_attr->as_path();
         }
         if (ext_community) {
             BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
@@ -990,9 +993,16 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
         new_attr = attr_db->ReplaceOriginVnPathAndLocate(new_attr.get(),
             new_ovnpath);
 
-        // Strip aspath. This is required when the connected route is
-        // learnt via BGP.
-        new_attr = attr_db->ReplaceAsPathAndLocate(new_attr.get(), AsPathPtr());
+        // Strip as_path if needed. This is required when the connected route is
+        // learnt via BGP. If retain_as_path knob is configured replace the
+        // AsPath with the value from the original route.
+        if (retain_as_path() && orig_aspath) {
+            new_attr = attr_db->ReplaceAsPathAndLocate(new_attr.get(),
+                                                       orig_aspath);
+        } else {
+            new_attr = attr_db->ReplaceAsPathAndLocate(new_attr.get(),
+                                                       AsPathPtr());
+        }
 
         // If the connected path is learnt via XMPP, construct RD based on
         // the id registered with source table instead of connected table.
@@ -1786,7 +1796,7 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     // Allocate the new service chain.
     ServiceChainPtr chain = ServiceChainPtr(new ServiceChainT(this, group,
         rtinstance, dest, connected_ri, config.prefix, chain_addr,
-        config.sc_head));
+        config.sc_head, config.retain_as_path));
 
     if (aggregate_host_route()) {
         ServiceChainT *obj = static_cast<ServiceChainT *>(chain.get());

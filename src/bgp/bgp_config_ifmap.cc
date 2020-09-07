@@ -1015,6 +1015,7 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             inet_chain.source_routing_instance,
             inet_chain.service_chain_id,
             inet_chain.sc_head,
+            inet_chain.retain_as_path,
         };
         list.push_back(item);
     }
@@ -1032,6 +1033,7 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             inet6_chain.source_routing_instance,
             inet6_chain.service_chain_id,
             inet6_chain.sc_head,
+            inet6_chain.retain_as_path,
         };
         list.push_back(item);
     }
@@ -1049,6 +1051,7 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             evpn_chain.source_routing_instance,
             evpn_chain.service_chain_id,
             evpn_chain.sc_head,
+            evpn_chain.retain_as_path,
         };
         list.push_back(item);
     }
@@ -1066,6 +1069,7 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             evpnv6_chain.source_routing_instance,
             evpnv6_chain.service_chain_id,
             evpnv6_chain.sc_head,
+            evpnv6_chain.retain_as_path,
         };
         list.push_back(item);
     }
