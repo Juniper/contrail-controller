@@ -1,6 +1,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.#
 from gevent import monkey
 
+import os
 import socket
 import yaml
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -42,7 +43,39 @@ class CassandraManager(object):
         # and this is not allowed in micrioservices setup
         pass
 
+    def is_nodetool_repair_running(self, event_mgr):
+        repair_cmd = "nodetool -p {} repair".format(self.db_jmx_port)
+        cmd = 'ps auxww'
+        try:
+            return repair_cmd in self.exec_cmd(cmd)
+        except Exception as e:
+            err_msg = "Failed to run cmd: {}.\nError: {}".format(cmd, e)
+            event_mgr.msg_log(err_msg, level=SandeshLevel.SYS_ERR)
+        # let's return True in case we can't detect nodetool status to avoid second run
+        return True
+
+    def get_cassandra_node_idx(self, event_mgr):
+        db_nodes = None
+        try:
+            if self._db_owner == 'analytics':
+                db_nodes = os.getenv('ANALYTICSDB_NODES')
+            elif self._db_owner == 'config':
+                db_nodes = os.getenv('CONFIGDB_NODES')
+            db_nodes = db_nodes.split(',')
+            db_nodes.sort()
+            idx = db_nodes.index(self.hostip)
+        except Exception as e:
+            err_msg = "Failed to get node index. Error is {}".format(e)
+            event_mgr.msg_log(err_msg, level=SandeshLevel.SYS_ERR)
+            return -1
+        else:
+            return idx
+
     def repair(self, event_mgr):
+        if self.is_nodetool_repair_running(event_mgr):
+            msg = "Can't run repair as nodetool is already running"
+            event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
+            return
         keyspaces = []
         if self._db_owner == 'analytics':
             keyspaces = AnalyticsRepairNeededKeyspaces
