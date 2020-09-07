@@ -143,7 +143,8 @@ public:
 
     ServiceChain(ServiceChainMgrT *manager, ServiceChainGroup *group,
         RoutingInstance *src, RoutingInstance *dest, RoutingInstance *connected,
-        const std::vector<std::string> &subnets, AddressT addr, bool head);
+        const std::vector<std::string> &subnets, AddressT addr, bool head,
+        bool retain_as_path);
     Address::Family GetFamily() const { return manager_->GetFamily(); }
     Address::Family GetConnectedFamily() const {
         return manager_->GetConnectedFamily();
@@ -219,6 +220,7 @@ public:
 
     bool aggregate_enable() const { return aggregate_; }
     bool is_sc_head() const { return sc_head_; }
+    bool retain_as_path() const { return retain_as_path_; }
     void set_aggregate_enable() { aggregate_ = true; }
     bool group_oper_state_up() const { return group_oper_state_up_; }
     void set_group_oper_state_up(bool up) { group_oper_state_up_ = up; }
@@ -239,6 +241,7 @@ private:
     bool dest_table_unregistered_;
     bool aggregate_;  // Whether the host route needs to be aggregated
     bool sc_head_; // Whether this SI is at the head of the chain
+    bool retain_as_path_;
     LifetimeRef<ServiceChain> src_table_delete_ref_;
     LifetimeRef<ServiceChain> dest_table_delete_ref_;
     LifetimeRef<ServiceChain> connected_table_delete_ref_;
