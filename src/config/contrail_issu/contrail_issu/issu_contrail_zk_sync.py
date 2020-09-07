@@ -15,13 +15,15 @@ from cfgm_common.zkclient import ZookeeperClient
 class ContrailZKIssu():
 
     def __init__(self, Old_Version_Address, New_Version_Address,
-                 Old_Prefix, New_Prefix, Znode_Issu_List, logger):
+                 Old_Prefix, New_Prefix, Znode_Issu_List, logger, use_ssl, ca_cert=None):
         self._Old_ZK_Version_Address = Old_Version_Address
         self._New_ZK_Version_Address = New_Version_Address
         self._Old_Prefix = '/' + Old_Prefix
         self._New_Prefix = '/' + New_Prefix
         self._Znode_Issu_List = list(Znode_Issu_List)
         self._logger = logger
+        self._use_ssl = use_ssl
+        self._ca_cert = ca_cert
         self._logger(
             "Issu contrail zookeeper initialized...",
             level=SandeshLevel.SYS_INFO,
@@ -76,13 +78,15 @@ class ContrailZKIssu():
         # Connect to old and new ZK servers
         self._zk_old = ZookeeperClient("zk issu client older version",
                                        self._Old_ZK_Version_Address,
-                                       self._New_ZK_Version_Address)
+                                       self._New_ZK_Version_Address,
+                                       self._use_ssl, self._ca_cert)
         self._zk_old.set_lost_cb(self.issu_restart)
         self._zk_old.set_suspend_cb(self.issu_restart)
 
         self._zk_new = ZookeeperClient("zk issu client newer version",
                                        self._New_ZK_Version_Address,
-                                       self._New_ZK_Version_Address)
+                                       self._New_ZK_Version_Address,
+                                       self._use_ssl, self._ca_cert)
         self._zk_new.set_lost_cb(self.issu_restart)
         self._zk_new.set_suspend_cb(self.issu_restart)
 
