@@ -8,7 +8,7 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 fro
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
 {%     set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     set ns = namespace(public_network='no') %}
-{%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
+{%     for ri in device_abstract_config.get('features', {}).get('vn-interconnect', {}).get('routing_instances', []) %}
 {%         set name = ri.get('name', '')[:127] %}
 {%         set is_master = ri.get('is_master', '') %}
 {%         if ri.get('is_master') == true %}{# /* PROTO for master_LR */ #}

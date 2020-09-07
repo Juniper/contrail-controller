@@ -189,7 +189,7 @@ set groups {{cfg_group}} protocols ospf area {{area_id}} interface {{intf}} bfd-
 {%         set router_external = ri.get('is_public_network', '') %}
 {%             for lo_int in ri.get('loopback_interfaces', []) %}
 {%                 set loopback_intf_name = lo_int.get('name', '') %}
-{%                 for pi in device_abstract_config.features.get('vn-interconnect').get('physical_interfaces', []) %}
+{%                 for pi in device_abstract_config.get('features', {}).get('vn-interconnect', {}).get('physical_interfaces', []) %}
 {%                     if pi.get('interface_type', '') == 'loopback' %}
 {%                         for li in pi.get('logical_interfaces', []) %}
 {%                             set int_name = li.get('name', '') %}
@@ -426,7 +426,7 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%     if ns.public_network == 'yes' %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%     endif %}
-{%     for rp in device_abstract_config.features.get('vn-interconnect').get('routing_protocols', []) %}
+{%     for rp in device_abstract_config.get('features', {}).get('vn-interconnect', {}).get('routing_protocols', []) %}
 {%         for igmp_snoop in rp.get('igmp_snooping', []) %}
 {%             for vlan in igmp_snoop.get('vlans', []) %}
 {%                 set vlan_name = vlan.get('name', '') %}
@@ -439,7 +439,7 @@ set groups {{cfg_group}} protocols igmp-snooping vlan {{vlan_name}} interface {{
 {%             endfor %}
 {%         endfor %} {# /* end for igmp snooping*/ #}
 {%     endfor %} {# /* end for routing-protocols */ #}
-{%     for rp in device_abstract_config.features.get('vn-interconnect').get('routing_policies', []) %}
+{%     for rp in device_abstract_config.get('features', {}).get('vn-interconnect', {}).get('routing_policies', []) %}
 {%         set rp_entery = rp.get('routing_policy_entries', {}) %}
 {%         if rp_entery|length > 0 %}
 {%             set rp_name = rp.get('name', '') %}
@@ -601,7 +601,7 @@ set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tnam
 {%             endfor %}{# /* for each terms */ #}
 {%         endif %}{# /* valid routing_policy_entries */ #}
 {%     endfor %}{# /* routing_policies */ #}
-{%     for ribg in device_abstract_config.features.get('vn-interconnect').get('rib_groups', []) %}
+{%     for ribg in device_abstract_config.get('features', {}).get('vn-interconnect', {}).get('rib_groups', []) %}
 {%         set rname = ribg.get('name', '') %}
 {%         set ns_first = namespace(found=true) %}
 {%         for rimport_rib in ribg.get('import_rib', []) %}

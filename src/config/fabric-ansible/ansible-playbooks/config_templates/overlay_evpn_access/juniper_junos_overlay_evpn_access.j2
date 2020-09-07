@@ -1,4 +1,4 @@
-{%     for phy_int in device_abstract_config.features.get('l2-gateway',{}).get('physical_interfaces', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('l2-gateway',{}).get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') != 'irb' %}
 {%         set name = phy_int.get('name') %}
 {%         if phy_int.get('link_aggregation_group') %}

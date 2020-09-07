@@ -3,9 +3,9 @@ set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then
 set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {% set sys_config = device_abstract_config.get('system', None) %}
 {% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{% set ris = device_abstract_config.features.get('l2-gateway',{}).get('routing_instances', []) %}
-{% set ris = ris + device_abstract_config.features.get('vn-interconnect',{}).get('routing_instances', []) %}
-{% for ri in device_abstract_config.features.get('l3-gateway', {}).get('routing_instances', []) %}
+{% set ris = device_abstract_config.get('features', {}).get('l2-gateway',{}).get('routing_instances', []) %}
+{% set ris = ris + device_abstract_config.get('features', {}).get('vn-interconnect',{}).get('routing_instances', []) %}
+{% for ri in device_abstract_config.get('features', {}).get('l3-gateway', {}).get('routing_instances', []) %}
 {%     if ri.get('is_public_network') == true %}
 {%         do ris.append(ri) %}
 {%     endif %}
@@ -36,7 +36,7 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then accept
 {%     endif %}
 {% endfor %}
-{% for bgp_elem in device_abstract_config.features.get('overlay-bgp').get('bgp', []) %}
+{% for bgp_elem in device_abstract_config.get('features', {}).get('overlay-bgp', {}).get('bgp', []) %}
 {%     set families = bgp_elem.get('families', []) %}
 {%     for fam in families %}
 {%         if fam == 'evpn' %}
@@ -57,7 +57,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
 set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
 set groups {{cfg_group}} switch-options vrf-import import-evpn
-{%             for ri in device_abstract_config.features.get('l2-gateway', {}).get('routing_instances', []) %}
+{%             for ri in device_abstract_config.get('features', {}).get('l2-gateway', {}).get('routing_instances', []) %}
 {%                 set name = ri.get('name', '')[:127] %}
 {%                 set vxlan_id = ri.get('vxlan_id', '') %}
 {%                 for export_target in ri.get('export_targets', []) %}

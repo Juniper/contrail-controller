@@ -7,7 +7,7 @@ set groups {{cfg_group}} forwarding-options multicast-replication evpn irb local
 {%     if device_model.startswith('qfx51') %}
 set groups {{cfg_group}} forwarding-options vxlan-routing overlay-ecmp
 {%     endif %}
-{%     for phy_int in device_abstract_config.features.get('l3-gateway').get('physical_interfaces', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('l3-gateway', {}).get('physical_interfaces', []) %}
 set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             set name = li.get('name') %}
@@ -32,7 +32,7 @@ set groups {{cfg_group}} protocols router-advertisement interface irb.{{unit}} v
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
-{%     for vlan in device_abstract_config.features.get('l3-gateway').get('vlans', []) %}
+{%     for vlan in device_abstract_config.get('features', {}).get('l3-gateway', {}).get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set vlanid = vlan.get('vlan_id', 'none') %}

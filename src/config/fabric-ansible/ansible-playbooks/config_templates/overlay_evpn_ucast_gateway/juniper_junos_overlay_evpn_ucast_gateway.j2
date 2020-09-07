@@ -1,6 +1,6 @@
 {%     set sys_config = device_abstract_config.get('system', None) %}
 {%     set is_ucast_gateway = sys_config.get('is_ucast_gateway_only', false) %}
-{%     for phy_int in device_abstract_config.features.get('l3-gateway').get('physical_interfaces', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('l3-gateway', {}).get('physical_interfaces', []) %}
 set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             set name = li.get('name') %}

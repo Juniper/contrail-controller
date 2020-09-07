@@ -1,4 +1,4 @@
-{%     for phy_int in device_abstract_config.features.get('l2-gateway',{}).get('physical_interfaces', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('l2-gateway',{}).get('physical_interfaces', []) %}
 {%         set name = phy_int.get('name') %}
 {%         set desc =  namespace(description=phy_int.get('comment', ''))%}
 {%         set member_ae = desc.description.split(':')[-1].strip() %}
@@ -45,14 +45,14 @@ set groups {{cfg_group}} interfaces {{name}} unit {{unit}} family inet mtu {{li.
 {%         endfor %}
 {%     endfor %}
 
-{%     for vlan in device_abstract_config.features.get('l2-gateway',{}).get('vlans', []) %}
+{%     for vlan in device_abstract_config.get('features', {}).get('l2-gateway',{}).get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
 set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
 {%         for each in intfs %}
 {%             set int_name = each.get('name', '') %}
-{%             for phy_intf in device_abstract_config.features.get('l2-gateway',{}).get('physical_interfaces', []) %}
+{%             for phy_intf in device_abstract_config.get('features', {}).get('l2-gateway',{}).get('physical_interfaces', []) %}
 {%                 for li in phy_intf.get('logical_interfaces', []) %}
 {%                     if li.get('name', '') == int_name %}
 {%                         set vlan_tag = li.get('vlan_tag', '') %}
@@ -70,7 +70,7 @@ set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}
-{%     for bgp_elem in device_abstract_config.features.get('overlay-bgp',{}).get('bgp', []) %}
+{%     for bgp_elem in device_abstract_config.get('features', {}).get('overlay-bgp',{}).get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         if 'evpn' in families %}
 set groups {{cfg_group}} protocols evpn multicast-mode ingress-replication
