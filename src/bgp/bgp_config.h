@@ -331,6 +331,7 @@ struct ServiceChainConfig {
     std::string source_routing_instance;
     std::string service_chain_id;
     bool sc_head;
+    bool retain_as_path;
 };
 
 struct StaticRouteConfig {
