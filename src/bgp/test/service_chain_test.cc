@@ -640,6 +640,8 @@ protected:
             extcomm_spec.communities.push_back(lb.GetExtCommunityValue());
 
         attr_spec.push_back(&extcomm_spec);
+
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
         request.data.reset(new BgpTable::RequestData(attr, flags, label));
@@ -916,7 +918,7 @@ protected:
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
         const vector<string> &origin_vn_path, const LoadBalance &lb,
-        const vector<int> tag_list) {
+        const vector<int> tag_list, bool retain_as_path=false) {
         BgpAttrPtr attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -924,8 +926,15 @@ protected:
             return false;
         if (label && path->GetLabel() != label)
             return false;
-        if (attr->as_path_count())
-            return false;
+        if (retain_as_path) {
+            if (!attr->as_path_count()) {
+                return false;
+            }
+        } else {
+            if (attr->as_path_count()) {
+                return false;
+            }
+        }
         if (sg_ids.size()) {
             vector<uint32_t> path_sg_ids = GetSGIDListFromRoute(path);
             if (path_sg_ids.size() != sg_ids.size())
@@ -1019,7 +1028,7 @@ protected:
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
         const vector<string> &origin_vn_path,
         const LoadBalance &lb, const vector<int> tag_list,
-        bool replication=false) {
+        bool replication=false, bool retain_as_path=false) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix, replication);
         if (!route)
@@ -1036,7 +1045,7 @@ protected:
                 found = true;
                 if (MatchPathAttributes(path, path_id, origin_vn, label,
                     sg_ids, tunnel_encap, soo, commlist, origin_vn_path,
-                    lb, tag_list)) {
+                    lb, tag_list, retain_as_path)) {
                     break;
                 }
                 return false;
@@ -1063,14 +1072,14 @@ protected:
 
     void VerifyRouteAttributes(const string &instance,
         const string &prefix, const string &path_id, const string &origin_vn,
-        int label = 0, bool replication=false) {
+        int label = 0, bool replication=false, bool retain_as_path=false) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>(),
-            LoadBalance(), vector<int>(), replication));
+            LoadBalance(), vector<int>(), replication, retain_as_path));
     }
 
     void VerifyRouteAttributes(const string &instance, const string &prefix,
@@ -1263,9 +1272,10 @@ protected:
     }
 
     void SetServiceChainInformation(const string &instance,
-        const string &filename) {
+        const string &filename, bool retain_as_path=false) {
         auto_ptr<autogen::ServiceChainInfo> params = GetChainConfig(filename);
         params->sc_head = true;
+        params->retain_as_path = retain_as_path;
         ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
             instance, sc_family_ == SCAddress::INET ?
                 "service-chain-information" : (sc_family_ == SCAddress::INET6 ?
@@ -3870,6 +3880,54 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved1) {
     this->VerifyRouteAttributes("blue",
                this->BuildReplicationPrefix("10.1.1.0", 24),
                this->BuildNextHopAddress("2.3.4.5"), "red", 0, true);
+
+    // Delete ExtRoute and connected route
+    this->DeleteVpnRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
+    this->DeleteConnectedRoute(NULL, this->BuildConnPrefix("1.1.2.3", 32));
+}
+
+//
+// Service chain route should be added for routes with unresolved origin
+// vn if there is at least one route target matching an export target of
+// the destination instance. Also AsPath should be retained.
+//
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add connected route
+// 3. Add MX leaked route 10.1.1.0/24 with unresolved OriginVn
+// 4. Verify that ext connect route 10.1.1.0/24 is added
+//
+TYPED_TEST(ServiceChainTest, ExtConnectRouteRetainAsPath1) {
+    if (this->GetFamily() == Address::EVPN) return;
+    vector<string> instance_names =
+        list_of("blue")("blue-i1")("red-i2")("red")("green");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml", true);
+
+    // Add Connected
+    this->AddConnectedRoute(NULL, this->BuildConnPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
+
+    // Add Ext connect route with targets of both red and green.
+    this->AddVpnRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
+
+    // Verify that MX leaked route is present in red
+    this->VerifyRouteExists("red", this->BuildPrefix("10.1.1.0", 24));
+
+    // Verify that ExtConnect route is present in blue
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                0, false, true);
+    this->VerifyRouteExists("blue",
+               this->BuildReplicationPrefix("10.1.1.0", 24), true);
+    this->VerifyRouteAttributes("blue",
+               this->BuildReplicationPrefix("10.1.1.0", 24),
+               this->BuildNextHopAddress("2.3.4.5"), "red", 0, true, true);
 
     // Delete ExtRoute and connected route
     this->DeleteVpnRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
