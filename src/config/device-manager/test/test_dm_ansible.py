@@ -163,6 +163,141 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         self.wait_for_features_delete()
     # end test_erb_config_push
 
+    @retries(5, hook=retry_exc_handler)
+    def check_vpg_li(self, no_of_vmi):
+        ac = FakeJobHandler.get_job_input()
+        self.assertIsNotNone(ac)
+
+        fc = ac.get('device_abstract_config').get('features')
+        l2_gateway = fc.get('l2-gateway')
+
+        l2pi = l2_gateway.get('physical_interfaces')
+        l2ri = l2_gateway.get('routing_instances')
+        l2vlan = l2_gateway.get('vlans')
+
+        l3_gateway = fc.get('l3-gateway')
+        l3pi = l3_gateway.get('physical_interfaces')[0]
+        l3li = l3pi.get('logical_interfaces')
+        l3ri = l3_gateway.get('routing_instances')
+        l3vlans = l3_gateway.get('vlans')
+
+        vninterconnect = fc.get('vn-interconnect')
+
+        routinginterfaces = vninterconnect.get('routing_instances')[0].get('routing_interfaces')
+
+        self.assertEqual(len(routinginterfaces), no_of_vmi)
+        self.assertEqual(len(l2pi), no_of_vmi)
+        self.assertEqual(len(l2ri), no_of_vmi)
+        self.assertEqual(len(l2vlan), no_of_vmi)
+        self.assertEqual(len(l3li), no_of_vmi)
+        self.assertEqual(len(l3ri), no_of_vmi)
+        self.assertEqual(len(l3vlans), no_of_vmi)
+
+    def test_erb_vpg_config_push(self):
+        self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])
+        project = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+
+        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+                              'l3-gateway', 'vn-interconnect'])
+        self.create_physical_roles(['leaf', 'spine'])
+        self.create_overlay_roles(['erb-ucast-gateway', 'crb-mcast-gateway'])
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'erb@leaf',
+                'physical_role': 'leaf',
+                'overlay_role': 'erb-ucast-gateway',
+                'features': ['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+                             'l3-gateway', 'vn-interconnect'],
+                'feature_configs': {'l3_gateway': {'use_gateway_ip': 'True'}}
+            })
+        ])
+
+        jt = self.create_job_template('job-template-1')
+        fabric = self.create_fabric('test-fabric')
+        np, rc = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx',
+            role_mappings=[
+                AttrDict(
+                    {'physical_role': 'leaf',
+                    'rb_roles': ['erb-ucast-gateway']}
+                )],
+            job_template=jt)
+
+        vn1_obj = self.create_vn('1', '1.1.1.0')
+        vn2_obj = self.create_vn('2', '2.2.2.0')
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1',
+            product='qfx5110', family='junos-qfx',
+            role='leaf', rb_roles=['erb-ucast-gateway'],
+            physical_role=self.physical_roles['leaf'],
+            overlay_role=self.overlay_roles['erb-ucast-gateway'], fabric=fabric,
+            node_profile=np)
+        pr.set_physical_router_loopback_ip('10.10.0.1')
+        self._vnc_lib.physical_router_update(pr)
+
+        vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 101)
+        no_of_vmi = 1
+
+        lr_fq_name = ['default-domain', 'default-project', 'lr-' + self.id()]
+        lr = LogicalRouter(fq_name=lr_fq_name, parent_type='project',
+                           logical_router_type='vxlan-routing',
+                           vxlan_network_identifier='3000')
+        lr.set_physical_router(pr)
+
+        fq_name = ['default-domain', 'default-project', 'vmi3-' + self.id()]
+        vmi3 = VirtualMachineInterface(fq_name=fq_name, parent_type='project')
+        vmi3.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi3)
+
+        fq_name = ['default-domain', 'default-project', 'vmi4-' + self.id()]
+        vmi4 = VirtualMachineInterface(fq_name=fq_name, parent_type='project')
+        vmi4.set_virtual_network(vn2_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi4)
+
+        lr.add_virtual_machine_interface(vmi3)
+        lr.add_virtual_machine_interface(vmi4)
+
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        self.check_vpg_li(no_of_vmi)
+        vmi2, vm2, pi2 = self.attach_vmi('2', ['xe-0/0/2'], [pr], vn2_obj, None, fabric, None, 102)
+        no_of_vmi = 2
+        self.check_vpg_li(no_of_vmi)
+
+        self._vnc_lib.logical_router_delete(fq_name=lr.get_fq_name())
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi3.get_fq_name())
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi4.get_fq_name())
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi1[0].get_fq_name())
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi2.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm2.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi2[0].get_fq_name())
+
+        self.delete_routers(None, pr)
+        self.wait_for_routers_delete(None, pr.get_fq_name())
+        self._vnc_lib.bgp_router_delete(fq_name=bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+        self.delete_role_definitions()
+        self.delete_overlay_roles()
+        self.delete_physical_roles()
+        self.delete_features()
+        self.wait_for_features_delete()
+    # end test_erb_config_push
 
     def test_ar_config_push(self):
         self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',

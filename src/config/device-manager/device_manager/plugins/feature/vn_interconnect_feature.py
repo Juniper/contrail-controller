@@ -142,6 +142,11 @@ class VnInterconnectFeature(FeatureBase):
                 routing_instance_type='master',
                 virtual_network_is_internal=True, is_master=True)
 
+        if self._physical_router.is_erb_only():
+            vn_li_map = self._get_vn_li_map('l2')
+            vpg_vn_uuids = list(vn_li_map.keys())
+            vn_list = list(set(vn_list) & set(vpg_vn_uuids))
+
         for connected_vn_uuid in vn_list:
             connected_vn = VirtualNetworkDM.get(connected_vn_uuid)
             irb_name = 'irb.' + str(connected_vn.vn_network_id)
