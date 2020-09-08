@@ -167,6 +167,13 @@ class L2GatewayFeature(FeatureBase):
     def _get_connected_vn_li_map(self):
         vns = self._get_connected_vns('l2')
         vn_li_map = self._get_vn_li_map('l2')
+        # if role is erb, filter connected vns with vpgs
+        if self._physical_router.is_erb_only():
+            vpg_vn_uuids = list(vn_li_map.keys())
+            for vn in vpg_vn_uuids:
+                if vn not in vns:
+                    del vn_li_map[vn]
+            return vn_li_map
         for vn in vns:
             vn_li_map.setdefault(vn, [])
         return vn_li_map
