@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2921ccb2_186bf0c3",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-08T10:07:50Z",
+      "side": 1,
+      "message": "in general different instances of nodemgr can be run in different time on different nodes. and there is a probability when it can be run in parallel but it\u0027s too small.",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "53166127_16522558",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-08T10:07:50Z",
+      "side": 1,
+      "message": "\u0027res\u0027 looks redundant. just:\n\n\n\n        cmd \u003d \u0027pgrep nodetool\u0027\n        try:\n            return True if self.exec_cmd(cmd) is not None else False\n        except Exception as e:\n            err_msg \u003d \"Failed to run cmd: {}.\\nError: {}\".format(cmd, e)\n            event_mgr.msg_log(err_msg, level\u003dSandeshLevel.SYS_ERR)\n        # let\u0027s return True in case we can\u0027t detect nodetool status to avoid second run\n        return True",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "52f9fa1f_97094bf6",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-08T10:07:50Z",
+      "side": 1,
+      "message": "can you please do this in a same way as we have in zookeeper (it defines own index and stores it in configuration) - https://github.com/tungstenfabric/tf-container-builder/blob/master/containers/external/zookeeper/contrail-entrypoint.sh#L7-L19\n\neach nodemgr has knowledge about its type and also it has nodes for both databases.\n\ncurrent implementation depends on cassandra status, nodetool, docker - it\u0027s rather unstable in some circumstances.",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "14b2ced4_08999d51",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-08T10:07:50Z",
+      "side": 1,
+      "message": "does it work in multi-interface setup?",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
