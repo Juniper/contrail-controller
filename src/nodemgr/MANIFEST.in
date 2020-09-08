@@ -1,4 +1,0 @@
-recursive-include database/sandesh *.html *.xml *.css
-include requirements.txt
-include test-requirements.txt
-include tox.ini

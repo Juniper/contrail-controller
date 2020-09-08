@@ -1,6 +1,0 @@
-bottle
-future
-six
-requests >= 2.20.0
-python-keystoneclient>=0.11.0
-contrail-config-common

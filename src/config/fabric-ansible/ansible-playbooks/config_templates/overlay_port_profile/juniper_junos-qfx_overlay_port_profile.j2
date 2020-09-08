@@ -1,9 +1,0 @@
-{# This is to remove any existing storm control config as part of cluster upgrades #}
-{# purge storm control config before creating port profile config #}
-delete apply-groups __contrail_overlay_storm_control__
-delete groups __contrail_overlay_storm_control__
-{%    if enterprise_style == True %}
-{%        include "./config_templates/overlay_port_profile/juniper_junos-qfx_overlay_port_profile_enterprise.j2" %}
-{%    else %}
-{%        include "./config_templates/overlay_port_profile/juniper_junos-qfx_overlay_port_profile_sp.j2" %}
-{%    endif %}

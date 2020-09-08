@@ -1,9 +1,0 @@
-# -*- mode: python; -*-
-#
-# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
-#
-
-Import('BuildEnv')
-env = BuildEnv.Clone()
-
-env.SConscript('contrail-cli/SConscript', exports='BuildEnv', duplicate = 0)
