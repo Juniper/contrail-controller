@@ -49,7 +49,7 @@ node_properties = {
         'config_file': '/etc/contrail/contrail-analytics-snmp-nodemgr.conf',
         'event_manager': AnalyticsSNMPEventManager,
         'unit_names': [
-            'contrail-snmp-collector',
+            'tf-snmp-collector',
             'contrail-topology',
             'contrail-analytics-snmp-nodemgr',
         ],

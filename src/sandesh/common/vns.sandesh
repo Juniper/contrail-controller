@@ -24,7 +24,7 @@ const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
 const string SERVICE_ALARM_GENERATOR = "contrail-alarm-gen"
 const string SERVICE_ALARM_GENERATOR_0 = "contrail-alarm-gen:0"
-const string SERVICE_SNMP_COLLECTOR = "contrail-snmp-collector"
+const string SERVICE_SNMP_COLLECTOR = "tf-snmp-collector"
 const string SERVICE_TOPOLOGY = "contrail-topology"
 const string SERVICE_DISCOVERY = "contrail-discovery"
 const string SERVICE_DISCOVERY_0 = "contrail-discovery:0"
@@ -215,7 +215,7 @@ const map<string, list<string> > ServicesDefaultConfigurationFiles = {
                                ContrailKeystoneAuthConfigurationFile]
     SERVICE_ALARM_GENERATOR_0 : ['/etc/contrail/contrail-alarm-gen.conf',
                                  ContrailKeystoneAuthConfigurationFile]
-    SERVICE_SNMP_COLLECTOR : ['/etc/contrail/contrail-snmp-collector.conf',
+    SERVICE_SNMP_COLLECTOR : ['/etc/contrail/tf-snmp-collector.conf',
                               ContrailKeystoneAuthConfigurationFile]
     SERVICE_TOPOLOGY : ['/etc/contrail/contrail-topology.conf',
                         ContrailKeystoneAuthConfigurationFile],
@@ -257,7 +257,7 @@ enum Module {
     COMPUTE_NODE_MGR,
     STORAGE_STATS_MGR,
     IPMI_STATS_MGR,
-    CONTRAIL_SNMP_COLLECTOR,
+    TF_SNMP_COLLECTOR,
     CONTRAIL_TOPOLOGY,
     INVENTORY_AGENT,
     ALARM_GENERATOR,
@@ -348,7 +348,7 @@ const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
 const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
 const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
 const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
-const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = SERVICE_SNMP_COLLECTOR
+const string MODULE_TF_SNMP_COLLECTOR_NAME = SERVICE_SNMP_COLLECTOR
 const string MODULE_CONTRAIL_TOPOLOGY_NAME = SERVICE_TOPOLOGY
 const string MODULE_SERVER_INVENTORY_AGENT_NAME = "InventoryAgent"
 const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
@@ -385,7 +385,7 @@ const map<Module, string> ModuleNames = {
     Module.COMPUTE_NODE_MGR   : MODULE_COMPUTE_NODE_MGR_NAME,
     Module.STORAGE_STATS_MGR  : MODULE_STORAGE_STATS_MGR_NAME,
     Module.IPMI_STATS_MGR     : MODULE_IPMI_STATS_MGR_NAME,
-    Module.CONTRAIL_SNMP_COLLECTOR  : MODULE_CONTRAIL_SNMP_COLLECTOR_NAME,
+    Module.TF_SNMP_COLLECTOR  : MODULE_TF_SNMP_COLLECTOR_NAME,
     Module.CONTRAIL_TOPOLOGY  : MODULE_CONTRAIL_TOPOLOGY_NAME,
     Module.INVENTORY_AGENT    : MODULE_SERVER_INVENTORY_AGENT_NAME,
     Module.ALARM_GENERATOR    : MODULE_ALARM_GENERATOR_NAME,
@@ -425,7 +425,7 @@ const map<string, Module> ModuleIds = {
     MODULE_COMPUTE_NODE_MGR_NAME       : Module.COMPUTE_NODE_MGR,
     MODULE_STORAGE_STATS_MGR_NAME      : Module.STORAGE_STATS_MGR,
     MODULE_IPMI_STATS_MGR_NAME         : Module.IPMI_STATS_MGR,
-    MODULE_CONTRAIL_SNMP_COLLECTOR_NAME  : Module.CONTRAIL_SNMP_COLLECTOR,
+    MODULE_TF_SNMP_COLLECTOR_NAME  : Module.TF_SNMP_COLLECTOR,
     MODULE_CONTRAIL_TOPOLOGY_NAME      : Module.CONTRAIL_TOPOLOGY,
     MODULE_SERVER_INVENTORY_AGENT_NAME : Module.INVENTORY_AGENT,
     MODULE_TOR_AGENT_NAME              : Module.TOR_AGENT
@@ -522,7 +522,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
     Module.STORAGE_STATS_MGR  : NodeType.COMPUTE,
     Module.IPMI_STATS_MGR     : NodeType.SERVERMGR,
-    Module.CONTRAIL_SNMP_COLLECTOR : NodeType.ANALYTICS_SNMP,
+    Module.TF_SNMP_COLLECTOR : NodeType.ANALYTICS_SNMP,
     Module.CONTRAIL_TOPOLOGY  : NodeType.ANALYTICS_SNMP,
     Module.INVENTORY_AGENT    : NodeType.COMPUTE,
     Module.TOR_AGENT          : NodeType.COMPUTE,
@@ -623,7 +623,7 @@ const map<Module, list<Category>> ModuleCategoryMap = {
     Module.DISCOVERY_SERVICE  : [Category.DEFAULT,
                                  Category.DISCOVERY,
                                 ],
-    Module.CONTRAIL_SNMP_COLLECTOR : [Category.DEFAULT,
+    Module.TF_SNMP_COLLECTOR : [Category.DEFAULT,
                                 ],
     Module.CONTRAIL_TOPOLOGY  : [Category.DEFAULT,
                                 ],

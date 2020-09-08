@@ -23,7 +23,7 @@ _container_label_to_unit_name = {
         'analytics-alarm-nodemgr': 'contrail-analytics-alarm-nodemgr'
     },
     Module.ANALYTICS_SNMP_NODE_MGR: {
-        'analytics-snmp-snmp-collector': 'contrail-snmp-collector',
+        'analytics-snmp-snmp-collector': 'tf-snmp-collector',
         'analytics-snmp-topology': 'contrail-topology',
         'analytics-snmp-nodemgr': 'contrail-analytics-snmp-nodemgr'
     },
