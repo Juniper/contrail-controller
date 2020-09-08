@@ -664,6 +664,62 @@ TEST_F(RouteTest, RemoteVmRoute_with_non_ipam_subnet) {
     client->WaitForIdle();
 }
 
+/* Test to verify behavior of route addition when vrf is
+ * delete marked.*/
+TEST_F(RouteTest, RemoteVmRoute_delete_marked_vrf) {
+    BgpPeer *bgp_peer = CreateBgpPeer("127.0.0.1", "remote");
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntry *vrf = VrfGet("vrf1", false);
+    EXPECT_TRUE(vrf != NULL);
+    vrf->MarkDelete();
+
+    Inet4TunnelRouteAdd(bgp_peer, vrf_name_,
+                        Ip4Address::from_string("2.2.2.100"),
+                        26, server1_ip_,
+                        TunnelType::MplsType(),
+                        (MplsTable::kStartLabel + 50),
+                        vrf_name_, SecurityGroupList(),
+                        TagList(), PathPreference());
+    client->WaitForIdle();
+
+    BridgeTunnelRouteAdd(bgp_peer, "vrf1", TunnelType::AllType(), server1_ip_,
+                         (MplsTable::kStartLabel + 60), remote_vm_mac_,
+                         Ip4Address::from_string("2.2.2.99"), 32);
+    client->WaitForIdle();
+
+    InetUnicastRouteEntry *remote_subnet_rt = RouteGet("vrf1",
+                                              Ip4Address::from_string("2.2.2.100"),
+                                              26);
+    InetUnicastRouteEntry *remote_host_rt = RouteGet("vrf1",
+                                                   Ip4Address::from_string("2.2.2.99"),
+                                                   32);
+    EXPECT_TRUE(remote_subnet_rt == NULL);
+    EXPECT_TRUE(remote_host_rt == NULL);
+
+    vrf->ClearDelete();
+
+    DelVrf("vrf1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
