@@ -1,0 +1,61 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d9f0c6ea_09549207",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-09T20:21:34Z",
+      "side": 1,
+      "message": "should we retry next time to obtain index if it was -1? or this has no sense?",
+      "revId": "25550f0a94c255dcb92faea4d14f4b1db314b48a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "30cef525_02a8bac5",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-09T20:21:34Z",
+      "side": 1,
+      "message": "maybe just \n\nreturn \u0027nodetool\u0027 in self.exec_cmd(cmd)\n\n?",
+      "range": {
+        "startLine": 50,
+        "startChar": 0,
+        "endLine": 54,
+        "endChar": 0
+      },
+      "revId": "25550f0a94c255dcb92faea4d14f4b1db314b48a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "550b7159_41e3149f",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-09T20:21:34Z",
+      "side": 1,
+      "message": "do we care if it\u0027s nodetool from different nodemgr isntance? (for example we check this for analyticsdb but nodetool is running by configdb)\n\nand am I right that the code that run repair is just in different thread (which is not finished) when new periodic event came?",
+      "revId": "25550f0a94c255dcb92faea4d14f4b1db314b48a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
