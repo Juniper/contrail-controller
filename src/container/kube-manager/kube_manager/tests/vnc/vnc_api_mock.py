@@ -14,7 +14,8 @@ class VncApiMock(object):
     """
 
     def __init__(self, admin_user, admin_password, admin_tenant,
-                 vnc_endpoint_ip, vnc_endpoint_port, auth_token_url):
+                 vnc_endpoint_ip, vnc_endpoint_port, auth_token_url,
+                 api_health_check=False):
 
         for object_type, resource_type in all_resource_type_tuples:
             for oper_str in ('_create', '_read', '_update', '_delete', 's_list', '_get_default_id'):
