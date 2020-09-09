@@ -11,6 +11,7 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "pkt/flow_token.h"
+#include "mac_ip_learning.h"
 #include "mac_learning_event.h"
 
 class MacLearningPartition;
@@ -19,6 +20,7 @@ class MacAgingTable;
 class MacLearningProto : public Proto {
 public:
     typedef boost::shared_ptr<MacLearningPartition> MacLearningPartitionPtr;
+    typedef boost::shared_ptr<MacIpLearningTable> MacIpLearningTablePtr;
     typedef std::vector<MacLearningPartitionPtr> MacLearningPartitionList;
 
     typedef boost::shared_ptr<MacAgingTable> MacAgingTablePtr;
@@ -57,10 +59,12 @@ public:
 
     TokenPtr GetToken(MacLearningEntryRequest::Event event);
     virtual void TokenAvailable(TokenPool *pool);
+    MacIpLearningTable* GetMacIpLearningTable();
 
 private:
     tbb::mutex::scoped_lock mutex_;
     MacLearningPartitionList mac_learning_partition_list_;
+    MacIpLearningTablePtr mac_ip_learning_tbl_;
     TokenPool add_tokens_;
     TokenPool change_tokens_;
     TokenPool delete_tokens_;

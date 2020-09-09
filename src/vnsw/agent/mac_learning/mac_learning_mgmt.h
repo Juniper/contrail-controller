@@ -5,6 +5,7 @@
 #ifndef SRC_VNSW_AGENT_MAC_LEARNING_MAC_LEARNING_MGMT_H_
 #define SRC_VNSW_AGENT_MAC_LEARNING_MAC_LEARNING_MGMT_H_
 #include "mac_learning_key.h"
+#include "mac_ip_learning_key.h"
 
 class MacLearningMgmtDBEntry;
 class MacLearningMgmtManager;
@@ -26,6 +27,14 @@ public:
         rt_.reset(rt);
     }
 
+    void set_vn(MacLearningMgmtDBEntry *vn) {
+        vn_.reset(vn);
+    }
+
+    void set_hc(MacLearningMgmtDBEntry *hc) {
+        hc_service_.reset(hc);
+    }
+
     void UpdateRef(MacLearningMgmtManager *mgr);
 
     MacLearningEntryPtr mac_learning_entry() {
@@ -40,6 +49,8 @@ private:
     DependencyRef<MacLearningMgmtNode, MacLearningMgmtDBEntry> intf_;
     DependencyRef<MacLearningMgmtNode, MacLearningMgmtDBEntry> vrf_;
     DependencyRef<MacLearningMgmtNode, MacLearningMgmtDBEntry> rt_;
+    DependencyRef<MacLearningMgmtNode, MacLearningMgmtDBEntry> vn_;
+    DependencyRef<MacLearningMgmtNode, MacLearningMgmtDBEntry> hc_service_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtNode);
 };
 typedef boost::shared_ptr<MacLearningMgmtNode> MacLearningMgmtNodePtr;
@@ -53,6 +64,9 @@ public:
         INTERFACE,
         VRF,
         BRIDGE,
+        EVPN,
+        VN,
+        HC_SERVICE,
         END
     };
 
@@ -165,6 +179,21 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtRouteEntry);
 };
 
+class MacLearningMgmtVnEntry : public MacLearningMgmtDBEntry {
+public:
+     MacLearningMgmtVnEntry(const VnEntry *vn);
+     virtual ~MacLearningMgmtVnEntry() {}
+private:
+    DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtVnEntry);
+};
+
+class MacLearningMgmtHcServiceEntry : public MacLearningMgmtDBEntry {
+public:
+     MacLearningMgmtHcServiceEntry(const HealthCheckService *hc);
+     virtual ~MacLearningMgmtHcServiceEntry() {}
+private:
+    DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtHcServiceEntry);
+};
 class MacLearningMgmtKeyCmp {
 public:
     bool operator()(const MacLearningMgmtDBEntry *lhs, const MacLearningMgmtDBEntry *rhs) const {
@@ -216,6 +245,9 @@ public:
         DELETE_DBENTRY,
         DELETE_ALL_MAC,
         RELEASE_TOKEN,
+        ADD_MAC_IP,
+        CHANGE_MAC_IP,
+        DELETE_MAC_IP,
     };
 
     MacLearningMgmtRequest(Event event, MacLearningEntryPtr ptr):
@@ -264,13 +296,19 @@ public:
     typedef std::pair<MacLearningKey, MacLearningMgmtNodePtr>
         MacLearningNodePair;
 
+    typedef std::map<MacIpLearningKey, MacLearningMgmtNodePtr,
+                     MacIpLearningKeyCmp> MacIpLearningNodeTree;
+    typedef std::pair<MacIpLearningKey, MacLearningMgmtNodePtr>
+        MacIpLearningNodePair;
     MacLearningMgmtManager(Agent *agent);
     virtual ~MacLearningMgmtManager() {}
     bool RequestHandler(MacLearningMgmtRequestPtr ptr);
 
     void AddMacLearningEntry(MacLearningMgmtRequestPtr ptr);
+    void AddMacIpLearningEntry(MacLearningMgmtRequestPtr ptr);
     void ReleaseToken(MacLearningMgmtRequestPtr ptr);
     void DeleteMacLearningEntry(MacLearningMgmtRequestPtr ptr);
+    void DeleteMacIpLearningEntry(MacLearningMgmtRequestPtr ptr);
     void AddDBEntry(MacLearningMgmtRequestPtr ptr);
     void DeleteDBEntry(MacLearningMgmtRequestPtr ptr);
     void Enqueue(MacLearningMgmtRequestPtr &ptr);
@@ -295,9 +333,12 @@ public:
 private:
     Agent *agent_;
     MacLearningNodeTree mac_learning_node_tree_;
+    MacIpLearningNodeTree mac_ip_learning_node_tree_;
     MacLearningMgmtDBTree intf_tree_;
     MacLearningMgmtDBTree vrf_tree_;
     MacLearningMgmtDBTree rt_tree_;
+    MacLearningMgmtDBTree vn_tree_;
+    MacLearningMgmtDBTree hc_tree_;
     MacLearningMgmtQueue request_queue_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtManager);
 };

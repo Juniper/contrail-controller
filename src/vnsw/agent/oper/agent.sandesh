@@ -335,6 +335,7 @@ struct ItfSandeshData {
    67: i32 max_flows;
    68: list<string> policy_set_fwaas_list;
    69: list<BondInterface> bond_interface_list;
+   70: bool mac_ip_learning_enable;
 }
 
 /**
@@ -427,6 +428,8 @@ struct VnSandeshData {
     22: i32 max_flows;
     /** List of multicast-policy(s) associated with virtual network */
     23: list<MulticastPolicyLink> mp_list;
+    24: bool mac_ip_learning_enable;
+    25: string health_check_uuid;
 }
 
 /**

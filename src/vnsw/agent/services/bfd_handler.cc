@@ -7,6 +7,7 @@
 #include <pkt/pkt_init.h>
 #include <pkt/pkt_handler.h>
 #include <services/bfd_proto.h>
+#include "mac_learning/mac_learning_proto.h"
 
 BfdHandler::BfdHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)
@@ -70,9 +71,18 @@ void BfdHandler::SendPacket(
 
     uint8_t *data = boost::asio::buffer_cast<uint8_t *>(packet);
     uint16_t eth_proto = is_v4 ? ETHERTYPE_IP : ETHERTYPE_IPV6;
+    MacAddress mac = agent()->mac_learning_proto()->
+                        GetMacIpLearningTable()->GetPairedMacAddress(
+                                vm_interface->vrf()->vrf_id(),
+                                remote_endpoint.address());
+
+    if (mac == MacAddress()) {
+        mac = vm_interface->vm_mac();
+    } 
+    
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vrrp_mac(),
-                  vm_interface->vm_mac(),
+                  mac,
                   eth_proto, vm_interface->tx_vlan_id());
 
     if (is_v4) {

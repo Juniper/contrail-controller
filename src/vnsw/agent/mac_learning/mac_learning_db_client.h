@@ -12,6 +12,7 @@
 #include <oper/sg.h>
 #include <oper/vrf.h>
 #include <filter/acl.h>
+#include <oper/health_check.h>
 
 //Mac learning mgmt DB client module listens for all notification from
 //DB table and triggers change on the dependent MAC entries.
@@ -44,6 +45,7 @@ public:
         bool learning_enabled_;
         bool policy_enabled_;
         bool l2_active_;
+        bool mac_ip_learning_enable_;
     };
 
     struct MacLearningVrfState : public MacLearningDBState {
@@ -54,6 +56,25 @@ public:
         bool learning_enabled_;
         uint32_t isid_;
         DBTableBase::ListenerId bridge_listener_id_;
+        DBTableBase::ListenerId evpn_listener_id_;
+    };
+    struct MacLearningVnState : public MacLearningDBState {
+        MacLearningVnState(): deleted_(false), mac_ip_learning_enabled_(false),
+                                hc_uuid_() {}
+        bool deleted_;
+        bool mac_ip_learning_enabled_;
+        boost::uuids::uuid hc_uuid_;
+    };
+    struct MacLearningHealthCheckState : public MacLearningDBState {
+        MacLearningHealthCheckState(): deleted_(false) {}
+        bool deleted_;
+        uint32_t delay_;
+        uint64_t delay_usecs_;
+        uint32_t timeout_;
+        uint64_t timeout_usecs_;
+        uint32_t max_retries_;
+        bool is_hc_enable_all_target_ips;
+        std::set<IpAddress> hc_target_ip_list_;
     };
 
     struct MacLearningRouteState : public MacLearningDBState {
@@ -76,11 +97,19 @@ private:
                      Agent::RouteTableType type,
                      DBTablePartBase *partition,
                      DBEntryBase *e);
+    void EvpnRouteNotify(MacLearningVrfState *state,
+                     Agent::RouteTableType type,
+                     DBTablePartBase *partition,
+                     DBEntryBase *e);
+    void VnNotify(DBTablePartBase *part, DBEntryBase *e);
+    void HealthCheckNotify(DBTablePartBase *part, DBEntryBase *e);
     void FreeRouteState(const DBEntry *e, uint32_t gen_id);
     void EnqueueAgingTableDelete(const VrfEntry *vrf);
     Agent *agent_;
     DBTableBase::ListenerId interface_listener_id_;
     DBTableBase::ListenerId vrf_listener_id_;
+    DBTableBase::ListenerId vn_listener_id_;
+    DBTableBase::ListenerId hc_listener_id_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningDBClient);
 };
 #endif

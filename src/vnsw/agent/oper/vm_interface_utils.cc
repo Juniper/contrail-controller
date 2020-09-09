@@ -554,6 +554,15 @@ VmInterface::GetIpMac(const IpAddress &ip, uint8_t plen) const {
         }
         it++;
     }
+    LearntMacIpSet::const_iterator mac_ip_it =
+        learnt_mac_ip_list_.list_.begin();
+    while (mac_ip_it != learnt_mac_ip_list_.list_.end()) {
+        if (mac_ip_it->ip_ == ip &&  
+            mac_ip_it->mac_ != MacAddress::kZeroMac) {
+            return mac_ip_it->mac_;
+        }
+        mac_ip_it++;
+    }
     return vm_mac_;
 }
 

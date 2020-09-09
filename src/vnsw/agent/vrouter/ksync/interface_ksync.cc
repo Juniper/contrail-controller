@@ -92,6 +92,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     pbb_interface_(entry->pbb_interface_),
     vhostuser_mode_(entry->vhostuser_mode_),
     igmp_enable_(entry->igmp_enable_),
+    mac_ip_learning_enable_(false),
     os_guid_(entry->os_guid_) {
 }
 
@@ -141,7 +142,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
     pbb_cmac_vrf_(VrfEntry::kInvalidIndex), pbb_mac_(), etree_leaf_(false),
     pbb_interface_(false), vhostuser_mode_(VmInterface::vHostUserClient),
-    igmp_enable_(false),
+    igmp_enable_(false), mac_ip_learning_enable_(false),
     os_guid_(intf->os_guid()) {
 
     if (intf->flow_key_nh()) {
@@ -373,6 +374,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (igmp_enable_ != vm_port->igmp_enabled()) {
             igmp_enable_ = vm_port->igmp_enabled();
+            ret = true;
+        }
+
+        if (mac_ip_learning_enable_ != vm_port->mac_ip_learning_enable()) {
+            mac_ip_learning_enable_ = vm_port->mac_ip_learning_enable();
             ret = true;
         }
     }
@@ -724,6 +730,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (igmp_enable_) {
             flags |= VIF_FLAG_IGMP_ENABLED;
+        }
+        if (mac_ip_learning_enable_) {
+            flags |= VIF_FLAG_MAC_IP_LEARNING;
         }
         MacAddress mac;
         if (parent_.get() != NULL) {
@@ -1378,6 +1387,12 @@ void InterfaceKSyncEntry::SetKsyncItfSandeshData(KSyncItfSandeshData *data) cons
         data->set_igmp_enable("Enable");
     } else {
         data->set_igmp_enable("Disable");
+    }
+
+    if (mac_ip_learning_enable_) {
+        data->set_mac_ip_learning_enable("Enable");
+    } else {
+        data->set_mac_ip_learning_enable("Disable");
     }
 }
 

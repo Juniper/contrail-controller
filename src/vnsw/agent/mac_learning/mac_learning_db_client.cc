@@ -10,7 +10,8 @@
 #include "mac_aging.h"
 
 MacLearningDBClient::MacLearningDBClient(Agent *agent) :
-    agent_(agent), interface_listener_id_(), vrf_listener_id_() {
+    agent_(agent), interface_listener_id_(), vrf_listener_id_(),
+    vn_listener_id_(), hc_listener_id_() {
 }
 
 void MacLearningDBClient::Init() {
@@ -18,11 +19,17 @@ void MacLearningDBClient::Init() {
         (boost::bind(&MacLearningDBClient::InterfaceNotify, this, _1, _2));
     vrf_listener_id_ = agent_->vrf_table()->Register
         (boost::bind(&MacLearningDBClient::VrfNotify, this, _1, _2));
+    vn_listener_id_ = agent_->vn_table()->Register
+        (boost::bind(&MacLearningDBClient::VnNotify, this, _1, _2));
+    hc_listener_id_ = agent_->health_check_table()->Register
+        (boost::bind(&MacLearningDBClient::HealthCheckNotify, this, _1, _2));
 }
 
 void MacLearningDBClient::Shutdown() {
     agent_->interface_table()->Unregister(interface_listener_id_);
     agent_->vrf_table()->Unregister(vrf_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
+    agent_->health_check_table()->Unregister(hc_listener_id_);
 }
 
 MacLearningDBClient::~MacLearningDBClient() {
@@ -104,6 +111,130 @@ void MacLearningDBClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e)
     }
 }
 
+void MacLearningDBClient::VnNotify(DBTablePartBase *part, DBEntryBase *e) {
+    VnEntry *vn = static_cast<VnEntry *>(e);
+
+    MacLearningVnState *state = static_cast<MacLearningVnState *>
+        (e->GetState(part->parent(), vn_listener_id_));
+
+    if (vn->IsDeleted()) {
+        if (state) {
+            DeleteEvent(vn, state);
+        }
+        return;
+    }
+
+    bool changed = false;
+    bool delete_mac_ip = false;
+    if (state == NULL) {
+        state = new MacLearningVnState();
+        e->SetState(part->parent(), vn_listener_id_, state);
+        state->mac_ip_learning_enabled_ = vn->mac_ip_learning_enable();
+        state->hc_uuid_ = vn->health_check_uuid();
+        changed = true;
+    } else {
+        if (state->mac_ip_learning_enabled_ != vn->mac_ip_learning_enable()) {
+            state->mac_ip_learning_enabled_ = vn->mac_ip_learning_enable();
+            if (state->mac_ip_learning_enabled_ == false) {
+                delete_mac_ip = true;
+            }
+        }
+        if (state->hc_uuid_ != vn->health_check_uuid()) {
+            state->hc_uuid_ = vn->health_check_uuid();
+            changed = true;
+        }
+
+    }
+
+    if (delete_mac_ip) {
+        DeleteAllMac(vn, state);
+        return;
+    }
+
+    if (changed) {
+        AddEvent(vn, state);
+    }
+}
+
+void MacLearningDBClient::HealthCheckNotify(DBTablePartBase *part, DBEntryBase *e) {
+    HealthCheckService *hc_service = static_cast<HealthCheckService *>(e);
+
+    MacLearningHealthCheckState *state = static_cast<MacLearningHealthCheckState *>
+        (e->GetState(part->parent(), hc_listener_id_));
+
+    if (hc_service->IsDeleted()) {
+        if (state) {
+            DeleteEvent(hc_service, state);
+        }
+        return;
+    }
+    bool param_changed = false;
+    bool ip_list_changed = false;
+    if (state == NULL) {
+       state = new MacLearningHealthCheckState();
+       e->SetState(part->parent(), hc_listener_id_, state);
+       state->delay_ = hc_service->delay();
+       state->delay_usecs_ = hc_service->delay_usecs();
+       state->timeout_ = hc_service->timeout();
+       state->timeout_usecs_ = hc_service->timeout_usecs();
+       state->max_retries_ = hc_service->max_retries();
+       state->is_hc_enable_all_target_ips =
+                    hc_service->IsHcEnableAllTargetIp();
+       state->hc_target_ip_list_ = hc_service->GetTargetIpList();
+       param_changed = true;
+    } else {
+        if (state->delay_ != hc_service->delay()) {
+            state->delay_ = hc_service->delay();
+            param_changed = true;
+        }
+        if (state->delay_usecs_ != hc_service->delay_usecs()) {
+            state->delay_usecs_ = hc_service->delay_usecs();
+            param_changed = true;
+        }
+        if (state->timeout_ != hc_service->timeout()) {
+            state->timeout_ = hc_service->timeout();
+            param_changed = true;
+        }
+        if (state->timeout_usecs_ != hc_service->timeout_usecs()) {
+            state->timeout_usecs_ = hc_service->timeout_usecs();
+            param_changed = true;
+        }
+        if (state->max_retries_ != hc_service->max_retries()) {
+            state->max_retries_ = hc_service->max_retries();
+            param_changed = true;
+        }
+        if (state->is_hc_enable_all_target_ips !=
+                hc_service->IsHcEnableAllTargetIp()) {
+            state->is_hc_enable_all_target_ips =
+                hc_service->IsHcEnableAllTargetIp();
+            ip_list_changed = true;
+        }
+        if (state->hc_target_ip_list_ != hc_service->GetTargetIpList()) {
+            state->hc_target_ip_list_ = hc_service->GetTargetIpList();
+            ip_list_changed = true;
+        }
+    }
+    if (param_changed) {
+        AddEvent(hc_service, state);
+    }
+    if (ip_list_changed) {
+    std::set<boost::uuids::uuid> vn_uuid_list = hc_service->GetVnUuidList();
+    std::set<boost::uuids::uuid>::iterator it  = vn_uuid_list.begin();
+        while(it != vn_uuid_list.end()) {
+            VnEntry *vn = agent_->vn_table()->Find(*it);
+            if (vn && !vn->IsDeleted()) {
+                MacLearningVnState *state = static_cast<MacLearningVnState *>
+                    (vn->GetState(vn->get_table(), vn_listener_id_));
+                if (state) {
+                    AddEvent(vn, state);
+                }
+            }
+            it++;
+        }
+    }
+}
+
+
 void MacLearningDBClient::RouteNotify(MacLearningVrfState *vrf_state,
                                       Agent::RouteTableType type,
                                       DBTablePartBase *partition,
@@ -142,6 +273,56 @@ void MacLearningDBClient::RouteNotify(MacLearningVrfState *vrf_state,
     }
 }
 
+void MacLearningDBClient::EvpnRouteNotify(MacLearningVrfState *vrf_state,
+                                      Agent::RouteTableType type,
+                                      DBTablePartBase *partition,
+                                      DBEntryBase *e) {
+    DBTableBase::ListenerId id = vrf_state->evpn_listener_id_;
+    MacLearningRouteState *rt_state =
+        static_cast<MacLearningRouteState *>(e->GetState(partition->parent(),
+                    vrf_state->evpn_listener_id_));
+    AgentRoute *route = static_cast<AgentRoute *>(e);
+    const DBEntry *const_entry = static_cast<const DBEntry *>(e);
+
+
+    if (route->IsDeleted()) {
+        if (vrf_state && rt_state) {
+            route->ClearState(route->get_table(), vrf_state->evpn_listener_id_);
+        }
+        return;
+    }
+
+    if (vrf_state->deleted_) {
+        // ignore route add/change for delete notified VRF.
+        return;
+    }
+
+    if (route->is_multicast()) {
+        return;
+    }
+
+    if (rt_state == NULL) {
+        rt_state  = new MacLearningRouteState();
+        route->SetState(partition->parent(), id, rt_state);
+        EvpnRouteEntry *entry = dynamic_cast<EvpnRouteEntry *>(route);
+        if (!entry) {
+            return;
+        }
+        if (!entry->IsType2()) {
+            return;
+        }
+        if (route->FindLocalVmPortPath()) {
+            return;
+        }
+        MacLearningEntryRequestPtr ptr(new MacLearningEntryRequest(
+                        MacLearningEntryRequest::REMOTE_MAC_IP,
+                        const_entry,
+                        0));
+        agent_->mac_learning_proto()->
+                GetMacIpLearningTable()->Enqueue(ptr);
+
+    }
+}
 void MacLearningDBClient::MacLearningVrfState::Register(MacLearningDBClient *client,
                                                         VrfEntry *vrf) {
     // Register to the Bridge Unicast Table
@@ -151,12 +332,23 @@ void MacLearningDBClient::MacLearningVrfState::Register(MacLearningDBClient *cli
         bridge_table->Register(boost::bind(&MacLearningDBClient::RouteNotify,
                     client, this, Agent::BRIDGE, _1,
                     _2));
+    // Register to the EVPN Table
+    EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
+                                              (vrf->GetEvpnRouteTable());
+    evpn_listener_id_ =
+        evpn_table->Register(boost::bind(&MacLearningDBClient::EvpnRouteNotify,
+                    client, this, Agent::EVPN, _1,
+                    _2));
 }
 
 void MacLearningDBClient::MacLearningVrfState::Unregister(VrfEntry *vrf) {
     BridgeAgentRouteTable *bridge_table = static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
     bridge_table->Unregister(bridge_listener_id_);
+    // Register to the EVPN Table
+    EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
+                                              (vrf->GetEvpnRouteTable());
+    evpn_table->Unregister(evpn_listener_id_);
 }
 
 void MacLearningDBClient::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
@@ -257,6 +449,24 @@ void MacLearningDBClient::FreeDBState(const DBEntry *entry, uint32_t gen_id) {
 
     if (dynamic_cast<const AgentRoute *>(entry)) {
         FreeRouteState(entry, gen_id);
+        return;
+    }
+    if (dynamic_cast<const VnEntry *>(entry)) {
+        DBTable *table = agent_->vn_table();
+        VnEntry *vn = static_cast<VnEntry *>(table->Find(entry));
+        DBState *state = vn->GetState(vn->get_table(),
+                                        vn_listener_id_);
+        vn->ClearState(vn->get_table(), vn_listener_id_);
+        delete state;
+        return;
+    }
+    if (dynamic_cast<const HealthCheckService *>(entry)) {
+        DBTable *table = agent_->health_check_table();
+        HealthCheckService *hc = static_cast<HealthCheckService *>(table->Find(entry));
+        DBState *state = hc->GetState(hc->get_table(),
+                                        hc_listener_id_);
+        hc->ClearState(hc->get_table(), hc_listener_id_);
+        delete state;
         return;
     }
 }

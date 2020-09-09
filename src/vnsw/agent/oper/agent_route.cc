@@ -575,7 +575,8 @@ void AgentRoute::DeleteInput(DBTablePartition *part, AgentRouteTable *table,
         bool check_can_delete =
             ((key->peer()->GetType() == Peer::BGP_PEER) ||
              (key->peer()->GetType() == Peer::EVPN_ROUTING_PEER) ||
-             (key->peer()->GetType() == Peer::EVPN_PEER));
+             (key->peer()->GetType() == Peer::EVPN_PEER) ||
+             (key->peer()->GetType() == Peer::INET_EVPN_PEER));
 
         if (force_delete)
             check_can_delete = false;

@@ -1096,6 +1096,8 @@ static void BuildVn(VmInterfaceConfigData *data,
         }
         BuildTagList(tag_list, adj_node);
     }
+
+    data->mac_ip_learning_enable_ = vn->mac_ip_learning_enable();
 }
 
 static void FillHbsInfo(VmInterfaceConfigData *data,

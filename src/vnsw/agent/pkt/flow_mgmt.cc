@@ -1,4 +1,11 @@
 #include <bitset>
+#if 0
+    case MacLearningEntryRequest::FREE_DB_ENTRY_IP:
+        agent()->mac_learning_module()->
+            mac_learning_db_client()->FreeDBState(ptr->db_entry(),
+                                                  ptr->gen_id());
+        break;
+#endif
 #include <boost/uuid/uuid_io.hpp>
 #include "cmn/agent.h"
 #include "controller/controller_init.h"

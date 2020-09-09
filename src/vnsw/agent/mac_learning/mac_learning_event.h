@@ -9,6 +9,9 @@
 #include "mac_learning_key.h"
 #include "mac_learning_base.h"
 
+class MacLearningPartition;
+class MacIpLearningTable;
+
 class MacLearningEntryRequest {
 public:
      enum Event {
@@ -18,7 +21,10 @@ public:
          RESYNC_MAC,
          DELETE_MAC,
          FREE_DB_ENTRY,
-         DELETE_VRF
+         DELETE_VRF,
+         REMOTE_MAC_IP,
+         MAC_IP_UNREACHABLE
+
      };
 
      MacLearningEntryRequest(Event event, PktInfoPtr pkt):
@@ -29,6 +35,10 @@ public:
 
      MacLearningEntryRequest(Event event, uint32_t vrf_id):
          event_(event), vrf_id_(vrf_id) {
+     }
+     MacLearningEntryRequest(Event event, uint32_t vrf_id,
+             IpAddress &ip, MacAddress &mac):
+         event_(event), vrf_id_(vrf_id), ip_(ip), mac_(mac) {
      }
 
      MacLearningEntryRequest(Event event, const DBEntry *entry,
@@ -58,6 +68,13 @@ public:
      uint32_t gen_id() {
          return gen_id_;
      }
+     IpAddress ip() {
+         return ip_;
+     }
+     MacAddress mac() {
+         return mac_;
+     }
+
 private:
     Event event_;
     MacLearningEntryPtr mac_learning_entry_;
@@ -65,8 +82,10 @@ private:
     uint32_t vrf_id_;
     const DBEntry *db_entry_;
     uint32_t gen_id_;
+    IpAddress ip_;
+    MacAddress mac_;
 };
-typedef boost::shared_ptr<MacLearningEntryRequest> MacLearningEntryRequestPtr;
+//typedef boost::shared_ptr<MacLearningEntryRequest> MacLearningEntryRequestPtr;
 
 class MacLearningRequestQueue {
 public:
@@ -95,5 +114,30 @@ private:
     TokenPool *pool_;
     Queue queue_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningRequestQueue);
+};
+class MacIpLearningRequestQueue {
+public:
+    typedef WorkQueue<MacLearningEntryRequestPtr> Queue;
+    MacIpLearningRequestQueue(MacIpLearningTable *table);
+    ~MacIpLearningRequestQueue() {}
+    void Shutdown() {}
+    bool HandleEvent(MacLearningEntryRequestPtr ptr);
+
+    void Enqueue(MacLearningEntryRequestPtr ptr) {
+        queue_.Enqueue(ptr);
+    }
+
+    void MayBeStartRunner() {
+        queue_.MayBeStartRunner();
+    }
+
+    void SetQueueDisable(bool disable) {
+        queue_.set_disable(disable);
+    }
+
+private:
+    MacIpLearningTable *table_;
+    Queue queue_;
+    DISALLOW_COPY_AND_ASSIGN(MacIpLearningRequestQueue);
 };
 #endif

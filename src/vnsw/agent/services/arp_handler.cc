@@ -13,6 +13,7 @@
 #include "services/arp_proto.h"
 #include "services/services_init.h"
 #include "services/services_sandesh.h"
+#include "mac_learning/mac_learning_proto.h"
 
 ArpHandler::ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)
@@ -381,16 +382,24 @@ void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const Mac
                                       const Ip4Address &tpa) {
     Ip4Address service_ip = vm_interface->GetServiceIp(data->ip()).to_v4();
     bool aap_ip = vm_interface->MatchAapIp(data->ip(), data->plen());
+    MacAddress mac = agent()->mac_learning_proto()->
+                        GetMacIpLearningTable()->GetPairedMacAddress(
+                                vm_interface->vrf()->vrf_id(),
+                                data->ip());
+
+    if (mac == MacAddress()) {
+        mac = vm_interface->vm_mac();
+    } 
 
     if (data->plen() == Address::kMaxV4PrefixLen) {
         SendArp(ARPOP_REQUEST, smac, service_ip.to_ulong(), MacAddress(),
-                ((aap_ip) ? MacAddress::BroadcastMac(): vm_interface->vm_mac()),
+                ((aap_ip) ? MacAddress::BroadcastMac(): mac),
                 data->ip().to_v4().to_ulong(), vm_interface->id(), data->vrf_id());
         agent()->GetArpProto()->IncrementStatsVmArpReq();
     } else {
-        if (!tpa.is_unspecified()) {
+       if (!tpa.is_unspecified()) {
             SendArp(ARPOP_REQUEST, smac, service_ip.to_ulong(),
-                    MacAddress(), ((aap_ip) ? MacAddress::BroadcastMac(): vm_interface->vm_mac()),
+                    MacAddress(), ((aap_ip) ? MacAddress::BroadcastMac(): mac),
                     tpa.to_ulong(), vm_interface->id(), data->vrf_id());
             agent()->GetArpProto()->IncrementStatsVmArpReq();
             return;
@@ -418,7 +427,7 @@ void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const Mac
         for (uint32_t i = 1; i < num_addresses; ++i) {
             uint32_t addr = base_addr + i;
             SendArp(ARPOP_REQUEST, smac, service_ip.to_ulong(),
-                    MacAddress(), ((aap_ip) ? MacAddress::BroadcastMac(): vm_interface->vm_mac()),
+                    MacAddress(), ((aap_ip) ? MacAddress::BroadcastMac(): mac),
                     addr, vm_interface->id(), data->vrf_id());
             agent()->GetArpProto()->IncrementStatsVmArpReq();
         }

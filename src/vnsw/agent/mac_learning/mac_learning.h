@@ -74,9 +74,75 @@ class MacLearningPartition;
 class MacAgingTable;
 class MacAgingPartition;
 
+class MacPbbLearningEntry : public MacLearningEntry {
+public:
+    typedef std::vector<TokenPtr> TokenList;
+    MacPbbLearningEntry(MacLearningPartition *table, uint32_t vrf_id,
+                     const MacAddress &mac, uint32_t index);
+    virtual ~MacPbbLearningEntry() {}
+    virtual bool Add() = 0;
+    virtual void Delete();
+    virtual void Resync();
+    virtual void AddWithToken();
+
+    MacLearningPartition* mac_learning_table() const {
+        return mac_learning_table_;
+    }
+
+    uint32_t index() const {
+        return index_;
+    }
+
+    const MacAddress& mac() const {
+        return key_.mac_;
+    }
+
+    uint32_t vrf_id() {
+        return key_.vrf_id_;
+    }
+
+    const MacLearningKey& key() const {
+        return key_;
+    }
+
+    void AddToken(TokenPtr ptr) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        list_.push_back(ptr);
+    }
+
+    void ReleaseToken() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        list_.clear();
+    }
+
+    void CopyToken(MacLearningEntry *entry) {
+        MacPbbLearningEntry *entry1 =
+            dynamic_cast<MacPbbLearningEntry *>(entry);
+        tbb::mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock2(entry1->mutex_);
+        list_ = entry1->list_;
+        entry1->list_.clear();
+    }
+
+    bool HasTokens() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return list_.size();
+    }
+    void EnqueueToTable(MacLearningEntryRequestPtr req);
+
+protected:
+    MacLearningPartition *mac_learning_table_;
+    MacLearningKey key_;
+    uint32_t index_;
+    uint32_t ethernet_tag_;
+    TokenList list_;
+    tbb::mutex mutex_;
+private:
+    DISALLOW_COPY_AND_ASSIGN(MacPbbLearningEntry);
+};
 //Structure used to hold MAC entry learned
 //on local interface
-class MacLearningEntryLocal : public MacLearningEntry {
+class MacLearningEntryLocal : public MacPbbLearningEntry {
 public:
      MacLearningEntryLocal(MacLearningPartition *table, uint32_t vrf_id,
                            const MacAddress &mac, uint32_t index,
@@ -96,7 +162,7 @@ private:
 
 //Structure used to hold MAC entry learned on
 //tunnel packet i.e vxlan scenario for now
-class MacLearningEntryRemote : public MacLearningEntry {
+class MacLearningEntryRemote : public MacPbbLearningEntry {
 public:
     MacLearningEntryRemote(MacLearningPartition *table, uint32_t vrf_id,
                            const MacAddress &mac, uint32_t index,
@@ -115,7 +181,7 @@ private:
 
 //Structure used to hold MAC entry learned on
 //PBB tunnel packet
-class MacLearningEntryPBB : public MacLearningEntry {
+class MacLearningEntryPBB : public MacPbbLearningEntry {
 public:
     MacLearningEntryPBB(MacLearningPartition *table, uint32_t vrf_id,
                         const MacAddress &mac, uint32_t index,

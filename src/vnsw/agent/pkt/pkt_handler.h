@@ -137,6 +137,7 @@ struct AgentHdr {
         TRAP_ROUTER_ALERT = AGENT_TRAP_ROUTER_ALERT,
         TRAP_MAC_LEARN = AGENT_TRAP_MAC_LEARN,
         TRAP_MAC_MOVE = AGENT_TRAP_MAC_MOVE,
+        TRAP_MAC_IP_LEARNING = AGENT_TRAP_MAC_IP_LEARNING,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -232,6 +233,7 @@ public:
         MAC_LEARNING,
         BFD,
         IGMP,
+        MAC_IP_LEARNING,
         MAX_MODULES
     };
 

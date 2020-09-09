@@ -299,6 +299,16 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
         ret = true;
     }
 
+    if (mac_ip_learning_enable_ != data->mac_ip_learning_enable_) {
+        mac_ip_learning_enable_ = data->mac_ip_learning_enable_;
+        ret = true;
+    }
+
+    if (health_check_uuid_ != data->health_check_uuid_) {
+        health_check_uuid_ = data->health_check_uuid_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -971,6 +981,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool underlay_forwarding = false;
     bool vxlan_routing_vn = false;
     uuid logical_router_uuid = nil_uuid();
+    uuid health_check_uuid = nil_uuid();
 
     // Find link with ACL / VRF adjacency
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -1095,6 +1106,18 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                            mp_uuid);
             mp_list.push_back(mp_uuid);
         }
+
+        if (adj_node->table() ==
+                            agent()->cfg()->cfg_health_check_table()) {
+            autogen::ServiceHealthCheck *hc =
+                static_cast<autogen::ServiceHealthCheck *> (adj_node->GetObject());
+            assert(hc);
+            if (hc->properties().health_check_type.find("vn-ip-list") == std::string::npos)
+                continue;
+            autogen::IdPermsType id_perms = hc->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       health_check_uuid);
+        }
     }
 
     uuid mirror_acl_uuid = agent()->mirror_cfg_table()->GetMirrorUuid(node->name());
@@ -1109,6 +1132,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool layer2_control_word = cfg->layer2_control_word();
     bool cfg_igmp_enable = cfg->igmp_enable();
     uint32_t vn_max_flows = cfg->properties().max_flows;
+    bool mac_ip_learning_enable = cfg->mac_ip_learning_enable();
     Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &enable_rpf, &flood_unknown_unicast,
                        &forwarding_mode, &mirror_destination);
@@ -1121,7 +1145,8 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       pbb_evpn_enable, layer2_control_word, slo_list,
                       underlay_forwarding, vxlan_routing_vn,
                       logical_router_uuid, mp_list, cfg_igmp_enable,
-                      vn_max_flows);
+                      vn_max_flows, mac_ip_learning_enable,
+                      health_check_uuid);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1181,7 +1206,8 @@ void VnTable::AddVn(const boost::uuids::uuid &vn_uuid, const string &name,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
                               pbb_evpn_enable, layer2_control_word, empty_list,
-                              false, false, nil_uuid(), empty_list, false, 0);
+                              false, false, nil_uuid(), empty_list, false, 0,
+                              false, nil_uuid());
 
     req.data.reset(data);
     Enqueue(&req);
@@ -1297,6 +1323,9 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     data.set_mp_list(mp_list);
     data.set_cfg_igmp_enable(cfg_igmp_enable());
     data.set_max_flows(vn_max_flows());
+    data.set_mac_ip_learning_enable(mac_ip_learning_enable());
+    data.set_health_check_uuid(to_string(health_check_uuid()));
+
     list.push_back(data);
     return true;
 }

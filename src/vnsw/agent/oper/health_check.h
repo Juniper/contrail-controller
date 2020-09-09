@@ -52,13 +52,18 @@ struct HealthCheckServiceData : public AgentOperDBData {
                            const std::string &expected_codes,
                            uint32_t delay, uint64_t delay_usecs,
                            uint32_t timeout, uint64_t timeout_usecs,
-                           uint32_t max_retries, IFMapNode *ifmap_node) :
+                           uint32_t max_retries,
+                           bool is_all_ip,
+                           std::set<IpAddress> cfg_target_ip_list,
+                           IFMapNode *ifmap_node) :
         AgentOperDBData(agent, ifmap_node), dest_ip_(dest_ip), name_(name),
         monitor_type_(monitor_type), service_type_(stype), ip_proto_(ip_proto),
         http_method_(http_method), url_path_(url_path), url_port_(url_port),
         expected_codes_(expected_codes), delay_(delay),
         delay_usecs_(delay_usecs), timeout_(timeout),
-        timeout_usecs_(timeout_usecs), max_retries_(max_retries) {
+        timeout_usecs_(timeout_usecs), max_retries_(max_retries),
+        is_all_ip_(is_all_ip),
+        new_target_ip_list_(cfg_target_ip_list) {
     }
     virtual ~HealthCheckServiceData() {}
 
@@ -78,6 +83,9 @@ struct HealthCheckServiceData : public AgentOperDBData {
     uint64_t timeout_usecs_;
     uint32_t max_retries_;
     std::set<boost::uuids::uuid> intf_uuid_list_;
+    std::set<boost::uuids::uuid> vn_uuid_list_;
+    bool is_all_ip_;
+    std::set<IpAddress> new_target_ip_list_;
 };
 
 struct HealthCheckInstanceEvent {
@@ -130,7 +138,7 @@ public:
     // Callback to enqueue stop task
     void StopTask(HealthCheckService *service);
 
-    virtual void ResyncInterface(const HealthCheckService *service) const;
+    virtual void ResyncTarget(const HealthCheckService *service) const;
     void set_service(HealthCheckService *service);
     std::string to_string();
     bool active() {return active_;}
@@ -219,7 +227,8 @@ public:
     virtual bool RunInstanceTask();
     virtual bool StopInstanceTask();
     virtual bool UpdateInstanceTask();
-    virtual void ResyncInterface(const HealthCheckService *service) const;
+    virtual void ResyncTarget(const HealthCheckService *service) const;
+    void EnqueueMacIpLearningHCStatus(const HealthCheckService *service) const;
 
     bool is_multi_hop() const { return multi_hop_; }
 
@@ -237,6 +246,28 @@ private:
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceService);
 };
 
+class HealthCheckMacIpInstanceService : public HealthCheckInstanceService {
+public:
+    HealthCheckMacIpInstanceService(HealthCheckService *service,
+                               MetaDataIpAllocator *allocator,
+                               VmInterface *intf, VmInterface *other_intf,
+                               bool ignore_status_event, bool multi_hop);
+    virtual ~HealthCheckMacIpInstanceService();
+
+    virtual void ResyncTarget(const HealthCheckService *service) const;
+    virtual void set_destination_mac(const MacAddress &mac) {
+        mac_ = mac;
+    }
+    virtual const MacAddress destination_mac() const { return mac_; }
+
+private:
+    friend class HealthCheckTable;
+
+    MacAddress mac_;
+
+    DISALLOW_COPY_AND_ASSIGN(HealthCheckMacIpInstanceService);
+};
+
 class HealthCheckService : AgentRefCount<HealthCheckService>,
                            public AgentOperDBEntry {
 public:
@@ -248,6 +279,7 @@ public:
         MAX_HEALTH_CHECK_SERVICES
     };
     typedef std::map<boost::uuids::uuid, HealthCheckInstanceBase *> InstanceList;
+    typedef std::map<IpAddress, HealthCheckInstanceBase *> IpInstanceList;
 
     HealthCheckService(const HealthCheckTable *table,
                        const boost::uuids::uuid &id);
@@ -268,10 +300,12 @@ public:
 
     HealthCheckInstanceBase *StartHealthCheckService(
                              VmInterface *intrface, const IpAddress &source_ip,
-                             const IpAddress &destination_ip) {
+                             const IpAddress &destination_ip,
+                             const MacAddress destination_mac = MacAddress()) {
         // health check status event is ignored
         return StartHealthCheckService(intrface, NULL, source_ip,
-                                       destination_ip, true, true);
+                                       destination_ip, destination_mac,
+                                       true, true);
     }
     void StopHealthCheckService(HealthCheckInstanceBase *instance);
 
@@ -295,10 +329,26 @@ public:
     const std::string &monitor_type() const { return monitor_type_; }
     const HealthCheckTable *table() const { return table_; }
     bool IsSegmentHealthCheckService() const;
+    bool IsVnIpListHealthCheckService() const;
     HealthCheckType health_check_type() const {
         return health_check_type_;
     }
+    const std::set<boost::uuids::uuid> &GetVnUuidList() {
+        return vn_uuid_list_;
+    }
+    const std::set<IpAddress> &GetTargetIpList() {
+        return target_ip_list_;
+    }
+    bool IsTargetIpPresent(IpAddress &ip) {
+        
+        if (is_hc_enable_all_ip_ ||
+                target_ip_list_.find(ip) != target_ip_list_.end()) {
+            return true;
+        }
+        return false;
+    }
     IpAddress dest_ip() const { return dest_ip_;}
+    bool IsHcEnableAllTargetIp() const {return is_hc_enable_all_ip_;}
 
 private:
     friend struct HealthCheckInstanceEvent;
@@ -308,6 +358,7 @@ private:
                                                      VmInterface *paired_vmi,
                                                      const IpAddress &source_ip,
                                                      const IpAddress &destination_ip,
+                                                     const MacAddress &destination_mac,
                                                      bool ignore_status_event,
                                                      bool multi_hop);
     HealthCheckType GetHealthCheckType() const;
@@ -335,6 +386,11 @@ private:
     // List of interfaces associated to this HealthCheck Service
     InstanceList intf_list_;
     HealthCheckType health_check_type_;
+
+    std::set<boost::uuids::uuid> vn_uuid_list_;
+    std::set<IpAddress> target_ip_list_;
+    bool is_hc_enable_all_ip_;
+
     DISALLOW_COPY_AND_ASSIGN(HealthCheckService);
 };
 

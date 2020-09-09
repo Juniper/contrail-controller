@@ -23,6 +23,26 @@ do {                                                                        \
     Bfd##obj::TraceMsg(BfdTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
 } while (false)
 
+class SessionsKey {
+public:
+    SessionsKey(uint32_t id, IpAddress ip) :
+        id_(id), ip_(ip) {
+    }
+
+    ~SessionsKey () { }
+
+    bool operator<(const SessionsKey &right) const {
+        if ( id_ == right.id_ ) {
+            return ip_ < right.ip_;
+        } else {
+            return id_ < right.id_;
+        }
+    }
+
+    uint32_t id_;
+    IpAddress ip_;
+};
+
 class BfdProto : public Proto {
 public:
     static const uint32_t kMultiplier = 2;
@@ -76,8 +96,8 @@ public:
     bool BfdHealthCheckSessionControl(
                HealthCheckTable::HealthCheckServiceAction action,
                HealthCheckInstanceService *service);
-    bool GetSourceAddress(uint32_t interface, IpAddress &address);
-    void NotifyHealthCheckInstanceService(uint32_t interface, std::string &data);
+    void NotifyHealthCheckInstanceService(uint32_t interface,
+                IpAddress address, std::string &data);
     BfdCommunicator &bfd_communicator() { return communicator_; }
 
     void IncrementSent() { stats_.bfd_sent++; }
@@ -88,8 +108,10 @@ public:
 private:
     friend BfdCommunicator;
     // map from interface id to health check instance service
-    typedef std::map<uint32_t, HealthCheckInstanceService *> Sessions;
-    typedef std::pair<uint32_t, HealthCheckInstanceService *> SessionsPair;
+    // typedef std::map<uint32_t, HealthCheckInstanceService *> Sessions;
+    typedef std::map<SessionsKey, HealthCheckInstanceService *> Sessions;
+    // typedef std::pair<uint32_t, HealthCheckInstanceService *> SessionsPair;
+    typedef std::pair<SessionsKey, HealthCheckInstanceService *> SessionsPair;
 
     tbb::mutex mutex_; // lock for sessions_ access between health check & BFD
     boost::shared_ptr<PktInfo> msg_;

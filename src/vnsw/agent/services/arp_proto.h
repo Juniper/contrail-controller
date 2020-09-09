@@ -225,8 +225,10 @@ struct InterfaceArpPathPreferenceInfo {
     uint32_t arp_failure_count;
     uint32_t arp_send_count;
     uint32_t arp_retry_count; //used by UT
+    uint32_t arp_try_count;
     InterfaceArpPathPreferenceInfo() : prev_responded_ip(0), arp_reply_count(0),
-        arp_failure_count(0), arp_send_count(0), arp_retry_count(0) {
+        arp_failure_count(0), arp_send_count(0), arp_retry_count(0),
+        arp_try_count(0) {
     }
 };
 //Stucture used to retry ARP queries when a particular route is in
@@ -236,6 +238,7 @@ public:
     static const uint32_t kMaxRetry = 30 * 5; //retries upto 5 minutes,
                                               //30 tries/per minutes
     static const uint32_t kTimeout = 2000;
+    static const uint32_t kArpTryCount = 9;
     typedef std::map<uint32_t, InterfaceArpPathPreferenceInfo>
         WaitForTrafficIntfMap;
     typedef std::pair<uint32_t, InterfaceArpPathPreferenceInfo>
@@ -258,6 +261,8 @@ public:
 
     const IpAddress& ip() const { return vm_ip_; }
     uint8_t plen() const { return plen_; }
+    void set_mac(MacAddress mac) { mac_ = mac; }
+    MacAddress mac(void) const { return mac_; }
     uint32_t vrf_id() const { return vrf_id_; }
     void HandleArpReply(Ip4Address sip, uint32_t itf);
 
@@ -301,6 +306,7 @@ private:
     uint32_t vrf_id_;
     IpAddress vm_ip_;
     uint8_t plen_;
+    MacAddress mac_;
     WaitForTrafficIntfMap l3_wait_for_traffic_map_;
     WaitForTrafficIntfMap evpn_wait_for_traffic_map_;
     tbb::atomic<int> refcount_;
@@ -376,6 +382,7 @@ public:
     ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id,
                IpAddress vm_ip_addr, uint8_t plen);
     ~ArpDBState();
+    void UpdateMac(const InterfaceNH *nh);
     void Update(const AgentRoute *route);
     void UpdateArpRoutes(const InetUnicastRouteEntry *route);
     void Delete(const InetUnicastRouteEntry *rt);

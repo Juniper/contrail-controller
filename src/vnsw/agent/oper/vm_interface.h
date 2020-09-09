@@ -115,6 +115,7 @@ class OperDhcpOptions;
 class PathPreference;
 class MetaDataIp;
 class HealthCheckInstanceBase;
+struct VmInterfaceLearntMacIpData;
 
 class LocalVmPortPeer;
 class VmInterface;
@@ -942,6 +943,61 @@ public:
         bool is_ipv4_;
         InstanceIpSet list_;
     };
+    struct LearntMacIpList;
+    struct LearntMacIp : ListEntry, VmInterfaceState {
+        LearntMacIp();
+        LearntMacIp(const LearntMacIp &rhs);
+        LearntMacIp(const IpAddress &ip, const MacAddress &mac);
+        ~LearntMacIp();
+        bool operator == (const LearntMacIp &rhs) const;
+        bool operator() (const LearntMacIp &lhs,
+                         const LearntMacIp &rhs) const;
+        LearntMacIp operator = (const LearntMacIp &rhs) const {
+            LearntMacIp ret(rhs);
+            return ret;
+        }
+        bool IsLess(const LearntMacIp *rhs) const;
+
+        void Update(const Agent *agent, VmInterface *vmi,
+                    const VmInterface::InstanceIpList *list) const;
+        VmInterfaceState::Op GetOpL3(const Agent *agent,
+                                     const VmInterface *vmi) const;
+        bool AddL3(const Agent *agent, VmInterface *vmi) const;
+        bool DeleteL3(const Agent *agent, VmInterface *vmi) const;
+        VmInterfaceState::Op GetOpL2(const Agent *agent,
+                                     const VmInterface *vmi) const;
+        bool AddL2(const Agent *agent, VmInterface *vmi) const;
+        bool DeleteL2(const Agent *agent, VmInterface *vmi) const;
+        void Copy(const Agent *agent, const VmInterface *vmi) const;
+
+        const IpAddress ip_;
+        const MacAddress mac_;
+        mutable const VrfEntry *vrf_;
+        mutable uint32_t ethernet_tag_;
+        mutable NextHopRef l2_nh_policy_;
+        mutable NextHopRef l2_nh_no_policy_;
+        mutable uint32_t l2_label_;
+        mutable NextHopRef l3_nh_policy_;
+        mutable NextHopRef l3_nh_no_policy_;
+        mutable uint32_t l3_label_;
+    };
+    typedef std::set<LearntMacIp, LearntMacIp> LearntMacIpSet;
+
+    struct LearntMacIpList : public List {
+        LearntMacIpList() :
+            List(), list_() {
+        }
+        ~LearntMacIpList() { }
+        void Insert(const LearntMacIp *rhs);
+        void Update(const LearntMacIp *lhs, const LearntMacIp *rhs);
+        void Remove(const LearntMacIp *rhs);
+
+        virtual bool UpdateList(const Agent *agent, VmInterface *vmi,
+                                VmInterfaceState::Op l2_force_op,
+                                VmInterfaceState::Op l3_force_op);
+
+        LearntMacIpSet list_;
+    };
 
     typedef std::map<std::string, FatFlowIgnoreAddressType> IgnoreAddressMap;
 
@@ -1272,6 +1328,7 @@ public:
 
     bool cfg_igmp_enable() const { return cfg_igmp_enable_; }
     bool igmp_enabled() const { return igmp_enabled_; }
+    bool mac_ip_learning_enable() const { return mac_ip_learning_enable_; }
     uint32_t max_flows() const { return max_flows_; }
     void set_max_flows( uint32_t val) { max_flows_ = val;}
     ProxyArpMode proxy_arp_mode() const { return proxy_arp_mode_; }
@@ -1351,6 +1408,9 @@ public:
 
     const FatFlowList &fat_flow_list() const {
         return fat_flow_list_;
+    }
+    const LearntMacIpList &learnt_mac_ip_list() const {
+        return learnt_mac_ip_list_;
     }
     bool IsFatFlowPortBased(uint8_t protocol, uint16_t port,
                             FatFlowIgnoreAddressType *ignore_addr) const;
@@ -1521,6 +1581,7 @@ private:
     friend struct VmInterfaceNewFlowDropData;
     friend struct ResolveRouteState;
     friend struct VmiRouteState;
+    friend struct VmInterfaceLearntMacIpData;
 
     virtual void ObtainOsSpecificParams(const std::string &name);
 
@@ -1592,6 +1653,7 @@ private:
     }
 
     void SetInterfacesDropNewFlows(bool drop_new_flows) const;
+    bool copyMacIpData(const VmInterfaceLearntMacIpData *data);
 
 private:
     static IgnoreAddressMap fatflow_ignore_addr_map_;
@@ -1647,6 +1709,7 @@ private:
     // IGMP Configuration
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
+    bool mac_ip_learning_enable_;
     // Max flows for VMI
     uint32_t max_flows_;
     mutable tbb::atomic<int> flow_count_;
@@ -1673,6 +1736,7 @@ private:
     BridgeDomainList bridge_domain_list_;
     VrfAssignRuleList vrf_assign_rule_list_;
     VmiReceiveRouteList receive_route_list_;
+    LearntMacIpList learnt_mac_ip_list_;
 
     // Peer for interface routes
     std::auto_ptr<LocalVmPortPeer> peer_;
@@ -1862,6 +1926,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     // IGMP Configuration
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
+    bool mac_ip_learning_enable_;
     uint32_t max_flows_;
 
     VmInterface::SecurityGroupEntryList sg_list_;
@@ -1993,5 +2058,14 @@ struct VmInterfaceIfNameData : public VmInterfaceData {
                           bool *force_update) const;
 
     std::string ifname_;
+};
+struct VmInterfaceLearntMacIpData : public VmInterfaceData {
+    VmInterfaceLearntMacIpData();
+    virtual ~VmInterfaceLearntMacIpData();
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *force_update) const;
+    bool is_add;
+    VmInterface::LearntMacIpList mac_ip_list_;
+    
 };
 #endif // vnsw_agent_vm_interface_hpp

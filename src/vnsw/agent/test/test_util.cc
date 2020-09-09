@@ -192,6 +192,7 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("bgp-as-a-service", "control-node-zone",
                       "bgpaas-control-node-zone");
     AddLinkToMetadata("bgp-as-a-service", "service-health-check");
+    AddLinkToMetadata("virtual-network", "service-health-check");
     AddLinkToMetadata("virtual-network", "qos-config");
     AddLinkToMetadata("virtual-machine-interface", "qos-config");
     AddLinkToMetadata("global-qos-config", "qos-config");
@@ -3319,6 +3320,60 @@ void AddHealthCheckService(const char *name, int id,
     AddNode("service-health-check", name, id, buf);
 }
 
+void AddVnHealthCheckService(const char *name, int id,
+                            uint32_t delay, uint32_t timeout,
+                            uint32_t max_retries,
+                            const bool target_ip_all,
+                            const struct IpStr *target_ip_list,
+                            const int target_ip_count) {
+
+    char buf[1024];
+    char ip_list[512];
+    int i = 0, ret = 0;
+
+    while (i < target_ip_count) {
+        ret += snprintf(ip_list + ret, 1024 - ret,
+                            "<ip-address>%s</ip-address>",
+                            target_ip_list[i].ipaddr);
+        i++;
+    }
+    ip_list[ret+1] = '\0';
+
+    if (target_ip_count == 0) {
+        sprintf(buf, "<service-health-check-properties>"
+                 "    <enabled>true</enabled>"
+                 "    <health-check-type>%s</health-check-type>"
+                 "    <monitor-type>%s</monitor-type>"
+                 "    <delay>%d</delay>"
+                 "    <timeout>%d</timeout>"
+                 "    <max-retries>%d</max-retries>"
+                 "    <http-method></http-method>"
+                 "    <url-path>%s</url-path>"
+                 "    <expected-codes></expected-codes>"
+                 "    <target-ip-all>%s</target-ip-all>"
+                 "</service-health-check-properties>", "vn-ip-list", "BFD",
+                 delay, timeout, max_retries, "http://local-ip/",
+                 target_ip_all ? "true" : "false");
+    } else {
+        sprintf(buf, "<service-health-check-properties>"
+                 "    <enabled>true</enabled>"
+                 "    <health-check-type>%s</health-check-type>"
+                 "    <monitor-type>%s</monitor-type>"
+                 "    <delay>%d</delay>"
+                 "    <timeout>%d</timeout>"
+                 "    <max-retries>%d</max-retries>"
+                 "    <http-method></http-method>"
+                 "    <url-path>%s</url-path>"
+                 "    <expected-codes></expected-codes>"
+                 "    <target-ip-all>%s</target-ip-all>"
+                 "    <target-ip-list>%s</target-ip-list>"
+                 "</service-health-check-properties>", "vn-ip-list", "BFD",
+                 delay, timeout, max_retries, "http://local-ip/",
+                 target_ip_all ? "true" : "false", ip_list);
+    }
+    AddNode("service-health-check", name, id, buf);
+}
+
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
     uint8_t dummy_dmac[6], dummy_smac[6];
     memset(dummy_dmac, 0, sizeof(dummy_dmac));
@@ -5385,6 +5440,40 @@ void AddAapWithDisablePolicy(std::string intf_name, int intf_id,
     AddNode("virtual-machine-interface", intf_name.c_str(), intf_id, cbuf);
     client->WaitForIdle();
 }
+
+void DisableInterfacePolicy(std::string intf_name, int intf_id,
+        bool disable_policy) {
+    std::ostringstream buf;
+    buf << "<virtual-machine-interface-disable-policy>";
+    if (disable_policy) {
+        buf << "true";
+    } else {
+        buf << "false";
+    }
+    buf << "</virtual-machine-interface-disable-policy>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-machine-interface", intf_name.c_str(), intf_id, cbuf);
+    client->WaitForIdle();
+}
+void ModifyInterfaceAdminState(std::string intf_name, int intf_id,
+        bool enable) {
+    std::ostringstream buf;
+    buf << "<id-perms>";
+    buf << "<enable>";
+    if (enable) {
+        buf << "true";
+    } else {
+        buf << "false";
+    }
+    buf << "</enable>";
+    buf << "</id-perms>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-machine-interface", intf_name.c_str(), intf_id, cbuf);
+    client->WaitForIdle();
+}
+
 
 void AddAap(std::string intf_name, int intf_id,
             std::vector<Ip4Address> aap_list) {

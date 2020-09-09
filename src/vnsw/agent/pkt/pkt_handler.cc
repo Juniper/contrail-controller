@@ -254,7 +254,8 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 
 
     if (hdr.cmd == AgentHdr::TRAP_MAC_MOVE ||
-        hdr.cmd == AgentHdr::TRAP_MAC_LEARN) {
+        hdr.cmd == AgentHdr::TRAP_MAC_LEARN ||
+        hdr.cmd == AgentHdr::TRAP_MAC_IP_LEARNING) {
         return MAC_LEARNING;
     }
 

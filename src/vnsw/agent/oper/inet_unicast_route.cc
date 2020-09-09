@@ -561,6 +561,41 @@ bool InetUnicastRouteEntry::UpdateRouteFlags(bool ipam_subnet_route,
 
     return ret;
 }
+AgentPath *InetUnicastRouteEntry::FindEvpnPathUsingKeyData
+(const AgentRouteKey *key, const AgentRouteData *data) const {
+    const Peer *peer = key->peer();
+    const InetEvpnPeer *evpn_peer = dynamic_cast<const InetEvpnPeer*>(peer);
+    assert(evpn_peer != NULL);
+
+    Route::PathList::const_iterator it;
+    for (it = GetPathList().begin(); it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() != key->peer())
+            continue;
+
+        //Handle mac route added via evpn route.
+        const InetEvpnRoutePath *evpn_path =
+            dynamic_cast<const InetEvpnRoutePath *>(path);
+        const InetEvpnRouteData *evpn_data =
+            dynamic_cast<const InetEvpnRouteData *>(data);
+        assert(evpn_path != NULL);
+        assert(evpn_data != NULL);
+        if (evpn_path->MacAddr() != evpn_data->MacAddr())
+            continue;
+        return const_cast<AgentPath *>(path);
+    }
+    return NULL;
+}
+AgentPath *InetUnicastRouteEntry::FindPathUsingKeyData
+(const AgentRouteKey *key, const AgentRouteData *data) const {
+    const Peer *peer = key->peer();
+    const InetEvpnPeer *inet_evpn_peer =
+        dynamic_cast<const InetEvpnPeer*>(peer);
+    if (inet_evpn_peer != NULL)
+        return FindEvpnPathUsingKeyData(key, data);
+
+    return FindPath(peer);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // AgentRouteData virtual functions
@@ -673,8 +708,10 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
 }
 
 InetEvpnRoutePath::InetEvpnRoutePath(const Peer *peer,
+                                     const MacAddress& mac,
+                                     const std::string& parent,
                                      AgentRoute *rt) :
-                                     AgentPath(peer, rt) {
+    AgentPath(peer, rt), mac_(mac), parent_(parent) {
 }
 
 const AgentPath *InetEvpnRoutePath::UsablePath() const {
@@ -730,16 +767,46 @@ const NextHop* InetEvpnRoutePath::ComputeNextHop(Agent *agent) const {
 
     return AgentPath::ComputeNextHop(agent);
 }
+bool InetEvpnRoutePath::IsLess(const AgentPath &r_path) const {
+    const InetEvpnRoutePath *r_evpn_path =
+        dynamic_cast<const InetEvpnRoutePath *>(&r_path);
+    if (r_evpn_path != NULL) {
+        if (r_evpn_path->MacAddr() != mac_) {
+            return (mac_ < r_evpn_path->MacAddr());
+        }
+    }
+
+    return peer()->IsLess(r_path.peer());
+}
+InetEvpnRouteData::InetEvpnRouteData(const EvpnRouteEntry *evpn_rt):
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE,
+                 evpn_rt->is_multicast(), 0),
+    mac_(evpn_rt->mac()) {
+    std::stringstream s;
+    s << evpn_rt->ToString();
+    s << " ";
+    parent_ = s.str();
+}
 
 AgentPath *InetEvpnRouteData::CreateAgentPath(const Peer *peer,
                                               AgentRoute *rt) const {
-    return (new InetEvpnRoutePath(peer, rt));
+    return (new InetEvpnRoutePath(peer, mac_, parent_, rt));
 }
 
 bool InetEvpnRouteData::AddChangePathExtended(Agent *agent,
                                               AgentPath *path,
                                               const AgentRoute *route) {
     return dynamic_cast<InetEvpnRoutePath *>(path)->SyncDependantRoute(route);
+}
+
+bool InetEvpnRouteData::CanDeletePath(Agent *agent, AgentPath *path,
+                                        const AgentRoute *rt) const {
+    const InetEvpnRoutePath *evpn_path =
+        dynamic_cast<const InetEvpnRoutePath *>(path);
+    assert(evpn_path != NULL);
+
+
+    return (evpn_path->MacAddr() == MacAddr());
 }
 
 Inet4UnicastInterfaceRoute::Inet4UnicastInterfaceRoute
@@ -1683,7 +1750,7 @@ void InetUnicastAgentRouteTable::AddEvpnRoute(const AgentRoute *route) {
                                           evpn_route->vrf()->GetName(),
                                           ip_addr,
                                           GetHostPlen(ip_addr)));
-    req.data.reset(new InetEvpnRouteData());
+    req.data.reset(new InetEvpnRouteData(evpn_route));
     Process(req);
 }
 
@@ -1700,7 +1767,7 @@ void InetUnicastAgentRouteTable::DeleteEvpnRoute(const AgentRoute *rt) {
                                           evpn_route->vrf()->GetName(),
                                           ip_addr,
                                           GetHostPlen(ip_addr)));
-    req.data.reset();
+    req.data.reset(new InetEvpnRouteData(evpn_route));
     Process(req);
 }
 
@@ -1736,3 +1803,4 @@ void InetUnicastAgentRouteTable::AddEvpnRoutingRoute(const IpAddress &ip_addr,
                                        origin_vn));
     Process(req);
 }
+

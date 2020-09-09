@@ -78,7 +78,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     disable_policy_(false), analyzer_name_(""),
     local_preference_(0), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN),
-    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0), sg_list_(),
+    cfg_igmp_enable_(false), igmp_enabled_(false),
+    mac_ip_learning_enable_(false), max_flows_(0), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
     instance_ipv4_list_(true), instance_ipv6_list_(false),
@@ -493,6 +494,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (igmp_enabled_ != data->igmp_enabled_) {
         igmp_enabled_ = data->igmp_enabled_;
+        ret = true;
+    }
+
+    if (mac_ip_learning_enable_ != data->mac_ip_learning_enable_) {
+        mac_ip_learning_enable_ = data->mac_ip_learning_enable_;
         ret = true;
     }
 
@@ -1224,6 +1230,29 @@ bool VmInterfaceIfNameData::OnResync(const InterfaceTable *table,
     bool ret = false;
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     return ret;
+}
+VmInterfaceLearntMacIpData::VmInterfaceLearntMacIpData() :
+    VmInterfaceData(NULL, NULL, HEALTH_CHECK, Interface::TRANSPORT_INVALID),
+    is_add(true), mac_ip_list_() {
+}
+VmInterfaceLearntMacIpData::~VmInterfaceLearntMacIpData() {}    
+
+bool VmInterface::copyMacIpData(const VmInterfaceLearntMacIpData *data) {
+    LearntMacIpSet::iterator it = data->mac_ip_list_.list_.begin();
+    while (it != data->mac_ip_list_.list_.end()) {
+        if (data->is_add) {
+            learnt_mac_ip_list_.Insert(it.operator->());
+        } else {
+            learnt_mac_ip_list_.Remove(it.operator->());
+        }
+        it++;
+    }
+    return true;
+}
+bool VmInterfaceLearntMacIpData::OnResync(const InterfaceTable *table,
+                                    VmInterface *vmi,
+                                    bool *force_update) const {
+    return vmi->copyMacIpData(this);
 }
 
 // Utility methods to enqueue add/delete requests

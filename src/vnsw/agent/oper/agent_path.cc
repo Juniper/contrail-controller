@@ -923,6 +923,11 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         if (ip_rt) {
             mac = vm_port->GetIpMac(ip_rt->addr(), ip_rt->plen());
         }
+        const EvpnRouteEntry *evpn_rt =
+            dynamic_cast<const EvpnRouteEntry *>(rt);
+        if (evpn_rt && !vm_port->learning_enabled())  {
+            mac = evpn_rt->mac();
+        }
     }
 
     InterfaceNHKey key(intf_.Clone(), policy, flags_, mac);

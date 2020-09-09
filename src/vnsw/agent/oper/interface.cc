@@ -1288,6 +1288,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_si_other_end_vmi(UuidToString(vintf->si_other_end_vmi()));
         data.set_cfg_igmp_enable(vintf->cfg_igmp_enable());
         data.set_igmp_enabled(vintf->igmp_enabled());
+        data.set_mac_ip_learning_enable(vintf->mac_ip_learning_enable());
         data.set_max_flows(vintf->max_flows());
         break;
     }

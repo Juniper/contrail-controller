@@ -123,6 +123,8 @@ public:
     bool ipam_subnet_route() const {return ipam_subnet_route_;}
     bool ipam_host_route() const { return ipam_host_route_; }
     bool proxy_arp() const {return proxy_arp_;}
+    virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
+                                            const AgentRouteData *data) const;
 
 protected:
     friend class InetUnicastAgentRouteTable;
@@ -139,6 +141,8 @@ protected:
     // Specifies if ARP must be force proxied for this route
     bool proxy_arp_;
 private:
+    AgentPath *FindEvpnPathUsingKeyData(const AgentRouteKey *key,
+                                        const AgentRouteData *data) const;
     DISALLOW_COPY_AND_ASSIGN(InetUnicastRouteEntry);
 };
 

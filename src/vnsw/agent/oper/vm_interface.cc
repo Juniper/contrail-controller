@@ -23,7 +23,7 @@
 #include <oper/bridge_domain.h>
 #include <oper/sg.h>
 #include <oper/tag.h>
-
+#include <base/address_util.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
 #include <port_ipc/port_ipc_handler.h>
@@ -61,7 +61,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
     local_preference_(0), oper_dhcp_options_(),
-    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0),
+    cfg_igmp_enable_(false), igmp_enabled_(false),
+    mac_ip_learning_enable_(false), max_flows_(0),
     mac_vm_binding_state_(new MacVmBindingState()),
     nexthop_state_(new NextHopState()),
     vrf_table_label_state_(new VrfTableLabelState()),
@@ -115,7 +116,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent, this),
     local_preference_(0), oper_dhcp_options_(),
-    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0),
+    cfg_igmp_enable_(false), igmp_enabled_(false),
+    mac_ip_learning_enable_(false), max_flows_(0),
     mac_vm_binding_state_(new MacVmBindingState()),
     nexthop_state_(new NextHopState()),
     vrf_table_label_state_(new VrfTableLabelState()),
@@ -432,6 +434,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     allowed_address_pair_list_.UpdateList(agent, this, l2_force_op,
                                           l3_force_op);
     receive_route_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
+    learnt_mac_ip_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
 
     /////////////////////////////////////////////////////////////////////////
     // PHASE-3 Updates follows.
@@ -1621,6 +1624,235 @@ void VmInterface::InstanceIp::Copy(const Agent *agent,
     ethernet_tag_ = vmi->ethernet_tag();
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// MacIp routines. Manages following,
+// - Manages the L3 and L2 routes derived from the instance-ip.
+/////////////////////////////////////////////////////////////////////////////
+void VmInterface::LearntMacIpList::Insert(const LearntMacIp *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::LearntMacIpList::Update(const LearntMacIp *lhs,
+                                         const LearntMacIp *rhs) {
+
+    lhs->set_del_pending(rhs->del_pending());
+}
+
+void VmInterface::LearntMacIpList::Remove(const LearntMacIp *rhs) {
+    LearntMacIpSet::iterator it = list_.find(*rhs);
+    if (it != list_.end()) {
+        it->set_del_pending(true);
+    }
+}
+
+bool VmInterface::LearntMacIpList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    LearntMacIpSet::iterator it = list_.begin();
+    // Apply the instance-ip configured for interface
+    while (it != list_.end()) {
+        LearntMacIpSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
+        if (prev->del_pending()) {
+            list_.erase(prev);
+        }
+    }
+
+    return true;
+}
+
+VmInterface::LearntMacIp::LearntMacIp() :
+    ListEntry(), VmInterfaceState(), ip_(), mac_(),
+            vrf_(NULL), ethernet_tag_(0) {
+}
+
+VmInterface::LearntMacIp::LearntMacIp(const LearntMacIp &rhs) :
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
+    ip_(rhs.ip_), mac_(rhs.mac_),
+    vrf_(NULL), ethernet_tag_(0) {
+}
+
+VmInterface::LearntMacIp::LearntMacIp(const IpAddress &ip_addr,
+                                    const MacAddress &mac) :
+    ListEntry(), VmInterfaceState(), ip_(ip_addr), mac_(mac),
+    vrf_(NULL), ethernet_tag_(0) {
+}
+
+VmInterface::LearntMacIp::~LearntMacIp() {
+}
+
+static bool GetMacIpActiveState(const VmInterface::LearntMacIp *mac_ip,
+                                     const VmInterface *vmi) {
+    // supporting either L2 mode and L2/L3 mode
+    if (!vmi->l2_active()) {
+        return false;
+    }
+    if (mac_ip->ip_.is_v6()) {
+        return vmi->ipv6_active();
+    }
+
+    return vmi->ipv4_active();
+}
+bool VmInterface::LearntMacIp::operator() (const LearntMacIp &lhs,
+                                          const LearntMacIp &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+bool VmInterface::LearntMacIp::IsLess(const LearntMacIp *rhs) const {
+    return ip_ < rhs->ip_;
+}
+
+VmInterfaceState::Op VmInterface::LearntMacIp::GetOpL2
+(const Agent *agent, const VmInterface *vmi) const {
+    if (del_pending() == true)
+        return VmInterfaceState::DEL;
+
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    if (ethernet_tag_ != vmi->ethernet_tag())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::LearntMacIp::AddL2(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+    InterfaceNH::CreateL2VmInterfaceNH(vmi->GetUuid(), mac_,
+                                       vmi->forwarding_vrf()->GetName(),
+                                       vmi->learning_enabled(),
+                                       vmi->etree_leaf(),
+                                       vmi->layer2_control_word(),
+                                       vmi->name());
+
+    InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), vmi->name()),
+                        true, InterfaceNHFlags::BRIDGE, mac_);
+    l2_nh_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key1));
+
+    InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), vmi->name()),
+                        false, InterfaceNHFlags::BRIDGE, mac_);
+    l2_nh_no_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key2));
+
+    // Update L2 mpls label from nh entry
+    if (vmi->policy_enabled()) {
+        l2_label_ = l2_nh_policy_->mpls_label()->label();
+    } else {
+        l2_label_ = l2_nh_no_policy_->mpls_label()->label();
+    }
+
+    vmi->AddL2InterfaceRoute(IpAddress(), mac_, IpAddress());
+    return true;
+}
+
+bool VmInterface::LearntMacIp::DeleteL2(const Agent *agent,
+                                       VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, Ip4Address(0),
+                                mac_);
+    l2_nh_policy_.reset();
+    l2_nh_no_policy_.reset();
+    l2_label_ = MplsTable::kInvalidLabel;
+    InterfaceNH::DeleteL2InterfaceNH(vmi->GetUuid(), mac_,
+                                     vmi->name());
+    return true;
+}
+
+VmInterfaceState::Op VmInterface::LearntMacIp::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    // TODO : Should be check health-check state here?
+    if (GetMacIpActiveState(this, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+    
+    if (ethernet_tag_ != vmi->ethernet_tag())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::LearntMacIp::AddL3(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+    InterfaceNH::CreateL3VmInterfaceNH(vmi->GetUuid(), mac_,
+                                       vmi->forwarding_vrf()->GetName(),
+                                       vmi->learning_enabled(),
+                                       vmi->name());
+    InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), vmi->name()),
+                        true, InterfaceNHFlags::INET4, mac_);
+    l3_nh_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key1));
+
+    InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), vmi->name()),
+                        false, InterfaceNHFlags::INET4, mac_);
+    l3_nh_no_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key2));
+    // Update L3 mpls label from nh entry
+    if (vmi->policy_enabled()) {
+        l3_label_ = l3_nh_policy_->mpls_label()->label();
+    } else {
+        l3_label_ = l3_nh_no_policy_->mpls_label()->label();
+    }
+    std::string vn_name;
+    if (vmi->vn()) {
+        vn_name = vmi->vn()->GetName();
+    }
+    uint32_t plen = 0;
+    if (ip_.is_v4()) {
+        plen = Address::kMaxV4PrefixLen;
+    } else {
+        plen = Address::kMaxV6PrefixLen;
+    }
+
+
+    vmi->AddL2InterfaceRoute(ip_, mac_, IpAddress());
+    vmi->AddRoute(vrf_->GetName(), ip_, plen, vmi->vn()->GetName(), false,
+                  false, false, false, vmi->vm_ip_service_addr(),
+                  Ip4Address(0), CommunityList(), l3_label_,
+                  VmInterface::kInterface);
+    return true;
+}
+
+bool VmInterface::LearntMacIp::DeleteL3(const Agent *agent,
+                                       VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+    uint32_t plen = 0;
+    if (ip_.is_v4()) {
+        plen = Address::kMaxV4PrefixLen;
+    } else {
+        plen = Address::kMaxV6PrefixLen;
+    }
+    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, ip_, mac_);
+    vmi->DeleteRoute(vrf_->GetName(), ip_, plen);
+    InterfaceNH::DeleteL3InterfaceNH(vmi->GetUuid(),
+                    mac_, vmi->name());
+    l3_nh_policy_.reset();
+    l3_nh_no_policy_.reset();
+    return true;
+}
+
+void VmInterface::LearntMacIp::Copy(const Agent *agent,
+                                   const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
+    ethernet_tag_ = vmi->ethernet_tag();
+}
 /////////////////////////////////////////////////////////////////////////////
 // FloatingIp routines
 /////////////////////////////////////////////////////////////////////////////

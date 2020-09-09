@@ -16,16 +16,16 @@
 #include "mac_aging.h"
 #include "vr_bridge.h"
 
-MacLearningEntry::MacLearningEntry(MacLearningPartition *table, uint32_t vrf_id,
+
+MacPbbLearningEntry::MacPbbLearningEntry(MacLearningPartition *table, uint32_t vrf_id,
                                    const MacAddress &mac,
                                    uint32_t index):
-    mac_learning_table_(table), key_(vrf_id, mac), index_(index),
-    deleted_(false) {
+    MacLearningEntry(vrf_id),mac_learning_table_(table), key_(vrf_id, mac), index_(index) {
     vrf_ = table->agent()->vrf_table()->
                FindVrfFromIdIncludingDeletedVrf(key_.vrf_id_);
 }
 
-void MacLearningEntry::Delete() {
+void MacPbbLearningEntry::Delete() {
     deleted_ = true;
     AddToken(mac_learning_table_->agent()->mac_learning_proto()->
              GetToken(MacLearningEntryRequest::DELETE_MAC));
@@ -35,26 +35,29 @@ void MacLearningEntry::Delete() {
                   vrf()->GetName(), mac(), Ip4Address(0), 32, 0, NULL);
 }
 
-void MacLearningEntry::AddWithToken() {
+void MacPbbLearningEntry::AddWithToken() {
     if (Add()) {
         AddToken(mac_learning_table_->agent()->mac_learning_proto()->
                  GetToken(MacLearningEntryRequest::ADD_MAC));
     }
 }
 
-void MacLearningEntry::Resync() {
+void MacPbbLearningEntry::Resync() {
     if (Add()) {
         AddToken(mac_learning_table_->agent()->mac_learning_proto()->
                  GetToken(MacLearningEntryRequest::RESYNC_MAC));
     }
 }
 
+void MacPbbLearningEntry::EnqueueToTable(MacLearningEntryRequestPtr req) {
+        mac_learning_table_->Enqueue(req);
+}
 MacLearningEntryLocal::MacLearningEntryLocal(MacLearningPartition *table,
                                              uint32_t vrf_id,
                                              const MacAddress &mac,
                                              uint32_t index,
                                              InterfaceConstRef intf):
-    MacLearningEntry(table, vrf_id, mac, index), intf_(intf) {
+    MacPbbLearningEntry(table, vrf_id, mac, index), intf_(intf) {
 }
 
 bool MacLearningEntryLocal::Add() {
@@ -95,7 +98,7 @@ MacLearningEntryRemote::MacLearningEntryRemote(MacLearningPartition *table,
                                                const MacAddress &mac,
                                                uint32_t index,
                                                IpAddress remote_ip):
-    MacLearningEntry(table, vrf_id, mac, index), remote_ip_(remote_ip) {
+    MacPbbLearningEntry(table, vrf_id, mac, index), remote_ip_(remote_ip) {
 }
 
 bool MacLearningEntryRemote::Add() {
@@ -107,7 +110,7 @@ MacLearningEntryPBB::MacLearningEntryPBB(MacLearningPartition *table,
                                          const MacAddress &mac,
                                          uint32_t index,
                                          const MacAddress &bmac) :
-    MacLearningEntry(table, vrf_id, mac, index), bmac_(bmac) {
+    MacPbbLearningEntry(table, vrf_id, mac, index), bmac_(bmac) {
 }
 
 bool MacLearningEntryPBB::Add() {
@@ -210,7 +213,11 @@ void MacLearningPartition::EnqueueMgmtReq(MacLearningEntryPtr ptr, bool add) {
 }
 
 void MacLearningPartition::Add(MacLearningEntryPtr ptr) {
-    MacLearningKey key(ptr->vrf_id(), ptr->mac());
+    MacPbbLearningEntry *entry = dynamic_cast<MacPbbLearningEntry *>(ptr.get());
+    if (!entry) {
+        return;
+    }
+    MacLearningKey key(ptr->vrf_id(), entry->mac());
 
     std::pair<MacLearningEntryTable::iterator, bool> it =
         mac_learning_table_.insert(MacLearningEntryPair(key, ptr));
@@ -237,8 +244,11 @@ void MacLearningPartition::Delete(const MacLearningEntryPtr ptr) {
     if (ptr->deleted() == true) {
         return;
     }
-
-    MacLearningKey key(ptr->vrf_id(), ptr->mac());
+    MacPbbLearningEntry *entry = dynamic_cast<MacPbbLearningEntry *>(ptr.get());
+    if (!entry) {
+        return;
+    }
+    MacLearningKey key(ptr->vrf_id(), entry->mac());
     if (mac_learning_table_.find(key) == mac_learning_table_.end()) {
         return;
     }
@@ -252,7 +262,11 @@ void MacLearningPartition::Delete(const MacLearningEntryPtr ptr) {
 }
 
 void MacLearningPartition::Resync(MacLearningEntryPtr ptr) {
-    MacLearningKey key(ptr->vrf_id(), ptr->mac());
+    MacPbbLearningEntry *entry = dynamic_cast<MacPbbLearningEntry *>(ptr.get());
+    if (!entry) {
+        return;
+    }
+    MacLearningKey key(ptr->vrf_id(), entry->mac());
     if (mac_learning_table_.find(key) == mac_learning_table_.end()) {
         return;
     }

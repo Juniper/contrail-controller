@@ -25,7 +25,9 @@ lib_mac_learning = env.Library('mac_learning',
                       'mac_learning_init.cc',
                       'mac_learning_mgmt.cc',
                       'mac_learning_proto.cc',
-                      'mac_learning_proto_handler.cc'
+                      'mac_learning_proto_handler.cc',
+                      'mac_ip_learning.cc',
+                      'mac_ip_learning_proto_handler.cc'
                      ]
                       )
 

@@ -97,7 +97,9 @@ struct VnData : public AgentOperDBData {
            bool underlay_forwarding,
            bool vxlan_routing_vn,
            const boost::uuids::uuid &logical_router_uuid,
-           UuidList mp_list, bool cfg_igmp_enable, uint32_t vn_max_flows) :
+           UuidList mp_list, bool cfg_igmp_enable, uint32_t vn_max_flows,
+           bool mac_ip_learning_enable,
+           const boost::uuids::uuid &health_check_uuid) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -111,7 +113,9 @@ struct VnData : public AgentOperDBData {
         vxlan_routing_vn_(vxlan_routing_vn),
         logical_router_uuid_(logical_router_uuid), mp_list_(mp_list),
         cfg_igmp_enable_(cfg_igmp_enable),
-        vn_max_flows_(vn_max_flows)  {
+        vn_max_flows_(vn_max_flows),
+        mac_ip_learning_enable_(mac_ip_learning_enable),
+        health_check_uuid_(health_check_uuid) {
     };
     virtual ~VnData() { }
 
@@ -140,6 +144,8 @@ struct VnData : public AgentOperDBData {
     UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
+    bool mac_ip_learning_enable_;
+    boost::uuids::uuid health_check_uuid_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -229,6 +235,14 @@ public:
         return cfg_igmp_enable_;
     }
 
+    bool mac_ip_learning_enable() const {
+        return mac_ip_learning_enable_;
+    }
+
+    const boost::uuids::uuid &health_check_uuid() const {
+        return health_check_uuid_;
+    }
+
     uint32_t GetRefCount() const {
         return AgentRefCount<VnEntry>::GetRefCount();
     }
@@ -308,6 +322,8 @@ private:
     UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
+    bool mac_ip_learning_enable_;
+    boost::uuids::uuid health_check_uuid_;
     VrfEntryConstRef lr_vrf_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };

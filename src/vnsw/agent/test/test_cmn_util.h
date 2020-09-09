@@ -339,7 +339,7 @@ void AddVrf(const char *name, int id = 0, bool default_ri = true);
 void AddVrfWithSNat(const char *name, int id, bool default_ri, bool snat);
 void DelVrf(const char *name);
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
-void AddL2L3Vn(const char *name, int id);
+void AddL2L3Vn(const char *name, int id, bool admin_state);
 void AddL2Vn(const char *name, int id);
 void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
@@ -539,6 +539,12 @@ void DelHealthCheckService(const char *name);
 void AddHealthCheckService(const char *name, int id, const char *url_path,
                            const char *monitor_type,
                            const char *service_type = "end-to-end");
+void AddVnHealthCheckService(const char *name, int id,
+                            uint32_t delay, uint32_t timeout,
+                            uint32_t max_retries,
+                            const bool target_ip_all,
+                            const struct IpStr *target_ip_list,
+                            const int target_ip_count);
 
 void VxLanNetworkIdentifierMode(bool config, const char *encap1 = NULL,
                                 const char *encap2 = NULL,
@@ -570,6 +576,10 @@ void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
 void AddAapWithDisablePolicy(std::string intf_name, int intf_id,
                              std::vector<Ip4Address> aap_list,
                              bool disable_policy);
+void DisableInterfacePolicy(std::string intf_name, int intf_id,
+        bool disable_policy);
+void ModifyInterfaceAdminState(std::string intf_name, int intf_id,
+        bool enable);
 void AddAapWithMacAndDisablePolicy(const std::string &intf_name, int intf_id,
                                    Ip4Address ip, const std::string &mac,
                                    bool disable_policy);

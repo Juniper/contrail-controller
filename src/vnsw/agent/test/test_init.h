@@ -123,6 +123,10 @@ struct PortInfo {
     char ip6addr[128];
 };
 
+struct IpStr {
+    char ipaddr[128];
+};
+
 struct FlowIp {
     uint32_t sip;
     uint32_t dip;

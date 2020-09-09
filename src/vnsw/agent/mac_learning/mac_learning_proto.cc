@@ -6,6 +6,8 @@
 #include "mac_learning_proto.h"
 #include "mac_learning_proto_handler.h"
 #include "mac_learning.h"
+#include "mac_ip_learning.h"
+#include "mac_ip_learning_proto_handler.h"
 #include "mac_aging.h"
 
 MacLearningProto::MacLearningProto(Agent *agent, boost::asio::io_service &io):
@@ -21,7 +23,11 @@ MacLearningProto::MacLearningProto(Agent *agent, boost::asio::io_service &io):
 ProtoHandler*
 MacLearningProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io) {
-    return new MacLearningProtoHandler(agent(), info, io);
+    if (info->agent_hdr.cmd == AgentHdr::TRAP_MAC_IP_LEARNING) {
+        return new MacIpLearningProtoHandler(agent(), info, io);
+    } else {
+        return new MacLearningProtoHandler(agent(), info, io);
+    }
 }
 
 uint32_t MacLearningProto::Hash(uint32_t vrf_id, const MacAddress &mac) {
@@ -96,4 +102,8 @@ MacLearningProto::Init() {
         MacLearningPartitionPtr ptr(new MacLearningPartition(agent(), this, i));
         mac_learning_partition_list_.push_back(ptr);
     }
+    mac_ip_learning_tbl_.reset(new MacIpLearningTable(agent(), this));
+}
+MacIpLearningTable* MacLearningProto::GetMacIpLearningTable() {
+        return mac_ip_learning_tbl_.get();
 }

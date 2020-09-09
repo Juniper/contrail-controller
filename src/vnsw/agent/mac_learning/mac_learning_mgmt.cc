@@ -11,9 +11,11 @@
 #include "mac_learning_proto_handler.h"
 #include "mac_learning.h"
 #include "mac_learning_mgmt.h"
+#include "mac_ip_learning.h"
 
 MacLearningMgmtNode::MacLearningMgmtNode(MacLearningEntryPtr ptr):
-    mac_entry_(ptr), intf_(this), vrf_(this), rt_(this) {
+    mac_entry_(ptr), intf_(this), vrf_(this), rt_(this), vn_(this),
+           hc_service_(this) {
 }
 
 MacLearningMgmtNode::~MacLearningMgmtNode() {
@@ -34,6 +36,18 @@ MacLearningMgmtNode::~MacLearningMgmtNode() {
     if (entry) {
         entry->tree()->TryDelete(entry);
     }
+    
+    entry = vn_.get();
+    vn_.reset(NULL);
+    if (entry) {
+        entry->tree()->TryDelete(entry);
+    }
+    
+    entry = hc_service_.get();
+    hc_service_.reset(NULL);
+    if (entry) {
+        entry->tree()->TryDelete(entry);
+    }
 }
 
 void MacLearningMgmtNode::UpdateRef(MacLearningMgmtManager *mgr) {
@@ -51,6 +65,14 @@ void MacLearningMgmtNode::UpdateRef(MacLearningMgmtManager *mgr) {
         rt_.reset(mgr->Locate(pbb_mac->vrf()->bmac_vrf_name(),
                               pbb_mac->bmac()));
     }
+    MacIpLearningEntry *mac_ip_entry =
+        dynamic_cast<MacIpLearningEntry *>(mac_entry_.get());
+    if (mac_ip_entry != NULL) {
+        intf_.reset(mgr->Locate(mac_ip_entry->intf()));
+        vn_.reset(mgr->Locate(mac_ip_entry->Vn()));
+        hc_service_.reset(mgr->Locate(mac_ip_entry->HcService()));
+    }
+
 }
 
 MacLearningMgmtDBEntry::MacLearningMgmtDBEntry(Type type, const DBEntry *entry):
@@ -66,7 +88,7 @@ void MacLearningMgmtDBEntry::Change() {
                                            MacLearningEntryRequest::RESYNC_MAC,
                                            ptr->mac_learning_entry()));
 
-        ptr->mac_learning_entry()->mac_learning_table()->Enqueue(req_ptr);
+        ptr->mac_learning_entry()->EnqueueToTable(req_ptr);
     }
 }
 
@@ -80,7 +102,7 @@ void MacLearningMgmtDBEntry::Delete(bool set_deleted) {
         MacLearningEntryRequestPtr req_ptr(new MacLearningEntryRequest(
                                            MacLearningEntryRequest::DELETE_MAC,
                                            ptr->mac_learning_entry()));
-        ptr->mac_learning_entry()->mac_learning_table()->Enqueue(req_ptr);
+        ptr->mac_learning_entry()->EnqueueToTable(req_ptr);
     }
 }
 
@@ -108,6 +130,15 @@ MacLearningMgmtIntfEntry::MacLearningMgmtIntfEntry(const Interface *intf) :
 
 MacLearningMgmtVrfEntry::MacLearningMgmtVrfEntry(const VrfEntry *vrf) :
     MacLearningMgmtDBEntry(VRF, vrf) {
+}
+
+MacLearningMgmtVnEntry::MacLearningMgmtVnEntry(const VnEntry *vn) :
+    MacLearningMgmtDBEntry(VN, vn) {
+}
+
+MacLearningMgmtHcServiceEntry::MacLearningMgmtHcServiceEntry(
+                    const HealthCheckService *hc) :
+    MacLearningMgmtDBEntry(HC_SERVICE, hc) {
 }
 
 MacLearningMgmtDBTree::MacLearningMgmtDBTree(MacLearningMgmtManager *mgr) :
@@ -200,13 +231,15 @@ void MacLearningMgmtDBTree::TryDelete(MacLearningMgmtDBEntry *e) {
 
 void
 MacLearningMgmtManager::AddMacLearningEntry(MacLearningMgmtRequestPtr ptr) {
+    MacPbbLearningEntry *entry =
+        dynamic_cast<MacPbbLearningEntry *>(ptr->mac_learning_entry().get());
     MacLearningNodeTree::iterator it =
-        mac_learning_node_tree_.find(ptr->mac_learning_entry()->key());
+        mac_learning_node_tree_.find(entry->key());
     if (it == mac_learning_node_tree_.end()) {
         MacLearningMgmtNodePtr node(new MacLearningMgmtNode(
                                              ptr->mac_learning_entry()));
         node->UpdateRef(this);
-        MacLearningNodePair pair(ptr->mac_learning_entry()->key(), node);
+        MacLearningNodePair pair(entry->key(), node);
         mac_learning_node_tree_.insert(pair);
     } else {
         it->second->set_mac_learning_entry(ptr->mac_learning_entry());
@@ -215,8 +248,34 @@ MacLearningMgmtManager::AddMacLearningEntry(MacLearningMgmtRequestPtr ptr) {
 }
 
 void
+MacLearningMgmtManager::AddMacIpLearningEntry(MacLearningMgmtRequestPtr ptr) {
+    MacIpLearningEntry *entry =
+        dynamic_cast<MacIpLearningEntry *>(ptr->mac_learning_entry().get());
+                    
+    MacIpLearningNodeTree::iterator it =
+        mac_ip_learning_node_tree_.find(entry->key());
+    if (it == mac_ip_learning_node_tree_.end()) {
+        MacLearningMgmtNodePtr node(new MacLearningMgmtNode(
+                                             ptr->mac_learning_entry()));
+        node->UpdateRef(this);
+        MacIpLearningNodePair pair(entry->key(), node);
+        mac_ip_learning_node_tree_.insert(pair);
+    } else {
+        it->second->set_mac_learning_entry(ptr->mac_learning_entry());
+        it->second->UpdateRef(this);
+    }
+}
+void
 MacLearningMgmtManager::DeleteMacLearningEntry(MacLearningMgmtRequestPtr ptr) {
-    mac_learning_node_tree_.erase(ptr->mac_learning_entry()->key());
+    MacPbbLearningEntry *entry =
+        dynamic_cast<MacPbbLearningEntry *>(ptr->mac_learning_entry().get());
+    mac_learning_node_tree_.erase(entry->key());
+}
+
+void MacLearningMgmtManager::DeleteMacIpLearningEntry(MacLearningMgmtRequestPtr ptr) {
+    MacIpLearningEntry *entry =
+        dynamic_cast<MacIpLearningEntry *>(ptr->mac_learning_entry().get());
+    mac_ip_learning_node_tree_.erase(entry->key());
 }
 
 void MacLearningMgmtManager::AddDBEntry(MacLearningMgmtRequestPtr ptr) {
@@ -264,6 +323,15 @@ MacLearningMgmtManager::RequestHandler(MacLearningMgmtRequestPtr ptr) {
 
     case MacLearningMgmtRequest::DELETE_ALL_MAC:
         DeleteAllEntry(ptr);
+        break;
+    
+    case MacLearningMgmtRequest::ADD_MAC_IP:
+    case MacLearningMgmtRequest::CHANGE_MAC_IP:
+        AddMacIpLearningEntry(ptr);
+        break;
+    
+    case MacLearningMgmtRequest::DELETE_MAC_IP:
+        DeleteMacIpLearningEntry(ptr);
         break;
     default:
         assert(0);
@@ -329,7 +397,20 @@ MacLearningMgmtManager::Find(const DBEntry *e) {
         mgmt_entry = rt_tree_.Find(&mgmt_rt);
         return mgmt_entry;
     }
+    
+    const VnEntry *vn = dynamic_cast<const VnEntry *>(e);
+    if (vn != NULL) {
+        MacLearningMgmtVnEntry mgmt_vn(vn);
+        mgmt_entry = vn_tree_.Find(&mgmt_vn);
+        return mgmt_entry;
+    }
 
+    const HealthCheckService *hc = dynamic_cast<const HealthCheckService *>(e);
+    if (hc != NULL) {
+        MacLearningMgmtHcServiceEntry mgmt_hc(hc);
+        mgmt_entry = hc_tree_.Find(&mgmt_hc);
+        return mgmt_entry;
+    }
     return NULL;
 }
 
@@ -379,11 +460,35 @@ MacLearningMgmtManager::Locate(const DBEntry *e) {
         rt_tree_.Add(mgmt_entry);
         return mgmt_entry;
     }
+    const VnEntry *vn = dynamic_cast<const VnEntry *>(e);
+    if (vn != NULL) {
+        MacLearningMgmtVnEntry mgmt_vn(vn);
+        mgmt_entry = vn_tree_.Find(&mgmt_vn);
+        if (mgmt_entry != NULL) {
+            return mgmt_entry;
+        }
+        mgmt_entry = new MacLearningMgmtVnEntry(vn);
+        vn_tree_.Add(mgmt_entry);
+        return mgmt_entry;
+    }
+    const HealthCheckService *hc = dynamic_cast<const HealthCheckService *>(e);
+    if (hc != NULL) {
+        MacLearningMgmtHcServiceEntry mgmt_hc(hc);
+        mgmt_entry = hc_tree_.Find(&mgmt_hc);
+        if (mgmt_entry != NULL) {
+            return mgmt_entry;
+        }
+        mgmt_entry = new MacLearningMgmtHcServiceEntry(hc);
+        hc_tree_.Add(mgmt_entry);
+        return mgmt_entry;
+
+    }
     return NULL;
 }
 
 MacLearningMgmtManager::MacLearningMgmtManager(Agent *agent) :
     agent_(agent), intf_tree_(this), vrf_tree_(this), rt_tree_(this),
+    vn_tree_(NULL), hc_tree_(NULL),
     request_queue_(agent_->task_scheduler()->GetTaskId(kTaskMacLearningMgmt), 0,
                    boost::bind(&MacLearningMgmtManager::RequestHandler,
                    this, _1)) {

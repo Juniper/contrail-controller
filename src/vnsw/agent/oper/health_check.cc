@@ -25,6 +25,11 @@
 #include <oper/metadata_ip.h>
 #include <oper/health_check.h>
 
+#include <oper/vn.h>
+#include <oper/vrf.h>
+
+#include "mac_learning/mac_learning_proto.h"
+
 SandeshTraceBufferPtr
 HealthCheckTraceBuf(SandeshTraceBufferCreate("HealthCheck", 5000));
 
@@ -46,14 +51,18 @@ HealthCheckInstanceBase::HealthCheckInstanceBase(HealthCheckService *service,
     // running traffic is not affected by attaching health check service
     active_ = true;
     ip_->set_active(true);
-    intf->InsertHealthCheckInstance(this);
-    ResyncInterface(service);
+    if (!service->IsVnIpListHealthCheckService()) {
+        intf->InsertHealthCheckInstance(this);
+    }
+    ResyncTarget(service);
 }
 
 HealthCheckInstanceBase::~HealthCheckInstanceBase() {
     VmInterface *intf = static_cast<VmInterface *>(intf_.get());
-    intf->DeleteHealthCheckInstance(this);
-    ResyncInterface(service_.get());
+    if (!service_.get()->IsVnIpListHealthCheckService()) {
+        intf->DeleteHealthCheckInstance(this);
+    }
+    ResyncTarget(service_.get());
 }
 
 void HealthCheckInstanceBase::EnqueueResync(const HealthCheckService *service,
@@ -65,7 +74,7 @@ void HealthCheckInstanceBase::EnqueueResync(const HealthCheckService *service,
     service->table()->agent()->interface_table()->Enqueue(&req);
 }
 
-void HealthCheckInstanceBase::ResyncInterface(const HealthCheckService *service)
+void HealthCheckInstanceBase::ResyncTarget(const HealthCheckService *service)
     const {
     EnqueueResync(service, intf_.get());
 }
@@ -332,11 +341,33 @@ bool HealthCheckInstanceService::UpdateInstanceTask() {
     return success;
 }
 
-void HealthCheckInstanceService::ResyncInterface(const HealthCheckService
+void HealthCheckInstanceService::ResyncTarget(const HealthCheckService
                                                  *service) const {
-    HealthCheckInstanceBase::ResyncInterface(service);
+    HealthCheckInstanceBase::ResyncTarget(service);
     if (service->IsSegmentHealthCheckService() && other_intf_.get()) {
         EnqueueResync(service, other_intf_.get());
+    }
+}
+
+HealthCheckMacIpInstanceService::HealthCheckMacIpInstanceService(
+    HealthCheckService *service, MetaDataIpAllocator *allocator,
+    VmInterface *intf, VmInterface *other_intf, bool ignore_status_event,
+    bool multi_hop) :
+    HealthCheckInstanceService(service, allocator, intf, other_intf,
+                ignore_status_event, multi_hop) {
+}
+
+HealthCheckMacIpInstanceService::~HealthCheckMacIpInstanceService() {
+}
+
+void HealthCheckMacIpInstanceService::ResyncTarget(const HealthCheckService
+                                                 *service) const {
+    if (!active_) {
+        IpAddress ip = destination_ip();
+        MacAddress mac = destination_mac();
+        service_->table()->agent()->mac_learning_proto()->
+                GetMacIpLearningTable()->MacIpEntryUnreachable(
+                        intf_->vrf()->vrf_id(), ip, mac);
     }
 }
 
@@ -445,18 +476,31 @@ bool HealthCheckService::IsInstanceTaskBased() const {
             !IsSegmentHealthCheckService());
 }
 
+bool HealthCheckService::IsVnIpListHealthCheckService() const {
+    return (service_type_.find("vn-ip-list") != std::string::npos);
+}
+
 HealthCheckInstanceBase *
 HealthCheckService::StartHealthCheckService(VmInterface *intrface,
                                             VmInterface *paired_vmi,
                                             const IpAddress &source_ip,
                                             const IpAddress &destination_ip,
+                                            const MacAddress &destination_mac,
                                             bool ignore_status_event,
-                                            bool multi_hop) {
+                                            bool multi_hop
+                                            ) {
     HealthCheckInstanceBase *instance = NULL;
     if (IsInstanceTaskBased()) {
         instance = new HealthCheckInstanceTask(
                        this, table_->agent()->metadata_ip_allocator(),
                        intrface, ignore_status_event);
+    } else if (IsVnIpListHealthCheckService()) {
+        instance = new HealthCheckMacIpInstanceService(
+                       this, table_->agent()->metadata_ip_allocator(),
+                       intrface, paired_vmi, ignore_status_event, multi_hop);
+        HealthCheckMacIpInstanceService *mac_ip_inst =
+                       static_cast<HealthCheckMacIpInstanceService *>(instance);
+        mac_ip_inst->set_destination_mac(destination_mac);
     } else {
         instance = new HealthCheckInstanceService(
                        this, table_->agent()->metadata_ip_allocator(),
@@ -563,6 +607,21 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         ret = true;
     }
 
+    if (target_ip_list_ != data->new_target_ip_list_) {
+        target_ip_list_ = data->new_target_ip_list_;
+        ret = true;
+    }
+
+    if (is_hc_enable_all_ip_ != data->is_all_ip_) {
+        is_hc_enable_all_ip_ = data->is_all_ip_;
+        ret = true;
+    }
+
+    if (vn_uuid_list_ != data->vn_uuid_list_) {
+        vn_uuid_list_ = data->vn_uuid_list_;
+        ret = true;
+    }
+
     if (dest_ip_ != data->dest_ip_) {
         dest_ip_ = data->dest_ip_;
         dest_ip_changed = true;
@@ -646,7 +705,8 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                         // different service. From this we can be sure that once
                         // an instance is deleted it will not be re-used.
                         StartHealthCheckService(intf, paired_vmi, source_ip,
-                                                destination_ip, false, false);
+                                                destination_ip, MacAddress(),
+                                                false, false);
                     intf_list_.insert(std::pair<boost::uuids::uuid,
                             HealthCheckInstanceBase *>(*(it_cfg), inst));
                     ret = true;
@@ -849,13 +909,33 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
             }
         }
     }
+
+    bool is_all_ip = false;
+    if (p.target_ip_all) {
+        is_all_ip = true;
+    }
+    std::set<IpAddress> ip_address_list;
+    for (unsigned int i = 0; i < p.target_ip_list.ip_address.size(); ++i) {
+        boost::system::error_code ec;
+        IpAddress ip = Ip4Address::from_string(p.target_ip_list.ip_address[i], ec);
+        if (ec.value() != 0) {
+            ip = Ip6Address::from_string(p.target_ip_list.ip_address[i], ec);
+        }
+        if (ec.value() != 0) {
+            continue;
+        }
+
+        ip_address_list.insert(ip);
+    }
+
     HealthCheckServiceData *data =
         new HealthCheckServiceData(agent, dest_ip, node->name(),
                                    p.monitor_type, p.health_check_type,
                                    ip_proto, p.http_method,
                                    url_path, url_port, p.expected_codes,
                                    p.delay, p.delayUsecs, p.timeout,
-                                   p.timeoutUsecs, p.max_retries, node);
+                                   p.timeoutUsecs, p.max_retries,
+                                   is_all_ip, ip_address_list, node);
 
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
@@ -876,6 +956,17 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
                        id_perms.uuid.uuid_lslong, intf_uuid);
 
             data->intf_uuid_list_.insert(intf_uuid);
+        }
+        if (adj_node->table() == agent->cfg()->cfg_vn_table()) {
+            boost::uuids::uuid vn_uuid;
+            autogen::VirtualNetwork *vn =
+             dynamic_cast<autogen::VirtualNetwork *>(adj_node->GetObject());
+            assert(vn);
+            const autogen::IdPermsType &id_perms = vn->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong,
+                       id_perms.uuid.uuid_lslong, vn_uuid);
+
+            data->vn_uuid_list_.insert(vn_uuid);
         }
     }
     return data;
@@ -957,13 +1048,13 @@ bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
             if (msg.find("success") != std::string::npos) {
                 if (!inst->active_) {
                     inst->active_ = true;
-                    inst->ResyncInterface(inst->service_.get());
+                    inst->ResyncTarget(inst->service_.get());
                 }
             }
             if (msg.find("failure") != std::string::npos) {
                 if (inst->active_) {
                     inst->active_ = false;
-                    inst->ResyncInterface(inst->service_.get());
+                    inst->ResyncTarget(inst->service_.get());
                 }
             }
             HEALTH_CHECK_TRACE(Trace, inst->to_string() +

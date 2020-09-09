@@ -25,9 +25,11 @@ MacAgingEntry::MacAgingEntry(MacLearningEntryPtr ptr):
 }
 
 void MacAgingEntry::FillSandesh(SandeshMacEntry *smac) const {
+    MacPbbLearningEntry *entry =
+        dynamic_cast<MacPbbLearningEntry *>(mac_learning_entry_.get());
     smac->set_vrf(mac_learning_entry_->vrf()->GetName());
-    smac->set_mac(mac_learning_entry_->mac().ToString());
-    smac->set_index(mac_learning_entry_->index());
+    smac->set_mac(entry->mac().ToString());
+    smac->set_index(entry->index());
     smac->set_packets(packets_);
     std::string time_since_addition =
         duration_usecs_to_string(UTCTimestampUsec() - addition_time_);
@@ -65,7 +67,9 @@ void MacAgingTable::Delete(MacLearningEntryPtr ptr) {
 }
 
 void MacAgingTable::ReadStats(MacAgingEntry *ptr) {
-    uint32_t index = ptr->mac_learning_entry()->index();
+    MacPbbLearningEntry *entry =
+        dynamic_cast<MacPbbLearningEntry *>(ptr->mac_learning_entry().get());
+    uint32_t index = entry->index();
     vr_bridge_entry *vr_entry = agent_->ksync()->ksync_bridge_memory()->
                                     GetBridgeEntry(index);
     if (vr_entry == NULL) {
@@ -98,10 +102,11 @@ void MacAgingTable::Trace(const std::string &str, MacAgingEntry *ptr) {
     if (ptr->mac_learning_entry()->vrf() != NULL) {
         vrf = ptr->mac_learning_entry()->vrf()->GetName();
     }
-
+    MacPbbLearningEntry *entry =
+        dynamic_cast<MacPbbLearningEntry *>(ptr->mac_learning_entry().get());
     MAC_AGING_TRACE(MacLearningTraceBuf, vrf,
-                    ptr->mac_learning_entry()->mac().ToString(),
-                    ptr->mac_learning_entry()->index(),
+                    entry->mac().ToString(),
+                    entry->index(),
                     ptr->packets(), str);
 }
 
@@ -110,7 +115,7 @@ void MacAgingTable::SendDeleteMsg(MacAgingEntry *ptr) {
     ptr->set_deleted(true);
     MacLearningEntryRequestPtr req(new MacLearningEntryRequest(
                 MacLearningEntryRequest::DELETE_MAC, ptr->mac_learning_entry()));
-    ptr->mac_learning_entry()->mac_learning_table()->Enqueue(req);
+    ptr->mac_learning_entry()->EnqueueToTable(req);
 }
 
 uint32_t

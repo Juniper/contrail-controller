@@ -14,6 +14,7 @@
 #include "services/arp_proto.h"
 #include "services/services_sandesh.h"
 #include "services_init.h"
+#include "mac_learning/mac_learning_proto.h"
 
 ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
                    bool run_with_vrouter) :
@@ -193,15 +194,35 @@ bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
             }
         }
         ++data.arp_send_count;
+
+        // Post message to delete MIL entry.
+        MacAddress mil_mac = vrf_state_->agent->mac_learning_proto()->
+                        GetMacIpLearningTable()->GetPairedMacAddress(
+                                vm_intf->vrf()->vrf_id(), ip());
+        if (mil_mac != MacAddress()) {
+            ++data.arp_try_count;
+            if (data.arp_try_count == kArpTryCount) {
+                IpAddress ip = vm_ip_;
+                MacAddress mac = mil_mac;
+                vrf_state_->agent->mac_learning_proto()->
+                        GetMacIpLearningTable()->MacIpEntryUnreachable(
+                                vm_intf->vrf()->vrf_id(), ip, mac);
+                return true;
+            }
+        }
+
         MacAddress smac = vm_intf->GetVifMac(vrf_state_->agent);
         arp_handler.SendArpRequestByPlen(vm_intf, smac, this,
                                          data.prev_responded_ip);
 
         // reduce the frequency of ARP requests after some tries
         if (data.arp_send_count >= kMaxRetry) {
-            // change frequency only if not in gateway mode with remote VMIs
-            if (vm_intf->vmi_type() != VmInterface::REMOTE_VM)
+            if ((mac() != MacAddress()) && (mac() != vm_intf->vm_mac())) {
+                arp_req_timer_->Reschedule(5000);
+            } else if (vm_intf->vmi_type() != VmInterface::REMOTE_VM) {
+                // change frequency only if not in gateway mode with remote VMIs
                 arp_req_timer_->Reschedule(kTimeout * 5);
+            }
         }
 
         ret = true;
@@ -300,6 +321,14 @@ ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip,
 }
 
 ArpDBState::~ArpDBState() {
+}
+
+void ArpDBState::UpdateMac(const InterfaceNH *nh) {
+
+    arp_path_preference_state_.get()->set_mac(
+                nh ? nh->GetDMac() : MacAddress());
+
+    return;
 }
 
 void ArpDBState::UpdateArpRoutes(const InetUnicastRouteEntry *rt) {
@@ -428,6 +457,8 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
                                route->plen());
         entry->SetState(part->parent(), route_table_listener_id, state);
     }
+
+    // TODO state->UpdateMac(intf_nh);
 
     if (route->vrf()->GetName() == agent->fabric_vrf_name() &&
         route->GetActiveNextHop()->GetType() == NextHop::RECEIVE &&
@@ -884,7 +915,11 @@ void ArpPathPreferenceState::HandleArpReply(Ip4Address sip, uint32_t itf) {
     if (it == l3_wait_for_traffic_map_.end()) {
         return;
     }
+
     InterfaceArpPathPreferenceInfo &data = it->second;
+    // reset arp_try_count to 0.
+    data.arp_try_count = 0;
+
     if (data.prev_responded_ip == sip) {
         ++data.arp_reply_count;
         data.arp_failure_count = 0;
@@ -900,9 +935,10 @@ void ArpProto::HandlePathPreferenceArpReply(const VrfEntry *vrf, uint32_t itf,
         return;
     }
     InetUnicastRouteEntry *rt = vrf->GetUcRoute(sip);
-    if (!rt || rt->plen() == 32) {
+    if (!rt) {
         return;
     }
+
     ArpVrfState *state = static_cast<ArpVrfState *>
         (vrf->GetState(vrf->get_table_partition()->parent(),
                        vrf_table_listener_id_));

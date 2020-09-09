@@ -235,6 +235,7 @@ struct KSyncItfSandeshData {
     33: string etree_leaf;
     34: string pbb_interface;
     35: string igmp_enable;
+    36: string mac_ip_learning_enable;
 }
 
 

@@ -1087,7 +1087,10 @@ private:
  */
 class InetEvpnRoutePath : public AgentPath {
 public:
-    InetEvpnRoutePath(const Peer *peer, AgentRoute *rt);
+    InetEvpnRoutePath(const Peer  *peer,
+            const MacAddress &mac,
+            const std::string &parent,
+            AgentRoute *rt);
     virtual ~InetEvpnRoutePath() { }
     virtual std::string ToString() const { return "InetEvpnRoutePath"; }
     virtual const AgentPath *UsablePath() const;
@@ -1095,23 +1098,36 @@ public:
     //Syncs path parameters. Parent route is used for setting dependant rt.
     virtual bool Sync(AgentRoute *sync_route);
     bool SyncDependantRoute(const AgentRoute *sync_route);
+    virtual bool IsLess(const AgentPath &rhs) const;
+
+    const MacAddress &MacAddr() const {return mac_;}
+    void SetMacAddr(const MacAddress &mac) {mac_ = mac;}
+    const std::string &Parent() const {return parent_;}
+    void SetParent(const std::string &parent) {parent_ = parent;}
+
 
 private:
+    MacAddress mac_;
+    std::string parent_;
     DISALLOW_COPY_AND_ASSIGN(InetEvpnRoutePath);
 };
 
 class InetEvpnRouteData : public AgentRouteData {
 public:
-    InetEvpnRouteData() : AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false,
-                                         0) {
-    }
+    InetEvpnRouteData(const EvpnRouteEntry *evpn_rt);
     virtual ~InetEvpnRouteData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
     virtual std::string ToString() const {return "Derived Inet route from Evpn";}
+    const MacAddress &MacAddr() const {return mac_;}
+    const std::string &parent() const {return parent_;}
+    virtual bool CanDeletePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt) const;
 
 private:
+    const MacAddress mac_;
+    std::string parent_;
     DISALLOW_COPY_AND_ASSIGN(InetEvpnRouteData);
 };
 
