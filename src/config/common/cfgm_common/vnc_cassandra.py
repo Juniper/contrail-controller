@@ -68,16 +68,21 @@ class VncCassandraClient(object):
 
     def add(self, cf_name, key, value):
         try:
-            self._cassandra_driver.get_cf(cf_name).insert(key, value)
+            self._cassandra_driver.insert(key, value, cf_name=cf_name)
             return True
-        except:
+        except Exception as e:
+            self._logger("VNCCassandra, unable to add {}={}, error: {}".format(
+                key, value, e), level=SandeshLevel.SYS_WARN)
             return False
 
     def delete(self, cf_name, key, columns=None):
         try:
-            self._cassandra_driver.get_cf(cf_name).remove(key, columns=columns)
+            self._cassandra_driver.remove(
+                key, columns, cf_name=cf_name)
             return True
-        except:
+        except Exception as e:
+            self._logger("VNCCassandra, unable to del {}={}, error: {}".format(
+                key, columns, e), level=SandeshLevel.SYS_WARN)
             return False
 
     def _get_resource_class(self, obj_type):
