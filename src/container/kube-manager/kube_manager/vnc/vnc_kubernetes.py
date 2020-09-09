@@ -194,7 +194,8 @@ class VncKubernetes(vnc_common.VncCommon):
                     self.args.auth_user,
                     self.args.auth_password, self.args.auth_tenant,
                     api_server_list, self.args.vnc_endpoint_port,
-                    auth_token_url=self.args.auth_token_url)
+                    auth_token_url=self.args.auth_token_url,
+                    api_health_check=True)
                 connected = True
                 self.connection_state_update(ConnectionStatus.UP)
             except requests.exceptions.ConnectionError as e:
