@@ -56,6 +56,24 @@
       "revId": "25550f0a94c255dcb92faea4d14f4b1db314b48a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0f301aa5_ff021251",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-09-09T20:59:28Z",
+      "side": 1,
+      "message": "Have made it more specific now. Will check whether \"nodetool -p 7200 repair -pr ContrailAnalyticsCql\" is running or not.",
+      "parentUuid": "550b7159_41e3149f",
+      "revId": "25550f0a94c255dcb92faea4d14f4b1db314b48a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }

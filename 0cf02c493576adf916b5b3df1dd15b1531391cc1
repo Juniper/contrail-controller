@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "7c9dc0b5_933818dc",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-09-09T20:59:28Z",
+      "side": 1,
+      "message": "Since the chances are very small, will ignore this",
+      "parentUuid": "2921ccb2_186bf0c3",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "53166127_16522558",
         "filename": "src/nodemgr/common/cassandra_manager.py",
         "patchSetId": 5
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "fb5073fa_94a3df79",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-09-09T20:59:28Z",
+      "side": 1,
+      "message": "Done.",
+      "parentUuid": "53166127_16522558",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "52f9fa1f_97094bf6",
         "filename": "src/nodemgr/common/cassandra_manager.py",
         "patchSetId": 5
@@ -50,6 +86,24 @@
       "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3cd47d0c_2405b8b6",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-09-09T20:59:28Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "52f9fa1f_97094bf6",
+      "revId": "0cf02c493576adf916b5b3df1dd15b1531391cc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
