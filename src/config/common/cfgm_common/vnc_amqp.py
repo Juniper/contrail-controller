@@ -28,6 +28,7 @@ class VncAmqpHandle(object):
         self.timer = timer_obj
         self.host_ip = host_ip
         self.register_handler = register_handler
+        self._vnc_kombu = None
 
     def establish(self):
         q_name = '.'.join([self.q_name_prefix, socket.getfqdn(self.host_ip)])
@@ -249,4 +250,9 @@ class VncAmqpHandle(object):
                         self.timer.timed_yield()
 
     def close(self):
-        self._vnc_kombu.shutdown()
+        if self._vnc_kombu is not None:
+            # VncKombuClient is instancied when calling 'establish()',
+            # if for some reasons (mostly related to cleanup after
+            # exception handling) we call `close()` we should consider
+            # a no-op.
+            self._vnc_kombu.shutdown()
