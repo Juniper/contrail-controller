@@ -1210,81 +1210,21 @@ TEST_F(FlowTest, NonNat2Nat) {
 
     fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3], vnet_addr[1],
                  1, 0, 0, vnet[1]->flow_key_nh()->id());
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
-                fe->short_flow_reason() == FlowEntry::SHORT_NO_REVERSE_FLOW);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
 
     fe = FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3], "2.1.1.100",
                  1, 0, 0, vnet[3]->flow_key_nh()->id());
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
-
-    agent_->flow_stats_manager()->
-        default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
-    client->EnqueueFlowAge();
-    client->WaitForIdle();
-    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
-    client->WaitForIdle();
-    //No change in stats. Flows should be aged by now
-    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
-}
-
-// Traffic between 2 VMs within same VN shouldn't get NAT'ed
-TEST_F(FlowTest, NoNatSameVN) {
-    FlowStatsTimerStartStop(agent_, false);
-    agent_->flow_stats_manager()->
-        default_flow_stats_collector_obj()->
-        SetFlowAgeTime(FlowStatsCollector::FlowAgeTime);
-    Ip4Address addr = Ip4Address::from_string("1.1.1.30");
-    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
-                        TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), TagList(), PathPreference());
-    client->WaitForIdle();
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
-            "vn1");
-    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
-    client->WaitForIdle();
-
-    //Create a Non-Nat Flow - 1.1.1.1 to 1.1.1.30
-    TxIpPacket(vnet[1]->id(), vnet_addr[1], "1.1.1.30", 1);
-    client->WaitForIdle();
-
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
-                        "1.1.1.30", 1, 0, 0, false, "vn1",
-                        "vn1", 1, true, false,
-                        vnet[1]->flow_key_nh()->id()));
-
-    //Add floating IP configuration
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
-            "vn1");
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
-    client->WaitForIdle();
-    EXPECT_TRUE(vnet[1]->HasFloatingIp(Address::INET));
-
-    //Send the traffic again
-    TxIpPacket(vnet[1]->id(), vnet_addr[1], "1.1.1.30", 1);
-    client->WaitForIdle();
-
-    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                            "1.1.1.30", 1, 0, 0,
-                            vnet[1]->flow_key_nh()->id());
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
-
-    fe = FlowGet(vnet[1]->vrf()->vrf_id(), "1.1.1.30", vnet_addr[1],
-                 1, 0, 0, vnet[1]->flow_key_nh()->id());
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
-
-    fe = FlowGet(vnet[1]->vrf()->vrf_id(), "1.1.1.30", "2.1.1.100",
-                 1, 0, 0, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe == NULL);
 
     agent_->flow_stats_manager()->
         default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
     client->WaitForIdle();
+    WAIT_FOR(1000, 100, (2U == flow_proto_->FlowCount()));
+    usleep(AGE_TIME);
+
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
-    //No change in stats. Flows should be aged by now
-    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
 // Two floating-IPs for a given interface. Negative test-case
