@@ -31,6 +31,8 @@ except ImportError:
     connector = None
 
 
+DEFAULT_CQL_PORT = 9042
+
 # Properties passed to the column familly
 TABLE_PROPERTIES = {
     'gc_grace_seconds': vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS,
@@ -338,12 +340,23 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
         }
 
         # Addresses, ports related options
-        endpoints = []
+        endpoints, port = [], None
         for address in self._server_list:
             try:
-                server, port = address.split(':', 1)
+                server, _port = address.split(':', 1)
+                _port = int(_port)
 
-                endpoints.append((server, int(port)))
+                if port is not None:
+                    if port != _port:
+                        self.options.logger(
+                            "Please consider fixing port for '{}', all "
+                            "servers should have same port. "
+                            "Using '{}'".format(
+                                address, port), level=SandeshLevel.SYS_WARN)
+                else:
+                    port = _port
+
+                endpoints.append(server)
             except ValueError:
                 endpoints.append(address)
 
@@ -351,6 +364,7 @@ class CassandraDriverCQL(datastore_api.CassandraDriver):
         try:
             self._cluster = connector.cluster.Cluster(
                 endpoints,
+                port=(port or DEFAULT_CQL_PORT)
                 ssl_options=ssl_options,
                 auth_provider=auth_provider,
                 execution_profiles=profiles,
