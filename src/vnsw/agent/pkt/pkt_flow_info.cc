@@ -918,18 +918,11 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     VmInterface::FloatingIpSet::const_iterator fip_it = fip_list.end();
     const AgentRoute *rt = out->rt_;
+    uint8_t rt_plen = 0;
+    if (rt) {
+        rt_plen = RouteToPrefixLen(rt);
+    }
     bool change = false;
-    std::string out_dest_vn = "";
-    std::string in_dest_vn = "";
-
-    /* Get the dest_vn for in and out prefix */
-    if (out->rt_ && out->rt_->GetActivePath()) {
-        out_dest_vn = out->rt_->GetActivePath()->dest_vn_name();
-    }
-    if (in->rt_ && in->rt_->GetActivePath()) {
-        in_dest_vn = in->rt_->GetActivePath()->dest_vn_name();
-    }
-
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {
@@ -951,21 +944,22 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
             flow_dest_plen_map[it->vrf_.get()->vrf_id()] = 0;
             continue;
         }
-        uint8_t out_rt_plen = RouteToPrefixLen(out->rt_);
-        uint8_t rt_match_plen = RouteToPrefixLen(rt_match);
         // found the route match
         // prefer the route with longest prefix match
-        // if prefix length is same prefer route from floating IP
+        // if prefix length is same prefer route from rt(original out->rt_)
         // if routes are from fip of difference VRF, prefer the one with lower name.
         // if both the selected and current FIP is from same vrf prefer the one with lower ip addr.
+        uint8_t rt_match_plen = RouteToPrefixLen(rt_match);
+        if (rt != NULL && rt_plen >= rt_match_plen) {
+            flow_dest_plen_map[rt_match->vrf_id()] = rt_match_plen;
+            continue;
+        }
+        uint8_t out_rt_plen = RouteToPrefixLen(out->rt_);
         if (out->rt_ == NULL || rt_match_plen > out_rt_plen) {
             change = true;
         } else if (rt_match_plen == out_rt_plen) {
             if (it->port_nat()) {
                change = false;
-            } else if (!in_dest_vn.empty() && !out_dest_vn.empty()
-                       && (in_dest_vn != out_dest_vn)) {
-                change = true;
             } else if (fip_it == fip_list.end()) {
                 change = true;
             } else if (rt_match->vrf()->GetName() < out->rt_->vrf()->GetName()) {
@@ -978,13 +972,13 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
         if (change) {
             if (out->rt_ != NULL) {
-                flow_dest_plen_map[out->rt_->vrf_id()] = RouteToPrefixLen(out->rt_);
+                flow_dest_plen_map[out->rt_->vrf_id()] = out_rt_plen;
             }
             out->rt_ = rt_match;
             fip_it = it;
             change = false;
         } else {
-            flow_dest_plen_map[rt_match->vrf_id()] = RouteToPrefixLen(rt_match);
+            flow_dest_plen_map[rt_match->vrf_id()] = rt_match_plen;
         }
     }
 
