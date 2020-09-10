@@ -16,6 +16,24 @@
       "revId": "b87b76ab4b9ff1f47fa00fc714830675578a8fe6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dec3809b_adf6283e",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-09-10T05:01:10Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f91995ab_ff5d680e",
+      "revId": "b87b76ab4b9ff1f47fa00fc714830675578a8fe6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
