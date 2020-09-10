@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5186c378_9a781bb7",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2020-09-10T04:45:25Z",
+      "side": 1,
+      "message": "cmd in line 91 has just one element from keyspaces list - here is the list. I suppose it will be different cmd and will not be found in ps.\nlet\u0027s find substring with port only - \u0027nodetool -p {} repair\u0027",
+      "revId": "0c384b670fa91805c853708807b0e0719388c2ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
