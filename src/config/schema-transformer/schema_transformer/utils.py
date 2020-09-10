@@ -13,21 +13,6 @@ import jsonpickle
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
-_PROTO_STR_TO_NUM_IPV4 = {
-    'icmp6': '58',
-    'icmp': '1',
-    'tcp': '6',
-    'udp': '17',
-    'any': 'any',
-}
-_PROTO_STR_TO_NUM_IPV6 = {
-    'icmp6': '58',
-    'icmp': '58',
-    'tcp': '6',
-    'udp': '17',
-    'any': 'any',
-}
-
 RULE_IMPLICIT_ALLOW_UUID = common.RULE_IMPLICIT_ALLOW_UUID
 RULE_IMPLICIT_DENY_UUID = common.RULE_IMPLICIT_DENY_UUID
 
