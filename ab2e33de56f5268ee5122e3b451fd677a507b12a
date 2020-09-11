@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dd5aa7e1_0071d0e1",
+        "filename": "src/config/device-manager/test/test_dm_ansible.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 188,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T07:48:56Z",
+      "side": 1,
+      "message": "1. We need to check the values as part of assert, length alone is not enough.\n2. We need to add at least 3 cases to cover the multiple scenarios.\n   a) LR with vn1, vn2 and VPGs with vn1, vn2.\n   b) LR with vn1, vn2 and VPGs with vn1.\n   c) LR with vn1, vn2 and without any VPG.",
+      "revId": "ab2e33de56f5268ee5122e3b451fd677a507b12a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
