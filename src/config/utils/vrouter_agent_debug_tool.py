@@ -575,7 +575,7 @@ class Debug(object):
                     cmd = family[i]
 
                     myCmd = sudo_prefix + 'docker exec %s /bin/sh -c \
-                        "rt --dump %d --family %s" >>' % (self._container, var, cmd)
+                        "rt --dump %d --family %s"' % (self._container, var, cmd)
                     cmd_op = self.get_ssh_cmd_output(myCmd)
                     dest_path = '%s/vrouter_logs/VRF_%d_Family%s' \
                                 % (self._parent_dir, var, cmd)
