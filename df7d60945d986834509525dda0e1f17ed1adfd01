@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "07d6fdca_73a17f8c",
+        "filename": "src/config/device-manager/test/test_dm_collapsed_spine.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 145,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T06:31:29Z",
+      "side": 1,
+      "message": "Why do we need to update after the create when no changes made to the object?",
+      "revId": "df7d60945d986834509525dda0e1f17ed1adfd01",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "954a5952_bbe09113",
+        "filename": "src/config/device-manager/test/test_dm_collapsed_spine.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 231,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T06:31:29Z",
+      "side": 1,
+      "message": "Why do we need to update after the create when no changes made to the object?",
+      "revId": "df7d60945d986834509525dda0e1f17ed1adfd01",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "650c23f6_856b5373",
+        "filename": "src/config/device-manager/test/test_dm_collapsed_spine.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 240,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T06:31:29Z",
+      "side": 1,
+      "message": "Why do we need to update after the create when no changes made to the object?",
+      "revId": "df7d60945d986834509525dda0e1f17ed1adfd01",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7d2431a7_325d3d92",
+        "filename": "src/config/device-manager/test/test_dm_collapsed_spine.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 248,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T06:31:29Z",
+      "side": 1,
+      "message": "Why do we need to update after the create when no changes made to the object?",
+      "revId": "df7d60945d986834509525dda0e1f17ed1adfd01",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1bd44680_38a877eb",
+        "filename": "src/config/device-manager/test/test_dm_collapsed_spine.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 259,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T06:31:29Z",
+      "side": 1,
+      "message": "This have a dependency on the 2000, Better to override the vxlan_id value if we are going to assert.",
+      "revId": "df7d60945d986834509525dda0e1f17ed1adfd01",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d346ec5c_0f13eab1",
+        "filename": "src/config/device-manager/test/test_dm_collapsed_spine.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 268,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T06:31:29Z",
+      "side": 1,
+      "message": "same as above comment for vxlan_id",
+      "revId": "df7d60945d986834509525dda0e1f17ed1adfd01",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
