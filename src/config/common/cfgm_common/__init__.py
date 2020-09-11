@@ -9,6 +9,8 @@ import re
 import sys
 import uuid
 
+from six.moves.urllib.request import AbstractBasicAuthHandler
+
 IP_FABRIC_VN_FQ_NAME = ['default-domain', 'default-project', 'ip-fabric']
 IP_FABRIC_RI_FQ_NAME = IP_FABRIC_VN_FQ_NAME + ['__default__']
 LINK_LOCAL_VN_FQ_NAME = ['default-domain', 'default-project', '__link_local__']
@@ -168,3 +170,29 @@ def _obj_serializer_all(obj):
         return obj.serialize_to_json()
     else:
         return dict((k, v) for k, v in list(obj.__dict__.items()))
+
+
+def patch_cve_20208492():
+    """Due to the lack of support of Python2 for major distributions.
+
+    This patch is a workaround fixing` urllib.request` for
+    CVE-2020-8492. Python3 should not use it but it is worth checking
+    that the binary package installed have well the fix.
+
+    [0] https://bugs.python.org/issue39503
+    """
+    curr_pattern = AbstractBasicAuthHandler.rx.pattern
+    fixed_pattern = ('(?:^|,)'   # start of the string or ','
+                     '[ \t]*'    # optional whitespaces
+                     '([^ \t]+)' # scheme like "Basic"
+                     '[ \t]+'    # mandatory whitespaces
+                     # realm=xxx
+                     # realm='xxx'
+                     # realm="xxx"
+                     'realm=(["\']?)([^"\']*)\\2')
+    if curr_pattern != fixed_pattern:
+        import re
+
+        AbstractBasicAuthHandler.rx = re.compile(fixed_pattern)
+
+patch_cve_20208492()
