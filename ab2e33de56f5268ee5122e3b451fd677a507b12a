@@ -16,6 +16,23 @@
       "revId": "ab2e33de56f5268ee5122e3b451fd677a507b12a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "019de2b3_cf3a3fc2",
+        "filename": "src/config/device-manager/test/test_dm_ansible.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 211,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-09-11T08:29:33Z",
+      "side": 1,
+      "message": "1. We don\u0027t need underlay-ip-clos for this brownfield scenario/existing fabric onboarding.\n2. Also it will be good to create a separate file for the ERB cases.",
+      "revId": "ab2e33de56f5268ee5122e3b451fd677a507b12a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
