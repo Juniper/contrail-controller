@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c4011061_2821f838",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 1001,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-09-11T05:26:38Z",
+      "side": 1,
+      "message": "As we discussed, we need to take care of all 3 as_path variations. It seems to be broken earlier as well so maybe you can take care of that later.",
+      "range": {
+        "startLine": 1000,
+        "startChar": 4,
+        "endLine": 1001,
+        "endChar": 4
+      },
+      "revId": "6b50b035e91f86fdafd632f18486522536e0cbbe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a003e886_677b0b4f",
+        "filename": "src/bgp/test/service_chain_test.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 645,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-09-11T05:26:38Z",
+      "side": 1,
+      "message": "Nit: you can remove this",
+      "range": {
+        "startLine": 643,
+        "startChar": 0,
+        "endLine": 645,
+        "endChar": 3
+      },
+      "revId": "6b50b035e91f86fdafd632f18486522536e0cbbe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
