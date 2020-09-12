@@ -1,4 +1,0 @@
-recursive-include cfgm_common/uve *.html *.xml *.css
-include requirements.txt
-include test-requirements.txt
-include tox.ini
