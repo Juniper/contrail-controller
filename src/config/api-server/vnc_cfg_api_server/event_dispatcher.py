@@ -81,7 +81,8 @@ class EventDispatcher(object):
     @classmethod
     def _subscribe_client_queue(cls, client_queue, resource_type):
         cls._watchers.update({
-            resource_type: cls._watchers.get(resource_type, ResourceWatcher())})
+            resource_type: cls._watchers.get(resource_type,
+                                             ResourceWatcher())})
         cls._watchers.get(resource_type).add(client_queue, resource_type)
     # end _subscribe_client_queue
 
@@ -180,7 +181,7 @@ class EventDispatcher(object):
                                                     resource_id,
                                                     obj_fields)
         if resource_oper is None:
-            #Set it to original value as no error occured
+            # Set it to original value as no error occured
             resource_oper = notification.get("oper")
         object_type = resource_type.replace("_", "-")
         # [1]-New watchers might be have subscribed their queues
@@ -210,7 +211,11 @@ class EventDispatcher(object):
                 'parent_uuid': obj_dict.get("parent_uuid")
             }
             for field in fields:
-                obj_with_fields[field] = obj_dict.get(field)
+                try:
+                    obj_with_fields[field] = obj_dict[field]
+                except KeyError:
+                    # Property/field not set for this object
+                    pass
             event = self.pack(
                 event=resource_oper,
                 data={object_type: obj_with_fields}
