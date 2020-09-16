@@ -3324,6 +3324,15 @@ class VncApiServer(object):
                 project_id = domain_id.replace('-', '')
             shares = self._db_conn.get_shared_objects(obj_type, project_id,
                                                       domain_id)
+
+            if not project_id and 'parent_id' in get_request().query:
+                project_ids = [p_id.replace('-', '') for p_id
+                               in get_request().query.parent_id.split(',')]
+                for project_id in project_ids:
+                    shares.extend(self._db_conn.get_shared_objects(obj_type,
+                                                                   project_id,
+                                                                   domain_id))
+
             owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
             for obj_uuid, _ in shares:
                 # skip owned objects already included in results
@@ -3332,6 +3341,7 @@ class VncApiServer(object):
                 try:
                     fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
                     result.append((fq_name, obj_uuid))
+                    owned_objs.add(obj_uuid)  # takes care of duplicates
                 except NoIdError:
                     # uuid no longer valid. Delete?
                     pass
