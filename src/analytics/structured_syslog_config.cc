@@ -74,6 +74,7 @@ StructuredSyslogConfig::AddNetwork(const std::string& key, const std::string& ne
 
     std::string id = location;
     IPNetwork net(net_lower, net_upper, id);
+    boost::mutex::scoped_lock lock(networks_map_refresh_mutex);
 
     IPNetworks_map::iterator it = networks_map_.find(key);
     if (it  != networks_map_.end()) {
