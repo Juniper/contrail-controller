@@ -347,15 +347,13 @@ class VncApiServer(object):
         if value in poss_values:
             return
 
-        res = re.match('^(color:|0x030b:)?[0-9]{1,5}:[0-9]{1,10}$', value)
+        res = re.match('[0-9]+:[0-9]+', value)
         if res is None:
             raise ValueError('Invalid community format %s. '
                              'Change to \'number:number\''
-                             'or extended format color:number:number'
-                             % value)
+                              % value)
 
-        community = value.split(':')
-        asn = community[-2]
+        asn = value.split(':')
         if int(asn[0]) > 65535:
             raise ValueError('Out of range ASN value %s. '
                              'ASN values cannot exceed 65535.'
@@ -1907,7 +1905,7 @@ class VncApiServer(object):
             self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
         else:
             self.aaa_mode = "cloud-admin"
-
+        
         api_proto = 'https' if self._args.config_api_ssl_enable else 'http'
         api_host_name = socket.getfqdn(self._args.listen_ip_addr)
         self._base_url = "%s://%s:%s" % (api_proto, api_host_name,
@@ -2082,7 +2080,7 @@ class VncApiServer(object):
             if version:
                 version = version.split()
             if not version or len(version) != 3:
-                # In case of setup from source there is no RPM and version is available in env
+                # In case of setup from source there is no RPM and version is available in env     
                 version_str = os.environ.get('CONTRAIL_VERSION', 'tf-master-latest')
                 version = re.split('\.|-', version_str)[-3:]
                 if len(version) != 3:
@@ -2227,7 +2225,7 @@ class VncApiServer(object):
     @enable_4byte_as.setter
     def enable_4byte_as(self, enable_4byte_as):
         self._enable_4byte_as = enable_4byte_as
-
+ 
     @property
     def default_domain(self):
         if not self._default_domain:
@@ -3201,12 +3199,12 @@ class VncApiServer(object):
     # end list_bulk_collection_http_post
 
 
-    # Get hbs
+    # Get hbs 
     def hbs_get(self):
         self._post_common(None, {})
         # Get hbs fq_name from request
         req_json = get_request().json
-
+        
         # valid json data required
         if not req_json:
             raise cfgm_common.exceptions.HttpError(
