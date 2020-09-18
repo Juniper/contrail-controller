@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f1561650_3d94d861",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 538,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-09-18T00:07:26Z",
+      "side": 1,
+      "message": "we may need to figure out at what point of time, subnet_dict[\u0027gw\u0027] become \u0027None\u0027 instead.",
+      "revId": "de52fa4b21a91cbfd1a3c921330574299dbc0c30",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
