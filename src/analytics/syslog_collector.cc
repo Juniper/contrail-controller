@@ -52,7 +52,7 @@
 using boost::asio::ip::udp;
 using namespace boost::asio;
 namespace qi = boost::spirit::qi;
-namespace ascii = boost::spirit::ascii;
+namespace ascii = boost::spirit::standard;
 namespace bt = boost::posix_time;
 namespace phx = boost::phoenix;
 
