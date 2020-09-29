@@ -259,6 +259,13 @@ TEST_F(SyslogParserTest, ParseWithHostOne)
     EXPECT_TRUE(0 == strncmp ("a3s45", hostname().c_str(), 5));
 }
 
+//This TestCase should not Crash/assert at isspace.
+TEST_F(SyslogParserTest, NonAscii)
+{
+    bool a = Parse("£¥€");
+    EXPECT_FALSE(a);
+}
+
 TEST_F(SyslogCollectorTest, End2End)
 {
     EXPECT_CALL(*db_handler_.get(), MessageTableInsert(_,_))
