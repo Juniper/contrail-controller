@@ -1,0 +1,47 @@
+# 1. Introduction
+The Contrail DPDK feature should be supported by Contrail JuJu Charms.
+
+# 2. Problem statement
+New Contrail JuJu Charms should support the DPDK configuration.
+
+# 3. Proposed solution
+Add a configuration parameter dpdk_enabled (True/False) to contrail-agent charm with default False.
+
+## 3.1 Alternatives considered
+None
+
+## 3.2 API schema changes
+None
+
+## 3.3 User workflow impact
+During deployment of the contrail-agent charm user would have to switch dpdk_enabled to True in the configuration. 
+
+## 3.4 UI changes
+None
+
+## 3.5 Notification impact
+None
+
+# 4. Implementation
+contrail-agent in the code will be invoking contrail-provision-vrouter passing the dpdk_enabled flag.
+
+# 5. Performance and scaling impact
+None
+
+# 6. Upgrade
+Previous JuJu deployment will be getting dpdk_enabled=False during the upgrade.
+
+# 7. Deprecations
+None
+
+# 8. Dependencies
+None
+
+# 9. Testing
+Contrail Charms CI system will be updated to have a dpdk_enabled flow check
+
+# 10. Documentation Impact
+Charms README will be updated
+
+# 11. References
+
