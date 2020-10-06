@@ -1449,8 +1449,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 api_server.internal_request_delete('virtual_port_group',
                                                    vpg_uuid)
 
-            # Clean ae ids associated with VPG->PIs
-            cls._notify_ae_id_modified(obj_dict)
+                # Clean ae ids associated with VPG->PIs
+                cls._notify_ae_id_modified(obj_dict)
 
         return True, ""
 
