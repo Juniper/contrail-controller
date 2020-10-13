@@ -133,6 +133,8 @@ protected:
     virtual void AcceptHandlerComplete(TcpSessionPtr session);
     virtual void ConnectHandlerComplete(TcpSessionPtr session);
 
+    //In rare cases derived classes need to call this
+    void OnSessionClose(TcpSession *session);
 
 private:
     friend class TcpSession;
@@ -164,7 +166,6 @@ private:
     // Trigger the async accept operation.
     void AsyncAccept();
 
-    void OnSessionClose(TcpSession *session);
     void SetName(Endpoint local_endpoint);
 
     io::SocketStats stats_;
