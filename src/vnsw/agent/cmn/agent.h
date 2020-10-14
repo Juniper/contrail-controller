@@ -300,6 +300,17 @@ public:
     static const uint32_t kFlowUpdateTokens = 16;
     static const uint8_t kInvalidQueueId = 255;
     static const uint8_t kMinAapPrefixLen = 24;
+
+    static const bool kDefaultMetadataTcpKAEn = true;
+    static const int kDefaultMetadataTcpKAIdleTime = 7200;
+    static const int kDefaultMetadataTcpKAProbes = 9;
+    static const int kDefaultMetadataTcpKAInterval = 175;
+
+    static const bool kDefaultPortIpcTcpKAEn = true;
+    static const int kDefaultPortIpcTcpKAIdleTime = 7200;
+    static const int kDefaultPortIpcTcpKAProbes = 9;
+    static const int kDefaultPortIpcTcpKAInterval = 175;
+
     enum ForwardingMode {
         NONE,
         L2_L3,
