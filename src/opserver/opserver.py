@@ -36,6 +36,7 @@ import datetime
 import pycassa
 import platform
 from analytics_db import AnalyticsDb
+from gevent.server import StreamServer
 
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
@@ -118,6 +119,12 @@ class OpserverStdLog(object):
         sys.stderr.write('[' + self._server_name + ':' + str(self._port) + ']' + text)
 
 class ContrailGeventServer(bottle.GeventServer):
+    def __init__(self, args, sock):
+        self._socket = sock
+        self._args = args
+        super(ContrailGeventServer, self).__init__(args.rest_api_ip,
+                                                   args.rest_api_port)
+
     def run(self, handler):
         from gevent import wsgi as wsgi_fast, pywsgi, monkey, local
         if self.options.get('monkey', True):
@@ -125,7 +132,7 @@ class ContrailGeventServer(bottle.GeventServer):
             if not threading.local is local.local: monkey.patch_all()
         wsgi = wsgi_fast if self.options.get('fast') else pywsgi
         self._std_log = OpserverStdLog("API", self.port)
-        self.srv = wsgi.WSGIServer((self.host, self.port), handler, log = self._std_log)
+        self.srv = wsgi.WSGIServer(self._socket, handler, log = self._std_log) 
         self.srv.serve_forever()
     def stop(self):
         if hasattr(self, 'srv'):
@@ -493,7 +500,7 @@ class OpServer(object):
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
-            int(self._args.http_server_port), ['opserver.sandesh'],
+            int(self._args.http_server_port), ['opserver.sandesh'], 
             self.disc, logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
@@ -855,7 +862,7 @@ class OpServer(object):
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
             'api_server_use_ssl': False,
-            'use_aggregated_uve_db' : 'true',
+            'use_aggregated_uve_db' : 'true', 
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -2415,10 +2422,10 @@ class OpServer(object):
 
     def start_webserver(self):
         pipe_start_app = bottle.app()
+	self._socket = self._get_socket()
         try:
             self._webserver = ContrailGeventServer(
-                                   host=self._args.rest_api_ip,
-                                   port=self._args.rest_api_port)
+                                   args=self._args, sock=self._socket)
             bottle.run(app=pipe_start_app, server=self._webserver)
         except Exception as e:
             self._logger.error("Exception: %s" % e)
@@ -2541,6 +2548,25 @@ class OpServer(object):
     def sigterm_handler(self):
         self.stop()
         exit()
+
+    def _get_socket(self):
+        try:
+            sock = StreamServer.get_listener((self._args.rest_api_ip,
+                   self._args.rest_api_port), family=socket.AF_INET)
+        except socket.error as e:
+            self._logger.error('Unable to open HTTP Port %d, %s' %
+                   (self._args.rest_api_port, e))
+            sys.exit()
+        else:
+            self.set_sock_tcp_keepalive(sock)
+            return sock
+
+    def set_sock_tcp_keepalive(self, sock):
+        if self._args.sandesh_config.tcp_keepalive_enable is True:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, self._args.sandesh_config.tcp_keepalive_idle_time)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, self._args.sandesh_config.tcp_keepalive_interval)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, self._args.sandesh_config.tcp_keepalive_probes)
 
 def main(args_str=' '.join(sys.argv[1:])):
     opserver = OpServer(args_str)
