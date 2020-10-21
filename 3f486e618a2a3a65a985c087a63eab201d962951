@@ -16,6 +16,23 @@
       "revId": "3f486e618a2a3a65a985c087a63eab201d962951",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9f714fa9_394297b2",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 932,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-10-21T13:54:42Z",
+      "side": 1,
+      "message": "update contrail-vrouter-agent.conf file with these new additions",
+      "revId": "3f486e618a2a3a65a985c087a63eab201d962951",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
