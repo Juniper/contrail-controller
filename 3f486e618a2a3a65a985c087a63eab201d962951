@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2d2469f4_e65d1ce9",
+        "filename": "src/io/tcp_server.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 490,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-10-21T13:40:50Z",
+      "side": 1,
+      "message": "remove white spaces in all the files",
+      "revId": "3f486e618a2a3a65a985c087a63eab201d962951",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
