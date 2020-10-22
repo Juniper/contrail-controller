@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a59c409b_890579a1",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 135,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "trailing space",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ef63834b_1fbf55c8",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 503,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "trailing space",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bb98ec1f_97fbf9fa",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 865,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "trailing space",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "002ac26c_d9eac61a",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2425,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "remove tab",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cb6aeca9_dbdc9208",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2428,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "Why are we passing complete args to ContrailGeventServer ? This is not needed. Let\u0027s pass one more variable socket along with existing variables",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "85eb24e7_1ac290c6",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2559,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "Will this restart the process or process will just die ?",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "69cdb0c3_4dcc5b9e",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2567,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-10-22T08:30:31Z",
+      "side": 1,
+      "message": "80 char indentation",
+      "revId": "64be1629b4f2a4c1282834534fc2c33999550495",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
