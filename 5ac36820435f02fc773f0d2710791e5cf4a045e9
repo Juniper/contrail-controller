@@ -33,6 +33,24 @@
       "revId": "5ac36820435f02fc773f0d2710791e5cf4a045e9",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "554d7ba9_be8ffa2e",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 229,
+      "author": {
+        "id": 834
+      },
+      "writtenOn": "2020-10-22T21:36:21Z",
+      "side": 1,
+      "message": "Hi Sahid, this error happens when zk.get_children() leads to a NoNodeError. This can happen if a given path does not exist.",
+      "parentUuid": "b9a9736d_604bb780",
+      "revId": "5ac36820435f02fc773f0d2710791e5cf4a045e9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
