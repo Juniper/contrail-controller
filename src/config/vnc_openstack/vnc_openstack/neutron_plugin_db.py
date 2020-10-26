@@ -2388,10 +2388,7 @@ class DBInterface(object):
                 port_tenant_id = self._get_obj_tenant_id('port', port_id)
                 if context and not context['is_admin']:
                     if port_tenant_id != context['tenant'].replace('-', ''):
-                        self._raise_contrail_exception(
-                            'BadRequest',
-                            resource='floatingip',
-                            msg='Port %s is from another project' % port_id)
+                        raise NoIdError(port_id)
 
                 fip_proj_list = fip_obj.get_project_refs()
                 if fip_proj_list:
