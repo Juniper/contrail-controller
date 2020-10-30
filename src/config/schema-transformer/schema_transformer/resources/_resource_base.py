@@ -36,6 +36,11 @@ class ResourceBaseST(DBBase):
     # end reinit
 
     @classmethod
+    def resource_update(cls, rest_type, obj):
+        method = getattr(cls, '%s_update' % res_type)
+        method(obj)
+
+    @classmethod
     def get_obj_type_map(cls):
         module_base = [x for x in DBBase.__subclasses__()
                        if 'schema_transformer' in x.obj_type]
