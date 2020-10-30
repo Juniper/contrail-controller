@@ -9,6 +9,9 @@ import gevent
 from vnc_api.vnc_api import GlobalSystemConfig, NoIdError, RouteTargetList
 from vnc_cfg_api_server import db_manage
 
+from schema_transformer.resources._resource_base import ResourceBaseST
+from schema_transformer.resources.routing_instance import RoutingInstanceST
+from schema_transformer.resources.virtual_network import VirtualNetworkST
 from schema_transformer.db import SchemaTransformerDB
 from schema_transformer.resources.routing_instance import RoutingInstanceST
 from .test_case import retries, STTestCase
@@ -197,56 +200,46 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self.check_rt_is_deleted(rt.fq_name[0])
 
-    def test_route_target_id_collision(self):
-        db_checker = db_manage.DatabaseChecker(
-            *db_manage._parse_args('check --cluster_id %s' % self._cluster_id))
-        zkc = db_checker._zk_client
+    def test_ensure_missing_ri_rt_ref_recreated_on_next_vn_evaluate(self):
+        """ Validate CEM-19894
+        """
+        # Mock the resource update to raise exception during RI locatr
+        resource_update_orig = ResourceBaseST.resource_update
+        def mock_ri_update(*args, **kwargs):
+            if args[1] == 'routing_instance':
+                raise Exception("Mocked RI update failure exception")
+            return resource_update_orig(*args[1:], **kwargs)
+        ResourceBaseST.resource_update = mock_ri_update
 
-        DEPRECATED_BASE_RTGT = "/".join(
-            [x for x in db_checker.BASE_RTGT_ID_ZK_PATH.split("/")
-             if x not in ["type0", "type1_2"]])
+        vn1_name = self.id() + 'vn1'
+        # Mock the VN evauate to wait until the simulated locate
+        # failure(exception causing the RI-->RT ref to be not added) is ensured
+        self.blocked = True
+        self.second_evaluate = False
+        ri_evaluate_orig = VirtualNetworkST.evaluate
+        def mock_ri_evaluate(*args, **kwargs):
+            if args[0].obj.name == vn1_name:
+                while self.second_evaluate and self.blocked:
+                    gevent.sleep(1)
+                self.second_evaluate = True
+            return ri_evaluate_orig(*args, **kwargs)
+        VirtualNetworkST.evaluate = mock_ri_evaluate
 
-        vn_exst_obj = self.create_virtual_network('existing_vn_%s' % self.id())
-        rt_exst_obj = self.wait_for_route_target(vn_exst_obj)
-        rt_exst_id_str = "%(#)010d" % {
-            '#': int(rt_exst_obj.get_fq_name_str().split(':')[-1])}
+        # create  vn1
+        vn1_obj = self.create_virtual_network(vn1_name, rt_list=['target:1:1'])
+        self.wait_to_get_object(RoutingInstanceST,
+                                vn1_obj.get_fq_name_str() + ':' + vn1_name)
 
-        # TestRouteTarget/id/bgp/route-target/type0/{rt_exst_id_str}
-        node_exst_path = '%s%s%s' % (
-            self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_exst_id_str)
+        # ensure RI to RT ref is removed
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', False)
+        self.blocked = False
 
-        # TestRouteTarget/id/bgp/route-target/{rt_exst_id_str}
-        node_collision_path = '%s%s%s' % (
-            self._cluster_id,
-            DEPRECATED_BASE_RTGT,
-            rt_exst_id_str)
+        # revert the mocks
+        ResourceBaseST.resource_update = resource_update_orig
+        VirtualNetworkST.evaluate = mock_ri_evaluate
 
-        # TestRouteTarget/id/bgp/route-target
-        rt_path = '%s%s' % (self._cluster_id, DEPRECATED_BASE_RTGT)
-
-        # invariant
-        _, zk_node_stat = zkc.get(node_exst_path)
-
-        # create node in ZK
-        zkc.create_node(node_collision_path,
-                        "6a77156f-e062-4d6b-b228-05a173b612e3")
-
-        # is colliding node present
-        rts = zkc.get_children(rt_path)
-        self.assertIn(rt_exst_id_str, rts)
-
-        # reinit ST
-        test_common.reinit_schema_transformer()
-        self.wait_for_route_target(vn_exst_obj)
-
-        # check if initially existing node hasn't been modified
-        _, new_zk_node_stat = db_checker._zk_client.get(node_exst_path)
-        self.assertEqual(zk_node_stat, new_zk_node_stat)
-
-        # is colliding node gone
-        rts = zkc.get_children(rt_path)
-        self.assertNotIn(rt_exst_id_str, rts)
-
-    # end test_route_target_id_collision
+        # ensure RI to RT ref is recreated as part of VN evaluate(caused by any other change in VN)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
+    # end test_missing_ri_to_rt_ref_created_during_vn_update
 
 # end class TestRouteTarget
