@@ -2,8 +2,22 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+<<<<<<< HEAD   (11fee9 Cherrypicking fix made for master, to 1912 branch Master rev)
 from __future__ import print_function
 
+=======
+import gevent
+import sys
+
+from schema_transformer.resources._resource_base import ResourceBaseST
+from schema_transformer.resources.routing_instance import RoutingInstanceST
+from schema_transformer.resources.virtual_network import VirtualNetworkST
+from vnc_api.vnc_api import RouteTargetList, NoIdError
+from vnc_api.vnc_api import VirtualNetworkType
+from vnc_cfg_api_server import db_manage
+from test_case import STTestCase, retries
+from test_policy import VerifyPolicy
+>>>>>>> CHANGE (000501 Compare the configured RT list's in VN with the)
 from cfgm_common.tests import test_common
 import gevent
 from vnc_api.vnc_api import GlobalSystemConfig, NoIdError, RouteTargetList
@@ -197,6 +211,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self.check_rt_is_deleted(rt.fq_name[0])
 
+<<<<<<< HEAD   (11fee9 Cherrypicking fix made for master, to 1912 branch Master rev)
     def test_route_target_id_collision(self):
         db_checker = db_manage.DatabaseChecker(
             *db_manage._parse_args('check --cluster_id %s' % self._cluster_id))
@@ -248,5 +263,48 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self.assertNotIn(rt_exst_id_str, rts)
 
     # end test_route_target_id_collision
+=======
+    def test_ensure_missing_ri_rt_ref_recreated_on_next_vn_evaluate(self):
+        """ Validate CEM-19894
+        """
+        # Mock the resource update to raise exception during RI locatr
+        resource_update_orig = ResourceBaseST.resource_update
+        def mock_ri_update(*args, **kwargs):
+            if args[1] == 'routing_instance':
+                raise Exception("Mocked RI update failure exception")
+            return resource_update_orig(*args[1:], **kwargs)
+        ResourceBaseST.resource_update = mock_ri_update
+
+        vn1_name = self.id() + 'vn1'
+        # Mock the VN evauate to wait until the simulated locate
+        # failure(exception causing the RI-->RT ref to be not added) is ensured
+        self.blocked = True
+        self.second_evaluate = False
+        ri_evaluate_orig = VirtualNetworkST.evaluate
+        def mock_ri_evaluate(*args, **kwargs):
+            if args[0].obj.name == vn1_name:
+                while self.second_evaluate and self.blocked:
+                    gevent.sleep(1)
+                self.second_evaluate = True
+            return ri_evaluate_orig(*args, **kwargs)
+        VirtualNetworkST.evaluate = mock_ri_evaluate
+
+        # create  vn1
+        vn1_obj = self.create_virtual_network(vn1_name, rt_list=['target:1:1'])
+        self.wait_to_get_object(RoutingInstanceST,
+                                vn1_obj.get_fq_name_str() + ':' + vn1_name)
+
+        # ensure RI to RT ref is removed
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', False)
+        self.blocked = False
+
+        # revert the mocks
+        ResourceBaseST.resource_update = resource_update_orig
+        VirtualNetworkST.evaluate = mock_ri_evaluate
+
+        # ensure RI to RT ref is recreated as part of VN evaluate(caused by any other change in VN)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
+    # end test_missing_ri_to_rt_ref_created_during_vn_update
+>>>>>>> CHANGE (000501 Compare the configured RT list's in VN with the)
 
 # end class TestRouteTarget
