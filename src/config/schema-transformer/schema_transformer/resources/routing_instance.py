@@ -36,6 +36,7 @@ class RoutingInstanceST(ResourceBaseST):
         self.route_target = None
         self.routing_policys = {}
         self.route_aggregates = set()
+        self.route_targets = set()
         self.service_chain_info = self.obj.get_service_chain_information()
         self.v6_service_chain_info = \
             self.obj.get_ipv6_service_chain_information()
@@ -88,6 +89,11 @@ class RoutingInstanceST(ResourceBaseST):
     def update(self, obj=None):
         # Nothing to do
         return False
+
+    def update_route_targets(self):
+        self.route_targets = [
+            ':'.join(rt_ref['to'])
+            for rt_ref in self.obj.get_route_target_refs() or []]
 
     @classmethod
     def create(cls, fq_name, vn_obj, has_pnf=False):
@@ -299,11 +305,14 @@ class RoutingInstanceST(ResourceBaseST):
 
                 if update_ri:
                     try:
-                        self._vnc_lib.routing_instance_update(self.obj)
+                        self.resource_update('routing_instance', self.obj)
+                        # update local cache of ri-->rt refs
+                        self.update_route_targets()
                     except Exception as e:
+                        msg = "Error while updating routing instance: "
+                        self.add_ignored_error(msg)
                         # error due to inconsistency in db
-                        self._logger.error(
-                            "Error while updating routing instance: " + str(e))
+                        self._logger.error(msg + str(e))
                     return
         except NoIdError as e:
             self._logger.error(
@@ -429,6 +438,8 @@ class RoutingInstanceST(ResourceBaseST):
         if update:
             try:
                 self._vnc_lib.routing_instance_update(self.obj)
+                # update local cache of ri-->rt refs
+                self.update_route_targets()
             except NoIdError:
                 return
     # end update_route_target_list
@@ -436,7 +447,8 @@ class RoutingInstanceST(ResourceBaseST):
     def update_static_routes(self):
         if not self.is_default:
             return
-        old_static_routes = self.obj.get_static_route_entries()
+        old_static_routes = (self.obj.get_static_route_entries() or
+                             StaticRouteEntriesType())
         static_routes = StaticRouteEntriesType()
         old_route_target_list = set()
         if old_static_routes:
@@ -515,6 +527,8 @@ class RoutingInstanceST(ResourceBaseST):
             self.obj.set_static_route_entries(static_routes)
             try:
                 self._vnc_lib.routing_instance_update(self.obj)
+                # update local cache of ri-->rt refs
+                self.update_route_targets()
             except NoIdError:
                 pass
     # end update_static_routes
