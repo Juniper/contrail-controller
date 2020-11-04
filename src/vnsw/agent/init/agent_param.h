@@ -128,6 +128,17 @@ public:
             return 0;
         return metadata_proxy_port_;
     }
+
+    const bool metadata_tcp_ka_en() const { return metadata_tcp_ka_en_; }
+    const int metadata_tcp_ka_idle_time() const { return metadata_tcp_ka_idle_time_; }
+    const int metadata_tcp_ka_probes() const { return metadata_tcp_ka_probes_; }
+    const int metadata_tcp_ka_interval() const { return metadata_tcp_ka_interval_; }
+
+    const bool port_ipc_tcp_ka_en() const { return port_ipc_tcp_ka_en_; }
+    const int port_ipc_tcp_ka_idle_time() const { return port_ipc_tcp_ka_idle_time_; }
+    const int port_ipc_tcp_ka_probes() const { return port_ipc_tcp_ka_probes_; }
+    const int port_ipc_tcp_ka_interval() const { return port_ipc_tcp_ka_interval_; }
+
     float max_vm_flows() const { return max_vm_flows_; }
     uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
@@ -430,6 +441,8 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseMetadataProxyArguments
         (const boost::program_options::variables_map &v);
+    void ParsePortIPCArguments
+        (const boost::program_options::variables_map &v);
     void ParseFlowArguments
         (const boost::program_options::variables_map &v);
     void ParseHeadlessModeArguments
@@ -489,6 +502,17 @@ private:
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
     uint16_t metadata_proxy_port_;
+
+    bool metadata_tcp_ka_en_;
+    int metadata_tcp_ka_idle_time_;
+    int metadata_tcp_ka_probes_;
+    int metadata_tcp_ka_interval_;
+
+    bool port_ipc_tcp_ka_en_;
+    int port_ipc_tcp_ka_idle_time_;
+    int port_ipc_tcp_ka_probes_;
+    int port_ipc_tcp_ka_interval_;
+
     float max_vm_flows_;
     uint16_t linklocal_system_flows_;
     uint16_t linklocal_vm_flows_;

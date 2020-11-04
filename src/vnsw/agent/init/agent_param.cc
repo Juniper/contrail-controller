@@ -927,8 +927,27 @@ void AgentParam::ParseMetadataProxyArguments
                         "METADATA.metadata_proxy_secret");
     GetOptValue<uint16_t>(var_map, metadata_proxy_port_,
                         "METADATA.metadata_proxy_port");
+    GetOptValue<bool>(var_map, metadata_tcp_ka_en_,
+                        "METADATA.metadata_tc_ka_en");
+    GetOptValue<int>(var_map, metadata_tcp_ka_idle_time_,
+                        "METADATA.metadata_tcp_ka_idle_time");
+    GetOptValue<int>(var_map, metadata_tcp_ka_probes_,
+                        "METADATA.metadata_tcp_ka_probes");
+    GetOptValue<int>(var_map, metadata_tcp_ka_interval_,
+                        "METADATA.metadata_tcp_ka_interval");
 }
 
+void AgentParam::ParsePortIPCArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, port_ipc_tcp_ka_en_,
+                        "PORT-IPC.port_ipc_tcp_ka_en");
+    GetOptValue<int>(var_map, port_ipc_tcp_ka_idle_time_,
+                        "PORT-IPC.port_ipc_tcp_ka_idle_time");
+    GetOptValue<int>(var_map, port_ipc_tcp_ka_probes_,
+                        "PORT-IPC.port_ipc_tcp_ka_probes");
+    GetOptValue<int>(var_map, port_ipc_tcp_ka_interval_,
+                        "PORT-IPC.port_ipc_tcp_ka_interval");
+}
 void AgentParam::ParseFlowArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<uint16_t>(var_map, flow_thread_count_,
@@ -1104,6 +1123,7 @@ void AgentParam::InitFromArguments() {
     ParseTaskSectionArguments(var_map_);
     ParseFlowArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
+    ParsePortIPCArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
@@ -1484,7 +1504,16 @@ AgentParam::AgentParam(bool enable_flow_options,
         dns_max_retries_(2), mirror_client_port_(0),
         dss_server_(), dss_port_(0), mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
-        metadata_proxy_port_(0), max_vm_flows_(),
+        metadata_proxy_port_(0),
+        metadata_tcp_ka_en_(Agent::kDefaultMetadataTcpKAEn),
+        metadata_tcp_ka_idle_time_(Agent::kDefaultMetadataTcpKAIdleTime),
+        metadata_tcp_ka_probes_(Agent::kDefaultMetadataTcpKAProbes),
+        metadata_tcp_ka_interval_(Agent::kDefaultMetadataTcpKAInterval),
+        port_ipc_tcp_ka_en_(Agent::kDefaultPortIpcTcpKAEn),
+        port_ipc_tcp_ka_idle_time_(Agent::kDefaultPortIpcTcpKAIdleTime),
+        port_ipc_tcp_ka_probes_(Agent::kDefaultPortIpcTcpKAProbes),
+        port_ipc_tcp_ka_interval_(Agent::kDefaultPortIpcTcpKAInterval),
+        max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), flow_index_sm_log_count_(),
         flow_add_tokens_(Agent::kFlowAddTokens),
@@ -1616,6 +1645,30 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Enable Xmpp over TLS for DNS")
         ("METADATA.metadata_proxy_secret", opt::value<string>(),
          "Shared secret for metadata proxy service")
+        ("METADATA.metadata_tcp_ka_en",
+          opt::bool_switch(&metadata_tcp_ka_en_)->default_value(true),
+          "METADATA TCP Keepalive Enable")
+        ("METADATA.metadata_tcp_ka_idle_time",
+          opt::value<int>()->default_value(7200),
+          "METADATA TCP Keepalive Idle Time")
+        ("METADATA.metadata_tcp_ka_probes",
+          opt::value<int>()->default_value(9),
+          "METADATA TCP Keepalive Probes")
+        ("METADATA.metadata_tcp_ka_interval",
+          opt::value<int>()->default_value(175),
+          "METADATA TCP Keepalive Interval")
+        ("PORT-IPC.port_ipc_tcp_ka_en",
+          opt::bool_switch(&port_ipc_tcp_ka_en_)->default_value(true),
+          "PORT-IPC TCP Keepalive Enable")
+        ("PORT-IPC.port_ipc_tcp_ka_idle_time",
+          opt::value<int>()->default_value(7200),
+          "PORT-IPC TCP Keepalive Idle Time")
+        ("PORT-IPC.port_ipc_tcp_ka_probes",
+          opt::value<int>()->default_value(9),
+          "PORT-IPC TCP Keepalive Probes")
+        ("PORT-IPC.port_ipc_tcp_ka_interval",
+          opt::value<int>()->default_value(175),
+          "PORT-IPC TCP Keepalive Interval")
         ("NETWORKS.control_network_ip", opt::value<string>(),
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
