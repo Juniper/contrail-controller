@@ -487,18 +487,32 @@ int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
 }
 
 int TcpServer::SetSocketOptions(const SandeshConfig &sandesh_config) {
-    int retval = 0;
-    if (acceptor_ && sandesh_config.tcp_keepalive_enable) {
-        retval = SetKeepAliveSocketOption(acceptor_->native_handle(), sandesh_config);
-    }
-    return retval;
+    return SetKeepAliveSocketOption(sandesh_config);
 }
 
-int TcpServer::SetKeepAliveSocketOption(int fd, const SandeshConfig &sandesh_config) {
-    int tcp_keepalive_enable = 1, retval = 0;
+int TcpServer::SetKeepAliveSocketOption(const SandeshConfig &sandesh_config) {
+
+    int tcp_keepalive_enable = sandesh_config.tcp_keepalive_enable==true ? 1 : 0;
     int tcp_keepalive_idle_time = sandesh_config.tcp_keepalive_idle_time;
     int tcp_keepalive_probes = sandesh_config.tcp_keepalive_probes;
     int tcp_keepalive_interval = sandesh_config.tcp_keepalive_interval;
+    return SetKeepAliveSocketOption(tcp_keepalive_enable,
+                        tcp_keepalive_idle_time, tcp_keepalive_probes,
+                        tcp_keepalive_interval);
+}
+
+int TcpServer::SetKeepAliveSocketOption(int tcp_keepalive_enable,
+                        int tcp_keepalive_idle_time, int tcp_keepalive_probes,
+                        int tcp_keepalive_interval) {
+
+    int retval = 0;
+
+    if(!acceptor_) {
+        return 0;
+    }
+
+    int fd = acceptor_->native_handle();
+
     retval = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
                 reinterpret_cast<const char *>(&tcp_keepalive_enable),
                 sizeof(tcp_keepalive_enable));

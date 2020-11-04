@@ -18,6 +18,7 @@
 #include "cmn/agent.h"
 #include "rest_server.h"
 #include "rest_common.h"
+#include "init/agent_param.h"
 
 using contrail::regex;
 using contrail::regex_match;
@@ -143,6 +144,14 @@ RESTServer::RESTServer(Agent *agent)
 
 void RESTServer::InitDone() {
     http_server_->Initialize(ContrailPorts::PortIpcVrouterAgentPort());
+    if(agent_->params()->port_ipc_tcp_ka_en()) {
+        int port_ipc_tcp_ka_en = 1;
+        http_server_->SetKeepAliveSocketOption(port_ipc_tcp_ka_en,
+                        agent_->params()->port_ipc_tcp_ka_idle_time(),
+                        agent_->params()->port_ipc_tcp_ka_probes(),
+                        agent_->params()->port_ipc_tcp_ka_interval());
+    }
+
 }
 
 void RESTServer::HandleRequest(HttpSession* session,
