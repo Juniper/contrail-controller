@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3bd5f932_0c16ab28",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2020-11-10T10:44:26Z",
+      "side": 1,
+      "message": "Please remove the commented lines.",
+      "revId": "19f28f5267c37ede272960c21bcae5f396f4d6f6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e910ef16_5cb92854",
+        "filename": "src/opserver/opserver.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 2427,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2020-11-10T10:44:26Z",
+      "side": 1,
+      "message": "You can correct the formatting by starting at the same place as in the base code.",
+      "revId": "19f28f5267c37ede272960c21bcae5f396f4d6f6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
