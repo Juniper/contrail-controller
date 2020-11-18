@@ -104,6 +104,17 @@ bool MplsLabel::ChangeNH(NextHop *nh) {
     if (IsFabricMulticastReservedLabel()) {
         CompositeNH *cnh = dynamic_cast<CompositeNH*>(nh);
         if (cnh && cnh->vrf()) {
+            FmgVrfNhMap::iterator it = fmg_nh_list_.begin();
+            while( it != fmg_nh_list_.end()) {
+                if (it->first != cnh->vrf()->GetName()) {
+                    FmgVrfNhMap::iterator temp_it;
+                    temp_it = it;
+                    it++;
+                    fmg_nh_list_.erase(temp_it);
+                } else {
+                    it++;
+                }
+            }
             fmg_nh_list_[cnh->vrf()->GetName()] = nh;
         }
     }
@@ -299,7 +310,10 @@ bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
         // For multicast labels we not expect to be here
         // via MplsTable::OnZeroRefcount where data is not set.
         assert(data);
-        mpls->fmg_nh_list().erase(data->vrf_name());
+        if (mpls->fmg_nh_list().find(data->vrf_name()) !=
+                mpls->fmg_nh_list().end()) {
+            mpls->fmg_nh_list().erase(data->vrf_name());
+        }
         if (mpls->fmg_nh_list().empty() == false) {
             if (mpls->ChangeNH(mpls->fmg_nh_list().begin()->second.get())) {
                 DBTablePartBase *tpart =
