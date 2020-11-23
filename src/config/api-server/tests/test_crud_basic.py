@@ -2484,6 +2484,22 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         finally:
             os.removedirs(bundle_dir)
     # end test_cert_bundle_refresh
+    def test_create_default_children(self):
+        fq_name = ['default-domain', 'default-project',
+                   'default-virtual-network']
+        # Check we have default VN
+        self._vnc_lib.virtual_network_read(fq_name=fq_name)
+        # Delete Default VN
+        self._vnc_lib.virtual_network_delete(fq_name=fq_name)
+        # Make sure it's deleted
+        with ExpectedException(NoIdError) as e:
+            self._vnc_lib.virtual_network_read(fq_name=fq_name)
+        # Get api instance and run init db entry to recreate default VN
+        api_instance = self._server_info["api_server"]
+        api_instance._db_init_entries()
+        # Check if default VN being recreated
+        self._vnc_lib.virtual_network_read(fq_name=fq_name)
+
 # end class TestVncCfgApiServer
 
 
