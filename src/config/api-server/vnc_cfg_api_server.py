@@ -1411,6 +1411,51 @@ class VncApiServer(object):
             self.create_default_children(child_obj_type, child_obj)
     # end create_default_children
 
+    def ensure_default_children_exists(self, object_type, parent_obj):
+        r_class = self.get_resource_class(object_type)
+        for child_fields in r_class.children_fields:
+            # Create a default child only if provisioned for
+            child_res_type, is_derived = \
+                r_class.children_field_types[child_fields]
+            if is_derived:
+                continue
+            if child_res_type not in self._GENERATE_DEFAULT_INSTANCE:
+                continue
+            child_cls = self.get_resource_class(child_res_type)
+            child_obj_type = child_cls.object_type
+            child_obj = child_cls(parent_obj=parent_obj)
+            child_dict = child_obj.__dict__
+            child_dict['id_perms'] = self._get_default_id_perms()
+            child_dict['perms2'] = self._get_default_perms2()
+            print(child_obj_type)
+            try:
+                id = self._db_conn.fq_name_to_uuid(child_obj_type,
+                                                   child_obj.get_fq_name())
+            except NoIdError:
+                print(child_obj_type)
+                (ok, result) = self._db_conn.dbe_alloc(child_obj_type,
+                                                       child_dict)
+                if not ok:
+                    return (ok, result)
+                obj_ids = result
+
+                # For virtual networks, allocate an ID
+                if child_obj_type == 'virtual_network':
+                    child_dict['virtual_network_network_id'] = \
+                        self.alloc_vn_id(child_obj.get_fq_name_str())
+
+                (ok, result) = self._db_conn.dbe_create(child_obj_type,
+                                                        obj_ids,
+                                                        child_dict)
+                if not ok:
+                    # DB Create failed, log and stop further child creation.
+                    err_msg = "DB Create failed creating %s" % child_res_type
+                    self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+                    return (ok, result)
+
+                # recurse down type hierarchy
+            self.ensure_default_children_exists(child_obj_type, child_obj)
+
     def delete_default_children(self, resource_type, parent_dict):
         r_class = self.get_resource_class(resource_type)
         for child_field in r_class.children_fields:
@@ -3264,6 +3309,7 @@ class VncApiServer(object):
         # create if it doesn't exist yet
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            self.ensure_default_children_exists(obj_type, s_obj)
         except NoIdError:
             obj_dict = s_obj.serialize_to_json()
             if s_obj.get_id_perms():
