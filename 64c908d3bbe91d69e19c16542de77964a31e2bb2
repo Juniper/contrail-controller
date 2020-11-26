@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1cf3f075_360659cf",
+        "filename": "src/config/api-server/tests/test_crud_basic.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 2493,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-11-26T04:31:13Z",
+      "side": 1,
+      "message": "Please ensure the default VN is restored at the end of the testcase. this will avoid other testcase failures in case this test fails.",
+      "revId": "64c908d3bbe91d69e19c16542de77964a31e2bb2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
