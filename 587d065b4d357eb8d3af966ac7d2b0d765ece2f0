@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9970e3a5_af1b2244",
+        "filename": "src/ksync/ksync_sock.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 950,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-11-27T06:16:17Z",
+      "side": 1,
+      "message": "can we exit unconditionally , it is going to be one session with DPDK,",
+      "revId": "587d065b4d357eb8d3af966ac7d2b0d765ece2f0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1040537f_a05caa33",
+        "filename": "src/ksync/ksync_sock.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 953,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-11-27T06:16:17Z",
+      "side": 1,
+      "message": "nit:pls remove whitespaces",
+      "revId": "587d065b4d357eb8d3af966ac7d2b0d765ece2f0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
