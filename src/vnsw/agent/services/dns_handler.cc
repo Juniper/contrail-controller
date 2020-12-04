@@ -172,7 +172,6 @@ bool DnsHandler::HandleRequest() {
     }
 
     if (ipam_type_.ipam_dns_method == "default-dns-server" ||
-        ipam_type_.ipam_dns_method == "none" ||
         ipam_type_.ipam_dns_method == "") {
         BuildDefaultDnsResolvers();
         if (dns_->flags.op == DNS_OPCODE_UPDATE) {
@@ -195,6 +194,11 @@ bool DnsHandler::HandleRequest() {
         domain_name_ = vdns_type_.domain_name;
         default_method_ = false;
         return HandleVirtualDnsRequest(vmitf);
+    } else if (ipam_type_.ipam_dns_method == "none") {
+        DNS_BIND_TRACE(DnsBindError, "No DNS support for the VM : "
+                        << "ipam_dns_method set to none, ignoring request");
+        ret = DNS_ERR_SERVER_FAIL;
+        goto error;
     }
 
     ret = DNS_ERR_SERVER_FAIL;

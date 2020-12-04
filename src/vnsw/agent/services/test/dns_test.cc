@@ -1410,6 +1410,55 @@ TEST_F(DnsTest, DnsFloatingIp_VnDelWithoutFipDeAssoc) {
     client->WaitForIdle();
 }
 
+TEST_F(DnsTest, IpmaDnsMethodNone) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>None</ipam-dns-method>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+    DnsItem query_items[MAX_ITEMS] = a_items;
+    query_items[0].name     = "www.google.com";
+
+    int count = 0;
+    DnsProto::DnsStats stats;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, query_items);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.fail < 1);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_EQ(0U, stats.resolved);
+    // ipam dns method is set to none, dns request is ignored and fail counter is increased
+    EXPECT_EQ(1U, stats.fail);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+}
+
 void RouterIdDepInit(Agent *agent) {
 }
 
