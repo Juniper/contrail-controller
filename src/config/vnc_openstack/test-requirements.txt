@@ -27,6 +27,6 @@ vnc_cfg_api_server
 discoveryclient
 sandesh
 sandesh-common
-pyOpenSSL
+pyOpenSSL==19.0.0
 mock
 vine==1.1.3
