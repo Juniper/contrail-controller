@@ -646,9 +646,7 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
     // For EEXIST error donot mark the flow as ShortFlow since Vrouter
     // generates EEXIST only for cases where another add should be
     // coming from the pkt trap from Vrouter
-    if (ksync_error != EEXIST ||
-          (flow->is_flags_set(FlowEntry::NatFlow) &&
-           !(flow->is_flags_set(FlowEntry::BgpRouterService)))) {
+    if (ksync_error != EEXIST || flow->is_flags_set(FlowEntry::NatFlow)) {
         // FIXME : We dont have good scheme to handle following scenario,
         // - VM1 in VN1 has floating-ip FIP1 in VN2
         // - VM2 in VN2
@@ -664,6 +662,22 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
         //    - VM2 to FIP1
         //    - VM1 to VM2
         //
+        // CEM-18166: BGPaaS corrupted NAT flow after repeated BGP session flap
+        // In the test environment it was observed that flows would remain stuck
+        // with old reverse indexes, after a few operations of disabling and
+        // re-enabling the interface on the VNF.
+        // A previous attempt to fix this in CEM-10354 proved to be incomplete.
+        // A better way to handle this case is to make the flows in question
+        // short, but since EEXIST is returned for the RF (from Controller), it 
+        // is necessary to update the ksync_entry to the flow handle returned by
+        // vrouter DP, Agent does not know it and is thus -1.
+        if (ksync_error == EEXIST) {
+            KSyncFlowIndexManager *mgr =
+                    agent()->ksync()->ksync_flow_index_manager();
+            mgr->UpdateFlowHandle(ksync_entry,
+                                  ksync_entry->ksync_response_info()->flow_handle_,
+                                  ksync_entry->ksync_response_info()->gen_id_);
+        }
         // The reverse flows for both FlowPair-1 and FlowPair-2 are not
         // installed due to EEXIST error. We are converting flows to
         // short-flow till this case is handled properly
