@@ -1779,7 +1779,9 @@ TEST_F(RouteTest, test_fmg_label_1) {
     client->WaitForIdle();
     label_entry =
         Agent::GetInstance()->mpls_table()->FindMplsLabel(4100);
-    EXPECT_TRUE(label_entry != NULL);
+    // label delete is expected as when label is reused
+    // previous VRF entry is deleted from fmg nh list
+    EXPECT_TRUE(label_entry == NULL);
     //Start cleaning
     //Delete remote paths
     mc_handler->ModifyFabricMembers(Agent::GetInstance()->

@@ -52,7 +52,7 @@ private:
 class MplsLabel : AgentRefCount<MplsLabel>, public AgentDBEntry {
 public:
     typedef DependencyList<AgentRoute, MplsLabel> DependentPathList;
-
+    typedef std::map<std::string, NextHopRef> FmgVrfNhMap;
     MplsLabel(Agent *agent, uint32_t label);
     virtual ~MplsLabel();
 
@@ -78,7 +78,7 @@ public:
 
     uint32_t label() const {return label_;}
     const NextHop *nexthop() const {return nh_;}
-    std::map<std::string, NextHopRef> &fmg_nh_list() {
+    FmgVrfNhMap &fmg_nh_list() {
         return fmg_nh_list_;
     }
 
@@ -88,7 +88,7 @@ private:
     uint32_t label_;
     bool free_label_;
     NextHop *nh_;
-    std::map<std::string, NextHopRef> fmg_nh_list_;
+    FmgVrfNhMap fmg_nh_list_;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);
 };
