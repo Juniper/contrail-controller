@@ -1251,6 +1251,11 @@ class VncDbClient(object):
                         not obj_dict.get('is_provider_network', False):
                         do_update = True
                         obj_dict['is_provider_network'] = True
+
+                    is_shared = obj_dict.get('is_shared')
+                    if is_shared is None:
+                        obj_dict['is_shared'] = False
+                        do_update = True
                     if do_update:
                         self._object_db.object_update(
                             'virtual_network', obj_uuid, obj_dict)

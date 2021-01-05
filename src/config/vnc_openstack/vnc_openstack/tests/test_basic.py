@@ -1452,6 +1452,62 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
     # end test_empty_floating_ip_body_disassociates
 
+    def test_shared_network(self):
+        """UT for CEM-20393."""
+        proj_obj = self._vnc_lib.project_create(
+            vnc_api.Project('project-%s' % self.id()))
+        new_proj_obj = self._vnc_lib.project_read(id=proj_obj)
+        vn1_obj = self.create_resource(
+            'network',
+            new_proj_obj.uuid,
+            extra_res_fields={'shared': True})
+        vn2_obj = self.create_resource(
+            'network',
+            new_proj_obj.uuid,
+            extra_res_fields={'shared': False})
+        vn3_obj = self.create_resource(
+            'network',
+            new_proj_obj.uuid)
+        context = {'operation': 'READALL',
+                   'user_id': '',
+                   'tenant': new_proj_obj.uuid,
+                   'roles': '',
+                   'is_admin': False}
+        data = {'filters': {'shared': [True],
+                            'tenant_id': [new_proj_obj.uuid]}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json(
+            '/neutron/network', body)
+
+        shared_net_neutron_list = json.loads(resp.text)
+        self.assertEqual(len(shared_net_neutron_list), 1)
+        self.assertEqual(shared_net_neutron_list[0]['id'], vn1_obj['id'])
+
+        context = {'operation': 'READALL',
+                   'user_id': '',
+                   'tenant': new_proj_obj.uuid,
+                   'roles': '',
+                   'is_admin': False}
+        data = {'filters': {'shared': [False],
+                            'tenant_id': [new_proj_obj.uuid]}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json(
+            '/neutron/network', body)
+
+        no_shared_net_neutron_list = json.loads(resp.text)
+        self.assertEqual(len(no_shared_net_neutron_list), 2)
+        for vn_obj in no_shared_net_neutron_list:
+            if vn_obj['id'] == vn3_obj['id']:
+                self.assertEqual(vn_obj['id'], vn3_obj['id'])
+            else:
+                self.assertEqual(vn_obj['id'], vn2_obj['id'])
+
+        # cleanup
+        self.delete_resource('network', new_proj_obj.uuid, vn1_obj['id'])
+        self.delete_resource('network', new_proj_obj.uuid, vn2_obj['id'])
+        self.delete_resource('network', new_proj_obj.uuid, vn3_obj['id'])
+        self._vnc_lib.project_delete(id=new_proj_obj.uuid)
+
     def test_fq_name_project(self):
         proj_id = str(uuid.uuid4())
         proj_name = 'proj-test'
@@ -2752,7 +2808,7 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn2_subnet_list = self.list_resource(
                                 'subnet', proj_uuid=proj_obj.uuid,
                                 req_filters={'router:external': [False]})
-        self.assertEqual(len(vn2_subnet_list), 1)
+        self.assertEqual(len(vn2_subnet_list), 4)
         self.assertEqual(vn2_neutron_list[0]['id'], vn2_obj.uuid)
 
         #filter for list of router:external and

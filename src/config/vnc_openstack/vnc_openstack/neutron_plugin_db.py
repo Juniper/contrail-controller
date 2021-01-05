@@ -656,7 +656,7 @@ class DBInterface(object):
 
     def _virtual_network_list(self, parent_id=None, obj_uuids=None,
                               fields=None, detail=False, count=False,
-                              filters=None):
+                              filters=None, shared=True):
         return self._vnc_lib.virtual_networks_list(
                                               parent_id=parent_id,
                                               obj_uuids=obj_uuids,
@@ -664,7 +664,7 @@ class DBInterface(object):
                                               detail=detail,
                                               count=count,
                                               filters=filters,
-                                              shared=True)
+                                              shared=shared)
     #end _virtual_network_list
 
     def _virtual_machine_interface_read(self, port_id=None, fq_name=None,
@@ -803,7 +803,8 @@ class DBInterface(object):
                                                  count=True, filters=filters)
         else:
             ret_val = self._virtual_network_list(parent_id=project_id,
-                                                 detail=True, filters=filters)
+                                                 detail=True, filters=filters,
+                                                 shared=False)
 
         return ret_val
     #end _network_list_project
@@ -937,14 +938,15 @@ class DBInterface(object):
         return project_obj.get_floating_ip_pool_refs()
     #end _fip_pool_refs_project
 
-    def _network_list_filter(self, shared=None, router_external=None):
+    def _network_list_filter(self, project_id=None, shared=None,
+                             router_external=None):
         filters = {}
         if shared is not None:
             filters['is_shared'] = shared
         if router_external is not None:
             filters['router_external'] = router_external
 
-        net_list = self._network_list_project(project_id=None, filters=filters)
+        net_list = self._network_list_project(project_id, filters=filters)
         return net_list
     # end _network_list_filter
 
@@ -3174,11 +3176,18 @@ class DBInterface(object):
             elif filters and 'shared' in filters or 'router:external' in filters:
                 shared = None
                 router_external = None
+                project_uuid = None
                 if 'router:external' in filters:
                     router_external = filters['router:external'][0]
                 if 'shared' in filters:
                     shared = filters['shared'][0]
+<<<<<<< HEAD   (5db0a2 This commit addresses the following two issues –)
                 all_net_objs.extend(self._network_list_filter(
+=======
+                if context['tenant']:
+                    project_uuid = str(uuid.UUID(context['tenant']))
+                all_net_objs.extend(self._network_list_filter(project_uuid,
+>>>>>>> CHANGE (8be246 Fix non-admin member shared virtual network list)
                                     shared, router_external))
             else:
                 project_uuid = str(uuid.UUID(context['tenant']))
