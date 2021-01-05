@@ -1414,7 +1414,8 @@ class DBInterface(object):
                 self._raise_contrail_exception(
                     'SecurityGroupRemoteGroupAndRemoteIpPrefix')
             endpt = [AddressType(security_group='any')]
-            if sgr_q['remote_ip_prefix']:
+
+            def rule_with_remote_ip_prefix(sgr_q):
                 et = sgr_q.get('ethertype')
                 ip_net = netaddr.IPNetwork(sgr_q['remote_ip_prefix'])
                 if ((ip_net.version == 4 and et != 'IPv4') or
@@ -1425,7 +1426,9 @@ class DBInterface(object):
                 cidr = sgr_q['remote_ip_prefix'].split('/')
                 pfx = cidr[0]
                 pfx_len = int(cidr[1])
-                endpt = [AddressType(subnet=SubnetType(pfx, pfx_len))]
+                return [AddressType(subnet=SubnetType(pfx, pfx_len))]
+            if sgr_q['remote_ip_prefix']:
+                endpt = rule_with_remote_ip_prefix(sgr_q)
             elif sgr_q['remote_group_id']:
                 try:
                     sg_obj = self._vnc_lib.security_group_read(
@@ -1434,6 +1437,15 @@ class DBInterface(object):
                     self._raise_contrail_exception('SecurityGroupNotFound',
                                                    id=sgr_q['remote_group_id'])
                 endpt = [AddressType(security_group=sg_obj.get_fq_name_str())]
+
+            if not sgr_q['remote_ip_prefix'] and not sgr_q['remote_group_id']:
+                # When heat plugin updates sg rule it reads, deletes existing
+                # and writes back the rule but with remote_ip_prefix = None
+                # It breaks sg
+                sgr_q['remote_ip_prefix'] = '0.0.0.0/0'
+                if not sgr_q['ethertype']:
+                    sgr_q['ethertype'] = 'IPv4'
+                endpt = rule_with_remote_ip_prefix(sgr_q)
 
             if sgr_q['direction'] == 'ingress':
                 local = endpt
@@ -1463,10 +1475,6 @@ class DBInterface(object):
                     'SecurityGroupRuleInvalidProtocol',
                     protocol=sgr_q['protocol'],
                     values=protos)
-
-            if not sgr_q['remote_ip_prefix'] and not sgr_q['remote_group_id']:
-                if not sgr_q['ethertype']:
-                    sgr_q['ethertype'] = 'IPv4'
 
             sgr_uuid = self._get_resource_id(sgr_q, True)
 
