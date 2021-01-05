@@ -3167,7 +3167,7 @@ class TestExtensionApi(test_case.ApiServerTestCase):
         self.assertThat(status, Equals(456))
         self.assertThat(content, Contains('invalidating update request'))
         obj = self._vnc_lib.virtual_network_read(id=obj.uuid)
-        self.assertThat(obj.is_shared, Equals(None))
+        self.assertThat(obj.is_shared, Equals(False))
 
         # delete
         status, content = self._http_delete('/virtual-network/'+obj.uuid,
