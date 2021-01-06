@@ -6,6 +6,7 @@ gevent==1.1.2
 kombu==4.0.2
 timeout-decorator
 subprocess32
+pyrsistent==0.16.1
 jsonschema
 inflection>=0.3.1
 pycrypto
