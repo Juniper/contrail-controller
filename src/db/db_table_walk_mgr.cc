@@ -28,6 +28,7 @@ DBTableWalkMgr::DBTableWalkMgr()
 
 bool DBTableWalkMgr::ProcessWalkRequestList() {
     CHECK_CONCURRENCY("db::Walker");
+    tbb::mutex::scoped_lock lock(mutex_);
     if (!current_table_walk_.empty()) return true;
     while (true) {
         if (walk_request_list_.empty()) break;

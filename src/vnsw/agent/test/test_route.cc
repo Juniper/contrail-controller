@@ -2342,7 +2342,7 @@ TEST_F(RouteTest, fip_evpn_route_local) {
 
     //Associate vnet1 with floating IP
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
-    client->WaitForIdle();
+    task_util::WaitForIdle(0, true);
 
     //Search our evpn route
     EvpnRouteEntry *rt = EvpnRouteGet("default-project:vn1:vn1",
