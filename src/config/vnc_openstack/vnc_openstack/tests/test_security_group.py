@@ -65,3 +65,74 @@ class TestSecurityGroup(test_case.NeutronBackendTestCase):
                                          self.project_id)
         self.assertTrue(set([sgr1_id, sgr2_id]).issubset(
             {sgr['id'] for sgr in list_result}))
+
+    def test_sgr_remote_ip_prefix_none(self):
+        proj_obj = self._vnc_lib.project_read(
+            fq_name=['default-domain', 'default-project'])
+        sg1_dict = self.create_resource('security_group',
+                                        proj_obj.uuid,
+                                        extra_res_fields={
+                                            'name': 'sg1-%s' % self.id(),
+                                        })
+        sg2_dict = self.create_resource('security_group',
+                                        proj_obj.uuid,
+                                        extra_res_fields={
+                                            'name': 'sg2-%s' % self.id(),
+                                        })
+        sgr1 = self.create_resource(
+            'security_group_rule',
+            proj_obj.uuid,
+            extra_res_fields={
+                'name': 'sgr1-%s' % self.id(),
+                'security_group_id': sg1_dict['id'],
+                'remote_ip_prefix': None,
+                'remote_group_id': None,
+                'port_range_min': None,
+                'port_range_max': None,
+                'protocol': 'tcp',
+                'ethertype': 'IPv4',
+                'direction': 'egress',
+            })
+        sgr2 = self.create_resource(
+            'security_group_rule',
+            proj_obj.uuid,
+            extra_res_fields={
+                'name': 'sgr2-%s' % self.id(),
+                'security_group_id': sg2_dict['id'],
+                'remote_ip_prefix': None,
+                'remote_group_id': sg1_dict['id'],
+                'port_range_min': None,
+                'port_range_max': None,
+                'protocol': 'tcp',
+                'ethertype': 'IPv4',
+                'direction': 'egress',
+            })
+        sg_list = self.list_resource('security_group', proj_obj.uuid)
+        found = 0
+        for sg in sg_list:
+            if sg['id'] == sg1_dict['id']:
+                for rule in sg['security_group_rules']:
+                    if rule['id'] == sgr1['id']:
+                        self.assertEqual(
+                            rule['remote_ip_prefix'], '0.0.0.0/0')
+                found += 1
+            if sg['id'] == sg2_dict['id']:
+                for rule in sg['security_group_rules']:
+                    if rule['id'] == sgr2['id']:
+                        self.assertEqual(
+                            rule['remote_ip_prefix'], None)
+                found += 1
+        self.assertEqual(found, 2)
+        sg1_dict = self.update_resource('security_group',
+                                        sg1_dict['id'],
+                                        proj_obj.uuid,
+                                        extra_res_fields={
+                                            'name': 'sg1-%s-new' % self.id(),
+                                        })
+        sg_list = self.list_resource('security_group', proj_obj.uuid)
+        found = 0
+        for sg in sg_list:
+            if sg['id'] == sg1_dict['id']:
+                self.assertEqual(sg['name'], sg1_dict['name'])
+                found += 1
+        self.assertEqual(found, 1)
