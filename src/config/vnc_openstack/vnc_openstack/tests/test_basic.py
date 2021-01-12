@@ -2758,7 +2758,7 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn2_subnet_list = self.list_resource(
                                 'subnet', proj_uuid=proj_obj.uuid,
                                 req_filters={'router:external': [False]})
-        self.assertEqual(len(vn2_subnet_list), 1)
+        self.assertEqual(len(vn2_subnet_list), 4)
         self.assertEqual(vn2_neutron_list[0]['id'], vn2_obj.uuid)
 
         #filter for list of router:external and
