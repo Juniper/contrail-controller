@@ -108,6 +108,24 @@ def call_command_(command):
                                stderr=subprocess.PIPE)
     return process.communicate()
 
+def check_zk_node(cport):
+    logging.info('Checking collector nodes in zookeeper server')
+    cassbase = "/tmp/zoo.%s.%d/" % (os.getenv('USER', 'None'), cport)
+    basefile = zookeeper_version
+    zk = KazooClient(hosts='127.0.0.1:'+str(cport))
+    try:
+        zk.start()
+    except:
+        logging.info("Zookeeper client cannot connect in check_zoo_node . Zk logfile below:")
+        with open(cassbase+"zookeeper.out", 'r') as fin:
+            logging.info(fin.read())
+    else:
+        if zk.exists("/analytics-discovery-/Collector/localhost"):
+            return True
+    zk.stop();
+
+    return False
+
 if __name__ == "__main__":
     cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cs.bind(("",0))
