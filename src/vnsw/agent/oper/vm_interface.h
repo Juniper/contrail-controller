@@ -1719,6 +1719,7 @@ private:
     //In case Vhost interface, uuid_ is stored here
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;
+    mutable std::set<std::pair<std::string,boost::uuids::uuid> > children_uuids_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

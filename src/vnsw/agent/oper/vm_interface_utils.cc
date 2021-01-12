@@ -178,6 +178,7 @@ bool VmInterface::IsActive()  const {
         if (parentIntf == NULL)
             return false;
         else if (parentIntf->IsActive() == false) {
+            parentIntf->children_uuids_.insert(make_pair(name(),GetUuid()));
             return false;
         }
     }
@@ -202,6 +203,25 @@ bool VmInterface::IsActive()  const {
 
     if (vn_.get() && !vn_.get()->admin_state()) {
         return false;
+    }
+
+    while(!children_uuids_.empty()){
+        std::pair<std::string,boost::uuids::uuid> child_info=*children_uuids_.begin();
+
+        children_uuids_.erase(children_uuids_.begin());
+        std::string child_name=child_info.first;
+        boost::uuids::uuid child_uuid=child_info.second;
+
+         VnswInterfaceListener *vnswif =
+             agent()->ksync()->vnsw_interface_listner();
+            bool child_link_status = vnswif->IsHostLinkStateUp(child_name);
+            if (child_link_status &&  (!agent()->test_mode())) {
+                 DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+                 req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, child_uuid,
+                                     child_name));
+                 req.data.reset(new VmInterfaceOsOperStateData(child_link_status));
+                 agent()->interface_table()->Enqueue(&req);
+            }
     }
 
     if (NeedOsStateWithoutDevice() && os_oper_state() == false) {
