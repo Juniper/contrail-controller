@@ -1244,7 +1244,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
         self.alice.vnc_lib.virtual_network_create(vn)
         vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
-        self.assertEquals(vn.get_is_shared(), False or None)
+        self.assertEquals(vn.get_is_shared(), False)
         perms = vn.get_perms2()
         perms.global_access = PERMS_RWX
         vn.set_perms2(perms); self.alice.vnc_lib.virtual_network_update(vn)

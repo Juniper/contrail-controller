@@ -370,6 +370,8 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
             obj_dict['is_shared'] = True
         elif is_shared:
             obj_dict['perms2']['global_access'] = PERMS_RWX
+        else:
+            obj_dict['is_shared'] = False
 
         # Does not authorize to set the virtual network ID as it's allocated
         # by the vnc server
