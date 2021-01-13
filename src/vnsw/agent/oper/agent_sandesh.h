@@ -224,6 +224,7 @@ public:
     AgentNhSandesh(const std::string &context, const std::string &type,
                    const std::string &nh_index, const std::string &policy_enabled);
     ~AgentNhSandesh() { }
+    bool DigitCheck(std::string nh_index);
     virtual bool Filter(const DBEntryBase *entry);
     virtual bool FilterToArgs(AgentSandeshArguments *args);
 
