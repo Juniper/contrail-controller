@@ -283,6 +283,19 @@ AgentNhSandesh::AgentNhSandesh(const std::string &context,
 
 }
 
+bool AgentNhSandesh::DigitCheck(std::string nh_index) {
+    int l = nh_index.length();
+    for (int i = 0 ;i < l ; i++) {
+        int c = nh_index.at(i);
+        if (!(c >= 48 && c <= 57))
+            return false;
+    }
+    std::string MaxNumber = boost::lexical_cast<std::string>(UINT_MAX);
+    if (nh_index.compare(MaxNumber) > 0)
+        return false;
+
+    return true;
+}
 bool AgentNhSandesh::Filter(const DBEntryBase *entry) {
     const NextHop *nh = dynamic_cast<const NextHop *>(entry);
     assert(nh);
@@ -337,7 +350,7 @@ bool AgentNhSandesh::Filter(const DBEntryBase *entry) {
            return false;
         }
     }
-    if (nh_index_.empty() == false) {
+    if (nh_index_.empty() == false && DigitCheck(nh_index_)) {
         if (((nh->id()) == boost::lexical_cast<uint32_t>(nh_index_)) == false)
            return false;
     }
