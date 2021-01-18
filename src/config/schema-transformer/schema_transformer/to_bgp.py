@@ -264,11 +264,27 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
+
+        self.logger.info('GlobalSystemConfigST - REINIT Start')
         GlobalSystemConfigST.reinit()
+        self.logger.info('GlobalSystemConfigST - REINIT Complete')
+
+        self.logger.info('PhysicalRouterST - REINIT Start')
         PhysicalRouterST.reinit()
+        self.logger.info('PhysicalRouterST - REINIT Complete')
+
+        self.logger.info('BgpRouterST - REINIT Start')
         BgpRouterST.reinit()
+        self.logger.info('BgpRouterST - REINIT Complete')
+
+        self.logger.info('BgpvpnST - REINIT Start')
         BgpvpnST.reinit()
+        self.logger.info('BgpvpnST - REINIT Complete')
+
+        self.logger.info('LogicalRouterST - REINIT Start')
         LogicalRouterST.reinit()
+        self.logger.info('LogicalRouterST - REINIT Complete')
+
         gevent.sleep(0.001)
         for si in ServiceInstanceST.list_vnc_obj():
             try:
@@ -380,7 +396,9 @@ class SchemaTransformer(object):
                     sg.name, str(e)))
 
         gevent.sleep(0.001)
+        self.logger.info('RouteTargetST - REINIT Start')
         RouteTargetST.reinit()
+        self.logger.info('RouteTargetST - REINIT Complete')
         for vn in vn_list:
             if vn.uuid in ri_deleted:
                 vn_ri_list = vn.get_routing_instances() or []
@@ -388,42 +406,68 @@ class SchemaTransformer(object):
                                   if vn_ri['uuid'] not in ri_deleted[vn.uuid]]
                 vn.routing_instances = new_vn_ri_list
             try:
+                self.logger.debug('VirtualNetworkST - REINIT Start')
                 VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
+                self.logger.debug('VirtualNetworkST - REINIT Complete')
             except Exception as e:
                 self.logger.error("Error in reinit virtual network %s: %s" % (
                     vn.get_fq_name_str(), str(e)))
         for ri_name, ri_obj in ri_dict.items():
             try:
+                self.logger.debug('RoutingInstanceST - REINIT Start')
                 RoutingInstanceST.locate(ri_name, ri_obj)
+                self.logger.debug('RoutingInstanceST - REINIT Complete')
             except Exception as e:
                 self.logger.error("Error in reinit routing instance %s: %s" % (
                     ri_name, str(e)))
         # Initialize service instance RI's after Primary RI's
         for si_ri_name, si_ri_obj in service_ri_dict.items():
             try:
+                self.logger.debug('RoutingInstanceST - REINIT Start')
                 RoutingInstanceST.locate(si_ri_name, si_ri_obj)
+                self.logger.debug('RoutingInstanceST - REINIT Complete')
             except Exception as e:
                 self.logger.error("Error in reinit routing instance %s: %s" % (
                     si_ri_name, str(e)))
 
+        self.logger.info('NetworkPolicyST - REINIT Start')
         NetworkPolicyST.reinit()
+        self.logger.info('NetworkPolicyST - REINIT Complete')
         gevent.sleep(0.001)
+        self.logger.info('VirtualMachineInterfaceST - REINIT Start')
         VirtualMachineInterfaceST.reinit()
+        self.logger.info('VirtualMachineInterfaceST - REINIT Complete')
 
         gevent.sleep(0.001)
+        self.logger.info('InstanceIpST - REINIT Start')
         InstanceIpST.reinit()
+        self.logger.info('InstanceIpST - REINIT Complete')
         gevent.sleep(0.001)
+        self.logger.info('FloatingIpST - REINIT Start')
         FloatingIpST.reinit()
+        self.logger.info('FloatingIpST - REINIT Complete')
+        self.logger.info('AliasIpST - REINIT Start')
         AliasIpST.reinit()
+        self.logger.info('AliasIpST - REINIT Complete')
 
         gevent.sleep(0.001)
+        self.logger.info('RoutingPolicyST - REINIT Start')
         RoutingPolicyST.reinit()
+        self.logger.info('RoutingPolicyST - REINIT Complete')
         gevent.sleep(0.001)
+        self.logger.info('RouteAggregateST - REINIT Start')
         RouteAggregateST.reinit()
+        self.logger.info('RouteAggregateST - REINIT Complete')
         gevent.sleep(0.001)
+        self.logger.info('PortTupleST - REINIT Start')
         PortTupleST.reinit()
+        self.logger.info('PortTupleST - REINIT Complete')
+        self.logger.info('BgpAsAServiceST - REINIT Start')
         BgpAsAServiceST.reinit()
+        self.logger.info('BgpAsAServiceST - REINIT Complete')
+        self.logger.info('RouteTableST - REINIT Start')
         RouteTableST.reinit()
+        self.logger.info('RouteTableST - REINIT Complete')
 
         # evaluate virtual network objects first because other objects,
         # e.g. vmi, depend on it.
@@ -443,7 +487,9 @@ class SchemaTransformer(object):
                 continue
             for obj in cls.values():
                 try:
+                    self.logger.debug('obj.evaluate - REINIT Start')
                     obj.evaluate(**evaluate_kwargs)
+                    self.logger.debug('obj.evaluate - REINIT Complete')
                     self.timer_obj.timed_yield()
                 except Exception as e:
                     self.logger.error("Error in reinit evaluate %s %s: %s" %
