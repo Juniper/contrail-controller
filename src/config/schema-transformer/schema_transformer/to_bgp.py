@@ -264,23 +264,18 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
-
         self.logger.info('GlobalSystemConfigST - REINIT Start')
         GlobalSystemConfigST.reinit()
         self.logger.info('GlobalSystemConfigST - REINIT Complete')
-
         self.logger.info('PhysicalRouterST - REINIT Start')
         PhysicalRouterST.reinit()
         self.logger.info('PhysicalRouterST - REINIT Complete')
-        
         self.logger.info('BgpRouterST - REINIT Start')
         BgpRouterST.reinit()
         self.logger.info('BgpRouterST - REINIT Complete')
-        
         self.logger.info('BgpvpnST - REINIT Start')
         BgpvpnST.reinit()
         self.logger.info('BgpvpnST - REINIT Complete')
-        
         self.logger.info('LogicalRouterST - REINIT Start')
         LogicalRouterST.reinit()
         self.logger.info('LogicalRouterST - REINIT Complete')
