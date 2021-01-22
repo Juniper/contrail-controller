@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <string.h>
+#include <stdlib.h>
 #include <boost/program_options.hpp>
 #include <base/logging.h>
 #include <base/contrail_ports.h>
@@ -41,6 +43,7 @@
 
 #include "contrail_agent_init.h"
 namespace opt = boost::program_options;
+#define TOTAL_LENGTH 100
 
 void RouterIdDepInit(Agent *agent) {
     // Parse config and then connect
@@ -54,6 +57,10 @@ bool GetBuildInfo(std::string &build_info_str) {
 
 int main(int argc, char *argv[]) {
     AgentParam params;
+    char *pid, pidline[TOTAL_LENGTH];
+    int i = 0;
+    FILE *fp;
+    char *rt=NULL;
 
     try {
         params.ParseArguments(argc, argv);
@@ -74,6 +81,23 @@ int main(int argc, char *argv[]) {
         MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info);
         cout << params.options() << endl;
         exit(0);
+    }
+
+    fp = popen("pidof contrail-vrouter-agent","r");
+    rt = fgets(pidline,TOTAL_LENGTH,fp);
+    pclose(fp);
+
+    if (rt != NULL){
+        pid = strtok (pidline," ");
+        while(pid != NULL) {
+          pid = strtok (NULL , " ");
+          i++;
+        }
+
+        if (i>1) {
+          cout << "Agent process already running, Quitting" << endl;
+          exit(0);
+        }
     }
 
     string init_file = "";
