@@ -47,10 +47,12 @@ logger = logging.getLogger(__name__)
 class CassandraNotEmptyError(Exception): pass
 class ZookeeperNotEmptyError(Exception): pass
 class InvalidArguments(Exception): pass
+class AllServersUnavailable(Exception): pass
 excpetions = (
     CassandraNotEmptyError,
     ZookeeperNotEmptyError,
     InvalidArguments,
+    AllServersUnavailable
 )
 
 KEYSPACES = ['config_db_uuid',
@@ -267,10 +269,19 @@ class DatabaseExim(object):
                 self._api_args.cassandra_use_ssl):
             socket_factory = self._make_ssl_socket_factory(
                 self._api_args.cassandra_ca_certs, validate=False)
-        sys_mgr = SystemManager(
-            self._api_args.cassandra_server_list[0],
-            credentials=creds,
-            socket_factory=socket_factory)
+        sys_mgr = None
+        # try all servers
+        for server in self._api_args.cassandra_server_list:
+            try:
+                sys_mgr = SystemManager(
+                    server,
+                    credentials=creds,
+                    socket_factory=socket_factory)
+                break
+            except TTransport.TTransportException:
+                continue
+        if not sys_mgr:
+            raise AllServersUnavailable("Unable to reach any server in Cassandra Server List")
         existing_keyspaces = sys_mgr.list_keyspaces()
         for ks_name in set(KEYSPACES) - set(self._args.omit_keyspaces or []):
             if self._api_args.cluster_id:
