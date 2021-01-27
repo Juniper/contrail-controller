@@ -267,10 +267,16 @@ class DatabaseExim(object):
                 self._api_args.cassandra_use_ssl):
             socket_factory = self._make_ssl_socket_factory(
                 self._api_args.cassandra_ca_certs, validate=False)
-        sys_mgr = SystemManager(
-            self._api_args.cassandra_server_list[0],
-            credentials=creds,
-            socket_factory=socket_factory)
+        # try all servers
+        for svr_idx in len(self._api_args.cassandra_server_list):
+            try:
+                sys_mgr = SystemManager(
+                    self._api_args.cassandra_server_list[svr_idx],
+                    credentials=creds,
+                    socket_factory=socket_factory)
+            except TTransport.TTransportException:
+                continue
+
         existing_keyspaces = sys_mgr.list_keyspaces()
         for ks_name in set(KEYSPACES) - set(self._args.omit_keyspaces or []):
             if self._api_args.cluster_id:
