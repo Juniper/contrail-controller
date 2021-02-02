@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9ef6e933_f1f953cc",
+        "filename": "src/vnsw/agent/contrail/main.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2021-02-02T05:03:39Z",
+      "side": 1,
+      "message": "define macro in caps",
+      "revId": "2741a9487fb82c3fd86d7ea60057a2cd2e13ae70",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fc4a44aa_5ba5ca1b",
+        "filename": "src/vnsw/agent/contrail/main.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 91,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2021-02-02T05:03:39Z",
+      "side": 1,
+      "message": "do we need while loop, we know that only one instance of agent process can run",
+      "revId": "2741a9487fb82c3fd86d7ea60057a2cd2e13ae70",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
