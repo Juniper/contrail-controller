@@ -640,22 +640,27 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
 
 bool BgpAsAService::GetBgpHealthCheck(const VmInterface *vm_intf,
                     boost::uuids::uuid *health_check_uuid) const {
-    BgpAsAServiceEntryMapConstIterator iter =
+    BgpAsAServiceEntryMapConstIterator found =
        bgp_as_a_service_entry_map_.find(vm_intf->GetUuid());
 
-    while (iter != bgp_as_a_service_entry_map_.end()) {
+    if (found != bgp_as_a_service_entry_map_.end()) {
         BgpAsAService::BgpAsAServiceEntryListIterator it =
-            iter->second->list_.begin();
-        while (it != iter->second->list_.end()) {
+            found->second->list_.begin();
+        while (it != found->second->list_.end()) {
             if (it->health_check_configured_) {
                 *health_check_uuid = it->health_check_uuid_;
+                std::ostringstream ss;
+                ss<<"searched for vm_intf_uuid: "<<boost::uuids::to_string(vm_intf->GetUuid())
+                  <<" - found: "<<boost::uuids::to_string(*health_check_uuid);
+                BGPASASERVICETRACE(Trace, ss.str().c_str());
                 return true;
             }
             it++;
         }
-        iter++;
     }
-
+    std::ostringstream ss;
+    ss<<"vm_intf_uuid: "<<boost::uuids::to_string(vm_intf->GetUuid())+" - not found in BgpAaS entry map";
+    BGPASASERVICETRACE(Trace, ss.str().c_str());
     return false;
 }
 
