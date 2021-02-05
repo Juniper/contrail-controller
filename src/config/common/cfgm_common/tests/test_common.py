@@ -1,6 +1,10 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+
+# test: verify the CI build failures
+# update 
+
 import sys
 import ConfigParser
 import gevent.monkey
