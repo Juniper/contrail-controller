@@ -1,10 +1,6 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
-# test: verify the CI build failures
-# update 
-
 import sys
 import ConfigParser
 import gevent.monkey
@@ -781,7 +777,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 gevent.sleep(0.001)
     # wait_till_api_server_idle
 
-    def create_virtual_network(self, vn_name, vn_subnet='10.0.0.0/24'):
+    def create_virtual_network(self, vn_name, vn_subnet='10.0.0.0/24', rt_list=None):
         vn_obj = VirtualNetwork(name=vn_name)
         ipam_fq_name = [
             'default-domain', 'default-project', 'default-network-ipam']
@@ -802,6 +798,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             )
         subnet_data = VnSubnetsType(subnet_infos)
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
+        if rt_list:
+            rtobj_list = RouteTargetList(route_target=rt_list)
+            vn_obj.set_route_target_list(rtobj_list)
         self._vnc_lib.virtual_network_create(vn_obj)
         vn_obj.clear_pending_updates()
         return vn_obj
