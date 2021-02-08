@@ -3241,7 +3241,8 @@ class DBInterface(object):
                 router_external = filters['router:external'][0]
             if 'shared' in filters:
                 shared = filters['shared'][0]
-            nets = self._network_list_filter(shared, router_external)
+            nets = self._network_list_filter(shared=shared,
+                router_external=router_external)
             for net in nets:
                 net_info = self._network_vnc_to_neutron(net, oper=LIST, context=context)
                 if net_info is None:
