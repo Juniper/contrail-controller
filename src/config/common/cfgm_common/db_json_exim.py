@@ -37,7 +37,7 @@ from pycassa import NotFoundException
 import kazoo.client
 import kazoo.handlers.gevent
 import kazoo.exceptions
-from thrift.transport import TSSLSocket
+from thrift.transport import TSSLSocket, TTransport
 import ssl
 
 from cfgm_common.vnc_cassandra import VncCassandraClient
@@ -48,7 +48,7 @@ class CassandraNotEmptyError(Exception): pass
 class ZookeeperNotEmptyError(Exception): pass
 class InvalidArguments(Exception): pass
 class AllServersUnavailable(Exception): pass
-excpetions = (
+exceptions = (
     CassandraNotEmptyError,
     ZookeeperNotEmptyError,
     InvalidArguments,
