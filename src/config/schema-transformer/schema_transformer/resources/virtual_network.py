@@ -404,9 +404,10 @@ class VirtualNetworkST(ResourceBaseST):
         except RefsExistError:
             pass
         except Exception as e:
-            self._logger.error(
-                "Error while allocating ip%s address in network-ipam %s: %s"
-                % (family, ipam_obj.name, str(e)))
+            msg = "Error allocating ip%s address in network-ipam %s: " % (
+                family, ipam_obj.name)
+            self.add_ignored_error(msg)
+            self._logger.error(msg + str(e))
             return None, None
         iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
         iip_uuid = iip_obj.get_uuid()
@@ -626,6 +627,20 @@ class VirtualNetworkST(ResourceBaseST):
              self.bgpvpn_rt_list | self.bgpvpn_import_rt_list |
              self.bgpvpn_export_rt_list)
         )
+
+        # find the missing RI->RT ref and add to the rt_add_* list
+        ri = self.get_primary_routing_instance()
+        if ri:
+            for rt in old_rt_list | old_bgpvpn_rt_list:
+                if rt not in ri.route_targets:
+                    rt_add.add(rt)
+            for rt in old_import_rt_list | old_bgpvpn_import_rt_list:
+                if rt not in ri.route_targets:
+                    rt_add_import.add(rt)
+            for rt in old_export_rt_list | old_bgpvpn_export_rt_list:
+                if rt not in ri.route_targets:
+                    rt_add_export.add(rt)
+
         if not (rt_add or rt_add_export or rt_add_import or rt_del):
             return False
         for rt in itertools.chain(rt_add, rt_add_export, rt_add_import):

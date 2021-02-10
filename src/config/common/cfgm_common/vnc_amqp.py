@@ -63,6 +63,18 @@ class VncAmqpHandle(object):
         except IOError:
             pass
 
+    def log_ignored_errors(self, obj_class):
+        if not self._trace_file:
+            return
+        try:
+            with open(self._trace_file, 'a') as err_file:
+                for err_msg, tb in obj_class._ignored_errors.items():
+                    err_file.write("\nIGNORING: %s\n%s" % (err_msg, tb))
+        except IOError:
+            pass
+        finally:
+            obj_class.clear_ignored_errors()
+
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
         try:
@@ -144,7 +156,10 @@ class VncAmqpHandle(object):
         obj_fq_name = self.oper_info['fq_name']
         self.db_cls._object_db.cache_uuid_to_fq_name_add(
                 obj_id, obj_fq_name, self.obj_type)
-        self.obj = self.obj_class.locate(obj_key)
+        try:
+            self.obj = self.obj_class.locate(obj_key)
+        finally:
+            self.log_ignored_errors(self.obj_class)
         if self.obj is None:
             self.logger.info('%s id %s fq_name %s not found' % (
                 self.obj_type, obj_id, obj_fq_name))
@@ -241,10 +256,13 @@ class VncAmqpHandle(object):
             for res_id in res_id_list:
                 res_obj = cls.get(res_id)
                 if res_obj is not None:
-                    if evaluate_kwargs:
-                        res_obj.evaluate(**evaluate_kwargs)
-                    else:
-                        res_obj.evaluate()
+                    try:
+                        if evaluate_kwargs:
+                            res_obj.evaluate(**evaluate_kwargs)
+                        else:
+                            res_obj.evaluate()
+                    finally:
+                        self.log_ignored_errors(res_obj)
                     if self.timer:
                         self.timer.timed_yield()
 
