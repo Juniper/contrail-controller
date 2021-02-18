@@ -918,7 +918,6 @@ class VncCassandraClient(object):
                 obj_type,
                 rendered_objs_to_cache,
                 req_fields,
-                include_backrefs_children,
             )
             obj_dicts = hit_obj_dicts + field_filtered_objs
 
@@ -1849,22 +1848,20 @@ class ObjectCacheManager(object):
     def evict(self, obj_type, obj_uuids):
         for obj_uuid in obj_uuids:
             try:
-                obj_dict = self._cache.pop(obj_uuid).obj_dict
+                cached_obj = self._cache.pop(obj_uuid)
                 if obj_type in self._debug_obj_cache_types:
-                    self._log("%s %s (%s) was evicted from cache. Cache "
-                              "contained: %s" % (
-                                  obj_type.replace('_', '-').title(),
-                                  ':'.join(obj_dict['fq_name']),
-                                  obj_uuid,
-                                  pformat(obj_dict),
+                    self._log("evict from cache (last modified: %d, meta row: "
+                              "%d):\n%s" % (
+                                  cached_obj.id_perms_ts,
+                                  cached_obj.row_latest_ts,
+                                  pformat(cached_obj.obj_dict),
                               ),
                              )
             except KeyError:
                 continue
     # end evict
 
-    def set(self, obj_type, db_rendered_objs, req_fields,
-            include_backrefs_children):
+    def set(self, obj_type, db_rendered_objs, req_fields):
 
         # build up results with field filter
         result_obj_dicts = []
@@ -1877,11 +1874,23 @@ class ObjectCacheManager(object):
             row_latest_ts = render_info.get('row_latest_ts', 0)
             cached_obj = self._cache.pop(obj_uuid, None)
             if cached_obj is not None:
-                # if we had stale, just update from new db value
+                self._log("set cache already there, "
+                          "before last modified: %d and meta row: %d "
+                          "after last modified: %d and meta row: %d" % (
+                              cached_obj.id_perms_ts,
+                              cached_obj.row_latest_ts,
+                              id_perms_ts,
+                              row_latest_ts))
+                # as read can happen concurrently, cache can be set in the mean
+                # time for a same key, just update from new db value
                 cached_obj.update_obj_dict(render_info['obj_dict'])
                 cached_obj.id_perms_ts = id_perms_ts
-                if include_backrefs_children:
-                    cached_obj.row_latest_ts = row_latest_ts
+                # in case rendered object does not include back-ref and children
+                # set row_latest_ts to zero, to make it stale for next read with
+                # back-ref and/or children (row_latest_ts is not set in rendered
+                # object when read without back-ref and children)
+                # see bug CEM-20770
+                cached_obj.row_latest_ts = row_latest_ts
             else:
                 # this was a miss in cache
                 cached_obj = self.CachedObject(
@@ -1897,19 +1906,19 @@ class ObjectCacheManager(object):
                 self.evict(obj_type, [key])
 
             self._cache[obj_uuid] = cached_obj
-            if obj_type in self._debug_obj_cache_types:
-                self._log("%s %s (%s) was set in cache with values: %s" % (
-                              obj_type.replace('_', ' ').title(),
-                              ':'.join(cached_obj.obj_dict['fq_name']),
-                              obj_uuid,
-                              pformat(cached_obj.obj_dict),
-                          ),
-                         )
             if req_fields:
                 result_obj_dicts.append(
                     cached_obj.get_filtered_copy(result_fields))
             else:
                 result_obj_dicts.append(cached_obj.get_filtered_copy())
+
+            if obj_type in self._debug_obj_cache_types:
+                self._log("set cache (last modified: %d, meta row: %d):\n%s" % (
+                              cached_obj.id_perms_ts,
+                              cached_obj.row_latest_ts,
+                              pformat(cached_obj.obj_dict),
+                          ),
+                         )
         # end for all rendered objects
 
         return result_obj_dicts
@@ -1949,16 +1958,30 @@ class ObjectCacheManager(object):
         for hit_uuid in hit_uuids:
             try:
                 obj_cols = hit_rows_in_db[hit_uuid]
+            except KeyError:
+                # Stale check column missing, treat as stale
+                self._log("read '%s' from cache failed to fetch DB timestamp "
+                          "from column '%s'" % (hit_uuid, stale_check_col_name))
+                miss_uuids.append(hit_uuid)
+                stale_uuids.append(hit_uuid)
+                continue
+            try:
                 cached_obj = self._cache[hit_uuid]
             except KeyError:
-                # Either stale check column missing, treat as miss
-                # Or entry could have been evicted while context switched
+                # Entry could have been evicted while context switched
                 # for reading stale-check-col, treat as miss
+                self._log("read '%s' from cache failed, already evicted")
                 miss_uuids.append(hit_uuid)
                 continue
 
             if (getattr(cached_obj, stale_check_ts_attr) !=
                     obj_cols[stale_check_col_name][1]):
+                if obj_class.object_type in self._debug_obj_cache_types:
+                    self._log("read '%s' from cache failed, stale entry, "
+                              "tracked timestamp '%s', DB = %d, cache = %d" % (
+                                  hit_uuid, stale_check_ts_attr,
+                                  obj_cols[stale_check_col_name][1],
+                                  getattr(cached_obj, stale_check_ts_attr)))
                 miss_uuids.append(hit_uuid)
                 stale_uuids.append(hit_uuid)
                 continue
@@ -1972,13 +1995,15 @@ class ObjectCacheManager(object):
                 obj_rows = self._db_client.multiget(
                     self._db_client._OBJ_UUID_CF_NAME, [hit_uuid], timestamp=True)
                 rendered_objs = self._db_client._render_obj_from_db(
-                    obj_class, obj_rows, req_fields, include_backrefs_children)
-                db_obj_dict = rendered_objs[hit_uuid]['obj_dict']
-                self._log("%s %s (%s) was read from cache.\nDB values: %s\n"
-                          "Cache value: %s\n" % (
-                              obj_class.object_type.replace('_', ' ').title(),
-                              ':'.join(cached_obj.obj_dict['fq_name']),
-                              hit_uuid,
+                    obj_class, obj_rows, None, include_backrefs_children)
+                try:
+                    db_obj_dict = rendered_objs[hit_uuid]['obj_dict']
+                except KeyError:
+                    db_obj_dict = {}
+                self._log("read from cache (last modified: %d, meta row: %d).\n"
+                          "DB values: %s\nCache value: %s" % (
+                              cached_obj.id_perms_ts,
+                              cached_obj.row_latest_ts,
                               pformat(db_obj_dict),
                               pformat(cached_obj.obj_dict),
                           ),
@@ -1986,6 +2011,11 @@ class ObjectCacheManager(object):
         # end for all hit in cache
 
         self.evict(obj_class.object_type, stale_uuids)
+
+        if obj_class.object_type in self._debug_obj_cache_types:
+            self._log("read missing UUIDs: %s\nread stale UUIDs: %s" % (
+                ", ".join(miss_uuids), ", ".join(stale_uuids)))
+
         return obj_dicts, miss_uuids
     # end read
 
