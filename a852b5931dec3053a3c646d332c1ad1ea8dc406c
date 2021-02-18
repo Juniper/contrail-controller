@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "984fc611_4abd249d",
+        "filename": "src/config/common/cfgm_common/vnc_cassandra.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1893,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2021-02-18T19:49:13Z",
+      "side": 1,
+      "message": "@edouard:\nInstead of making cached_obj invalid by making row_latest_ts \u003d 0, is that possible to always retrieve complete object when object is not found in cache regardless with or without backref?\nand during read, data can be retrieved based on with/without backref. is that possible?\nmy guess is that this approach will help less reads to DB when there are alternative with and without backref requests...",
+      "revId": "a852b5931dec3053a3c646d332c1ad1ea8dc406c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
