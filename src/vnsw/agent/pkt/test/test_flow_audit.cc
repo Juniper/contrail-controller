@@ -98,7 +98,7 @@ public:
 
     bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip,
                       const char *dip, int proto, int sport, int dport,
-                      int nh_id) {
+                      int nh_id, bool hold = true) {
         KSyncSockTypeMap *sock = static_cast<KSyncSockTypeMap *>(KSyncSock::Get(0));
         KSyncFlowMemory *flow_memory = agent_->ksync()->ksync_flow_memory();
         if (hash_id >= flow_memory->table_entries_count()) {
@@ -130,7 +130,11 @@ public:
         req.set_fr_flow_vrf(vrf);
         req.set_fr_flow_nh_id(nh_id);
 
-        vr_flow->fe_action = VR_FLOW_ACTION_HOLD;
+        if (hold) {
+            vr_flow->fe_action = VR_FLOW_ACTION_HOLD;
+        } else {
+            vr_flow->fe_action = VR_FLOW_ACTION_FORWARD;
+        }
         vr_flow_req flow_info(req);
         sock->flow_map[hash_id] = flow_info;
         KSyncSockTypeMap::SetFlowEntry(&req, true);
@@ -288,6 +292,71 @@ TEST_F(FlowAuditTest, FlowAudit_4) {
     fe = FlowGet(2,  "22.1.1.1", "11.1.1.1",  1, 0, 0, rev_flow_nh_id);
     EXPECT_TRUE(fe != NULL &&
                 fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
+}
+
+/* If eexist error is received for flow entry, and entry is not in hold state
+ * in vrouter, also interface in flow entry has aap configured make flow entry
+ * short flow with reason SHORT_FAILED_VROUTER_INSTALL
+*/
+TEST_F(FlowAuditTest, FlowAudit_Aap_Eexist_Error) {
+    KSyncSockTypeMap *sock = static_cast<KSyncSockTypeMap *>(KSyncSock::Get(0));
+    sock->set_is_incremental_index(true);
+
+    // Configure allowed address pair on vmi1
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+    AddAap("vmi1", 7, ip, mac.ToString());
+    EXPECT_TRUE(vmi1->allowed_address_pair_list().list_.size() == 1);
+
+    // Create the flow first
+    string vrf_name = agent_->vrf_table()->FindVrfFromId(2)->GetName();
+    uint32_t rev_flow_nh_id = vmi1->flow_key_nh()->id();
+    uint32_t fwd_flow_nh_id = vmi0->flow_key_nh()->id();
+    // Add rev flow entry in hold state in vrouter
+    EXPECT_TRUE(KFlowHoldAdd(2, 2, "22.1.1.1", "11.1.1.1", 1, 0, 0,
+                                rev_flow_nh_id));
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, "11.1.1.1", "22.1.1.1", 1, 0, 0,
+                    vrf_name, vmi0->id(), 1),
+            {
+            }
+        }
+    };
+    CreateFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(2));
+
+    // Validate that flow is not short flow as rev flow entry is in hold state
+    FlowEntry *fe = FlowGet(1, "11.1.1.1", "22.1.1.1", 1, 0, 0, fwd_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == 0);
+    //Validate that flow is not short flow as rev flow entry is in hold state,
+    // eexist error for rev flow is expected
+    fe = FlowGet(2,  "22.1.1.1", "11.1.1.1",  1, 0, 0, rev_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == 0 &&
+                fe->ksync_entry()->ksync_response_error()
+                == EEXIST);
+
+    // delete flow entry from agent and vrouter
+    KFlowPurgeHold();
+    client->WaitForIdle();
+    FlushFlowTable();
+
+    // Add rev flow in vrouter with action forward
+    EXPECT_TRUE(KFlowHoldAdd(2, 2, "22.1.1.1", "11.1.1.1", 1, 0, 0,
+                                rev_flow_nh_id, false));
+    // send traffic to add fwd and rev flow
+    CreateFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(2));
+    // Validate that flow-drop-reason is SHORT_FAILED_VROUTER_INSTALL
+    fe = FlowGet(1, "11.1.1.1", "22.1.1.1", 1, 0, 0, fwd_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+    fe = FlowGet(2,  "22.1.1.1", "11.1.1.1",  1, 0, 0, rev_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FAILED_VROUTER_INSTALL
+                && fe->ksync_entry()->ksync_response_error() == EEXIST);
 }
 
 // Validate flow do not get deleted in following case,
