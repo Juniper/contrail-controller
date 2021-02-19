@@ -467,7 +467,7 @@ class VncService(VncCommon):
                                                      loadBalancerIp)
                     return
 
-                if external_ips and external_ips != allocated_fips:
+                if external_ips and set(external_ips) != allocated_fips:
                     # If Service's EXTERNAL-IP is not same as allocated floating-ip,
                     # update kube-api server with allocated fip as the EXTERNAL-IP
                     self._deallocate_floating_ips(service_id)
