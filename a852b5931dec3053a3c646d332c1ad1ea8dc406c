@@ -16,6 +16,24 @@
       "revId": "a852b5931dec3053a3c646d332c1ad1ea8dc406c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d6768d95_d26448fc",
+        "filename": "src/config/common/cfgm_common/vnc_cassandra.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1893,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2021-02-19T09:07:47Z",
+      "side": 1,
+      "message": "Actually for a miss, cache is updated with what we get from DB. If the read was done without back-ref/children, we will have to do another read for back-ref/children in DB before populating the cache. I don\u0027t think it will be more efficient.\nFurthermore, that change a lot this actual cache implementation and I don\u0027t think it is a good moment for that.",
+      "parentUuid": "984fc611_4abd249d",
+      "revId": "a852b5931dec3053a3c646d332c1ad1ea8dc406c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
