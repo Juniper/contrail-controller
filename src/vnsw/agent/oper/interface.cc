@@ -1348,6 +1348,7 @@ bool Interface::IsUveActive() const {
     return false;
 }
 
+
 void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
     tbb::mutex::scoped_lock lock(Interface::back_ref_mutex_);
     std::set<IntrusiveReferrer>::const_iterator it = Interface::back_ref_set_.begin();
@@ -1359,6 +1360,8 @@ void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
                          vm_intf->name()));
            req.data.reset(new VmInterfaceOsOperStateData(vm_intf->
                                                          os_oper_state()));
+           OPER_TRACE_ENTRY(Trace, table,"UpdateOperStateOfSubIntf: "+name()+
+                ": "+vm_intf->name_);
            const_cast<InterfaceTable *>(table)->Enqueue(&req);
         }
     }

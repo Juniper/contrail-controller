@@ -145,6 +145,7 @@ void VmInterface::GetOsParams(Agent *agent) {
 //   The tap interface must be created. This is verified by os_index_
 // - MAC address set for the interface
 bool VmInterface::IsActive()  const {
+
     if (IsDeleted()) {
         return false;
     }
@@ -172,7 +173,6 @@ bool VmInterface::IsActive()  const {
             parent_.get() == NULL)
             return false;
     }
-
     if (vmi_type_ == VHOST) {
         //In case of vhost interface, upon interface
         //addition we dont have corresponding VN, hence
@@ -203,17 +203,13 @@ bool VmInterface::IsActive()  const {
             }
         return false;
     }
-
     if (NeedDevice() == false) {
         return true;
     }
-
     if (os_index_ == kInvalidIndex)
         return false;
-
     if (os_oper_state_ == false)
         return false;
-
     return mac_set_;
 }
 
@@ -860,6 +856,12 @@ void VmInterface::UpdateInterfaceHealthCheckService()
                 (hc_instance->get_source_ip().is_unspecified() == false)) {
             continue;
         }
+        //CEM-19369 - updating subinterfaces when parent IsActive
+        // catches HealtCheck without all internals initialized.
+        // added null and valid operation state checks
+        if(hc_service->table() == NULL ||
+             const_cast<HealthCheckInstanceBase*>(hc_instance)->active() == false)
+            continue;
         hc_service->ResyncHealthCheckInterface(hc_service, this);
     }
 }
