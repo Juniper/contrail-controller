@@ -860,6 +860,12 @@ void VmInterface::UpdateInterfaceHealthCheckService()
                 (hc_instance->get_source_ip().is_unspecified() == false)) {
             continue;
         }
+        //CEM-19369 - updating subinterfaces when parent IsActive
+        // catches HealtCheck without all internals initialized.
+        // added null and valid operation state checks
+        if(hc_service->table() == NULL ||
+             const_cast<HealthCheckInstanceBase*>(hc_instance)->active() == false)
+            continue;
         hc_service->ResyncHealthCheckInterface(hc_service, this);
     }
 }

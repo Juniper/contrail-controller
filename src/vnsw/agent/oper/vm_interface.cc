@@ -296,6 +296,16 @@ bool VmInterface::Resync(const InterfaceTable *table,
     ApplyConfig(old_ipv4_active, old_l2_active, old_ipv6_active,
                 old_subnet, old_subnet_plen);
 
+    if(ret && l2_active_ && ipv4_active_ && !old_ipv4_active){
+        //CEM-19369 - even if updated data was resynced at the beginning
+        // of OnChange,
+        // that would depend on IsActive returning true - which would only
+        // happen after ApplyConfig above.
+        // thus, Update Subinterfaces would be ignored
+        // we explicitly call it here - after the parent interface config applied
+        UpdateOperStateOfSubIntf(table);
+    }
+
     // Check if Healthcheck service resync is required
     UpdateInterfaceHealthCheckService();
     return ret;
