@@ -1359,6 +1359,8 @@ void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
                          vm_intf->name()));
            req.data.reset(new VmInterfaceOsOperStateData(vm_intf->
                                                          os_oper_state()));
+           OPER_TRACE_ENTRY(Trace, table,"UpdateOperStateOfSubIntf: "+name()+
+                ": "+vm_intf->name_);
            const_cast<InterfaceTable *>(table)->Enqueue(&req);
         }
     }
