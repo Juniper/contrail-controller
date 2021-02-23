@@ -247,6 +247,7 @@ class AuthServiceKeystone(object):
         if self._auth_needed and 'memcache_servers' in args:
             self._conf_info[
                 'memcached_servers'] = args.memcache_servers.split(',')
+            self._conf_info['memcache_use_advanced_pool'] = True
             if 'token_cache_time' in args:
                 self._conf_info['token_cache_time'] = args.token_cache_time
         self._user_auth_middleware = None
