@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "16e51203_8c74b3be",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2021-03-08T04:40:07Z",
+      "side": 1,
+      "message": "This bug needs to be committed to master as well. Can you raise that code review ASAP?",
+      "revId": "c310e4d595fa627bf57c50cdae46b3696f46dc7b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1a6b56cd_14461f36",
+        "filename": "src/vnsw/agent/oper/vm_interface.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 307,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2021-03-08T04:40:07Z",
+      "side": 1,
+      "message": "Add a UT to simulate and excersise this code.",
+      "revId": "c310e4d595fa627bf57c50cdae46b3696f46dc7b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a9b86276_016a51e3",
+        "filename": "src/vnsw/agent/oper/vm_interface_utils.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 868,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2021-03-08T04:40:07Z",
+      "side": 1,
+      "message": "Same here, do add a unit test for this case",
+      "revId": "c310e4d595fa627bf57c50cdae46b3696f46dc7b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
