@@ -1186,8 +1186,6 @@ class VncDbClient(object):
                 if not new_perms2:
                     return (ok, result)
 
-                share_perms = new_perms2.get(
-                    'share', cur_perms2.get('share', []))
                 global_access = new_perms2.get(
                     'global_access', cur_perms2.get('global_access', 0))
 
@@ -1205,7 +1203,7 @@ class VncDbClient(object):
                 cur_shared_list = set(item['tenant'] + ':' + str(item['tenant_access']) for item in
                                       cur_perms2.get('share', []))
                 new_shared_list = set(item['tenant'] + ':' + str(item['tenant_access']) for item in
-                                      share_perms)
+                                      new_perms2.get('share', []))
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
