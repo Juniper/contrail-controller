@@ -1747,11 +1747,19 @@ class ObjectCacheManager(object):
         for hit_uuid in hit_uuids:
             try:
                 obj_cols = hit_rows_in_db[hit_uuid]
+            except KeyError:
+                # Stale check column missing, treat as stale
+                self._logger("read '%s' from cache failed to fetch DB timestamp "
+                          "from column '%s'" % (hit_uuid, stale_check_col_name))
+                miss_uuids.append(hit_uuid)
+                stale_uuids.append(hit_uuid)
+                continue
+            try:
                 cached_obj = self._cache[hit_uuid]
             except KeyError:
-                # Either stale check column missing, treat as miss
-                # Or entry could have been evicted while context switched
+                # Entry could have been evicted while context switched
                 # for reading stale-check-col, treat as miss
+                self._logger("read '%s' from cache failed, already evicted")
                 miss_uuids.append(hit_uuid)
                 continue
 
