@@ -3038,7 +3038,7 @@ class VncApiServer(object):
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
-            if obj_type == 'project':
+            if obj_type in ['domain', 'project']:
                 resource_type, r_class = self._validate_resource_type(obj_type)
                 try:
                     self._extension_mgrs['resourceApi'].map_method(
