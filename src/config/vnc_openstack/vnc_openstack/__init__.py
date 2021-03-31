@@ -529,12 +529,19 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._get_keystone_conn()
         return self._ks_project_get(*args, **kwargs)
 
+    def ks_domain_get(self, *args, **kwargs):
+        self._get_keystone_conn()
+        return self._ks_domain_get(*args, **kwargs)
+
     def sync_project_to_vnc(self, *args, **kwargs):
         self._get_keystone_conn()
         return self._sync_project_to_vnc(*args, **kwargs)
 
     def add_project_id_to_cache(self, id):
         self._vnc_project_ids.add(id)
+
+    def add_domain_id_to_cache(self, id):
+        self._vnc_domain_ids.add(id)
 
     def _ksv2_projects_list(self):
         return [{'id': tenant.id} for tenant in self._ks.tenants.list()]
@@ -637,13 +644,23 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         return str(uuid.UUID(domain_id))
     # _ksv3_domain_id_to_uuid
 
-    def _ksv3_domain_get(self, id=None):
-        try:
-            return {'name': self._ks.domains.get(id).name}
-        except Exception as e:
-            self._reset_keystone_connection(e)
-            self._get_keystone_conn()
-            return {'name': self._ks.domains.get(id).name}
+    def _ksv3_domain_get(self, id=None, name=None):
+        if id:
+            try:
+                domain = self._ks.domains.get(id)
+            except Exception as e:
+                self._reset_keystone_connection(e)
+                self._get_keystone_conn()
+                domain = self._ks.domains.get(id)
+            return {
+                'id': self._ksv3_domain_id_to_uuid(domain.id),
+                'name': domain.name}
+
+        for domain in self._ks.domains.list():
+            if domain.name == name:
+                return {
+                    'id': self._ksv3_domain_id_to_uuid(domain.id),
+                    'name': domain.name}
     # end _ksv3_domain_get
 
     def _ksv3_projects_list(self):
@@ -1026,6 +1043,42 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
         return wrapper
     # end wait_for_api_server_connection
+
+    @wait_for_api_server_connection
+    def pre_domain_read_fqname(self, fq_name):
+        if not self._resync_extension_manager:
+            # resync extension manager is not initialized...
+            return
+        if not self._keystone_sync_on_demand or fq_name is None:
+            # project added via poll
+            return
+
+        domains = []
+
+        def ks_domain_get_stub(ext):
+            try:
+                # could have the attribute set to None in case of Keystone v2
+                if getattr(ext.obj, 'ks_domain_get', None):
+                    domain = ext.obj.ks_domain_get(name=fq_name[-1])
+                    domains.append(domain)
+            except Exception:
+                pass
+
+        self._resync_extension_manager.map(ks_domain_get_stub)
+        if len(domains) != 1:
+            raise Exception("domain '%s' is not present in keystone: %s" %
+                            (fq_name[-1], domains))
+        domain = domains[0]
+        domain_obj = vnc_api.Domain(domain['name'])
+        domain_obj.fq_name = [domain['name']]
+        domain_obj.display_name = domain['name']
+        domain_obj.uuid = str(uuid.UUID(domain['id']))
+        try:
+            self._vnc_lib.domain_create(domain_obj)
+        except vnc_api.RefsExistError:
+            pass
+        self._resync_extension_manager.map_method(
+            'add_domain_id_to_cache', domain['id'])
 
     @wait_for_api_server_connection
     def pre_domain_read(self, id):
