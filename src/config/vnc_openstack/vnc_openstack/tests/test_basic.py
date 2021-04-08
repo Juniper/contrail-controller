@@ -1481,9 +1481,17 @@ class TestBasic(test_case.NeutronBackendTestCase):
         resp = self._api_svr_app.post_json(
             '/neutron/network', body)
 
-        shared_net_neutron_list = json.loads(resp.text)
+        total_shared_net_neutron_list = json.loads(resp.text)
+        shared_net_neutron_list = []
+        for i in range(len(total_shared_net_neutron_list)):
+            if "test_shared_network" \
+                    in total_shared_net_neutron_list[i]['fq_name'][-1]:
+                shared_net_neutron_list.append(
+                    total_shared_net_neutron_list[i])
         self.assertEqual(len(shared_net_neutron_list), 1)
-        self.assertEqual(shared_net_neutron_list[0]['id'], vn1_obj['id'])
+        for shared_vn_obj in shared_net_neutron_list:
+            if shared_vn_obj['id'] == vn1_obj['id']:
+                self.assertEqual(shared_vn_obj['id'], vn1_obj['id'])
 
         context = {'operation': 'READALL',
                    'user_id': '',
@@ -1496,9 +1504,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
         resp = self._api_svr_app.post_json(
             '/neutron/network', body)
 
-        no_shared_net_neutron_list = json.loads(resp.text)
-        self.assertEqual(len(no_shared_net_neutron_list), 2)
-        for vn_obj in no_shared_net_neutron_list:
+        total_non_shared_net_neutron_list = json.loads(resp.text)
+        non_shared_net_neutron_list = []
+        for i in range(len(total_non_shared_net_neutron_list)):
+            if "test_shared_network" \
+                    in total_non_shared_net_neutron_list[i]['fq_name'][-1]:
+                non_shared_net_neutron_list.append(
+                    total_non_shared_net_neutron_list[i])
+        self.assertEqual(len(non_shared_net_neutron_list), 2)
+        for vn_obj in non_shared_net_neutron_list:
             if vn_obj['id'] == vn3_obj['id']:
                 self.assertEqual(vn_obj['id'], vn3_obj['id'])
             else:
@@ -2787,7 +2801,8 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
                                                   'cidr': '10.2.0.0/24',
                                                   'ip_version': 4})
 
-        #filter for list of shared network/subnet='False' should return 2
+        # filter for list of shared network/subnet='False' should return 3
+        total_vn1_neutron_list = self.list_resource(
         vn1_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'shared': [False]})
@@ -2796,6 +2811,11 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
                                  req_filters={'shared': [False]})
         # shared = False should return all the networks that belongs to
         # the tenant which will have either is_shared = False or None
+        vn1_neutron_list = []
+        for i in range(len(total_vn1_neutron_list)):
+            if "test_filters_with_shared_and_router_external" \
+                    in total_vn1_neutron_list[i]['fq_name'][-1]:
+                vn1_neutron_list.append(total_vn1_neutron_list[i])
         self.assertEqual(len(vn1_neutron_list), 3)
         self.assertEqual(len(vn1_3_subnet_list), 3)
         vn_ids = []
@@ -2810,10 +2830,10 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn2_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'router:external': [False]})
-        self.assertEqual(len(vn2_neutron_list), 1)
         vn2_subnet_list = self.list_resource(
                                 'subnet', proj_uuid=proj_obj.uuid,
                                 req_filters={'router:external': [False]})
+        self.assertEqual(len(vn2_neutron_list), 1)
         self.assertEqual(len(vn2_subnet_list), 1)
         self.assertEqual(vn2_neutron_list[0]['id'], vn2_obj.uuid)
 
