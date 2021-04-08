@@ -162,8 +162,8 @@ class IndexAllocator(object):
         # corresponding to idx to 1 and extend the _in_use bitarray if needed
         if bitnum > self._max_alloc:
             return
-        if bitnum >= array.length():
-            temp = bitarray(bitnum - array.length())
+        if bitnum >= len(array):
+            temp = bitarray(bitnum - len(array))
             temp.setall(0)
             temp.append('1')
             array.extend(temp)
@@ -177,7 +177,7 @@ class IndexAllocator(object):
         # corresponding to idx to 1 and extend the _in_use bitarray if needed
         if bitnum > self._max_alloc:
             return
-        if bitnum >= self._in_use.length():
+        if bitnum >= len(self._in_use):
             return
         else:
             self._in_use[bitnum] = 0
@@ -208,7 +208,7 @@ class IndexAllocator(object):
         if self._reverse:
             pools = list(reversed(pools))
         for pool in pools:
-            last_idx = self._in_use.length() - 1
+            last_idx = len(self._in_use) - 1
             pool_start = pool['start']
             pool_end = pool['end']
             pool_size = pool_end - pool_start + 1
@@ -241,7 +241,7 @@ class IndexAllocator(object):
             if pool_bitarray.all():
                 if last_idx >= end_bit_idx:
                     continue
-                idx = self._in_use.length()
+                idx = len(self._in_use)
                 self._in_use.append(1)
             else:
                 idx = pool_bitarray.index(0)
@@ -259,7 +259,7 @@ class IndexAllocator(object):
         else:
             # Allocates a index from the allocation list
             if self._in_use.all():
-                idx = self._in_use.length()
+                idx = len(self._in_use)
                 if idx > self._max_alloc:
                     raise ResourceExhaustionError()
                 self._in_use.append(1)
@@ -304,7 +304,7 @@ class IndexAllocator(object):
         id_str = "%(#)010d" % {'#': idx}
         self._zookeeper_client.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
-        if 0 <= bit_idx < self._in_use.length():
+        if 0 <= bit_idx < len(self._in_use):
             self._in_use[bit_idx] = 0
     # end delete
 

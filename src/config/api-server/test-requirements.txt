@@ -1,3 +1,4 @@
+decorator==4.4.2
 lxml>=2.3.3
 flexmock
 webtest
