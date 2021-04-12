@@ -458,7 +458,14 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
     resp->set_ds_no_fmd(req->get_vds_no_fmd());
     resp->set_ds_cloned_original(req->get_vds_cloned_original());
     resp->set_ds_invalid_vnid(req->get_vds_invalid_vnid());
-    resp->set_ds_frag_err(req->get_vds_frag_err());
+    resp->set_ds_frag_stale_err(req->get_vds_frag_stale_err());
+    resp->set_ds_frag_non_head_err(req->get_vds_frag_non_head_err());
+    resp->set_ds_frag_max_per_cpu_err(req->get_vds_frag_max_per_cpu_err());
+    resp->set_ds_frag_max_cpu_core_err(req->get_vds_frag_max_cpu_core_err());
+    resp->set_ds_frag_mem_alloc_err(req->get_vds_frag_mem_alloc_err());
+    resp->set_ds_frag_enqueue_err(req->get_vds_frag_enqueue_err());
+    resp->set_ds_frag_cpu_err(req->get_vds_frag_cpu_err());
+    resp->set_ds_frag_cpu_exceed_err(req->get_vds_frag_cpu_exceed_err());
     resp->set_ds_invalid_source(req->get_vds_invalid_source());
     resp->set_ds_mcast_df_bit(req->get_vds_mcast_df_bit());
     resp->set_ds_l2_no_route(req->get_vds_l2_no_route());

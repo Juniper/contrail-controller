@@ -291,7 +291,28 @@ public:
         if (d1.get_ds_invalid_vnid()  != (uint64_t)d2.get_vds_invalid_vnid()) {
             return false;
         }
-        if (d1.get_ds_frag_err()  != (uint64_t)d2.get_vds_frag_err()) {
+        if (d1.get_ds_frag_stale_err()  != (uint64_t)d2.get_vds_frag_stale_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_non_head_err  != (uint64_t)d2.get_vds_frag_non_head_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_max_per_cpu_err()  != (uint64_t)d2.get_vds_frag_max_per_cpu_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_max_cpu_core_err()  != (uint64_t)d2.get_vds_frag_max_cpu_core_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_mem_alloc_err()  != (uint64_t)d2.get_vds_frag_mem_alloc_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_enqueue_err()  != (uint64_t)d2.get_vds_frag_enqueue_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_cpu_err()  != (uint64_t)d2.get_vds_frag_cpu_err()) {
+            return false;
+        }
+        if (d1.get_ds_frag_cpu_exceed_err()  != (uint64_t)d2.get_vds_frag_cpu_exceed_err()) {
             return false;
         }
         if (d1.get_ds_invalid_source()  != (uint64_t)d2.get_vds_invalid_source()) {
