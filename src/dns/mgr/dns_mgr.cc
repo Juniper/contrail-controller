@@ -361,6 +361,21 @@ bool DnsManager::SendRecordUpdate(BindUtil::Operation op,
         if (item.type == DNS_NS_RECORD)
             BindUtil::RemoveSpecialChars(item.data);
     }
+    /* Fix for CEM-21076
+     * If we have a static DNS record and a VM with the hostname same as the static DNS record
+     * and we delete the VM, then we should not call SendUpdate() after deleting the VM,
+     * because after calling SendUpdate(), DNS queries for the static DNS record will not be resolved
+     */
+    if (config->src_ == VirtualDnsRecordConfig::Agent && op == BindUtil::DELETE_UPDATE) {
+        VirtualDnsConfig *virt_dns = config->GetVirtualDns();
+        for (VirtualDnsConfig::VDnsRec::const_iterator it =
+            virt_dns->virtual_dns_records_.begin();
+            it != virt_dns->virtual_dns_records_.end(); ++it) {
+            if (((*it)->rec_.name + "." + virt_dns->GetDomainName() == item.name) && (*it)->src_ == VirtualDnsRecordConfig::Config) {
+                return false;
+            }
+        }
+    }
     DnsItems items;
     items.push_back(item);
     std::string view_name = config->GetViewName();
@@ -524,8 +539,8 @@ bool DnsManager::AddPendingList(uint16_t xid, const std::string &view,
                                                zone, items, op)));
         return true;
     } else {
-       StartPendingTimer(named_retransmission_interval_*3);
-       return true;
+        StartPendingTimer(named_retransmission_interval_*3);
+        return true;
     }
 }
 
