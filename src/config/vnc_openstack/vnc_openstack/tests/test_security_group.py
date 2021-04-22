@@ -97,6 +97,20 @@ class TestSecurityGroup(test_case.NeutronBackendTestCase):
             'security_group_rule',
             proj_obj.uuid,
             extra_res_fields={
+                'name': 'sgr1-%s' % self.id(),
+                'security_group_id': sg1_dict['id'],
+                'remote_ip_prefix': None,
+                'remote_group_id': None,
+                'port_range_min': None,
+                'port_range_max': None,
+                'protocol': 'icmp',
+                'ethertype': 'IPv6',
+                'direction': 'ingress',
+            })
+        sgr3 = self.create_resource(
+            'security_group_rule',
+            proj_obj.uuid,
+            extra_res_fields={
                 'name': 'sgr2-%s' % self.id(),
                 'security_group_id': sg2_dict['id'],
                 'remote_ip_prefix': None,
@@ -115,10 +129,13 @@ class TestSecurityGroup(test_case.NeutronBackendTestCase):
                     if rule['id'] == sgr1['id']:
                         self.assertEqual(
                             rule['remote_ip_prefix'], '0.0.0.0/0')
+                    elif rule['id'] == sgr2['id']:
+                        self.assertEqual(
+                            rule['remote_ip_prefix'], '::/0')
                 found += 1
             if sg['id'] == sg2_dict['id']:
                 for rule in sg['security_group_rules']:
-                    if rule['id'] == sgr2['id']:
+                    if rule['id'] == sgr3['id']:
                         self.assertEqual(
                             rule['remote_ip_prefix'], None)
                 found += 1

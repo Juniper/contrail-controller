@@ -1444,9 +1444,13 @@ class DBInterface(object):
                 # When heat plugin updates sg rule it reads, deletes existing
                 # and writes back the rule but with remote_ip_prefix = None
                 # It breaks sg
-                sgr_q['remote_ip_prefix'] = '0.0.0.0/0'
-                if not sgr_q['ethertype']:
+                if sgr_q['ethertype'] and sgr_q['ethertype'] == 'IPv4':
+                    sgr_q['remote_ip_prefix'] = '0.0.0.0/0'
+                elif sgr_q['ethertype'] and sgr_q['ethertype'] == 'IPv6':
+                    sgr_q['remote_ip_prefix'] = '::/0'
+                else:
                     sgr_q['ethertype'] = 'IPv4'
+                    sgr_q['remote_ip_prefix'] = '0.0.0.0/0'
                 endpt = rule_with_remote_ip_prefix(sgr_q)
 
             if sgr_q['direction'] == 'ingress':
