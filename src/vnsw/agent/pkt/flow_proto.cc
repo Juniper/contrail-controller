@@ -480,6 +480,9 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
                 if (!(flow->deleted()) &&
                     flow->ksync_entry() &&
                     flow->ksync_entry()->ksync_response_error() == EEXIST) {
+		    table->agent()->ksync()->ksync_flow_index_manager()->UpdateFlowHandle(flow->ksync_entry(),
+                                     flow->ksync_entry()->ksync_response_info()->flow_handle_,
+                                     flow->ksync_entry()->ksync_response_info()->gen_id_);
                     flow->MakeShortFlow(FlowEntry::SHORT_AUDIT_ENTRY);
                 }
             }
