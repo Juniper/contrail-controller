@@ -294,7 +294,7 @@ public:
         if (d1.get_ds_frag_stale_err()  != (uint64_t)d2.get_vds_frag_stale_err()) {
             return false;
         }
-        if (d1.get_ds_frag_non_head_err  != (uint64_t)d2.get_vds_frag_non_head_err()) {
+        if (d1.get_ds_frag_non_head_err()  != (uint64_t)d2.get_vds_frag_non_head_err()) {
             return false;
         }
         if (d1.get_ds_frag_max_per_cpu_err()  != (uint64_t)d2.get_vds_frag_max_per_cpu_err()) {
