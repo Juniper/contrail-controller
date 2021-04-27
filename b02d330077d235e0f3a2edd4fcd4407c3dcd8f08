@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9c58b04a_b3b3998d",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 3184,
+      "author": {
+        "id": 486
+      },
+      "writtenOn": "2021-04-27T05:35:18Z",
+      "side": 1,
+      "message": "Can we do a check here the length of filters[\u0027router:external\u0027] to avoid python exception?",
+      "range": {
+        "startLine": 3184,
+        "startChar": 64,
+        "endLine": 3184,
+        "endChar": 67
+      },
+      "revId": "b02d330077d235e0f3a2edd4fcd4407c3dcd8f08",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "424bb87b_80fddbe3",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 3185,
+      "author": {
+        "id": 486
+      },
+      "writtenOn": "2021-04-27T05:35:18Z",
+      "side": 1,
+      "message": "Sam as for the line 3184",
+      "range": {
+        "startLine": 3185,
+        "startChar": 60,
+        "endLine": 3185,
+        "endChar": 63
+      },
+      "revId": "b02d330077d235e0f3a2edd4fcd4407c3dcd8f08",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "576115df_eea7aca1",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 3187,
+      "author": {
+        "id": 486
+      },
+      "writtenOn": "2021-04-27T05:35:18Z",
+      "side": 1,
+      "message": "Here too?",
+      "range": {
+        "startLine": 3187,
+        "startChar": 60,
+        "endLine": 3187,
+        "endChar": 63
+      },
+      "revId": "b02d330077d235e0f3a2edd4fcd4407c3dcd8f08",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
