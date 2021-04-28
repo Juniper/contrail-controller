@@ -28,10 +28,14 @@ class RoutingInstanceST(ResourceBaseST):
         self.name = name
         self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.stale_route_targets = []
-        self.service_chain = self._get_service_id_from_ri(self.name)
         self.connections = set()
         self.virtual_network = None
         self.is_default = self.obj.get_routing_instance_is_default()
+        if self.is_default:
+            # default RI cannot correspond to a service chain RI
+            self.service_chain = None
+        else:
+            self.service_chain = self._get_service_id_from_ri(self.name)
         self.add_to_parent(self.obj)
         self.route_target = None
         self.routing_policys = {}

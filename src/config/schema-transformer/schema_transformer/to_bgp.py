@@ -314,7 +314,7 @@ class SchemaTransformer(object):
                     # longer exists, delete the RI
                     sc_id = RoutingInstanceST._get_service_id_from_ri(
                         ri.get_fq_name_str())
-                    if sc_id:
+                    if not ri.get_routing_instance_is_default() and sc_id:
                         if sc_id not in ServiceChain:
                             delete = True
                         else:
