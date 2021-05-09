@@ -1377,6 +1377,45 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
     }
 
     MplsLabel *mpls = agent_->mpls_table()->FindMplsLabel(label);
+    if (mpls == NULL) {
+        // If mpls label from control node rt update not found add rt with invalid label
+        // do route lookup and add route with correct label if rt update is for local vm port
+        InetUnicastRouteKey key(agent_->local_vm_peer(), vrf_name, prefix_addr, prefix_len);
+        InetUnicastRouteEntry *route =
+        static_cast<InetUnicastRouteEntry *>
+            (rt_table->FindActiveEntry(&key));
+        if (route && route->GetActiveNextHop() &&
+            (route->GetActiveNextHop()->GetType() == NextHop::INTERFACE)) {
+            const NextHop *nh = route->GetActiveNextHop();
+            const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
+            const Interface *intrface = intf_nh->GetInterface();
+            if (intrface && intrface->type() == Interface::VM_INTERFACE) {
+                VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
+                                    intf_nh->GetIfUuid(), intrface->name());
+                EcmpLoadBalance ecmp_load_balance;
+                GetEcmpHashFieldsToUse(item, ecmp_load_balance);
+                BgpPeer *bgp_peer = bgp_peer_id();
+                LocalVmRoute *local_vm_route =
+                    new LocalVmRoute(intf_key, MplsTable::kInvalidLabel,
+                             VxLanTable::kInvalidvxlan_id,
+                             false, vn_list,
+                             InterfaceNHFlags::INET4,
+                             item->entry.security_group_list.security_group,
+                             tag_list,
+                             CommunityList(),
+                             path_preference,
+                             Ip4Address(0),
+                             ecmp_load_balance, false, false,
+                             sequence_number(), false, native_encap);
+                rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
+                                             prefix_addr, prefix_len,
+                                             static_cast<LocalVmRoute *>(local_vm_route));
+                const MplsLabel *mpls_label = nh->mpls_label();
+                mpls = agent_->mpls_table()->FindMplsLabel(mpls_label->label());
+
+            }
+        }
+    }
     if (mpls != NULL) {
         const NextHop *nh = mpls->nexthop();
         switch(nh->GetType()) {
