@@ -197,7 +197,6 @@ bool Init() {
     boost::system::error_code ec;
     bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
             "xmpp channel");
-
     if (VmPortSetup(tcp_ack_ports, 2, 0) == false)
         return false;
     if (VmPortSetup(tcp_ack_ports_1, 1, 0) == false)
@@ -223,7 +222,6 @@ bool ValidateAction(uint32_t vrfid, const char *sip, const char *dip, int proto,
     bool ret = true;
     FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport, nh_id);
     FlowEntry *rfe = fe->reverse_flow_entry();
-
     EXPECT_TRUE((fe->match_p().sg_policy.action_summary & (1 << action)) != 0);
     if ((fe->match_p().sg_policy.action_summary & (1 << action)) == 0) {
         ret = false;
@@ -259,8 +257,8 @@ public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
         flow_proto_ = agent_->pkt()->get_flow_proto();
-
-        AddIPAM("default-project:vn1", ipam_info, 1);
+	
+	AddIPAM("default-project:vn1", ipam_info, 1);
         AddIPAM("default-project:vn3", ipam_info1, 1);
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
@@ -334,7 +332,7 @@ public:
         client->EnqueueFlowFlush();
         client->WaitForIdle();
         WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
-
+	
         DelIPAM("default-project:vn1");
         DelIPAM("default-project:vn3");
 
