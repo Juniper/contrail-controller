@@ -1941,13 +1941,14 @@ void FlowEntry::GetLocalFlowSgList(const VmInterface *vm_port,
             CopySgEntries(reverse_vm_port, false, data_.match_p.sg_policy.m_out_acl_l);
     }
 
-    //Update reverse SG flow entry so that it can be used in below 2 scenario
-    //1> Forwarding flow is deny, but reverse flow says Allow the traffic
-    //   in that scenario we mark the reverse flow for Trap
-    //2> TCP ACK workaround:
-    //   Ideally TCP State machine should be run to age TCP flows
-    //   Temporary workaound in place of state machine. For TCP ACK packets allow
-    //   the flow if either forward or reverse flow is allowed
+    if (!is_flags_set(FlowEntry::TcpAckFlow)) {
+        return;
+    }
+
+    // TCP ACK workaround:
+    // Ideally TCP State machine should be run to age TCP flows
+    // Temporary workaound in place of state machine. For TCP ACK packets allow
+    // the flow if either forward or reverse flow is allowed
 
     // Copy the SG rules to be applied for reverse flow
     if (vm_port) {
@@ -1974,13 +1975,14 @@ void FlowEntry::GetNonLocalFlowSgList(const VmInterface *vm_port) {
 
     data_.match_p.sg_policy.out_rule_present = false;
 
-    //Update reverse SG flow entry so that it can be used in below 2 scenario
-    //1> Forwarding flow is deny, but reverse flow says Allow the traffic
-    //   in that scenario we mark the reverse flow for Trap
-    //2> TCP ACK workaround:
-    //   Ideally TCP State machine should be run to age TCP flows
-    //   Temporary workaound in place of state machine. For TCP ACK packets allow
-    //   the flow if either forward or reverse flow is allowed
+    if (!is_flags_set(FlowEntry::TcpAckFlow)) {
+        return;
+    }
+
+    // TCP ACK workaround:
+    // Ideally TCP State machine should be run to age TCP flows
+    // Temporary workaound in place of state machine. For TCP ACK packets allow
+    // the flow if either forward or reverse flow is allowed
 
     // Copy the SG rules to be applied for reverse flow
     if (vm_port) {
@@ -2294,20 +2296,11 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
                                  !sp->out_rule_present, &out_acl_info);
     }
 
-    //If either if ingress interface or egress interface policy
-    //denies the packet. Check if there reverse rule allows the packet
-    bool check_rev = false;
-    if (ShouldDrop(sp->action) || ShouldDrop(sp->out_action)) {
-        //If forward direction Session action is DENY
-        //verify if packet is allowed in reverse side,
-        //if yes we set a flag to TRAP the reverse flow
-        check_rev = true;
-    }
 
     // For TCP-ACK packet, we allow packet if either forward or reverse
     // flow says allow. So, continue matching reverse flow even if forward
     // flow says drop
-    if ((check_rev || is_flags_set(FlowEntry::TcpAckFlow)) && rflow) {
+    if (is_flags_set(FlowEntry::TcpAckFlow) && rflow) {
         rflow->SetPacketHeader(&hdr);
         sp->reverse_action = MatchAcl(hdr, sp->m_reverse_acl_l, true,
                                      !sp->reverse_rule_present, &rev_acl_info);
@@ -2662,6 +2655,10 @@ bool FlowEntry::ActionRecompute() {
         }
     }
 
+    if (action & (1 << TrafficAction::TRAP)) {
+        action = (1 << TrafficAction::TRAP);
+    }
+
     if (action != data_.match_p.action_info.action) {
         data_.match_p.action_info.action = action;
         ret = true;
@@ -2738,10 +2735,8 @@ void FlowEntry::UpdateReflexiveAction(SessionPolicy *sp, SessionPolicy *rsp) {
         return;
     }
 
-    if (ShouldDrop(rsp->reverse_action) == false &&
-        ShouldDrop(rsp->reverse_out_action) == false) {
-        set_flags(FlowEntry::Trap);
-    }
+    sp->action &= ~(TrafficAction::DROP_FLAGS);
+    sp->action |= (1 << TrafficAction::TRAP);
 }
 
 /////////////////////////////////////////////////////////////////////////////

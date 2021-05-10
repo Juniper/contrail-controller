@@ -42,6 +42,8 @@ std::string TrafficAction::ActionToString(enum Action at)
             return("pass");
         case MIRROR:
             return("mirror");
+        case TRAP:
+            return("trap");
         case IMPLICIT_DENY:
             return("implicit deny");
         case VRF_TRANSLATE:
