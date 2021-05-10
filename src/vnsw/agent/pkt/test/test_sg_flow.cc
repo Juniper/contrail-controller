@@ -703,13 +703,13 @@ TEST_F(SgTest, Sg_Delete_1) {
 
 // Packet trap for reverse flow
 TEST_F(SgTest, Rev_Trap_1) {
-    AddAclEntry("sg_acl1", 10, 1, "pass", INGRESS);
+    AddAclEntry("sg_acl1", 10, 1, "pass", EGRESS);
     client->WaitForIdle();
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
                                vnet[1]->flow_key_nh()->id()));
 
     FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -719,7 +719,7 @@ TEST_F(SgTest, Rev_Trap_1) {
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
     FlowEntry *rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
 
     TxIpPacket(vnet[2]->id(), vnet_addr[2], vnet_addr[1], 1,
                rflow->flow_handle());
@@ -728,12 +728,17 @@ TEST_F(SgTest, Rev_Trap_1) {
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
                                vnet[1]->flow_key_nh()->id()));
 
+    // EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+    // EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
     EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::Trap));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0,
                            vnet[1]->flow_key_nh()->id()));
+    // EXPECT_TRUE(FlowDelete(vnet[2]->vrf()->GetName(), vnet_addr[2],
+    //                        vnet_addr[1], 1, 0, 0,
+    //                        vnet[2]->flow_key_nh()->id()));
 }
 
 // Packet trap for forward flow
@@ -754,7 +759,7 @@ TEST_F(SgTest, Rev_Trap_2) {
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
     FlowEntry *rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1, flow->flow_handle());
     client->WaitForIdle();
@@ -764,7 +769,7 @@ TEST_F(SgTest, Rev_Trap_2) {
 
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0,
