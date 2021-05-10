@@ -429,17 +429,15 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
         ret = false;
     }
 
-    if (fe->is_flags_set(FlowEntry::Trap) ||
-            rfe->is_flags_set(FlowEntry::Trap)) {
+    if (fe->match_p().sg_action & (1 << TrafficAction::TRAP) ||
+            rfe->match_p().sg_action & (1 << TrafficAction::TRAP)) {
         return ret;
     }
 
-    if (!fe->is_flags_set(FlowEntry::Trap) &&
-        !rfe->is_flags_set(FlowEntry::Trap)) {
-        EXPECT_EQ(fe->match_p().sg_policy.action_summary,
-                rfe->match_p().sg_policy.action_summary);
-        if (fe->match_p().sg_policy.action_summary !=
-                rfe->match_p().sg_policy.action_summary) {
+    if (!(fe->match_p().sg_action & (1 << TrafficAction::TRAP)) &&
+        !(rfe->match_p().sg_action & (1 << TrafficAction::TRAP))) {
+        EXPECT_EQ(fe->match_p().sg_action, rfe->match_p().sg_action);
+        if (fe->match_p().sg_action != rfe->match_p().sg_action) {
             ret = false;
         }
     }
