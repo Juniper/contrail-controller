@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9834fa6a_c3aa389d",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 1381,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2021-05-12T11:34:06Z",
+      "side": 1,
+      "message": "this fix is not correct. add check for LLGR only when MPLS label I snot found , or it is other than interface/vlan/compositeNH/",
+      "range": {
+        "startLine": 1381,
+        "startChar": 0,
+        "endLine": 1381,
+        "endChar": 4
+      },
+      "revId": "5ab691c22ce434f0ded6cd006201355e41316318",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
