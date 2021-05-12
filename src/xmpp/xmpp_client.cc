@@ -117,6 +117,7 @@ XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
 }
 
 XmppClient::~XmppClient() {
+    deleter_->Delete();
 }
 
 bool XmppClient::Initialize(short port) {
