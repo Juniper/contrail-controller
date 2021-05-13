@@ -315,7 +315,7 @@ TEST_F(TestPolicySet, Unidirectional_Reverse) {
 
     FlowEntry* rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->match_p().action_info.action & (1 << TrafficAction::DENY));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
 
     AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "deny", "<");
     client->WaitForIdle();
@@ -353,7 +353,7 @@ TEST_F(TestPolicySet, Unidirectional_Reverse_Udp) {
 
     FlowEntry* rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->match_p().action_info.action & (1 << TrafficAction::DENY));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
 
     TxUdpPacket(vnet[2]->id(), "1.1.1.2", "1.1.1.1", 10, 1000, rflow->flow_handle());
     client->WaitForIdle();
@@ -494,7 +494,7 @@ TEST_F(TestPolicySet, Unidirectional_Fwaas_Deny) {
 
     FlowEntry* rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->match_p().action_info.action & (1 << TrafficAction::DENY));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
 
     DelPolicySetFirewallPolicyLink("link2", "fwaas1", "fw3");
     DelFirewallPolicyRuleLink("fpfr2", "fw3", "FwaasMatch");
