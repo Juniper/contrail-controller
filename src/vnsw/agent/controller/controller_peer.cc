@@ -25,6 +25,7 @@
 #include "oper/vxlan.h"
 #include "oper/agent_path.h"
 #include "oper/ecmp_load_balance.h"
+#include "oper/global_system_config.h"
 #include "cmn/agent_stats.h"
 #include <pugixml/pugixml.hpp>
 #include "xml/xml_pugi.h"
@@ -1377,6 +1378,52 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
     }
 
     MplsLabel *mpls = agent_->mpls_table()->FindMplsLabel(label);
+    // When llgr and xmpp helper mode is enabled for agent
+    // llgr route update from bgp peer can have stale mpls label on agent restart
+    // do route lookup and add route with correct label if rt update is for local vm port
+    if ((mpls == NULL) || (mpls->nexthop() && mpls->nexthop()->GetType() != NextHop::INTERFACE
+        && mpls->nexthop()->GetType() != NextHop::VLAN && mpls->nexthop()->GetType() != NextHop::COMPOSITE)) {
+        if (agent_->oper_db()->global_system_config()->
+            gres_parameters().IsEnabled()) {
+            InetUnicastRouteEntry local_vm_route_key(NULL, prefix_addr, prefix_len, false);
+            InetUnicastRouteEntry *local_vm_route =
+            static_cast<InetUnicastRouteEntry *>
+            (rt_table->FindLPM(local_vm_route_key));
+            if (local_vm_route && local_vm_route->GetLocalVmPortPath() &&
+                local_vm_route->GetLocalVmPortPath()->nexthop() && local_vm_route->GetLocalVmPortPath()->nexthop()->GetType() == NextHop::INTERFACE) {
+                const AgentPath* local_vm_port_path = local_vm_route->GetLocalVmPortPath();
+                const NextHop *vm_nh = local_vm_port_path->nexthop();
+                const InterfaceNH *vm_intf_nh = static_cast<const InterfaceNH *>(vm_nh);
+                const Interface *intrface = vm_intf_nh->GetInterface();
+                if (intrface && intrface->type() == Interface::VM_INTERFACE) {
+                    LOG(DEBUG, "Mpls lablel picked from interface nh for local vm route, received label: " << label);
+                    label = local_vm_port_path->GetActiveLabel();
+                    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
+                                    vm_intf_nh->GetIfUuid(), intrface->name());
+                    // Enqueue rt update with correct mpls label and sequence number for bgp peer path
+                    EcmpLoadBalance ecmp_load_balance;
+                    GetEcmpHashFieldsToUse(item, ecmp_load_balance);
+                    BgpPeer *bgp_peer = bgp_peer_id();
+                    LocalVmRoute *local_vm_rt_update =
+                        new LocalVmRoute(intf_key, label,
+                                 VxLanTable::kInvalidvxlan_id,
+                                 false, vn_list,
+                                 InterfaceNHFlags::INET4,
+                                 item->entry.security_group_list.security_group,
+                                 tag_list,
+                                 CommunityList(),
+                                 path_preference,
+                                 Ip4Address(0),
+                                 ecmp_load_balance, false, false,
+                                 sequence_number(), false, native_encap);
+                    rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
+                                             prefix_addr, prefix_len,
+                                             static_cast<LocalVmRoute *>(local_vm_rt_update));
+                    return;
+                }
+            }
+        }
+    }
     if (mpls != NULL) {
         const NextHop *nh = mpls->nexthop();
         switch(nh->GetType()) {
