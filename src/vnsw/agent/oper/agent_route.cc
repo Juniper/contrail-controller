@@ -760,6 +760,21 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
     return NULL;
 }
 
+AgentPath *AgentRoute::GetLocalVmPortPath() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
+
+        if (path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            return const_cast<AgentPath *>(path);
+        }
+    }
+    return NULL;
+}
+
 AgentPath *AgentRoute::FindPathUsingKeyData(const AgentRouteKey *key,
                                             const AgentRouteData *data) const {
     return FindPath(key->peer());
