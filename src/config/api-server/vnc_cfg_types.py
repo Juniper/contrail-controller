@@ -839,7 +839,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     return (False, (400, str(e)))
 
         if (not port_security and address_pairs and
-+                address_pairs.get('allowed_address_pair')):
+                address_pairs.get('allowed_address_pair')):
             msg = "Allowed address pairs are not allowed when port "\
                   "security is disabled"
             return (False, (400, msg))
