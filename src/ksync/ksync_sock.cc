@@ -592,20 +592,29 @@ KSyncBulkMsgContext *KSyncSock::LocateBulkContext
 // Try adding an io-context to bulk context. Returns
 //  - true  : if message can be added to bulk context
 //  - false : if message cannot be added to bulk context
+// Added error logs for following function false conditions. CEM-22441
 bool KSyncSock::TryAddToBulk(KSyncBulkMsgContext *bulk_message_context,
                              IoContext *ioc) {
-    if ((bulk_buf_size_ + ioc->GetMsgLen()) >= max_bulk_buf_size_)
+    if ((bulk_buf_size_ + ioc->GetMsgLen()) >= max_bulk_buf_size_) {
+        LOG(ERROR, "max_bulk_buff_size is less. CEM-22441");
         return false;
+    }
 
-    if (bulk_msg_count_ >= max_bulk_msg_count_)
+    if (bulk_msg_count_ >= max_bulk_msg_count_) {
+        LOG(ERROR, "max_bulk_msg_count is less. CEM-22441");
         return false;
+    }
 
-    if (bulk_message_context->io_context_type() != ioc->type())
+    if (bulk_message_context->io_context_type() != ioc->type()) {
+        LOG(ERROR, "ioc->type() is not matching. CEM-22441");
         return false;
+    }
 
     if (use_wait_tree_) {
-        if (bulk_message_context->work_queue_index() != ioc->index())
+        if (bulk_message_context->work_queue_index() != ioc->index()) {
+            LOG(ERROR, "ioc->index() is not matching. CEM-22441");
             return false;
+        }
     }
 
     bulk_buf_size_ += ioc->GetMsgLen();
