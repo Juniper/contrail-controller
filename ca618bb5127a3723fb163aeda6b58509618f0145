@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "77eace72_13267c19",
+        "filename": "src/ksync/ksync_sock.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 599,
+      "author": {
+        "id": 984
+      },
+      "writtenOn": "2021-07-02T09:33:01Z",
+      "side": 1,
+      "message": "Print the values on left side and right side in the error log",
+      "revId": "ca618bb5127a3723fb163aeda6b58509618f0145",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "415579eb_402ae90d",
+        "filename": "src/ksync/ksync_sock.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 604,
+      "author": {
+        "id": 984
+      },
+      "writtenOn": "2021-07-02T09:33:01Z",
+      "side": 1,
+      "message": "Print the values on left side and right side in the error log",
+      "revId": "ca618bb5127a3723fb163aeda6b58509618f0145",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "47ff1479_2d26a53a",
+        "filename": "src/ksync/ksync_sock.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 609,
+      "author": {
+        "id": 984
+      },
+      "writtenOn": "2021-07-02T09:33:01Z",
+      "side": 1,
+      "message": "Print the values on left side and right side in the error log",
+      "revId": "ca618bb5127a3723fb163aeda6b58509618f0145",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c5efceeb_f5b7b348",
+        "filename": "src/ksync/ksync_sock.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 615,
+      "author": {
+        "id": 984
+      },
+      "writtenOn": "2021-07-02T09:33:01Z",
+      "side": 1,
+      "message": "Print the values on left side and right side in the error log",
+      "revId": "ca618bb5127a3723fb163aeda6b58509618f0145",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
