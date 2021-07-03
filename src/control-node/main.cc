@@ -219,6 +219,7 @@ int main(int argc, char *argv[]) {
         CONTROL_NODE_EXIT("Invalid command line arguments");
     }
 
+    LOG(WARN, "SRIRAM -- CODE HACK: ");
     srand(unsigned(time(NULL)));
     std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
         (boost::bind(&ReConfigSignalHandler, _1, _2, false));
