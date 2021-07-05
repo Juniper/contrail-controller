@@ -1640,6 +1640,7 @@ void StateMachine::LogEvent(string event_name, string msg,
         log_level = Sandesh::LoggingUtLevel();
     }
     SM_LOG(log_level, msg << " " << event_name << " in state " << StateName());
+    SM_LOG(log_level, "Test");
 }
 
 bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
