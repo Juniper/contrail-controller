@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
     if (!options.Parse(evm, argc, argv)) {
         CONTROL_NODE_EXIT("Invalid command line arguments");
     }
-
+    LOG(WARN, "MY LOG: PVN");
     srand(unsigned(time(NULL)));
     std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
         (boost::bind(&ReConfigSignalHandler, _1, _2, false));
