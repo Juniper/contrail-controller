@@ -218,6 +218,7 @@ int main(int argc, char *argv[]) {
     if (!options.Parse(evm, argc, argv)) {
         CONTROL_NODE_EXIT("Invalid command line arguments");
     }
+    LOG(WARN, "Prashanth -- CODE HACK:); 
 
     srand(unsigned(time(NULL)));
     std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
