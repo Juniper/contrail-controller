@@ -426,8 +426,6 @@ bool VrfEntry::DeleteTimeout() {
         str << " Reference: " << GetRefCount();
         OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
                         "VRF delete failed, " + str.str(), name_);
-        assert(0);
-        return false;
     }
 
     // if number of routes is 0, and VRF ref count is non zero
