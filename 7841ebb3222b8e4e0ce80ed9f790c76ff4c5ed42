@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bf75f059_47ba4edc",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 428,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2021-09-06T07:11:21Z",
+      "side": 1,
+      "message": "The assert is added so that the root cause of why these entries are not being freed is identified. This condition should not occur and hence the assert. This cannot be removed.",
+      "revId": "7841ebb3222b8e4e0ce80ed9f790c76ff4c5ed42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
