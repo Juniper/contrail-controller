@@ -860,7 +860,7 @@ class OpServer(object):
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
             'api_server_use_ssl': False,
-            'use_aggregated_uve_db' : 'true',
+            'use_aggregated_uve_db' : False,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
