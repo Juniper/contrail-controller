@@ -89,6 +89,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv6_active_ = false;
     l2_active_ = false;
     flow_count_ = 0;
+    vrf_name_ = "";
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -141,6 +142,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv6_active_ = false;
     l2_active_ = false;
     flow_count_ = 0;
+    vrf_name_ = "";
 }
 
 VmInterface::~VmInterface() {
@@ -188,6 +190,9 @@ bool VmInterface::Delete(const DBRequest *req) {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     const VmInterfaceData *vm_data = static_cast<const VmInterfaceData *>
         (req->data.get());
+    if (vrf_ && vrf_->GetName() != "") {
+        vrf_name_ = vrf_->GetName();
+    }
     vm_data->OnDelete(table, this);
     if (configurer_) {
         return false;
@@ -224,8 +229,26 @@ void VmInterface::PostAdd() {
     ifmap_table->Enqueue(&req);
 }
 
+bool VmInterface::ResetVrfDelete(const InterfaceTable *table,
+                           const std::string &vrf_name) {
+    Agent *agent = table->agent();
+    VrfKey vrf_key(vrf_name);
+    VrfEntry *vrf = static_cast<VrfEntry *>(
+        agent->vrf_table()->Find(&vrf_key, true));
+    if (vrf && vrf->IsDeleted()) {
+        SendTrace(table, VRF_REUSE);
+        return vrf->ResetVrfDelete();
+    }
+
+    return true;
+}
+
 bool VmInterface::OnChange(VmInterfaceData *data) {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    if  (IsDeleted()) {
+        SendTrace(table, VMI_REUSE);
+        ResetVrfDelete(table, vrf_name());
+    }
     return Resync(table, data);
 }
 
@@ -251,6 +274,24 @@ bool VmInterface::Resync(const InterfaceTable *table,
 
     if (data) {
         ret = data->OnResync(table, this, &force_update);
+        std::string ri_name = "";
+        if (data->vrf_name_ == "" && vrf_name_ == "") {
+            if (vn()) {
+                std::string fqdn_name = vn()->GetName();
+                size_t pos = fqdn_name.rfind(":");
+                if (pos != std::string::npos)
+                    pos = pos + 1;
+                else
+                    pos = 0;
+                ri_name = fqdn_name + ":" + fqdn_name.substr(pos, fqdn_name.length());
+            }
+        } else {
+            ri_name = data->vrf_name_;
+        }
+        if (ri_name != "" && ri_name != vrf_name_) {
+            if (ResetVrfDelete(table, ri_name))
+                vrf_name_ = ri_name;
+        }
     }
 
     metadata_ip_active_ = IsMetaDataIPActive();
