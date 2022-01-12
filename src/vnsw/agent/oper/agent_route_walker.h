@@ -115,6 +115,13 @@ public:
     //Helpers
     int walk_count() const {return walk_count_;}
     bool IsWalkCompleted() const {return (walk_count_ == kInvalidWalkCount);}
+    bool IsValidDeleteWalkRef() const {
+        return delete_walk_ref_.get() != NULL;
+    }
+    bool IsValidVrfWalkRef() const {
+        return vrf_walk_ref_.get() != NULL;
+    }
+    bool IsDeregisterDone() const { return deregister_done_; }
     bool AreAllWalksDone() const;
     bool AreAllRouteWalksDone(const VrfEntry *vrf) const;
     bool IsRouteTableWalkCompleted(RouteWalkerDBState *state);
@@ -164,6 +171,7 @@ private:
     RouteWalkDoneCb route_walk_done_for_vrf_cb_;
     DBTable::DBTableWalkRef vrf_walk_ref_;
     AgentRouteWalkerManager *mgr_;
+    bool deregister_done_;
     DBTable::DBTableWalkRef delete_walk_ref_;
     mutable tbb::atomic<uint32_t> refcount_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteWalker);

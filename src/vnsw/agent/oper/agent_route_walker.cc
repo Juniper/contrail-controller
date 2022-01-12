@@ -121,7 +121,7 @@ void AgentRouteWalkerManager::RegisterWalker(AgentRouteWalker *walker) {
 AgentRouteWalker::AgentRouteWalker(const std::string &name,
                                    Agent *agent) : agent_(agent), name_(name),
     route_walk_count_(), walk_done_cb_(), route_walk_done_for_vrf_cb_(),
-    mgr_(NULL) {
+    mgr_(NULL), deregister_done_(false) {
     walk_count_ = AgentRouteWalker::kInvalidWalkCount;
     vrf_walk_ref_ = agent_->vrf_table()->AllocWalker(
                             boost::bind(&AgentRouteWalker::VrfWalkNotify,
@@ -457,6 +457,7 @@ AgentRouteWalker::DeregisterDone(AgentRouteWalkerPtr walker) {
         walker.get()->mgr()->RemoveWalker(walker);
         walker.get()->mgr()->TryUnregister();
     }
+    walker.get()->deregister_done_ = true;
 }
 
 void intrusive_ptr_add_ref(AgentRouteWalker *w) {

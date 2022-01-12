@@ -2199,6 +2199,8 @@ struct InterfaceInfo {
    10: optional i32 vxlan_id;
    /** Project of vm to which interface belongs */
    11: string vm_project;
+   /** vrf name maintained to refer it during interface reuse */
+   12: optional string vrf_on_delete;
 }
 
 /**

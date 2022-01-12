@@ -1672,6 +1672,14 @@ void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
     }
     case SERVICE_CHANGE:
         break;
+    case VMI_REUSE:
+	intf_info.set_op("VMI reuse");
+	intf_info.set_vrf_on_delete(vrf_name_);
+	break;
+    case VRF_REUSE:
+	intf_info.set_op("VRF reuse");
+	intf_info.set_vrf_on_delete(vrf_name_);
+        break;
     }
 
     intf_info.set_ip_address(primary_ip_addr_.to_string());
