@@ -70,7 +70,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         rt_table_delete_bmap_(0),
         route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
         layer2_control_word_(false),
-        rd_(0), routing_vrf_(false), retries_(0) {
+        rd_(0), routing_vrf_(false), retries_(0), deleted_(false) {
         nh_.reset();
 }
 
@@ -456,6 +456,57 @@ void VrfEntry::CancelDeleteTimer() {
     delete_timeout_timer_->Cancel();
 }
 
+bool VrfEntry::ResetVrfDelete() {
+    delete_reuse_mutex_.lock();
+    if (deleted_ == true) {
+        delete_reuse_mutex_.unlock();
+        return false;
+    }
+    if (AllRouteTablesEmpty()) {
+        if (!AllRouteTableDeleted() ||
+            deleter_->HasRefcount() ||
+            deleter_->HasDependents()) {
+            delete_reuse_mutex_.unlock();
+            return false;
+        }
+        if (route_resync_walker_.get() != NULL) {
+            if (route_resync_walker_.get()->refcount() > 1 ||
+                route_resync_walker_.get()->IsValidDeleteWalkRef() ||
+                route_resync_walker_.get()->IsValidVrfWalkRef() ||
+                route_resync_walker_.get()->IsDeregisterDone() == false) {
+                delete_reuse_mutex_.unlock();
+                return false;
+            }
+        }
+        ClearDelete();
+        delete_reuse_mutex_.unlock();
+        CancelDeleteTimer();
+        rt_table_delete_bmap_ = 0;
+        DeleteRouteTables();
+        deleter_.reset(new DeleteActor(this));
+        CreateRouteTables();
+        VrfTable *table = static_cast<VrfTable *>(get_table());
+        Agent *agent = table->agent();
+        route_resync_walker_.reset(new AgentRouteResync("VrfRouteResyncWalker",
+                                   agent));
+        agent->oper_db()->agent_route_walk_manager()->
+            RegisterWalker(static_cast<AgentRouteWalker *>
+                    (route_resync_walker_.get()));
+        SetNotify();
+        table->VrfReuse(GetName());
+        vrf_node_ptr_ = NULL;
+        retries_ = 0;
+        if (delete_timeout_timer_)
+            TimerManager::DeleteTimer(delete_timeout_timer_);
+
+        OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
+            "Reset Vrf Deletion", GetName());
+        return true;
+    }
+    delete_reuse_mutex_.unlock();
+    return false;
+}
+
 void VrfEntry::ResyncRoutes() {
     (static_cast<AgentRouteResync *>(route_resync_walker_.get()))->
         UpdateRoutesInVrf(this);
@@ -750,7 +801,6 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vrf->StartDeleteTimer();
     vrf->SendObjectLog(AgentLogEvent::DELETE_TRIGGER);
 
-
     if (vrf->ifmap_node()) {
         IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
         vrf->vrf_node_ptr_ = dep->SetState(vrf->ifmap_node());
@@ -777,10 +827,12 @@ void VrfTable::VrfReuse(const std::string  name) {
 
 void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
+    tbb::mutex::scoped_lock lock(vrf->delete_reuse_mutex_);
     if (e->IsDeleted()) {
         vrf->DeleteRouteTables();
         name_tree_.erase(vrf->GetName());
         vrf->CancelDeleteTimer();
+        vrf->deleted_ = true;
     }
 }
 
