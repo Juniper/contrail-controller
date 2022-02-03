@@ -44,14 +44,27 @@ class HealthCheckConfigTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent = Agent::GetInstance();
+	count_ = 0;
         //agent->health_check_table()->set_test_mode(true);
+        rid_ = Agent::GetInstance()->interface_table()->Register(
+                            boost::bind(&HealthCheckConfigTest::ItfUpdate, this, _2));
+        TestPkt0Interface *tap = (TestPkt0Interface *)
+                (Agent::GetInstance()->pkt()->control_interface());
+        tap->RegisterCallback(
+                boost::bind(&HealthCheckConfigTest::TestClientReceive, this, _1, _2));
     }
 
     virtual void TearDown() {
         client->WaitForIdle();
         EXPECT_TRUE(agent->health_check_table()->Size() == 0);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
+     void TestClientReceive(uint8_t *buf, std::size_t len) {
+        // Nothing to do for now.
+        count_++;
+        return;
+    }
     HealthCheckService *FindHealthCheck(int id) {
         HealthCheckTable *table = agent->health_check_table();
         boost::uuids::uuid hc_uuid = MakeUuid(id);
@@ -73,8 +86,45 @@ public:
         client->WaitForIdle();
     }
 
+ void ItfUpdate(DBEntryBase *entry) {
+        Interface *itf = static_cast<Interface *>(entry);
+        tbb::mutex::scoped_lock lock(mutex_);
+        unsigned int i;
+        for (i = 0; i < itf_id_.size(); ++i)
+            if (itf_id_[i] == itf->id())
+                break;
+        if (entry->IsDeleted()) {
+            if (itf_count_ && i < itf_id_.size()) {
+                itf_count_--;
+                LOG(DEBUG, "HC test : interface deleted " << itf_id_[0]);
+                itf_id_.erase(itf_id_.begin()); // we delete in create order
+            }
+        } else {
+            if (i == itf_id_.size()) {
+                itf_count_++;
+                itf_id_.push_back(itf->id());
+                LOG(DEBUG, "HC test : interface added " << itf->id());
+            }
+        }
+    }
+
+    uint32_t GetItfCount() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return itf_count_;
+    }
+
+    std::size_t GetItfId(int index) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return itf_id_[index];
+    }
+
 protected:
     Agent *agent;
+    DBTableBase::ListenerId rid_;
+    uint32_t itf_count_;
+    std::vector<std::size_t> itf_id_;
+    tbb::mutex mutex_;
+    uint32_t count_;
 };
 
 TEST_F(HealthCheckConfigTest, Basic) {
