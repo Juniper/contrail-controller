@@ -228,6 +228,8 @@ static void BuildLinkToMetadata() {
                       "logical-router-interface");
     AddLinkToMetadata("logical-router", "virtual-network",
                       "logical-router-virtual-network");
+    AddLinkToMetadata("service-instance", "service-template",
+                      "service-instance-service-template");
 }
 
 const char *GetMetadata(const char *node1, const char *node2) {
@@ -3180,11 +3182,11 @@ void AddHealthCheckService(const char *name, int id,
     char buf[1024];
 
     sprintf(buf, "<service-health-check-properties>"
-                 "    <enabled>false</enabled>"
+                 "    <enabled>true</enabled>"
                  "    <health-check-type>%s</health-check-type>"
                  "    <monitor-type>%s</monitor-type>"
-                 "    <delay>5</delay>"
-                 "    <timeout>5</timeout>"
+                 "    <delay>1</delay>"
+                 "    <timeout>1</timeout>"
                  "    <max-retries>3</max-retries>"
                  "    <http-method></http-method>"
                  "    <url-path>%s</url-path>"
@@ -5735,3 +5737,100 @@ void DelLrBridgeVrf(const std::string &vmi_name,
             "logical-router-interface");
     client->WaitForIdle();
 }
+
+void CreateTransparentV2ST(const char *service_template, bool mgmt,
+            bool left, bool right) {
+
+    std::stringstream str;
+
+    str <<  "<service-template-properties>"
+        <<      "<version>" << 2 << "</version>"
+        <<      "<service-mode>" << "transparent" << "</service-mode>"
+        <<      "<service-type>" << "firewall" << "</service-type>";
+    if (mgmt) {
+        str <<      "<interface-type>"
+            <<          "<static-interface-type>" << "management" << "</static-interface-type>"
+            <<          "<static-route-enable>" << "false" << "</static-route-enable>"
+            <<          "<shared-ip>" << "false" << "</shared-ip>"
+            <<      "</interface-type>";
+    }
+    if (left) {
+        str <<      "<interface-type>"
+            <<          "<static-interface-type>" << "left" << "</static-interface-type>"
+            <<          "<static-route-enable>" << "false" << "</static-route-enable>"
+            <<          "<shared-ip>" << "false" << "</shared-ip>"
+            <<      "</interface-type>";
+    }
+    if (right) {
+        str <<      "<interface-type>"
+            <<          "<static-interface-type>" << "right" << "</static-interface-type>"
+            <<          "<static-route-enable>" << "false" << "</static-route-enable>"
+            <<          "<shared-ip>" << "false" << "</shared-ip>"
+            <<      "</interface-type>";
+    }
+    str <<      "<ordered-interfaces>" << "true" << "</ordered-interfaces>"
+        <<  "</service-template-properties>"
+        << endl;
+
+    AddNode("service-template", service_template, 1, str.str().c_str(), 1);
+
+    client->WaitForIdle();
+    return;
+}
+
+void DeleteServiceTemplate(const char *service_template) {
+
+    DelNode("service-template", service_template);
+
+    client->WaitForIdle();
+    return;
+}
+
+void CreateServiceInstance(const char *service_instance,
+            const char *mgmt, const char *mgmt_ip,
+            const char *left, const char *left_ip,
+            const char *right, const char *right_ip) {
+
+    std::stringstream str;
+
+    str <<  "<service-instance-properties>"
+        <<  "<auto-policy>false</auto-policy>"
+        <<  "<management-virtual-network>" << mgmt << "</management-virtual-network>"
+        <<  "<left-virtual-network>" << left << "</left-virtual-network>"
+        <<  "<left-ip-address/>"
+        <<  "<right-virtual-network>" << right << "</right-virtual-network>"
+        <<  "<right-ip-address/>";
+    if (mgmt) {
+        str <<      "<interface-list>"
+            <<          "<virtual-network>" << mgmt << "</virtual-network>"
+            <<      "</interface-list>";
+    }
+    if (left) {
+        str <<      "<interface-list>"
+            <<          "<virtual-network>" << left << "</virtual-network>"
+            <<      "</interface-list>";
+    }
+    if (right) {
+        str <<      "<interface-list>"
+            <<          "<virtual-network>" << right << "</virtual-network>"
+            <<      "</interface-list>";
+    }
+    str <<      "<ordered-interfaces>" << "true" << "</ordered-interfaces>"
+        <<  "</service-instance-properties>"
+        << endl;
+
+    AddNode("service-instance", service_instance, 1, str.str().c_str(), 1);
+
+    client->WaitForIdle();
+    return;
+}
+
+void DeleteServiceInstance(const char *service_instance) {
+
+    DelNode("service-instance", service_instance);
+
+    client->WaitForIdle();
+    return;
+}
+
+
