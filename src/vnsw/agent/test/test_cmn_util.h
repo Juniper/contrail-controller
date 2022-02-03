@@ -812,5 +812,13 @@ void DelLrRoutingVrf(int lr_id);
 void AddLrBridgeVrf(const std::string &vmi_name, int lr_id,
                     const char *lr_type = NULL);
 void DelLrBridgeVrf(const std::string &vmi_name, int lr_id);
+void CreateTransparentV2ST(const char *service_template, bool mgmt,
+            bool left, bool right);
+void DeleteServiceTemplate(const char *service_template);
+void CreateServiceInstance(const char *service_instance,
+            const char *mgmt, const char *mgmt_ip,
+            const char *left, const char *left_ip,
+            const char *right, const char *right_ip);
+void DeleteServiceInstance(const char *service_instance);
 
 #endif // vnsw_agent_test_cmn_util_h
