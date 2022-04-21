@@ -540,8 +540,29 @@ void StatsManager::BuildDropStats(const vr_drop_stats_req &req,
     ds.set_ds_invalid_vnid(req.get_vds_invalid_vnid());
     drop_pkts += ds.get_ds_invalid_vnid();
 
-    ds.set_ds_frag_err(req.get_vds_frag_err());
-    drop_pkts += ds.get_ds_frag_err();
+    ds.set_ds_frag_stale_err(req.get_vds_frag_stale_err());
+    drop_pkts += ds.get_ds_frag_stale_err();
+
+    ds.set_ds_frag_non_head_err(req.get_vds_frag_non_head_err());
+    drop_pkts += ds.get_ds_frag_non_head_err();
+
+    ds.set_ds_frag_max_per_cpu_err(req.get_vds_frag_max_per_cpu_err());
+    drop_pkts += ds.get_ds_frag_max_per_cpu_err();
+
+    ds.set_ds_frag_max_cpu_core_err(req.get_vds_frag_max_cpu_core_err());
+    drop_pkts += ds.get_ds_frag_max_cpu_core_err();
+
+    ds.set_ds_frag_mem_alloc_err(req.get_vds_frag_mem_alloc_err());
+    drop_pkts += ds.get_ds_frag_mem_alloc_err();
+
+    ds.set_ds_frag_enqueue_err(req.get_vds_frag_enqueue_err());
+    drop_pkts += ds.get_ds_frag_enqueue_err();
+
+    ds.set_ds_frag_cpu_err(req.get_vds_frag_cpu_err());
+    drop_pkts += ds.get_ds_frag_cpu_err();
+
+    ds.set_ds_frag_cpu_exceed_err(req.get_vds_frag_cpu_exceed_err());
+    drop_pkts += ds.get_ds_frag_cpu_exceed_err();
 
     ds.set_ds_invalid_source(req.get_vds_invalid_source());
     drop_pkts += ds.get_ds_invalid_source();
