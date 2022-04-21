@@ -312,19 +312,29 @@ struct AgentDropStats {
     36: optional u64   ds_cksum_err;
     38: optional u64   ds_no_fmd;
     40: optional u64   ds_invalid_vnid;
-    41: optional u64   ds_frag_err;
-    42: optional u64   ds_invalid_source;
-    43: optional u64   ds_mcast_df_bit;
-    46: optional u64   ds_l2_no_route;
-    48: optional u64   ds_vlan_fwd_tx;
-    49: optional u64   ds_vlan_fwd_enq;
-    50: optional u64   ds_drop_new_flow
-    51: optional u64   ds_flow_evict
-    52: optional u64   ds_trap_original
-    53: optional u64   ds_no_memory
-    54: optional u64   ds_fragment_queue_fail
+    41: optional u64   ds_frag_stale_err;
+    42: optional u64   ds_frag_non_head_err;
+    43: optional u64   ds_frag_max_per_cpu_err;
+    44: optional u64   ds_frag_max_cpu_core_err;
+    45: optional u64   ds_frag_mem_alloc_err;
+    46: optional u64   ds_frag_enqueue_err;
+    47: optional u64   ds_frag_cpu_err;
+    48: optional u64   ds_frag_cpu_exceed_err;
+    49: optional u64   ds_invalid_source;
+    50: optional u64   ds_mcast_df_bit;
+    51: optional u64   ds_l2_no_route;
+    52: optional u64   ds_vlan_fwd_tx;
+    53: optional u64   ds_vlan_fwd_enq;
+    54: optional u64   ds_drop_new_flow
+    55: optional u64   ds_flow_evict
+    56: optional u64   ds_trap_original
+    57: optional u64   ds_no_memory
+    58: optional u64   ds_fragment_queue_fail
+    59: optional u64   ds_no_frag_entry
+    60: optional u64   ds_icmp_error
+    61: optional u64   ds_clone_fail
     /** Drop packet count */
-    55: optional u64   ds_drop_pkts
+    62: optional u64   ds_drop_pkts
 }
 /**
  * Structure definition for vrouter host interface statistics
