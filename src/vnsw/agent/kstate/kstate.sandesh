@@ -464,15 +464,22 @@ response sandesh KDropStatsResp {
     39: u64             ds_no_fmd;
     40: u64             ds_cloned_original;
     41: u64             ds_invalid_vnid;
-    42: u64             ds_frag_err;
-    43: u64             ds_invalid_source;
-    44: u64             ds_mcast_df_bit;
-    47: u64             ds_l2_no_route;
-    48: u64             ds_vlan_fwd_tx;
-    49: u64             ds_vlan_fwd_enq;
-    51: u64             ds_no_memory;
-    52: u64             ds_drop_new_flow;
-    53: u64             ds_flow_evict;
+    42: u64             ds_frag_stale_err;
+    43: u64             ds_frag_non_head_err;
+    44: u64             ds_frag_max_per_cpu_err;
+    45: u64             ds_frag_max_cpu_core_err;
+    46: u64             ds_frag_mem_alloc_err;
+    47: u64             ds_frag_enqueue_err;
+    48: u64             ds_frag_cpu_err;
+    49: u64             ds_frag_cpu_exceed_err;
+    50: u64             ds_invalid_source;
+    51: u64             ds_mcast_df_bit;
+    52: u64             ds_l2_no_route;
+    53: u64             ds_vlan_fwd_tx;
+    54: u64             ds_vlan_fwd_enq;
+    55: u64             ds_no_memory;
+    56: u64             ds_drop_new_flow;
+    57: u64             ds_flow_evict;
 }
 
 
