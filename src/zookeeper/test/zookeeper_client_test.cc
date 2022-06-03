@@ -1,7 +1,6 @@
 //
 // Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 //
-
 #include <testing/gunit.h>
 
 #include <base/logging.h>
@@ -38,6 +37,8 @@ class ZookeeperMockInterface : public ZookeeperInterface {
         int version));
     MOCK_METHOD6(ZooGet, int(zhandle_t *zh, const char *path, int watch,
         char *buffer, int* buffer_len, struct Stat *stat));
+    MOCK_METHOD4(ZooExists, int(zhandle_t *zh, const char *path, int watch,
+                                         struct Stat *stat));
 };
 
 class ZookeeperClientTest : public ::testing::Test {
