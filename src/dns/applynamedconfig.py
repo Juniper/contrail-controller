@@ -67,7 +67,11 @@ def parse_contrail_dns_conf():
     file_named_base_conf=open('/etc/contrail/dns/contrail-named-base.conf', 'w+')
 
     # build contrail-named-base.conf
-
+    # acl configuration added for dns security vulnerabilities.
+    file_named_base_conf.write('acl "trusted" {\n')
+    file_named_base_conf.write(' localhost;\n')
+    file_named_base_conf.write(' localnets;\n')
+    file_named_base_conf.write('};\n\n')
     # build options {} stanza
     file_named_base_conf.write('options {\n')
     file_named_base_conf.write('    directory "'+ named_defaults['named_config_directory'] + '";\n')
@@ -77,8 +81,9 @@ def parse_contrail_dns_conf():
     file_named_base_conf.write('    session-keyfile "/etc/contrail/dns/session.key";\n')
     file_named_base_conf.write('    listen-on port 53 { any; };\n')
     file_named_base_conf.write('    allow-query { any; };\n')
-    file_named_base_conf.write('    allow-recursion { any; };\n')
-    file_named_base_conf.write('    allow-query-cache { any; };\n')
+    file_named_base_conf.write('    allow-recursion { trusted; };\n')
+    file_named_base_conf.write('    allow-query-cache { none; };\n')
+    file_named_base_conf.write(' recursion no;\n')
     file_named_base_conf.write('    max-cache-size '+ named_defaults['named_max_cache_size'] + ';\n')
     file_named_base_conf.write('};\n\n')
 
