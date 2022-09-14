@@ -1,4 +1,4 @@
-#  Schema to APIs are generated using the following python lib
+#  Schema to APIs are generated using the following python lib.
 #     https://pypi.python.org/pypi/generateDS 
 #
 #  Help document which describes the usage of Generated Python API
