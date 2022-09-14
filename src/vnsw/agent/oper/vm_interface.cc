@@ -1446,6 +1446,19 @@ bool VmiRouteState::AddL2(const Agent *agent, VmInterface *vmi) const {
         return false;
 
     vmi->AddL2InterfaceRoute(Ip4Address(), vmi->vm_mac(), Ip4Address(0));
+    BridgeAgentRouteTable *table =
+    static_cast<BridgeAgentRouteTable *>(vrf_->GetRouteTable(Agent::BRIDGE));
+    if(table != NULL){
+        if(table->FindRoute(agent->vrrp_mac())){
+            return true;
+        }else{
+            table->AddBridgeReceiveRoute(agent->local_vm_peer(),
+                vrf_->GetName(),
+                0,
+                agent->vrrp_mac(),
+                "");
+        }
+    }
     return true;
 }
 
