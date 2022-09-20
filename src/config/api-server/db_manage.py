@@ -1,6 +1,17 @@
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
+if sys.version_info[0] < 3:
+    from __builtin__ import filter
+    from __builtin__ import object
+    from __builtin__ import str
+else:
+    from builtins import filter
+    from builtins import object
+    from builtins import str
+    from past.builtins import basestring
+    from future import standard_library
+    standard_library.install_aliases()  # noqa
 import os
 import re
 import socket
