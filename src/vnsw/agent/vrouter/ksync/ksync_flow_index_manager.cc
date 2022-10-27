@@ -144,7 +144,7 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
     FlowEntry *flow = kentry->flow_entry().get();
     FlowTableKSyncObject *object = flow->flow_table()->ksync_object();
     uint8_t evict_gen_id;
-    if (!kentry->IsDeleted()) {
+    if (!kentry->IsDeleted() && flow->ksync_entry_!=NULL) {
         // if kentry is not deleted flow should always point to this
         // ksync entry only
         assert(kentry == flow->ksync_entry_);
