@@ -24,7 +24,7 @@ DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
       curr_index_(0) {
     dns_ = (dnshdr *) pkt_info_->data;
 }
-
+// Check the review
 DnsHandler::~DnsHandler() {
     for (ResolvList::iterator it = resolv_list_.begin();
          it != resolv_list_.end(); ++it) {
