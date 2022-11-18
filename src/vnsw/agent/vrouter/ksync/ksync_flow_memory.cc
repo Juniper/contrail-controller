@@ -196,7 +196,7 @@ void KSyncFlowMemory::InitTest() {
     memset(flow_table_, 0, kTestFlowTableSize);
     flow_table_entries_count_ = kTestFlowTableSize / sizeof(vr_flow_entry);
     audit_yield_ = flow_table_entries_count_;
-    audit_timeout_ = 10 * 1000; // timout immediately.
+    audit_timeout_ = 10000 * 1000; // timout immediately.
     ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
 }
 
