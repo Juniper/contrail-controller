@@ -63,7 +63,8 @@ public:
         DelNode("qos-config", "qos_config3");
         client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(1));
-        EXPECT_FALSE(VrfFind("vrf1", true));
+	WAIT_FOR(100, 1000, VrfFind("vrf1", true) == false);
+        //EXPECT_FALSE(VrfFind("vrf1", true));
         client->WaitForIdle();
         DeleteBgpPeer(bgp_peer_);
         client->WaitForIdle();
