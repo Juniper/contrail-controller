@@ -172,10 +172,14 @@ class RemoteEcmpTest : public ::testing::Test {
         DelIPAM("default-project:vn4");
         client->WaitForIdle();
         DeleteBgpPeer(bgp_peer);
-        EXPECT_FALSE(VrfFind("vrf1", true));
-        EXPECT_FALSE(VrfFind("vrf2", true));
-        EXPECT_FALSE(VrfFind("default-project:vn3:vn3", true));
-        EXPECT_FALSE(VrfFind("default-project:vn4:vn4", true));
+	WAIT_FOR(100,1000, VrfFind("vrf1", true) == false);
+        WAIT_FOR(100,1000, VrfFind("vrf2", true) == false);
+        WAIT_FOR(100,1000, VrfFind("default-project:vn3:vn3", true) == false);
+        WAIT_FOR(100,1000, VrfFind("default-project:vn4:vn4", true) == false);
+        //EXPECT_FALSE(VrfFind("vrf1", true));
+        //EXPECT_FALSE(VrfFind("vrf2", true));
+        //EXPECT_FALSE(VrfFind("default-project:vn3:vn3", true));
+        //EXPECT_FALSE(VrfFind("default-project:vn4:vn4", true));
         FlowStatsTimerStartStop(agent_, false);
 
         WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 1));
