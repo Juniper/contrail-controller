@@ -277,7 +277,7 @@ TEST_F(FlowAuditTest, FlowAudit_4) {
                 == EEXIST);
 
     // Wait till flow-stats-collector sees the flows
-    WAIT_FOR(1000, 1000, (flow_stats_collector_->Size() == 2));
+    WAIT_FOR(10000, 10000, (flow_stats_collector_->Size() == 2));
 
     RunFlowAudit();
     client->WaitForIdle();
