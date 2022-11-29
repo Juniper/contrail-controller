@@ -960,7 +960,7 @@ void DnsHandler::SendDnsResponse() {
            ((char *)in_pkt_info.transp.udp + sizeof(udphdr)),
            dns_resp_size_);
 
-    dns_resp_size_ += data_len + eth_len;
+    dns_resp_size_ = data_len + eth_len;
     pkt_info_->set_len(dns_resp_size_);
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
