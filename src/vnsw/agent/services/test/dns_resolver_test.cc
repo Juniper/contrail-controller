@@ -314,8 +314,9 @@ public:
 
         for (int i = 0; i < numAdd; i++)
             ptr = BindUtil::AddAnswerSection(ptr, add[i], len);
-
-        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf, len);
+        if(len <= 512) {
+            Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf, len);
+	}
     }
 
     void SendDnsParseRespError(int numQues, DnsItem *items, int numAuth, DnsItem *auth,
