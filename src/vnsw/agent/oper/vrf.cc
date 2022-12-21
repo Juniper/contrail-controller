@@ -499,6 +499,14 @@ bool VrfEntry::ResetVrfDelete() {
         if (delete_timeout_timer_)
             TimerManager::DeleteTimer(delete_timeout_timer_);
 
+	BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>
+        (rt_table_db_[Agent::BRIDGE]);
+        l2_table->AddBridgeReceiveRoute(agent->local_vm_peer(), name_, 0,
+                                    agent->vrrp_mac(), "");
+        l2_table->AddBridgeReceiveRoute(agent->local_peer(), name_,
+                                    agent->left_si_mac(), "", "pkt0", true);
+        l2_table->AddBridgeReceiveRoute(agent->local_peer(), name_,
+                                    agent->right_si_mac(), "", "pkt0", true);
         OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
             "Reset Vrf Deletion", GetName());
         return true;
