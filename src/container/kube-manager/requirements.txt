@@ -1,4 +1,5 @@
 requests >= 2.20.0
 bitstring
 netaddr>=0.7.5
+greenlet<2.0.0
 contrail-config-common

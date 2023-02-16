@@ -1,5 +1,6 @@
 pycassa>=1.7.2
 gevent<1.5.0
+greenlet<2.0.0
 kazoo
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
 bitarray

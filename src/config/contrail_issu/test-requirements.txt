@@ -2,6 +2,7 @@ python-subunit
 testrepository
 flexmock
 mock
+greenlet<2.0.0
 coverage
 pyaml
 python-keystoneclient
