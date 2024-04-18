@@ -16,7 +16,7 @@ using std::string;
 MacMobility::MacMobility(uint32_t seq) {
     data_[0] = BgpExtendedCommunityType::Evpn;
     data_[1] = BgpExtendedCommunityEvpnSubType::MacMobility;
-    data_[2] = 0x01;  // Flags
+    data_[2] = 0x00;  // Flags
     data_[3] = 0x00;  // Reserved
     put_value(&data_[4], 4, seq);
 }
